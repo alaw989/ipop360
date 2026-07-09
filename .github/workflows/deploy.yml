@@ -107,6 +107,31 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.DROPLET_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
+      - name: Snapshot current release (for opt-in rollback)
+        # spec-087: hardlink-snapshot the live code tree BEFORE rsync overwrites
+        # it, so a failed step can restore the pre-deploy state when
+        # DEPLOY_AUTO_ROLLBACK=true (repo var; default unset = OFF). `cp -al`
+        # shares inodes — instant and ~zero extra disk (rsync's later --delete/
+        # replace breaks per-file copy-on-write, leaving the live tree untouched).
+        # The bare `*` glob skips dotfiles, so .env stays out for free; the live
+        # DB under database/ is dropped from the snapshot (the rollback restores
+        # it separately via `db:restore`). storage/ is hardlinked but excluded on
+        # restore (sessions/logs persist). Bounded: keep the 5 newest snapshots.
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && \
+             mkdir -p releases && \
+             SNAPDIR=releases/\$(date +%s) && \
+             mkdir -p \$SNAPDIR && \
+             for item in *; do \
+               case \"\$item\" in releases|node_modules) continue;; esac; \
+               cp -al \"\$item\" \"\$SNAPDIR/\" 2>/dev/null || true; \
+             done && \
+             rm -f \"\$SNAPDIR/database/database.sqlite\" 2>/dev/null || true && \
+             (ls -1dt releases/*/ 2>/dev/null | tail -n +6 | xargs rm -rf) 2>/dev/null || true && \
+             echo \"release snapshot: \$SNAPDIR\""
+
       - name: Deploy to droplet
         run: |
           rsync -avz --delete \
@@ -128,20 +153,27 @@ jobs:
 
       - name: Inject SerpApi quality key into server .env
         # .env is rsync-excluded and server-managed, so inject the one quality
-        # key we need from a GitHub secret. Idempotent: removes any existing
-        # SERPAPI_API_KEY line then appends. Runs before config:cache below so
-        # the cached config picks up the key. Skipped entirely if no secret is
-        # set, so it never clobbers a real key with an empty value.
+        # key we need from a GitHub secret. spec-090: the secret flows ONLY
+        # through the runner env var ($SERPAPI_KEY, from `env:` below) and across
+        # ssh via STDIN — it is never interpolated into the remote command text,
+        # so it cannot appear in the droplet's `ps` argv (only the key NAME is in
+        # the sed pattern, never the value). `printf '%s'` also writes a key
+        # containing `'` or `%` verbatim — the old single-quote wrapper broke on
+        # those, silently breaking live search with no deploy error. Idempotent:
+        # sed removes any prior line first. Runs before config:cache below so the
+        # cached config picks up the key. Skipped entirely if no secret is set.
         env:
           SERPAPI_KEY: ${{ secrets.SERPAPI_API_KEY }}
         if: ${{ env.SERPAPI_KEY != '' }}
         run: |
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
-            "cd ${{ secrets.DEPLOY_PATH }} && \
-             sed -i '/^SERPAPI_API_KEY=/d' .env && \
-             printf 'SERPAPI_API_KEY=%s\n' '${{ secrets.SERPAPI_API_KEY }}' >> .env && \
-             echo 'SERPAPI_API_KEY injected into .env'"
+            "cd ${{ secrets.DEPLOY_PATH }} && sed -i '/^SERPAPI_API_KEY=/d' .env" \
+            && printf 'SERPAPI_API_KEY=%s\n' "$SERPAPI_KEY" \
+               | ssh -i ~/.ssh/deploy_key \
+                 ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+                 "cat >> ${{ secrets.DEPLOY_PATH }}/.env" \
+            && echo 'SERPAPI_API_KEY injected into .env'
 
       - name: Ensure Node 22 on droplet (for the Inertia SSR server)
         # The SSR process (spec-063) runs `node bootstrap/ssr/ssr.js`. The droplet
@@ -187,21 +219,41 @@ jobs:
              (php8.4 artisan down || echo 'artisan down failed (non-fatal — migrating live)') && \
              (php8.4 artisan db:backup || echo 'db:backup failed (non-fatal)')"
 
-      - name: Post-deploy (fix permissions, migrate, cache)
+      - name: Migrate + build caches (caches non-fatal)
+        # spec-087: migrate is hard-fail (a schema failure must surface, not be
+        # masked), but the cache builds are NON-FATAL — `view:cache` failing on a
+        # removed Blade partial degrades to on-the-fly compilation (echo + true)
+        # instead of aborting the chain. The safety-critical service restarts
+        # moved to a SEPARATE step (`if: always()`) below, so a cache-build
+        # failure (or a migrate failure) can never strand FPM on stale opcache
+        # while `artisan up` serves the half-applied tree.
         run: |
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
             "cd ${{ secrets.DEPLOY_PATH }} && \
              sudo chown -R www-data:www-data storage database bootstrap/cache && \
              php8.4 artisan migrate --force && \
-             php8.4 artisan config:cache && \
-             php8.4 artisan route:cache && \
-             php8.4 artisan view:cache && \
-             php8.4 artisan cache:clear && \
-             (php8.4 artisan seo:sitemap || echo 'seo:sitemap failed (non-fatal)') && \
+             (php8.4 artisan config:cache || echo 'config:cache failed (non-fatal)') && \
+             (php8.4 artisan route:cache || echo 'route:cache failed (non-fatal)') && \
+             (php8.4 artisan view:cache || echo 'view:cache failed (non-fatal)') && \
+             (php8.4 artisan cache:clear || echo 'cache:clear failed (non-fatal)') && \
+             (php8.4 artisan seo:sitemap || echo 'seo:sitemap failed (non-fatal)')"
+
+      - name: Restart services (always runs)
+        # spec-087 + spec-090: the safety-critical restarts run unconditionally
+        # (`if: always()`) and as a SEPARATE step from the cache builds, so a
+        # view:cache/config:cache failure (or a migrate failure) cannot strand
+        # FPM on stale opcache. fpm: reload → restart → true (graceful). The
+        # worker + SSR restarts are `|| true` (matching the existing SSR pattern)
+        # so a supervisor hiccup never aborts the deploy (spec-090 facet).
+        if: always()
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && \
              (sudo systemctl reload php8.4-fpm 2>/dev/null || sudo systemctl restart php8.4-fpm 2>/dev/null || true) && \
-             supervisorctl restart ipop360-worker:* && \
-             (supervisorctl restart ipop360-ssr:* || true)"
+             (supervisorctl restart ipop360-worker:* || echo 'worker restart failed (non-fatal)') && \
+             (supervisorctl restart ipop360-ssr:* || echo 'ssr restart failed (non-fatal)')"
 
       - name: Ensure Laravel scheduler cron (restaurants:score, apicache:gc, uptime:canary)
         continue-on-error: true
@@ -255,6 +307,42 @@ jobs:
               print(f'API VERIFY FAILED: {n} results (expected >= {mn}); set DEPLOY_VERIFY_MIN_RESULTS=0 to relax'); sys.exit(1)
           print(f'API OK: {n} results (min={mn})')
           "
+
+      - name: Roll back to pre-deploy snapshot (opt-in)
+        # spec-087: if a prior step FAILED (migrate, cache-build, restart — or the
+        # Verify step) AND DEPLOY_AUTO_ROLLBACK=true (repo variable; default
+        # unset = OFF), restore the pre-deploy state: rsync the newest code
+        # snapshot back over the live tree (excludes .env/storage/db/releases —
+        # server-managed or restored separately) + restore the latest DB snapshot
+        # via `db:restore` + restart, bracketed by `artisan down`/`up`. Default
+        # OFF because Verify has a false-positive surface (a SerpApi quota dip /
+        # spec-073 breaker trip / network blip fails a GOOD deploy); the failed
+        # GHA run is the alert, and an operator sets the repo var to enable
+        # auto-rollback. The snapshot step above always runs, so a target exists.
+        if: ${{ failure() && vars.DEPLOY_AUTO_ROLLBACK == 'true' }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && \
+             SNAP=\$(ls -1d releases/*/ 2>/dev/null | sort -r | head -1) && \
+             if [ -z \"\$SNAP\" ]; then echo 'NO SNAPSHOT — cannot roll back'; exit 1; fi && \
+             (php8.4 artisan down 2>/dev/null || true) && \
+             echo \"rolling back to \$SNAP\" && \
+             rsync -a --delete \
+               --exclude '.env' \
+               --exclude 'storage' \
+               --exclude 'database/database.sqlite' \
+               --exclude 'releases' \
+               --exclude 'public/hot' \
+               --exclude '.phpunit.result.cache' \
+               \"\$SNAP\" ./ && \
+             (php8.4 artisan db:restore --force || echo 'db:restore failed (non-fatal — code rolled back, DB left as-is)') && \
+             (php8.4 artisan cache:clear 2>/dev/null || true) && \
+             (sudo systemctl reload php8.4-fpm 2>/dev/null || sudo systemctl restart php8.4-fpm 2>/dev/null || true) && \
+             (supervisorctl restart ipop360-worker:* || true) && \
+             (supervisorctl restart ipop360-ssr:* || true) && \
+             (sudo -u www-data php8.4 artisan up 2>/dev/null || sudo rm -f storage/framework/down || true) && \
+             echo 'ROLLBACK COMPLETE'"
 
       - name: Cleanup SSH key
         if: always()
