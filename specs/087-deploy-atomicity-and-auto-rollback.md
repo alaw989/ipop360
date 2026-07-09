@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-30
 
-**Status**: PROPOSED (P1 — fresh audit `fresh-full-audit-2026-06-30.md`, P1.2)
+**Status**: SHIPPED (2026-07-09, `3a4092f`) — Includes spec-090 secret injection hardening (folds into 087 per cycle-2 audit).
 
 **Series**: Fresh-audit P1 wave (085 → 086 → 087).
 
@@ -61,3 +61,16 @@ No app-code change. The release-symlink dir adds a small disk footprint on the d
 releases, prune older). Verifying this live means triggering a controlled failure on a throwaway deploy
 window (coordinate; the `|| true` + separate-restart changes can be confirmed by reading the workflow on a
 normal green deploy, the rollback path by a staged broken-cache-build run).
+
+## Shipped (2026-07-09, `3a4092f`)
+**Shipped (combined with spec-090 fold-in):**
+- **Snapshot step** — hardlink-snapshot (`cp -al`) the live code tree before rsync, auto-rotate to 5 newest, exclude `.env`/DB/releases
+- **Cache builds non-fatal** — `migrate` is hard-fail; `config:cache`/`route:cache`/`view:cache`/`cache:clear`/`seo:sitemap` all `|| echo '...failed (non-fatal)'` so a broken template never aborts the chain
+- **Separate restart step** (`if: always()`) — FPM reload + worker/SSR supervisor restart runs unconditionally even if cache builds fail, so stale opcache cannot strand
+- **Rollback step** — gated on `failure() && vars.DEPLOY_AUTO_ROLLBACK == 'true'` (default unset = OFF), rsyncs snapshot back + restores DB via `db:restore` + restarts + `artisan up`
+- **`db:restore` artisan command** (`app/Console/Commands/RestoreDatabaseCommand.php`) — pairs with spec-077 `db:backup`, restores VACUUM INTO snapshot, `--force` guard, clears WAL sidecars, 4 tests
+- **Secret injection hardening** (spec-090 fold-in) — `SERPAPI_KEY` flows through `$ENV_VAR` + STDIN pipe to separate SSH, never in argv; `printf '%s'` handles `'`/`%` verbatim
+- **Worker restart `|| true`** — `supervisorctl restart ipop360-worker:*` no longer aborts the deploy chain
+- 368 backend tests (+4 new), PHPStan clean, Pint clean
+
+<!-- NR_OF_TRIES: 1 -->

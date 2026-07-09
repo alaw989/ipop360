@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-30
 
-**Status**: PROPOSED (P1 — fresh full-app audit 2026-06-30 cycle 2; ships alongside the open spec-087)
+**Status**: FOLDED_INTO_087 — Implemented as part of `3a4092f` (spec-087, 2026-07-09) — STDIN-based secret injection, no-argv leak, `|| true` worker restart.
 
 **Series**: Fresh-audit P1 wave (088 → 089 → 090). Pairs with the open **087** (deploy atomicity).
 
