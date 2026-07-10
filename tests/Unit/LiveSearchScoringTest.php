@@ -540,12 +540,11 @@ class LiveSearchScoringTest extends TestCase
         $this->assertNotContains('Asian Garden', $names);
     }
 
-    public function test_live_search_keeps_trusted_source_venue_without_keyword(): void
+    public function test_live_search_keeps_trusted_source_venue_by_name_keyword(): void
     {
-        // A trusted-source (serpapi) venue with a non-keyword name and NO
-        // place_types/description is kept via the recall-protective ambiguous-keep
-        // path (spec-028): nothing contradicts the trusted source, so it survives;
-        // only unfiltered-source noise is dropped.
+        // "Panda Express" contains "panda" (a Chinese ON keyword), so it
+        // survives the cuisine filter even without place_types/description.
+        // Cracker Barrel (bizdata) has no Chinese keyword → dropped.
         $this->seedCuisine('Chinese', 'chinese');
 
         $service = $this->makeServiceWithVenues([
@@ -678,10 +677,8 @@ class LiveSearchScoringTest extends TestCase
     public function test_cuisine_filter_respects_config_override(): void
     {
         // Emptying the unfiltered-source list trusts BizData → its off-cuisine
-        // row is kept. Proves the config (not a hardcode) drives the behavior.
-        // Note: this fixture intentionally has NO description/place_types, so the
-        // spec-028 rival match (which applies to trusted sources) cannot trip — a
-        // description like "Mexican taqueria" would otherwise drop it.
+        // row is now scrutinized but still kept (ambiguous → keep, ranked below
+        // matches). Proves the config (not a hardcode) drives the behavior.
         $this->seedCuisine('Chinese', 'chinese');
 
         $original = config('restaurant-finder.filters.cuisine_unfiltered_sources');
@@ -915,9 +912,9 @@ class LiveSearchScoringTest extends TestCase
 
     public function test_scrutinize_place_types_kill_switch_reverts(): void
     {
-        // With scrutinize_place_types=false the filter is a no-op, so a church
-        // (place_types with no food signal) survives again. Proves the knob
-        // (not a hardcode) drives it.
+        // Kill switch off → place_type filter is a no-op → a church passes the
+        // non-restaurant filter. The cuisine filter keeps it too (ambiguous →
+        // keep, ranked below matches via cuisine_match=0.0).
         $original = config('restaurant-finder.filters.scrutinize_place_types');
         Config::set('restaurant-finder.filters.scrutinize_place_types', false);
 
@@ -1433,7 +1430,7 @@ class LiveSearchScoringTest extends TestCase
 
     public function test_config_defines_cuisine_match_weight_and_kill_switch(): void
     {
-        $this->assertSame(0.15, config('restaurant-finder.ranking.weights.cuisine_match'));
+        $this->assertSame(0.50, config('restaurant-finder.ranking.weights.cuisine_match'));
         $this->assertTrue(config('restaurant-finder.ranking.cuisine_match'));
     }
 

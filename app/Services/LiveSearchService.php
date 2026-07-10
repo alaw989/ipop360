@@ -869,7 +869,7 @@ class LiveSearchService
      *    — names are cross-cuisine ambiguous, e.g. "Tokyo Grill"):
      *      * on-cuisine signal    → keep  (e.g. "Panda Express", type "Chinese restaurant")
      *      * rival-cuisine signal → drop  (e.g. Dumbwaiter, type/desc "Southern")
-     *      * ambiguous            → keep  (recall-protective).
+     *      * ambiguous            → keep  (recall-protective, ranked below matches via cuisine_match=0.0).
      *    Gated by `filters.scrutinize_trusted_sources` (default true) — false reverts
      *    to spec-027 unconditional trust.
      *
@@ -949,7 +949,10 @@ class LiveSearchService
                 }
             }
 
-            // Ambiguous (no on-signal, no rival-signal) → keep (recall-protective).
+            // Ambiguous (no on-signal, no rival-signal) → keep (recall-safe).
+            // Dropping ambiguous venues would remove genuine places like "Olive Garden"
+            // whose name lacks cuisine keywords but are legitimately Italian. Instead,
+            // ambiguous rows sink to the bottom via cuisine_match=0.0 ranking penalty.
             return true;
         }));
 

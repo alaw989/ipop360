@@ -135,8 +135,8 @@ class CuisineMatcherTest extends TestCase
         // 'wok' is a chinese ON keyword → must never be flagged as rival.
         $this->assertContains('wok', $scope->onKeywords);
         $this->assertNotContains('wok', $scope->rivalKeywords);
-        // A clearly rival keyword is present.
-        $this->assertContains('pizza', $scope->rivalKeywords);
+        // A clearly rival keyword is present (sushi is Japanese, not Chinese).
+        $this->assertContains('sushi', $scope->rivalKeywords);
     }
 
     /**
