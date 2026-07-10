@@ -8,7 +8,7 @@ import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import type { Restaurant } from '@/types/restaurant';
 import { cuisineGradient, FOOD_FALLBACK_GRADIENT } from '@/lib/cuisine';
-import { callPhone, openWebsite, mapsUrl } from '@/lib/restaurant';
+import { callPhone, openWebsite, trackDirections, mapsUrl } from '@/lib/restaurant';
 import { Phone, Globe, Navigation, Heart } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
 
@@ -206,7 +206,7 @@ const ariaLabel = computed(() => (saved.value ? 'Saved' : 'Save restaurant'));
                         rel="noopener"
                         class="relative z-10 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-muted/50 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         title="Get directions"
-                        @click.stop
+                        @click.stop="trackDirections(restaurant.id)"
                     >
                         <Navigation class="h-3.5 w-3.5" />
                         <span>Directions</span>
@@ -215,7 +215,7 @@ const ariaLabel = computed(() => (saved.value ? 'Saved' : 'Save restaurant'));
                         v-if="restaurant.phone"
                         class="relative z-10 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-muted/50 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         :title="`Call ${restaurant.phone}`"
-                        @click.stop="callPhone(restaurant.phone)"
+                        @click.stop="callPhone(restaurant.phone, restaurant.id)"
                     >
                         <Phone class="h-3.5 w-3.5" />
                         <span>Call</span>
@@ -224,7 +224,7 @@ const ariaLabel = computed(() => (saved.value ? 'Saved' : 'Save restaurant'));
                         v-if="restaurant.website_url"
                         class="relative z-10 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-muted/50 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         title="Visit website"
-                        @click.stop="openWebsite(restaurant.website_url)"
+                        @click.stop="openWebsite(restaurant.website_url, restaurant.id)"
                     >
                         <Globe class="h-3.5 w-3.5" />
                         <span>Website</span>

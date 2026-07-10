@@ -43,3 +43,10 @@ Schedule::command('seo:sitemap')
     ->withoutOverlapping()
     ->onOneServer()
     ->description('Generate sitemap.xml for SEO');
+
+// Aggregate engagement data into restaurant counters (runs at 1 AM UTC)
+Schedule::command('restaurants:update-engagement')
+    ->dailyAt('01:00')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Aggregate engagement clicks into restaurant counters');

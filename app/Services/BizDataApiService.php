@@ -104,6 +104,7 @@ class BizDataApiService
                 'popularity_score' => 0,
                 'distance' => $distance !== null ? round($distance, 1) : null,
                 'cuisines' => [['id' => abs(crc32('restaurant')), 'name' => 'Restaurant', 'slug' => 'restaurant']],
+                'features' => [],
                 'source' => 'bizdata',
             ];
         }
@@ -283,6 +284,7 @@ class BizDataApiService
             'photo_url' => null,
             'yelp_rating' => null,
             'yelp_review_count' => 0,
+            'features' => [],
             'source' => 'bizdata',
         ];
     }

@@ -20,6 +20,10 @@ return Application::configure(basePath: dirname(__DIR__))
             AddLinkHeadersForPreloadedAssets::class,
         ]);
 
+        $middleware->validateCsrfTokens(except: [
+            'api/engage',
+        ]);
+
         // Register middleware aliases
         $middleware->alias([
             'log.api' => LogApiRequest::class,

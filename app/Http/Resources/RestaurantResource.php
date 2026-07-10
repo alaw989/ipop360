@@ -67,6 +67,7 @@ class RestaurantResource extends JsonResource
             'popularity_score' => $this->resource->popularity_score,
             'distance' => $this->when(! $isShowRoute && ! is_null($this->resource->distance), fn () => $this->resource->distance),
             'cuisines' => $this->resource->cuisines->toArray(),
+            'features' => $this->resource->features ?? [],
             'source' => 'ipop360',
             'score_breakdown' => $this->getScoreBreakdown(),
         ];

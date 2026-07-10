@@ -48,6 +48,11 @@ class Restaurant extends Model
         'is_active',
         'opening_hours',
         'ai_metadata',
+        'features',
+        'website_clicks_count',
+        'directions_clicks_count',
+        'call_clicks_count',
+        'total_engagement',
     ];
 
     protected $casts = [
@@ -63,6 +68,11 @@ class Restaurant extends Model
         'is_active' => 'boolean',
         'opening_hours' => 'array',
         'ai_metadata' => 'array',
+        'features' => 'array',
+        'website_clicks_count' => 'integer',
+        'directions_clicks_count' => 'integer',
+        'call_clicks_count' => 'integer',
+        'total_engagement' => 'integer',
     ];
 
     protected static function booted(): void

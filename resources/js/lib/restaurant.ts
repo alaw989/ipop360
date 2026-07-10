@@ -4,10 +4,25 @@
  */
 
 /**
+ * Track a user engagement event (fire-and-forget POST).
+ */
+function trackEngagement(restaurantId: number, action: 'website' | 'directions' | 'call'): void {
+    fetch('/api/engage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ restaurant_id: restaurantId, action }),
+    }).catch(() => { /* fire-and-forget */ });
+}
+
+/**
  * Initiate a phone call to the given number.
  * @param phone - The phone number to call (e.g., '512-555-1234')
+ * @param restaurantId - Optional restaurant ID for engagement tracking
  */
-export function callPhone(phone: string): void {
+export function callPhone(phone: string, restaurantId?: number): void {
+    if (restaurantId) {
+        trackEngagement(restaurantId, 'call');
+    }
     window.location.href = `tel:${phone}`;
 }
 
@@ -15,12 +30,23 @@ export function callPhone(phone: string): void {
  * Open a website in a new tab.
  * Prepends 'https://' if the URL doesn't start with a protocol.
  * @param url - The website URL to open
+ * @param restaurantId - Optional restaurant ID for engagement tracking
  */
-export function openWebsite(url: string): void {
+export function openWebsite(url: string, restaurantId?: number): void {
+    if (restaurantId) {
+        trackEngagement(restaurantId, 'website');
+    }
     if (!url.startsWith('http')) {
         url = `https://${url}`;
     }
     window.open(url, '_blank');
+}
+
+/**
+ * Track a directions click for a restaurant.
+ */
+export function trackDirections(restaurantId: number): void {
+    trackEngagement(restaurantId, 'directions');
 }
 
 /**

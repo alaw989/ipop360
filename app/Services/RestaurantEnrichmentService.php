@@ -396,6 +396,7 @@ class RestaurantEnrichmentService
             'yelp_review_count' => $venue['yelp_review_count'] ?? 0,
             'google_rating' => isset($rating) && is_numeric($rating) ? (float) $rating : null,
             'google_review_count' => isset($reviewCount) && is_numeric($reviewCount) ? (int) $reviewCount : 0,
+            'features' => ! empty($venue['features']) ? $venue['features'] : null,
             'is_active' => true,
         ];
 

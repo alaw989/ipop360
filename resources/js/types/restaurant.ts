@@ -46,6 +46,7 @@ export interface Restaurant {
     popularity_score: number;
     distance: number | null;
     cuisines: Cuisine[];
+    features?: Record<string, string>;
     source: string | null;
     score_breakdown?: ScoreBreakdown;
     google_place_id?: string | null;

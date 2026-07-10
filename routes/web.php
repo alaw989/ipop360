@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CuisineController;
+use App\Http\Controllers\EngagementController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\GeocodeController;
 use App\Http\Controllers\HomeController;
@@ -16,6 +17,7 @@ Route::middleware(['throttle:60,1', 'log.api'])->group(function () {
     Route::get('/api/geocode', [GeocodeController::class, 'reverse']);
     Route::get('/api/geocode/forward', [GeocodeController::class, 'forward']);
     Route::get('/api/geocode/search', [GeocodeController::class, 'search']);
+    Route::post('/api/engage', [EngagementController::class, 'store'])->middleware('throttle:30,1');
 });
 
 Route::get('/cuisine/{category:slug}', [CuisineController::class, 'show']);

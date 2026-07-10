@@ -349,6 +349,7 @@ class SerpApiService
                 'distance' => $distance !== null ? round($distance, 1) : null,
                 'place_types' => $placeTypes,
                 'cuisines' => [['id' => abs(crc32('restaurant')), 'name' => 'Restaurant', 'slug' => 'restaurant']],
+                'features' => [],
                 'source' => 'serpapi',
             ];
         }
@@ -460,6 +461,7 @@ class SerpApiService
             'yelp_review_count' => 0,
             'google_rating' => isset($rating) && is_numeric($rating) ? (float) $rating : null,
             'google_review_count' => isset($reviewCount) && is_numeric($reviewCount) ? (int) $reviewCount : 0,
+            'features' => [],
             'source' => 'serpapi',
         ];
     }

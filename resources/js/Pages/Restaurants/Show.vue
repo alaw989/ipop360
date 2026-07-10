@@ -9,7 +9,7 @@ import CardGallery from '@/Components/CardGallery.vue';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { cuisineGradient } from '@/lib/cuisine';
-import { callPhone, openWebsite, directionsUrl } from '@/lib/restaurant';
+import { callPhone, openWebsite, trackDirections, directionsUrl } from '@/lib/restaurant';
 import { Heart, ArrowLeft, MapPin, Navigation, Phone, Globe } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
 import { useSeo, generateRestaurantJsonLd } from '@/composables/useSeo';
@@ -210,6 +210,7 @@ const structuredData = computed(() => {
                             target="_blank"
                             rel="noopener"
                             class="flex items-center gap-2.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+                            @click="trackDirections(restaurant.id)"
                         >
                             <Navigation :size="16" class="shrink-0" />
                             Get directions
@@ -218,7 +219,7 @@ const structuredData = computed(() => {
                         <button
                             v-if="restaurant.phone"
                             class="flex w-full items-center gap-2.5 text-sm text-muted-foreground hover:text-primary transition-colors"
-                            @click="() => callPhone(restaurant.phone!)"
+                            @click="() => callPhone(restaurant.phone!, restaurant.id)"
                         >
                             <Phone :size="16" class="shrink-0" />
                             {{ restaurant.phone }}
@@ -227,7 +228,7 @@ const structuredData = computed(() => {
                         <button
                             v-if="restaurant.website_url"
                             class="flex w-full items-center gap-2.5 text-sm text-muted-foreground hover:text-primary transition-colors"
-                            @click="() => openWebsite(restaurant.website_url!)"
+                            @click="() => openWebsite(restaurant.website_url!, restaurant.id)"
                         >
                             <Globe :size="16" class="shrink-0" />
                             {{ restaurant.website_url.replace(/^https?:\/\//, '') }}

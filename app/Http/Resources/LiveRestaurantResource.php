@@ -46,6 +46,7 @@ class LiveRestaurantResource extends JsonResource
             'has_award' => $this->resource['has_award'] ?? false,
             'popularity_score' => $this->resource['popularity_score'] ?? null,
             'cuisines' => $this->resource['cuisines'] ?? [],
+            'features' => $this->resource['features'] ?? [],
             'source' => $this->resource['source'] ?? 'live',
             'score_breakdown' => $this->resource['score_breakdown'] ?? null,
         ];

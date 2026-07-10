@@ -13,6 +13,13 @@ class OverpassService
 {
     private const RADII = [25000, 50000, 100000];
 
+    private const FEATURE_TAGS = [
+        'outdoor_seating', 'takeaway', 'delivery', 'wheelchair',
+        'parking', 'reservation', 'dog', 'internet_access',
+        'capacity', 'kids_area', 'organic', 'smoking',
+        'vegan', 'vegetarian', 'gluten_free',
+    ];
+
     private array $mirrors = [
         'https://overpass-api.de/api/interpreter',
         'https://lz4.overpass-api.de/api/interpreter',
@@ -457,6 +464,7 @@ class OverpassService
                 'popularity_score' => 0,
                 'distance' => round($distance, 1),
                 'cuisines' => $this->extractCuisines($tags),
+                'features' => $this->extractFeatures($tags),
                 'source' => 'overpass',
             ];
         }
@@ -632,6 +640,17 @@ class OverpassService
      * This converts the rich live-search format to the simpler DB-persistence format
      * used by RestaurantEnrichmentService.
      */
+    private function extractFeatures(array $tags): array
+    {
+        $features = [];
+        foreach (self::FEATURE_TAGS as $tag) {
+            if (isset($tags[$tag])) {
+                $features[$tag] = $tags[$tag];
+            }
+        }
+        return $features;
+    }
+
     public function normalizeForEnrichment(array $r): array
     {
         return [
@@ -649,6 +668,7 @@ class OverpassService
             'photo_url' => null,
             'yelp_rating' => null,
             'yelp_review_count' => 0,
+            'features' => $r['features'] ?? [],
             'source' => 'overpass',
         ];
     }
