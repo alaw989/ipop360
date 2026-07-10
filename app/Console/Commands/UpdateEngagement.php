@@ -34,8 +34,6 @@ class UpdateEngagement extends Command
                             ]);
                     }
                 });
-
-            return true;
         });
 
         $this->info('Engagement counters updated successfully.');
