@@ -21,6 +21,7 @@ class UpdateEngagement extends Command
                 ->selectRaw("SUM(CASE WHEN action_type = 'call_click' THEN 1 ELSE 0 END) AS call_clicks")
                 ->selectRaw('COUNT(*) AS total')
                 ->groupBy('restaurant_id')
+                ->orderBy('restaurant_id')
                 ->chunk(200, function ($aggregates) {
                     foreach ($aggregates as $row) {
                         DB::table('restaurants')
