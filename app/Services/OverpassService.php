@@ -648,6 +648,7 @@ class OverpassService
                 $features[$tag] = $tags[$tag];
             }
         }
+
         return $features;
     }
 
