@@ -43,7 +43,7 @@ return [
         'thai' => ['thai', 'thailand', 'bangkok', 'pad.thai', 'tom.yum', 'lemongrass', 'som.tum', 'massaman'],
         'vietnamese' => ['vietnamese', 'pho', 'saigon', 'hanoi', 'banh.mi', 'bun.cha', 'goi.cuon'],
         'filipino' => ['filipino', 'pinoy', 'adobo', 'lumpia', 'sinigang', 'lechon', 'pancit', 'halo.halo', 'sisig', 'kare.kare'],
-        'indian' => ['indian', 'tandoor', 'curry', 'biryani', 'masala', 'korma', 'naan', 'taj', 'raja', 'dosa', 'samosa', 'paneer', 'chaat', 'butter.chicken'],
+        'indian' => ['indian', 'tandoor', 'curry', 'biryani', 'masala', 'korma', 'naan', 'dosa', 'samosa', 'paneer', 'chaat', 'butter.chicken'],
         'malaysian' => ['malaysian', 'laksa', 'satay', 'nasi.lemak', 'roti.canai', 'char.kway.teow', 'rendang'],
         'indonesian' => ['indonesian', 'nasi.goreng', 'rendang', 'sate', 'sambal', 'gado.gado', 'mie.goreng', 'rijsttafel'],
         'taiwanese' => ['taiwanese', 'bubble.tea', 'boba', 'beef.noodle', 'lu.rou.fan', 'gua.bao', 'scallion.pancake'],
@@ -54,8 +54,8 @@ return [
         'burmese' => ['burmese', 'myanmar', 'mohinga', 'laphet', 'khao.swe', 'tea.leaf'],
 
         // ── European ───────────────────────────────────────────────────────
-        'italian' => ['italian', 'pizza', 'pasta', 'trattoria', 'ristorante', 'bella', 'mamma', 'napoli', 'milan', 'risotto', 'gnocchi', 'bruschetta'],
-        'french' => ['french', 'bistro', 'brasserie', 'croissant', 'crepe', 'baguette', 'escargot', 'provencal', 'bouchon', 'confit', 'bouillabaisse'],
+        'italian' => ['italian', 'pasta', 'trattoria', 'ristorante', 'risotto', 'gnocchi', 'bruschetta'],
+        'french' => ['french', 'croissant', 'crepe', 'baguette', 'escargot', 'provencal', 'bouchon', 'confit', 'bouillabaisse'],
         'spanish' => ['spanish', 'tapas', 'paella', 'jamon', 'churros', 'gazpacho', 'sangria', 'iberico', 'patatas.bravas'],
         'greek' => ['greek', 'gyro', 'souvlaki', 'moussaka', 'tzatziki', 'spanakopita', 'feta', 'athens', 'santorini', 'dolmades', 'pastitsio'],
         'german' => ['german', 'wurst', 'bratwurst', 'schnitzel', 'pretzel', 'sauerkraut', 'bavarian', 'spatzle', 'weisswurst', 'haxe'],
@@ -67,7 +67,7 @@ return [
         'russian' => ['russian', 'borscht', 'pelmeni', 'blini', 'stroganoff', 'solyanka', 'pirozhki'],
 
         // ── Latin American ─────────────────────────────────────────────────
-        'mexican' => ['mexican', 'taqueria', 'taco', 'burrito', 'cantina', 'jalapeno', 'fajita', 'quesadilla', 'enchilada', 'mole', 'tortilla', 'carnitas', 'margarita'],
+        'mexican' => ['mexican', 'taqueria', 'taco', 'burrito', 'jalapeno', 'fajita', 'quesadilla', 'enchilada', 'mole', 'tortilla', 'carnitas'],
         'brazilian' => ['brazilian', 'churrasco', 'feijoada', 'pao.de.queijo', 'moqueca', 'caipirinha', 'acai', 'coxinha', 'picanha'],
         'peruvian' => ['peruvian', 'ceviche', 'lomo.saltado', 'anticucho', 'causa', 'pollo.a.la.brasa', 'rocoto'],
         'argentine' => ['argentine', 'argentinian', 'asado', 'empanada', 'chimichurri', 'milanesa', 'alfajor', 'choripan', 'matambre'],
@@ -89,26 +89,26 @@ return [
         'southern' => ['southern', 'soul.food', 'fried.chicken', 'biscuit', 'grits', 'collard', 'cornbread', 'catfish', 'shrimp.and.grits', 'lowcountry'],
         'cajun-creole' => ['cajun', 'creole', 'gumbo', 'jambalaya', 'etouffee', 'andouille', 'po.boy', 'beignet', 'maque.choux', 'boudin'],
         'tex-mex' => ['tex.mex', 'nachos', 'queso', 'chili.con.carne', 'fajita', 'enchilada', 'fajitas'],
-        'bbq' => ['bbq', 'barbecue', 'smokehouse', 'brisket', 'pulled.pork', 'burnt.ends', 'dry.rub'],
-        'new-american' => ['new.american', 'farm.to.table', 'seasonal', 'contemporary', 'craft', 'american'],
+        'bbq' => ['bbq', 'barbecue', 'smokehouse', 'brisket', 'pulled.pork', 'burnt.ends', 'dry.rub', 'pork.spare.ribs', 'texas.brisket', 'kansas.city', 'memphis.rub', 'st.louis.ribs'],
+        'new-american' => ['new.american', 'farm.to.table', 'artisanal', 'small.plate', 'tasting.menu', 'avocado.toast'],
         'hawaiian' => ['hawaiian', 'poke', 'spam.musubi', 'plate.lunch', 'loco.moco', 'kalua', 'lomi', 'malasada'],
 
         // ── African ────────────────────────────────────────────────────────
-        'ethiopian' => ['ethiopian', 'injera', 'berbere', 'tibs', 'kitfo', 'doro.wat', 'teff', 'abyssinia', 'shiro', 'misir.wot'],
-        'nigerian' => ['nigerian', 'jollof', 'suya', 'egusi', 'pounded.yam', 'fufu', 'ogbono', 'ewedu', 'puff.puff'],
-        'south-african' => ['south.african', 'braai', 'boerewors', 'bunny.chow', 'biltong', 'bobotie', 'malva', 'koeksister', 'chakalaka'],
-        'west-african' => ['west.african', 'jollof', 'fufu', 'egusi', 'suya', 'waakye', 'groundnut', 'pepper.soup', 'attieke', 'thieboudienne'],
-        'kenyan' => ['kenyan', 'nyama.choma', 'ugali', 'sukuma', 'irio', 'chapati', 'mandazi', 'githeri', 'nyama'],
+        'ethiopian' => ['ethiopian', 'african', 'injera', 'berbere', 'tibs', 'kitfo', 'doro.wat', 'teff', 'abyssinia', 'shiro', 'misir.wot'],
+        'nigerian' => ['nigerian', 'african', 'jollof', 'suya', 'egusi', 'pounded.yam', 'fufu', 'ogbono', 'ewedu', 'puff.puff'],
+        'south-african' => ['south.african', 'african', 'braai', 'boerewors', 'bunny.chow', 'biltong', 'bobotie', 'malva', 'koeksister', 'chakalaka'],
+        'west-african' => ['west.african', 'african', 'jollof', 'fufu', 'egusi', 'suya', 'waakye', 'groundnut', 'pepper.soup', 'attieke', 'thieboudienne'],
+        'kenyan' => ['kenyan', 'african', 'nyama.choma', 'ugali', 'sukuma', 'irio', 'chapati', 'mandazi', 'githeri', 'nyama'],
 
         // ── Caribbean ──────────────────────────────────────────────────────
-        'jamaican' => ['jamaican', 'jerk', 'ackee', 'saltfish', 'curry.goat', 'patties', 'escovitch', 'jerk.chicken'],
+        'jamaican' => ['jamaican', 'ackee', 'saltfish', 'curry.goat', 'patties', 'escovitch', 'jerk.chicken', 'jerk.pork', 'jerk.sauce'],
         'puerto-rican' => ['puerto.rican', 'boricua', 'mofongo', 'arroz.con.gandules', 'lechon', 'tostones', 'pastelon', 'tembleque', 'asopao'],
         'trinidadian' => ['trinidadian', 'trini', 'roti', 'doubles', 'callaloo', 'pelau', 'bake.and.shark', 'pholourie'],
-        'haitian' => ['haitian', 'griot', 'legim', 'diri', 'pikliz', 'tasso', 'bouillon', 'legume'],
+        'haitian' => ['haitian', 'griot', 'legim', 'diri', 'pikliz', 'tasso'],
 
         // ── Oceanian ───────────────────────────────────────────────────────
-        'australian' => ['australian', 'aussie', 'meat.pie', 'barramundi', 'lamington', 'vegemite', 'bush.tucker', 'parma'],
-        'new-zealand' => ['new.zealand', 'kiwi', 'hangi', 'kumara', 'pavlova', 'paua', 'pork.belly', 'manuka'],
+        'australian' => ['australian', 'aussie', 'meat.pie', 'barramundi', 'lamington', 'vegemite', 'bush.tucker'],
+        'new-zealand' => ['new.zealand', 'hangi', 'kumara', 'pavlova', 'paua', 'manuka'],
         'polynesian' => ['polynesian', 'taro', 'breadfruit', 'umu', 'coconut', 'luau', 'kalua', 'ota.ika', 'palusami'],
     ],
 

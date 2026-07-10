@@ -77,7 +77,7 @@ return [
             // searched cuisine so a genuine match outranks a borderline-nearby
             // one. Recall-safe (re-rank only, drops nothing); 0.0 unless stamped
             // by LiveSearchService::stampCuisineMatchStrength on a scoped search.
-            'cuisine_match' => env('RANK_WEIGHT_CUISINE_MATCH', 0.15),
+            'cuisine_match' => env('RANK_WEIGHT_CUISINE_MATCH', 0.50),
             'google_rating' => env('RANK_WEIGHT_GOOGLE_RATING', 0.0),
             'google_review_count' => env('RANK_WEIGHT_GOOGLE_REVIEW_COUNT', 0.0),
             'popular_times_avg_busyness' => env('RANK_WEIGHT_POPULAR_TIMES', 0.0),

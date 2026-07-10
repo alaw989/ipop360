@@ -313,6 +313,12 @@ class RestaurantController extends Controller
                     $sort,  // spec-069 4B: sort happens inside search(), before the bound
                 );
 
+                // Persist all live results to the restaurants table so engagement
+                // tracking, favorites, and future lookups have real DB rows.
+                // The returned array has synthetic negative IDs replaced with real
+                // auto-increment IDs from the persisted rows.
+                $liveResults = $this->persistLiveResults($liveResults);
+
                 if ($paginate) {
                     ExternalApiCache::storeByKey(
                         $pageKey,
@@ -376,5 +382,71 @@ class RestaurantController extends Controller
             'from' => $restaurants->firstItem(),
             'to' => $restaurants->lastItem(),
         ]);
+    }
+
+    /**
+     * Persist live search results to the restaurants table.
+     *
+     * Each venue array is upserted by google_place_id or slug. Synthetic
+     * negative CRC32 IDs are replaced with real auto-increment DB IDs so
+     * engagement tracking, detail pages, and future lookups all work.
+     * Only cuisine IDs that exist in the cuisines table are attached.
+     */
+    private function persistLiveResults(array $results): array
+    {
+        $knownCuisineIds = Cuisine::pluck('id')->all();
+
+        return array_map(function (array $venue) use ($knownCuisineIds) {
+            $attributes = [
+                'name' => $venue['name'] ?? 'Unknown',
+                'slug' => $venue['slug'] ?? null,
+                'description' => $venue['description'] ?? null,
+                'address' => $venue['address'] ?? null,
+                'city' => $venue['city'] ?? null,
+                'state' => $venue['state'] ?? null,
+                'latitude' => $venue['lat'] ?? null,
+                'longitude' => $venue['lng'] ?? null,
+                'phone' => $venue['phone'] ?? null,
+                'website_url' => $venue['website_url'] ?? null,
+                'price_range' => $venue['price_range'] ?? null,
+                'photo_url' => $venue['photo_url'] ?? null,
+                'photos' => $venue['photos'] ?? [],
+                'google_place_id' => $venue['google_place_id'] ?? null,
+                'google_rating' => $venue['google_rating'] ?? null,
+                'google_review_count' => (int) ($venue['google_review_count'] ?? 0),
+                'yelp_rating' => $venue['yelp_rating'] ?? null,
+                'yelp_review_count' => (int) ($venue['yelp_review_count'] ?? 0),
+                'has_award' => $venue['has_award'] ?? false,
+                'popularity_score' => $venue['popularity_score'] ?? null,
+                'features' => $venue['features'] ?? [],
+                'is_active' => true,
+            ];
+
+            $restaurant = null;
+            if (! empty($attributes['google_place_id'])) {
+                $restaurant = Restaurant::where('google_place_id', $attributes['google_place_id'])->first();
+            }
+            if (! $restaurant && ! empty($attributes['slug'])) {
+                $restaurant = Restaurant::where('slug', $attributes['slug'])->first();
+            }
+
+            if ($restaurant) {
+                $restaurant->update($attributes);
+            } else {
+                $restaurant = Restaurant::create($attributes);
+            }
+
+            $venue['id'] = $restaurant->id;
+
+            $cuisineIds = array_filter(
+                array_column($venue['cuisines'] ?? [], 'id'),
+                fn ($id) => in_array($id, $knownCuisineIds, true)
+            );
+            if (! empty($cuisineIds)) {
+                $restaurant->cuisines()->syncWithoutDetaching($cuisineIds);
+            }
+
+            return $venue;
+        }, $results);
     }
 }
