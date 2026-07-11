@@ -51,7 +51,19 @@ class SearchController extends Controller
 
         $coords = $this->geolocationService->resolveCoordinates($request);
 
-        $query = $this->buildQuery($request)
+        $query = $this->buildQuery($request);
+        $scopeQuery = Restaurant::query()
+            ->when(
+                $coords !== null,
+                fn ($q) => $q->nearby($coords['lat'], $coords['lng'], $distanceKm)
+            )
+            ->when(
+                $priceRange,
+                fn ($q) => $q->where('price_range', $priceRange)
+            )
+            ->active();
+
+        $query = $query
             ->when(
                 $coords !== null,
                 fn ($q) => $q->nearby($coords['lat'], $coords['lng'], $distanceKm)
@@ -106,8 +118,21 @@ class SearchController extends Controller
         $formattedArray = $formatted->resolve();
         $restaurants->setCollection(collect($formattedArray));
 
+        $scopeQuery->getQuery()->columns = null;
+
+        $categoryCounts = CuisineCategory::select('cuisine_categories.id', 'cuisine_categories.name', 'cuisine_categories.slug')
+            ->selectRaw('COUNT(DISTINCT restaurants.id) as restaurants_count')
+            ->join('cuisines', 'cuisines.category_id', '=', 'cuisine_categories.id')
+            ->join('cuisine_restaurant', 'cuisine_restaurant.cuisine_id', '=', 'cuisines.id')
+            ->join('restaurants', 'restaurants.id', '=', 'cuisine_restaurant.restaurant_id')
+            ->whereIn('restaurants.id', $scopeQuery->select('id'))
+            ->groupBy('cuisine_categories.id', 'cuisine_categories.name', 'cuisine_categories.slug')
+            ->orderByDesc('restaurants_count')
+            ->get()
+            ->toArray();
+
         $filterOptions = [
-            'categories' => CuisineCategory::withCount('cuisines')->get()->toArray(),
+            'categories' => $categoryCounts,
             'cuisines' => Cuisine::select('id', 'name', 'slug', 'category_id')->get()->toArray(),
             'priceOptions' => ['$', '$$', '$$$', '$$$$'],
             'distanceOptions' => [1, 5, 10, 25, 50],

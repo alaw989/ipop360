@@ -20,7 +20,7 @@ const props = defineProps<{
     cuisineName: string | null;
     categorySlug: string | null;
     filterOptions: {
-        categories: Array<{ id: number; name: string; slug: string; cuisines_count: number }>;
+        categories: Array<{ id: number; name: string; slug: string; restaurants_count: number }>;
         cuisines: Array<{ id: number; name: string; slug: string; category_id: number }>;
         priceOptions: string[];
         distanceOptions: number[];

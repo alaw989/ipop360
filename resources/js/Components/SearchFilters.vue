@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 const props = defineProps<{
     filters: Record<string, string | string[] | undefined>;
     filterOptions: {
-        categories: Array<{ id: number; name: string; slug: string; cuisines_count: number }>;
+        categories: Array<{ id: number; name: string; slug: string; restaurants_count: number }>;
         priceOptions: string[];
         distanceOptions: number[];
     };
@@ -84,7 +84,7 @@ function setDistance(km: number) {
                     :class="{ 'bg-primary/10 font-medium text-primary': currentCategory === cat.slug }"
                 >
                     <span>{{ cat.name }}</span>
-                    <span class="text-xs text-muted-foreground">{{ cat.cuisines_count }}</span>
+                    <span class="text-xs text-muted-foreground">{{ cat.restaurants_count }}</span>
                 </Link>
             </div>
         </div>
