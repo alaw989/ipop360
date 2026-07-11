@@ -147,7 +147,7 @@ function onDetect() {
             <!-- Nav bar -->
             <nav class="flex items-center justify-between px-4 py-3 sm:px-6">
                 <Link href="/" class="flex items-center" aria-label="iPop360 home">
-                    <BrandLogo class="text-white" />
+                    <BrandLogo class="text-3xl text-white sm:text-4xl" />
                 </Link>
                 <div class="flex items-center gap-3">
                     <Link
