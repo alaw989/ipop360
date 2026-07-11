@@ -50,8 +50,8 @@ const slides = [
         attribution: 'Photo by Lily Banse on Unsplash',
     },
     {
-        image: 'https://images.unsplash.com/photo-1550966871-3ed3cdb51f3a?w=1600&q=80',
-        attribution: 'Photo by NordWood Themes on Unsplash',
+        image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=1600&q=80',
+        attribution: 'Photo by Kelly Sikkema on Unsplash',
     },
     {
         image: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=1600&q=80',
@@ -61,7 +61,12 @@ const slides = [
 
 const currentSlide = ref(0)
 const isPaused = ref(false)
+const loadedSlides = ref(slides.map(() => true))
 let timer: ReturnType<typeof setInterval> | null = null
+
+function onSlideError(index: number) {
+    loadedSlides.value[index] = false
+}
 
 function goToSlide(index: number) {
     currentSlide.value = index
@@ -131,10 +136,12 @@ function onDetect() {
                 :class="i === currentSlide ? 'opacity-100' : 'opacity-0'"
             >
                 <img
+                    v-show="loadedSlides[i]"
                     :src="slide.image"
                     class="h-full w-full object-cover"
                     alt=""
                     aria-hidden="true"
+                    @error="onSlideError(i)"
                 />
             </div>
         </div>
