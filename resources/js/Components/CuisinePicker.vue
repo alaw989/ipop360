@@ -27,6 +27,7 @@ interface Category {
 
 const props = defineProps<{
     categories: Category[]
+    inverted?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -81,8 +82,13 @@ function clearSelection() {
     <Popover v-model:open="open">
         <PopoverTrigger as-child>
             <button
-                class="inline-flex items-center gap-1 border-b-2 border-foreground/30 px-1 font-semibold text-foreground transition-colors hover:border-foreground focus:outline-none"
-                :class="{ 'text-muted-foreground': !selectedLabel }"
+                class="inline-flex items-center gap-1 border-b-2 px-1 font-semibold transition-colors focus:outline-none"
+                :class="[
+                    inverted
+                        ? 'border-white/30 text-white/70 hover:border-white hover:text-white'
+                        : 'border-foreground/30 text-foreground hover:border-foreground',
+                    { 'opacity-60': !selectedLabel }
+                ]"
             >
                 {{ displayText }}
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" viewBox="0 0 20 20" fill="currentColor">

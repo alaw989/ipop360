@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cuisine;
 use App\Models\CuisineCategory;
+use App\Models\Restaurant;
 use App\Services\GeolocationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -36,10 +38,56 @@ class HomeController extends Controller
             ? ['lat' => $location['lat'], 'lng' => $location['lng']]
             : null;
 
+        $city = $location['city'] ?? null;
+        $state = $location['state'] ?? null;
+
+        if ($fallbackCoords) {
+            $nearbyRestaurants = Restaurant::active()
+                ->with('cuisines')
+                ->nearby($fallbackCoords['lat'], $fallbackCoords['lng'])
+                ->orderByDesc('popularity_score')
+                ->limit(18)
+                ->get();
+
+            if ($nearbyRestaurants->isNotEmpty()) {
+                $popularRestaurants = $nearbyRestaurants;
+
+                $nearbyIds = $nearbyRestaurants->pluck('id');
+
+                $popularCuisines = Cuisine::withCount([
+                    'restaurants' => fn ($q) => $q->whereIn('restaurants.id', $nearbyIds)->active(),
+                ])
+                    ->orderByDesc('restaurants_count')
+                    ->limit(12)
+                    ->get(['id', 'name', 'slug', 'icon'])
+                    ->filter(fn ($c) => $c->restaurants_count > 0)
+                    ->values();
+            }
+        }
+
+        if (! isset($popularRestaurants)) {
+            $popularRestaurants = Restaurant::active()
+                ->with('cuisines')
+                ->orderByDesc('popularity_score')
+                ->limit(18)
+                ->get();
+
+            $popularCuisines = Cuisine::withCount(['restaurants' => fn ($q) => $q->active()])
+                ->orderByDesc('restaurants_count')
+                ->limit(12)
+                ->get(['id', 'name', 'slug', 'icon'])
+                ->filter(fn ($c) => $c->restaurants_count > 0)
+                ->values();
+
+            $location = null;
+        }
+
         return Inertia::render('Welcome', [
             'categories' => $categories,
+            'popularCuisines' => $popularCuisines,
+            'popularRestaurants' => $popularRestaurants,
             'location' => $location
-                ? ['city' => $location['city'], 'state' => $location['state']]
+                ? ['city' => $city, 'state' => $state]
                 : null,
             'fallbackCoords' => $fallbackCoords,
         ]);
