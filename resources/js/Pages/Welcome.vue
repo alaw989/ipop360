@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { X } from '@lucide/vue'
 import JsonLd from '@/Components/JsonLd.vue'
-import HeroSearch from '@/Components/HeroSearch.vue'
+import HeroBanner from '@/Components/HeroBanner.vue'
 import StickySearchBar from '@/Components/StickySearchBar.vue'
 import CategoryGrid from '@/Components/CategoryGrid.vue'
 import PopularCuisines from '@/Components/PopularCuisines.vue'
@@ -223,34 +223,6 @@ onMounted(() => {
         <!-- Visually-hidden page title for accessibility -->
         <h1 class="sr-only">Find Popular Restaurants Near You</h1>
 
-        <!-- Auth link -->
-        <div class="absolute right-4 top-4 z-10 flex items-center gap-2">
-            <Link
-                v-if="$page.props.auth?.user"
-                href="/favorites"
-                class="text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-                Favorites
-            </Link>
-            <Link
-                v-if="$page.props.auth?.user"
-                href="/dashboard"
-                class="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-                Dashboard
-            </Link>
-            <Button
-                v-else
-                as="a"
-                href="/login"
-                variant="outline"
-                size="sm"
-                class="text-sm"
-            >
-                Login
-            </Button>
-        </div>
-
         <!-- Geolocation error banner -->
         <Transition name="fade">
             <Card v-if="geolocationError && phase === 'idle'" class="absolute left-4 right-4 top-16 z-10 mx-auto max-w-2xl border-destructive bg-destructive/10">
@@ -279,9 +251,9 @@ onMounted(() => {
              results on the back-transition (results-in-leave-active) to this box,
              not the viewport. -->
         <main class="relative flex flex-1 flex-col">
-            <!-- Centered hero (idle phase) — Transition watches HeroSearch's own v-if -->
+            <!-- Centered hero (idle phase) — Transition watches HeroBanner's own v-if -->
             <Transition name="hero-out">
-                <HeroSearch
+                <HeroBanner
                     v-if="phase === 'idle'"
                     :categories="categories"
                     :location="persistedLocation"
