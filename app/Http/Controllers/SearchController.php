@@ -107,7 +107,7 @@ class SearchController extends Controller
                 )
             )
             ->when(
-                $categorySlug && !$cuisineSlug,
+                $categorySlug && ! $cuisineSlug,
                 fn ($q) => $q->whereHas(
                     'cuisines',
                     fn ($cq) => $cq->whereHas(
