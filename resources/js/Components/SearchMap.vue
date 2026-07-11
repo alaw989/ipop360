@@ -69,11 +69,18 @@ function addMarkers() {
     if (!map || !leaflet) return;
 
     const bounds: number[][] = [];
+    const icon = leaflet.divIcon({
+        className: '',
+        html: '<div style="width:24px;height:24px;background:#10b981;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+        popupAnchor: [0, -16],
+    });
 
     props.restaurants.forEach(r => {
         if (r.lat == null || r.lng == null) return;
 
-        const marker = leaflet.marker([r.lat, r.lng])
+        const marker = leaflet.marker([r.lat, r.lng], { icon })
             .addTo(map)
             .bindPopup(`
                 <div style="font-family:system-ui,sans-serif;min-width:160px">

@@ -3,13 +3,15 @@ import { computed } from 'vue';
 import { Gauge } from '@lucide/vue';
 
 const props = defineProps<{
-    total: number;
+    total: number | string;
 }>();
 
-const pct = computed(() => Math.round((props.total ?? 0) * 100));
+const score = computed(() => Number(props.total ?? 0));
+
+const pct = computed(() => Math.round(score.value * 100));
 
 const tier = computed(() => {
-    const t = props.total ?? 0;
+    const t = score.value;
     if (t >= 0.8) return 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400';
     if (t >= 0.6) return 'bg-amber-500/20 text-amber-600 dark:text-amber-400';
     if (t >= 0.4) return 'bg-sky-500/20 text-sky-600 dark:text-sky-400';

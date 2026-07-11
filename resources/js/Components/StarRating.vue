@@ -2,13 +2,15 @@
 import { computed } from 'vue';
 
 const props = defineProps<{
-    rating: number;
+    rating: number | string;
     max?: number;
     size?: 'sm' | 'md' | 'lg';
 }>();
 
+const parsedRating = computed(() => Number(props.rating));
+
 const stars = computed(() => {
-    const rating = Number(props.rating);
+    const rating = parsedRating.value;
     const max = props.max ?? 5;
     const full = Math.floor(rating);
     const half = rating - full >= 0.25;
@@ -33,6 +35,6 @@ const sizeClass = computed(() => {
             ★
         </span>
         <span v-for="i in stars.empty" :key="'e' + i" class="text-gray-300">★</span>
-        <span class="ml-1 text-sm font-medium text-foreground">{{ Number(rating).toFixed(1) }}</span>
+        <span class="ml-1 text-sm font-medium text-foreground">{{ parsedRating.toFixed(1) }}</span>
     </span>
 </template>

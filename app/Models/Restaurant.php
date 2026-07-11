@@ -56,12 +56,12 @@ class Restaurant extends Model
     ];
 
     protected $casts = [
-        'latitude' => 'decimal:8',
-        'longitude' => 'decimal:8',
-        'google_rating' => 'decimal:1',
-        'yelp_rating' => 'decimal:1',
-        'popular_times_avg_busyness' => 'decimal:2',
-        'popularity_score' => 'decimal:4',
+        'latitude' => 'float',
+        'longitude' => 'float',
+        'google_rating' => 'float',
+        'yelp_rating' => 'float',
+        'popular_times_avg_busyness' => 'float',
+        'popularity_score' => 'float',
         'photos' => 'array',
         'score_breakdown' => 'array',
         'has_award' => 'boolean',

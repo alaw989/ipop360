@@ -113,7 +113,7 @@ const gradient = computed(() => {
                         </a>
                     </h3>
                     <p v-if="restaurant.address || restaurant.city" class="truncate text-xs text-muted-foreground">
-                        {{ [restaurant.address, restaurant.city, restaurant.state].filter(Boolean).join(', ') }}
+                        {{ restaurant.address ? restaurant.address : [restaurant.city, restaurant.state].filter(Boolean).join(', ') }}
                     </p>
                 </div>
 
