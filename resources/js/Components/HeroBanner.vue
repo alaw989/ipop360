@@ -152,10 +152,7 @@ function onDetect() {
         <!-- Content layer -->
         <div class="relative z-10 flex flex-1 flex-col">
             <!-- Nav bar -->
-            <nav class="flex items-center justify-between px-4 py-3 sm:px-6">
-                <Link href="/" class="flex items-center" aria-label="iPop360 home">
-                    <BrandLogo class="text-4xl text-white sm:text-5xl" />
-                </Link>
+            <nav class="flex items-center justify-end px-4 py-3 sm:px-6">
                 <div class="flex items-center gap-3">
                     <Link
                         v-if="$page.props.auth?.user"
