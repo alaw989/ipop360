@@ -1397,10 +1397,11 @@ class LiveSearchScoringTest extends TestCase
         $results = $service->search(30.6199783, -88.1967496, 'brazilian');
 
         $this->assertSame(
-            ['Brazilian Steakhouse', "Rocha's", 'Cafe Nowhere'],
+            ['Brazilian Steakhouse', "Rocha's"],
             array_column($results, 'name'),
-            'cuisine_match tiers: name-match (1.0) > typed-match (0.5) > no-match (0.0).'
+            'cuisine_match: name-match (1.0) > typed-match (0.5); no-match (0.0) dropped by confidence filter.'
         );
+        $this->assertCount(2, $results, 'Ambiguous venue dropped because 2 confident matches exceed min_confident_results=2.');
     }
 
     public function test_cuisine_match_never_uses_rival_keywords(): void
@@ -1432,6 +1433,73 @@ class LiveSearchScoringTest extends TestCase
     {
         $this->assertSame(0.50, config('restaurant-finder.ranking.weights.cuisine_match'));
         $this->assertTrue(config('restaurant-finder.ranking.cuisine_match'));
+    }
+
+    public function test_cuisine_confidence_drops_ambiguous_when_enough_confident(): void
+    {
+        $this->seedCuisine('Italian', 'italian');
+
+        $service = $this->makeServiceWithVenues([
+            'serpapi' => [
+                ['name' => "T Marie's Ristorante Italiano", 'source' => 'serpapi', 'lat' => 30.6755, 'lng' => -88.0897, 'google_rating' => 4.4, 'google_review_count' => 664, 'place_types' => ['Italian restaurant'], 'description' => 'Italian dishes.'],
+                ['name' => "Carrabba's Italian Grill", 'source' => 'serpapi', 'lat' => 30.6754, 'lng' => -88.1453, 'google_rating' => 4.4, 'google_review_count' => 1200, 'place_types' => ['Italian restaurant'], 'description' => 'Family-friendly Italian chain.'],
+                ['name' => 'Noja', 'source' => 'serpapi', 'lat' => 30.6912, 'lng' => -88.0448, 'google_rating' => 4.8, 'google_review_count' => 495, 'place_types' => ['Restaurant'], 'description' => 'Mediterranean-Asian menu.'],
+                ['name' => 'Debris Po-Boys & Drinks', 'source' => 'serpapi', 'lat' => 30.6911, 'lng' => -88.0447, 'google_rating' => 4.6, 'google_review_count' => 306, 'place_types' => ['Restaurant'], 'description' => 'Sandwiches and seafood.'],
+            ],
+        ]);
+
+        $results = $service->search(30.67, -88.12, 'italian');
+        $names = array_column($results, 'name');
+
+        $this->assertCount(2, $results, '2 confident Italian matches must drop ambiguous venues.');
+        $this->assertContains("T Marie's Ristorante Italiano", $names);
+        $this->assertContains("Carrabba's Italian Grill", $names);
+        $this->assertNotContains('Noja', $names);
+        $this->assertNotContains('Debris Po-Boys & Drinks', $names);
+    }
+
+    public function test_cuisine_confidence_keeps_ambiguous_when_not_enough_confident(): void
+    {
+        $this->seedCuisine('Italian', 'italian');
+
+        $service = $this->makeServiceWithVenues([
+            'serpapi' => [
+                ['name' => "T Marie's Ristorante Italiano", 'source' => 'serpapi', 'lat' => 30.6755, 'lng' => -88.0897, 'google_rating' => 4.4, 'google_review_count' => 664, 'place_types' => ['Italian restaurant'], 'description' => 'Italian dishes.'],
+                ['name' => 'Noja', 'source' => 'serpapi', 'lat' => 30.6912, 'lng' => -88.0448, 'google_rating' => 4.8, 'google_review_count' => 495, 'place_types' => ['Restaurant'], 'description' => 'Mediterranean-Asian menu.'],
+                ['name' => 'Debris Po-Boys & Drinks', 'source' => 'serpapi', 'lat' => 30.6911, 'lng' => -88.0447, 'google_rating' => 4.6, 'google_review_count' => 306, 'place_types' => ['Restaurant'], 'description' => 'Sandwiches and seafood.'],
+            ],
+        ]);
+
+        $results = $service->search(30.67, -88.12, 'italian');
+        $names = array_column($results, 'name');
+
+        $this->assertCount(3, $results, 'Only 1 confident match < 2 threshold → padding mode keeps all.');
+        $this->assertContains("T Marie's Ristorante Italiano", $names);
+        $this->assertContains('Noja', $names);
+        $this->assertContains('Debris Po-Boys & Drinks', $names);
+    }
+
+    public function test_cuisine_confidence_noop_on_unscoped_search(): void
+    {
+        $this->seedCuisine('Italian', 'italian');
+
+        $service = $this->makeServiceWithVenues([
+            'serpapi' => [
+                ['name' => "T Marie's Ristorante Italiano", 'source' => 'serpapi', 'lat' => 30.6755, 'lng' => -88.0897, 'google_rating' => 4.4, 'google_review_count' => 664, 'place_types' => ['Italian restaurant'], 'description' => 'Italian dishes.'],
+                ['name' => "Carrabba's Italian Grill", 'source' => 'serpapi', 'lat' => 30.6754, 'lng' => -88.1453, 'google_rating' => 4.4, 'google_review_count' => 1200, 'place_types' => ['Italian restaurant'], 'description' => 'Family-friendly Italian chain.'],
+                ['name' => 'Noja', 'source' => 'serpapi', 'lat' => 30.6912, 'lng' => -88.0448, 'google_rating' => 4.8, 'google_review_count' => 495, 'place_types' => ['Restaurant'], 'description' => 'Mediterranean-Asian menu.'],
+                ['name' => 'Debris Po-Boys & Drinks', 'source' => 'serpapi', 'lat' => 30.6911, 'lng' => -88.0447, 'google_rating' => 4.6, 'google_review_count' => 306, 'place_types' => ['Restaurant'], 'description' => 'Sandwiches and seafood.'],
+            ],
+        ]);
+
+        $results = $service->search(30.67, -88.12, null);
+        $names = array_column($results, 'name');
+
+        $this->assertCount(4, $results, 'Unscoped search must pass through unchanged.');
+        $this->assertContains("T Marie's Ristorante Italiano", $names);
+        $this->assertContains("Carrabba's Italian Grill", $names);
+        $this->assertContains('Noja', $names);
+        $this->assertContains('Debris Po-Boys & Drinks', $names);
     }
 
     /**

@@ -77,6 +77,10 @@ class LiveSearchService
         // re-sorted (which silently dropped the #N+1 nearest venue).
         $results = $this->venuePipeline->sortVenues($results, $sort, true);
 
+        // spec-081: when enough cuisine-confident results exist, drop ambiguous
+        // venues so a scoped search doesn't show Mediterranean/burger places.
+        $results = $this->filterByCuisineConfidence($results, $scope);
+
         // Bound the list: drop the weak tail and cap the count (scored + sorted).
         $results = $this->boundResults($results);
 
@@ -488,6 +492,39 @@ class LiveSearchService
 
         // Sort by popularity score descending
         usort($results, fn ($a, $b) => $b['popularity_score'] <=> $a['popularity_score']);
+
+        return $results;
+    }
+
+    /**
+     * spec-081: on a cuisine-scoped search, when enough confident matches exist
+     * (cuisine_match >= confidence_threshold), drop the rest so wrong-cuisine
+     * venues don't pollute the result list. When there aren't enough confident
+     * venues, keep everything (padding mode) — this prevents returning too few
+     * results for obscure cuisines or small towns.
+     *
+     * Unscoped searches pass through unchanged (no cuisine_match to judge).
+     */
+    private function filterByCuisineConfidence(array $results, CuisineScope $scope): array
+    {
+        if (!$scope->isScoped()) {
+            return $results;
+        }
+
+        $threshold = (float) config('restaurant-finder.ranking.cuisine_confidence.confidence_threshold', 0.3);
+        $minResults = (int) config('restaurant-finder.ranking.cuisine_confidence.min_confident_results', 2);
+
+        $confident = [];
+        foreach ($results as $result) {
+            $cuisineMatch = (float) ($result['cuisine_match'] ?? 0.0);
+            if ($cuisineMatch >= $threshold) {
+                $confident[] = $result;
+            }
+        }
+
+        if (count($confident) >= $minResults) {
+            return $confident;
+        }
 
         return $results;
     }

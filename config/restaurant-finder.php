@@ -83,6 +83,16 @@ return [
             'popular_times_avg_busyness' => env('RANK_WEIGHT_POPULAR_TIMES', 0.0),
         ],
 
+        // spec-081: on a cuisine-scoped search, when enough confident matches
+        // exist (cuisine_match >= threshold), drop ambiguous venues entirely.
+        // Prevents Mediterranean/coffee/burger places from polluting "italian"
+        // results while keeping padding when there simply aren't enough matches.
+        // env-overridable: CUISINE_CONFIDENCE_MIN_RESULTS, CUISINE_CONFIDENCE_THRESHOLD
+        'cuisine_confidence' => [
+            'min_confident_results' => (int) env('CUISINE_CONFIDENCE_MIN_RESULTS', 2),
+            'confidence_threshold' => (float) env('CUISINE_CONFIDENCE_THRESHOLD', 0.3),
+        ],
+
         // Bayesian quality prior (m): a venue's rating is shrunk toward the
         // credible mean (C) until it accumulates this many reviews. ~50 is
         // conservative (strong outlier suppression); lower it if established

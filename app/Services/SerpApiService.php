@@ -19,7 +19,7 @@ class SerpApiService
      * radius. 15 ≈ neighborhood/street level, appropriate for "restaurants
      * near this point". Lower = wider area.
      */
-    private const MAP_ZOOM = 15;
+    private const MAP_ZOOM = 11;
 
     public function __construct()
     {
