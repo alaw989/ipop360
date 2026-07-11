@@ -41,17 +41,46 @@ class HomeController extends Controller
         $city = $location['city'] ?? null;
         $state = $location['state'] ?? null;
 
-        $popularCuisines = Cuisine::withCount(['restaurants' => fn ($q) => $q->active()])
-            ->orderByDesc('restaurants_count')
-            ->limit(12)
-            ->get(['id', 'name', 'slug', 'icon'])
-            ->filter(fn ($c) => $c->restaurants_count > 0)
-            ->values();
+        if ($fallbackCoords) {
+            $nearbyRestaurants = Restaurant::active()
+                ->with('cuisines')
+                ->nearby($fallbackCoords['lat'], $fallbackCoords['lng'])
+                ->orderByDesc('popularity_score')
+                ->limit(18)
+                ->get();
 
-        $popularRestaurants = Restaurant::active()
-            ->orderByDesc('popularity_score')
-            ->limit(18)
-            ->get(['name', 'slug', 'city', 'state']);
+            if ($nearbyRestaurants->isNotEmpty()) {
+                $popularRestaurants = $nearbyRestaurants;
+
+                $nearbyIds = $nearbyRestaurants->pluck('id');
+
+                $popularCuisines = Cuisine::withCount([
+                    'restaurants' => fn ($q) => $q->whereIn('restaurants.id', $nearbyIds)->active(),
+                ])
+                    ->orderByDesc('restaurants_count')
+                    ->limit(12)
+                    ->get(['id', 'name', 'slug', 'icon'])
+                    ->filter(fn ($c) => $c->restaurants_count > 0)
+                    ->values();
+            }
+        }
+
+        if (! isset($popularRestaurants)) {
+            $popularRestaurants = Restaurant::active()
+                ->with('cuisines')
+                ->orderByDesc('popularity_score')
+                ->limit(18)
+                ->get();
+
+            $popularCuisines = Cuisine::withCount(['restaurants' => fn ($q) => $q->active()])
+                ->orderByDesc('restaurants_count')
+                ->limit(12)
+                ->get(['id', 'name', 'slug', 'icon'])
+                ->filter(fn ($c) => $c->restaurants_count > 0)
+                ->values();
+
+            $location = null;
+        }
 
         return Inertia::render('Welcome', [
             'categories' => $categories,

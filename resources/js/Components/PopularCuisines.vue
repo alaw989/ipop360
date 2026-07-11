@@ -23,7 +23,7 @@ const hasMore = computed(() => props.cuisines.length > initialLimit)
 </script>
 
 <template>
-    <section class="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <section v-if="cuisines.length" class="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <h2 class="mb-1 text-xl font-semibold text-foreground">
             Popular cuisines
             <span v-if="city"> in {{ city }}</span>

@@ -56,10 +56,22 @@ const props = defineProps<{
         restaurants_count: number
     }>
     popularRestaurants: Array<{
+        id: number
         name: string
         slug: string
+        photo_url: string | null
         city: string | null
         state: string | null
+        price_range: string | null
+        google_rating: number | null
+        google_review_count: number
+        yelp_rating: number | null
+        yelp_review_count: number
+        has_award: boolean
+        popularity_score: number
+        latitude: number | null
+        longitude: number | null
+        cuisines: Array<{ id: number; name: string; slug: string }>
     }>
     location: Location | null
     fallbackCoords: { lat: number; lng: number } | null
