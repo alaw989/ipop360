@@ -41,6 +41,9 @@ class HomeController extends Controller
         $city = $location['city'] ?? null;
         $state = $location['state'] ?? null;
 
+        $popularRestaurants = collect();
+        $popularCuisines = collect();
+
         if ($fallbackCoords) {
             $nearbyRestaurants = Restaurant::active()
                 ->with('cuisines')
@@ -65,7 +68,7 @@ class HomeController extends Controller
             }
         }
 
-        if (! isset($popularRestaurants)) {
+        if ($popularRestaurants->isEmpty()) {
             $popularRestaurants = Restaurant::active()
                 ->with('cuisines')
                 ->orderByDesc('popularity_score')
