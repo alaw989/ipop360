@@ -77,11 +77,11 @@ class SerpApiQuotaGuardTest extends TestCase
 
     public function test_circuit_breaker_skips_live_serpapi_when_quota_near_limit(): void
     {
-        // free_quota=10, fraction=0.8 → breaker trips at ceil(8) = 8 prior calls.
+        // free_quota=10, fraction=0.5 → breaker trips at ceil(5) = 5 prior calls.
         Config::set('restaurant-finder.serpapi.free_quota', 10);
-        Config::set('restaurant-finder.serpapi.circuit_breaker_fraction', 0.8);
+        Config::set('restaurant-finder.serpapi.circuit_breaker_fraction', 0.5);
 
-        for ($i = 0; $i < 8; $i++) {
+        for ($i = 0; $i < 5; $i++) {
             ExternalApiCache::create([
                 'source' => 'serpapi',
                 'external_id' => "prior-{$i}",
@@ -104,10 +104,10 @@ class SerpApiQuotaGuardTest extends TestCase
     public function test_circuit_breaker_kill_switch_allows_fetch(): void
     {
         Config::set('restaurant-finder.serpapi.free_quota', 10);
-        Config::set('restaurant-finder.serpapi.circuit_breaker_fraction', 0.8);
+        Config::set('restaurant-finder.serpapi.circuit_breaker_fraction', 0.5);
         Config::set('restaurant-finder.serpapi.read_path_guard', false); // master kill-switch
 
-        for ($i = 0; $i < 8; $i++) {
+        for ($i = 0; $i < 5; $i++) {
             ExternalApiCache::create([
                 'source' => 'serpapi',
                 'external_id' => "prior-{$i}",
@@ -128,11 +128,11 @@ class SerpApiQuotaGuardTest extends TestCase
 
     public function test_circuit_breaker_does_not_trip_below_threshold(): void
     {
-        // 7 prior calls < 8-call limit → breaker open, fetch proceeds.
+        // 4 prior calls < 5-call limit → breaker open, fetch proceeds.
         Config::set('restaurant-finder.serpapi.free_quota', 10);
-        Config::set('restaurant-finder.serpapi.circuit_breaker_fraction', 0.8);
+        Config::set('restaurant-finder.serpapi.circuit_breaker_fraction', 0.5);
 
-        for ($i = 0; $i < 7; $i++) {
+        for ($i = 0; $i < 4; $i++) {
             ExternalApiCache::create([
                 'source' => 'serpapi',
                 'external_id' => "prior-{$i}",
@@ -146,7 +146,7 @@ class SerpApiQuotaGuardTest extends TestCase
         $this->getJson('/api/restaurants?lat=40.75&lng=-74.05&cuisine=italian');
 
         $this->assertSame(
-            8,
+            5,
             ExternalApiCache::where('source', 'serpapi')->count(),
             'below the threshold the live fetch proceeds and caches'
         );

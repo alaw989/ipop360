@@ -1,6 +1,6 @@
 import '../css/app.css';
 import './bootstrap';
-import '@fontsource-variable/geist';
+import '@fontsource/poppins';
 
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';

@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { Head, router, Link } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchFilters from '@/Components/SearchFilters.vue';
 import SearchResultCard from '@/Components/SearchResultCard.vue';
 import SearchMap from '@/Components/SearchMap.vue';
+import SeoMeta from '@/Components/SeoMeta.vue';
+import JsonLd from '@/Components/JsonLd.vue';
 import { Button } from '@/components/ui/button';
+import { useSeo, generateItemListJsonLd } from '@/composables/useSeo';
+import { useBaseUrl } from '@/composables/useBaseUrl';
 import type { Restaurant } from '@/types/restaurant';
 
 const props = defineProps<{
@@ -60,11 +64,45 @@ function goToPage(url: string | null) {
 function clearAll() {
     router.get('/search', {}, { replace: true });
 }
+
+// SEO
+const baseUrl = useBaseUrl();
+
+const seoData = computed(() => {
+    const cuisine = props.cuisineName || (typeof props.filters.cuisine === 'string' ? props.filters.cuisine : null);
+    const title = cuisine
+        ? `Best ${cuisine} Near You | iPop360`
+        : 'Search Restaurants Near You | iPop360';
+    const description = cuisine
+        ? `Search ${cuisine.toLowerCase()} restaurants by cuisine, rating, and price. Find the most popular dining spots near you with iPop360's smart rankings.`
+        : 'Search for restaurants by cuisine, rating, and price. Find the most popular dining spots near you with iPop360\'s smart rankings.';
+
+    return useSeo({
+        title,
+        description,
+        type: 'website',
+    });
+});
+
+const structuredData = computed(() => {
+    if (props.restaurants.data.length === 0) return null;
+
+    const items = props.restaurants.data
+        .filter((_, index) => index < 10)
+        .map((restaurant, index) => ({
+            name: restaurant.name,
+            url: `${baseUrl.value}/restaurants/${restaurant.slug}`,
+            position: index + 1,
+        }));
+
+    return generateItemListJsonLd(items);
+});
 </script>
 
 <template>
     <AppLayout>
-        <Head title="Search Restaurants" />
+        <SeoMeta :seoData="seoData" />
+        <JsonLd :data="structuredData" />
 
         <div class="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8">
             <!-- Left sidebar: filters -->
@@ -83,13 +121,17 @@ function clearAll() {
             <main class="min-w-0 flex-1">
                 <!-- Sort bar -->
                 <div class="mb-4 flex items-center justify-between">
-                    <p class="text-sm text-muted-foreground">
-                        <span v-if="restaurants.data.length > 0">
-                            {{ (restaurants.current_page - 1) * restaurants.data.length + 1 }}–{{ restaurants.current_page * restaurants.data.length }} results
-                        </span>
-                        <span v-else>0 results</span>
-                        <template v-if="cuisineName"> for {{ cuisineName }}</template>
-                    </p>
+                    <div class="flex items-baseline gap-2">
+                        <h1 class="text-lg font-semibold text-foreground">
+                            {{ cuisineName || 'All Restaurants' }}
+                        </h1>
+                        <p class="text-sm text-muted-foreground">
+                            <span v-if="restaurants.data.length > 0">
+                                {{ (restaurants.current_page - 1) * restaurants.data.length + 1 }}–{{ restaurants.current_page * restaurants.data.length }} results
+                            </span>
+                            <span v-else>0 results</span>
+                        </p>
+                    </div>
                     <div class="flex items-center gap-2">
                         <label for="search-sort" class="text-sm text-muted-foreground">Sort:</label>
                         <select
