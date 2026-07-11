@@ -82,8 +82,18 @@ import BrandLogo from '@/Components/BrandLogo.vue';
                         </Link>
                     </nav>
                 </div>
-                <div class="mt-6 text-center text-xs text-muted-foreground">
+                <div class="mt-6 text-center text-xs text-muted-foreground space-y-1">
                     <p>&copy; {{ new Date().getFullYear() }} iPop360. All rights reserved.</p>
+                    <p>
+                        <a
+                            href="https://lp.similarweb.com/competitive-analysis-youtube/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="hover:text-foreground transition-colors"
+                        >
+                            Competitive analysis by Similarweb
+                        </a>
+                    </p>
                 </div>
             </div>
         </footer>
