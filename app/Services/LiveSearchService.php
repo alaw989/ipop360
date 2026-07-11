@@ -507,7 +507,7 @@ class LiveSearchService
      */
     private function filterByCuisineConfidence(array $results, CuisineScope $scope): array
     {
-        if (!$scope->isScoped()) {
+        if (! $scope->isScoped()) {
             return $results;
         }
 
