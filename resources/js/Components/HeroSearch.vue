@@ -52,7 +52,7 @@ function onDetect() {
 </script>
 
 <template>
-    <div class="flex flex-1 flex-col items-center justify-center px-4">
+    <div class="flex flex-col items-center px-4 pt-20">
         <div class="w-full max-w-4xl text-center">
             <!-- Logo -->
             <a href="/" class="mb-8 inline-block" aria-label="iPop360 home" @click.prevent="$emit('search')">

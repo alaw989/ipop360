@@ -7,10 +7,12 @@ use App\Http\Controllers\GeocodeController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RestaurantController;
+use App\Http\Controllers\SearchController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', HomeController::class);
+Route::get('/search', SearchController::class);
 
 Route::middleware(['throttle:60,1', 'log.api'])->group(function () {
     Route::get('/api/restaurants', [RestaurantController::class, 'apiIndex']);

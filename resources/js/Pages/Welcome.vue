@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3'
+import { Head, Link, router } from '@inertiajs/vue3'
 import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,9 @@ import { X } from '@lucide/vue'
 import JsonLd from '@/Components/JsonLd.vue'
 import HeroSearch from '@/Components/HeroSearch.vue'
 import StickySearchBar from '@/Components/StickySearchBar.vue'
+import CategoryGrid from '@/Components/CategoryGrid.vue'
+import PopularCuisines from '@/Components/PopularCuisines.vue'
+import PopularRestaurants from '@/Components/PopularRestaurants.vue'
 // Lazy-load the results tree (ResultsGrid + RestaurantCard + CardGallery + …) so
 // it isn't on the idle homepage entry chunk — it renders only in the results
 // phase (spec-061 bundle diet).
@@ -45,6 +48,19 @@ interface Location {
 
 const props = defineProps<{
     categories: Category[]
+    popularCuisines: Array<{
+        id: number
+        name: string
+        slug: string
+        icon: string | null
+        restaurants_count: number
+    }>
+    popularRestaurants: Array<{
+        name: string
+        slug: string
+        city: string | null
+        state: string | null
+    }>
     location: Location | null
     fallbackCoords: { lat: number; lng: number } | null
 }>()
@@ -133,12 +149,12 @@ function onCoords(lt: number, lg: number) {
 }
 
 function onSearch() {
-    search({
-        selectedCuisine: selectedCuisine.value,
-        selectedCategory: selectedCategory.value,
-        lat,
-        lng,
-        sort,
+    router.get('/search', {
+        cuisine: selectedCuisine.value,
+        category: selectedCategory.value || undefined,
+        lat: lat.value ?? undefined,
+        lng: lng.value ?? undefined,
+        sort: sort.value,
     })
 }
 
@@ -263,7 +279,7 @@ onMounted(() => {
              results on the back-transition (results-in-leave-active) to this box,
              not the viewport. -->
         <main class="relative flex flex-1 flex-col">
-            <!-- Centered hero (idle phase) -->
+            <!-- Centered hero (idle phase) — Transition watches HeroSearch's own v-if -->
             <Transition name="hero-out">
                 <HeroSearch
                     v-if="phase === 'idle'"
@@ -277,6 +293,21 @@ onMounted(() => {
                     @search="onSearch"
                 />
             </Transition>
+
+            <!-- Yelp-style homepage sections — only in idle phase, no transition needed -->
+            <template v-if="phase === 'idle'">
+                <CategoryGrid :categories="categories" />
+
+                <PopularCuisines
+                    :cuisines="popularCuisines"
+                    :city="persistedLocation?.city ?? null"
+                />
+
+                <PopularRestaurants
+                    :restaurants="popularRestaurants"
+                    :city="persistedLocation?.city ?? null"
+                />
+            </template>
 
             <!-- Results area (all non-idle phases) -->
             <Transition name="results-in">
