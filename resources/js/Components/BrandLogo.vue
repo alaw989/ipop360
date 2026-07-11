@@ -28,7 +28,7 @@ withDefaults(defineProps<{ wordmark?: boolean }>(), {
         />
         <span
             v-if="wordmark"
-            class="mt-[0.1em] font-semibold tracking-tight text-foreground"
+            class="mt-[0.1em] font-semibold tracking-tight"
             style="font-size: 0.38em"
         >iPop360</span>
     </span>

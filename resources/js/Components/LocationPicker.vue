@@ -21,6 +21,7 @@ interface CityResult {
 const props = defineProps<{
     location: Location | null
     detecting?: boolean
+    inverted?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -101,8 +102,13 @@ function onKeydown(e: KeyboardEvent) {
     <Popover v-model:open="open">
         <PopoverTrigger as-child>
             <button
-                class="inline-flex items-center gap-1 border-b-2 border-foreground/30 px-1 font-semibold text-foreground transition-all hover:border-foreground focus:outline-none"
-                :class="detecting ? 'animate-pulse text-primary' : ''"
+                class="inline-flex items-center gap-1 border-b-2 px-1 font-semibold transition-all focus:outline-none"
+                :class="[
+                    inverted
+                        ? 'border-white/30 text-white/80 hover:border-white hover:text-white'
+                        : 'border-foreground/30 text-foreground hover:border-foreground',
+                    detecting ? 'animate-pulse' : '',
+                ]"
             >
                 <svg v-if="detecting" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 animate-spin text-primary" viewBox="0 0 24 24" fill="none">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>

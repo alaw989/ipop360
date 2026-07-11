@@ -186,11 +186,13 @@ function onDetect() {
                     <h2 class="flex flex-wrap items-center justify-center gap-x-2 text-2xl font-medium leading-relaxed text-white sm:text-3xl">
                         <span>Find the most Popular</span>
                         <CuisinePicker
+                            inverted
                             :categories="categories"
                             @select="onCuisineSelect"
                         />
                         <span>Restaurants in</span>
                         <LocationPicker
+                            inverted
                             :location="location"
                             :detecting="detectingLocation"
                             @update="onLocationUpdate"
