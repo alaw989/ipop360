@@ -27,12 +27,16 @@ class SearchController extends Controller
             'price_range' => 'nullable|string|max:4',
             'distance' => 'nullable|integer|min:1|max:100',
             'page' => 'nullable|integer|min:1',
+            'cuisine' => 'nullable|string|exists:cuisines,slug',
+            'category' => 'nullable|string|exists:cuisine_categories,slug',
+            'lat' => 'nullable|numeric|between:-90,90',
+            'lng' => 'nullable|numeric|between:-180,180',
         ]);
 
         $sort = $validated['sort'] ?? 'best_match';
-        $cuisineSlug = $request->query('cuisine');
-        $categorySlug = $request->query('category');
-        $priceRange = $request->query('price_range');
+        $cuisineSlug = $validated['cuisine'] ?? null;
+        $categorySlug = $validated['category'] ?? null;
+        $priceRange = $validated['price_range'];
         $distanceKm = (int) ($validated['distance'] ?? 25);
         $cuisineName = null;
 
@@ -53,6 +57,23 @@ class SearchController extends Controller
 
         $query = $this->buildQuery($request);
         $scopeQuery = Restaurant::query()
+            ->when(
+                $cuisineSlug,
+                fn ($q) => $q->whereHas(
+                    'cuisines',
+                    fn ($cq) => $cq->where('slug', $cuisineSlug)
+                )
+            )
+            ->when(
+                $categorySlug && ! $cuisineSlug,
+                fn ($q) => $q->whereHas(
+                    'cuisines',
+                    fn ($cq) => $cq->whereHas(
+                        'category',
+                        fn ($ccq) => $ccq->where('slug', $categorySlug)
+                    )
+                )
+            )
             ->when(
                 $coords !== null,
                 fn ($q) => $q->nearby($coords['lat'], $coords['lng'], $distanceKm)
@@ -118,14 +139,12 @@ class SearchController extends Controller
         $formattedArray = $formatted->resolve();
         $restaurants->setCollection(collect($formattedArray));
 
-        $scopeQuery->getQuery()->columns = null;
-
         $categoryCounts = CuisineCategory::select('cuisine_categories.id', 'cuisine_categories.name', 'cuisine_categories.slug')
             ->selectRaw('COUNT(DISTINCT restaurants.id) as restaurants_count')
             ->join('cuisines', 'cuisines.category_id', '=', 'cuisine_categories.id')
             ->join('cuisine_restaurant', 'cuisine_restaurant.cuisine_id', '=', 'cuisines.id')
             ->join('restaurants', 'restaurants.id', '=', 'cuisine_restaurant.restaurant_id')
-            ->whereIn('restaurants.id', $scopeQuery->select('id'))
+            ->whereIn('restaurants.id', fn ($q) => $q->select('id')->from($scopeQuery->select('id')))
             ->groupBy('cuisine_categories.id', 'cuisine_categories.name', 'cuisine_categories.slug')
             ->orderByDesc('restaurants_count')
             ->get()
