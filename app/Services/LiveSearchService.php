@@ -28,7 +28,7 @@ class LiveSearchService
      * Search for restaurants near coordinates using external APIs.
      * All sources fire concurrently (BizData, Foursquare, Overpass) and are merged together.
      */
-    public function search(float $lat, float $lng, ?string $cuisineSlug = null, ?string $categorySlug = null, bool $cacheOnly = false, string $sort = 'best_match'): array
+    public function search(float $lat, float $lng, ?string $cuisineSlug = null, ?string $categorySlug = null, bool $cacheOnly = false, string $sort = 'best_match', ?float $distanceKm = null): array
     {
         $scope = $this->cuisineMatcher->resolveScope($cuisineSlug, $categorySlug);
 
@@ -62,7 +62,7 @@ class LiveSearchService
 
         // Geo-relevance: drop any venue beyond the configured max distance from
         // the search center (guards against out-of-area SerpApi/Socrata matches).
-        $results = $this->filterByDistance($results, $lat, $lng);
+        $results = $this->filterByDistance($results, $lat, $lng, $distanceKm);
 
         // spec-071: stamp each row's cuisine_match strength (recall-safe re-rank
         // signal). No-op when unscoped or when the kill-switch is off (no stamp →
@@ -575,9 +575,9 @@ class LiveSearchService
      * are kept — locality can't be disproven, and dropping them would sacrifice
      * recall for no relevance gain.
      */
-    private function filterByDistance(array $results, float $searchLat, float $searchLng): array
+    private function filterByDistance(array $results, float $searchLat, float $searchLng, ?float $maxKmOverride = null): array
     {
-        $maxKm = (float) config('restaurant-finder.live_search.max_distance_km', 50.0);
+        $maxKm = $maxKmOverride ?? (float) config('restaurant-finder.live_search.max_distance_km', 50.0);
 
         $kept = [];
         foreach ($results as $r) {

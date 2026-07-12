@@ -30,8 +30,8 @@ const detailOrMapsUrl = computed(() => {
 });
 
 const displayRating = computed(() => {
-    if (props.restaurant.yelp_rating) return { rating: props.restaurant.yelp_rating, count: props.restaurant.yelp_review_count, source: 'Yelp' };
-    if (props.restaurant.google_rating) return { rating: props.restaurant.google_rating, count: props.restaurant.google_review_count, source: 'Google' };
+    if (props.restaurant.yelp_rating) return { rating: props.restaurant.yelp_rating, count: props.restaurant.yelp_review_count, source: 'Yelp' as const };
+    if (props.restaurant.google_rating) return { rating: props.restaurant.google_rating, count: props.restaurant.google_review_count, source: 'Google' as const };
     return null;
 });
 
@@ -100,19 +100,24 @@ const gradient = computed(() => {
         <!-- Details section -->
         <div class="flex flex-1 flex-col justify-between p-4 min-w-0">
             <div class="space-y-1.5">
-                <!-- Name + address -->
+                <!-- Name + award + address -->
                 <div>
-                    <h3 class="text-base font-semibold leading-tight text-foreground transition-colors group-hover:text-primary">
-                        <a
-                            :href="detailOrMapsUrl"
-                            :target="restaurant.id > 0 ? undefined : '_blank'"
-                            :rel="restaurant.id > 0 ? undefined : 'noopener'"
-                            class="after:absolute after:inset-0 after:z-0"
-                        >
-                            {{ restaurant.name }}
-                        </a>
-                    </h3>
-                    <p v-if="restaurant.address || restaurant.city" class="truncate text-xs text-muted-foreground">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-base font-semibold leading-tight text-foreground transition-colors group-hover:text-primary truncate">
+                            <a
+                                :href="detailOrMapsUrl"
+                                :target="restaurant.id > 0 ? undefined : '_blank'"
+                                :rel="restaurant.id > 0 ? undefined : 'noopener'"
+                                class="after:absolute after:inset-0 after:z-0"
+                            >
+                                {{ restaurant.name }}
+                            </a>
+                        </h3>
+                        <span v-if="restaurant.has_award" class="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">
+                            ⭐ Award
+                        </span>
+                    </div>
+                    <p v-if="restaurant.address || restaurant.city" class="truncate text-xs text-muted-foreground mt-0.5">
                         {{ restaurant.address ? restaurant.address : [restaurant.city, restaurant.state].filter(Boolean).join(', ') }}
                     </p>
                 </div>
@@ -122,11 +127,10 @@ const gradient = computed(() => {
                     <StarRating
                         v-if="displayRating"
                         :rating="displayRating.rating"
+                        :source="displayRating.source"
+                        :review-count="displayRating.count"
                         size="sm"
                     />
-                    <span v-if="displayRating" class="text-xs tabular-nums text-muted-foreground">
-                        {{ displayRating.count.toLocaleString() }} reviews
-                    </span>
                     <span v-if="restaurant.price_range" class="text-sm font-semibold text-emerald-500 dark:text-emerald-400">
                         {{ restaurant.price_range }}
                     </span>

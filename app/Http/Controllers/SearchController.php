@@ -55,8 +55,18 @@ class SearchController extends Controller
 
         $coords = $this->geolocationService->resolveCoordinates($request);
 
-        $query = $this->buildQuery($request);
-        $scopeQuery = Restaurant::query()
+        // When no geolocation coords are available but the user explicitly passed a
+        // distance param, try the configured fallback so the distance filter still
+        // works (e.g. on local dev where IP geo is skipped for 127.0.0.1).
+        if ($coords === null && $request->has('distance')) {
+            $fallbackLat = config('restaurant-finder.live_search.distance_fallback_lat');
+            $fallbackLng = config('restaurant-finder.live_search.distance_fallback_lng');
+            if ($fallbackLat !== null && $fallbackLng !== null) {
+                $coords = ['lat' => (float) $fallbackLat, 'lng' => (float) $fallbackLng];
+            }
+        }
+
+        $query = Restaurant::query()
             ->when(
                 $cuisineSlug,
                 fn ($q) => $q->whereHas(
@@ -84,13 +94,6 @@ class SearchController extends Controller
             )
             ->active();
 
-        $query = $query
-            ->when(
-                $coords !== null,
-                fn ($q) => $q->nearby($coords['lat'], $coords['lng'], $distanceKm)
-            )
-            ->active();
-
         $query = $this->applySort($query, $sort, $coords !== null);
 
         $restaurants = $query->paginate(20)->withQueryString();
@@ -103,6 +106,7 @@ class SearchController extends Controller
                 $categorySlug,
                 false,
                 $sort,
+                $distanceKm,
             );
 
             if (! empty($liveResults)) {
@@ -144,7 +148,7 @@ class SearchController extends Controller
             ->join('cuisines', 'cuisines.category_id', '=', 'cuisine_categories.id')
             ->join('cuisine_restaurant', 'cuisine_restaurant.cuisine_id', '=', 'cuisines.id')
             ->join('restaurants', 'restaurants.id', '=', 'cuisine_restaurant.restaurant_id')
-            ->whereIn('restaurants.id', fn ($q) => $q->select('id')->from($scopeQuery->select('id')))
+            ->whereIn('restaurants.id', fn ($q) => $q->select('id')->from($query->select('id')))
             ->groupBy('cuisine_categories.id', 'cuisine_categories.name', 'cuisine_categories.slug')
             ->orderByDesc('restaurants_count')
             ->get()
@@ -163,38 +167,8 @@ class SearchController extends Controller
             'cuisineName' => $cuisineName,
             'categorySlug' => $categorySlug,
             'filterOptions' => $filterOptions,
+            'hasCoords' => $coords !== null,
         ]);
-    }
-
-    private function buildQuery(Request $request): Builder
-    {
-        $cuisineSlug = $request->query('cuisine');
-        $categorySlug = $request->query('category');
-        $priceRange = $request->query('price_range');
-
-        return Restaurant::query()
-            ->with('cuisines')
-            ->when(
-                $cuisineSlug,
-                fn ($q) => $q->whereHas(
-                    'cuisines',
-                    fn ($cq) => $cq->where('slug', $cuisineSlug)
-                )
-            )
-            ->when(
-                $categorySlug && ! $cuisineSlug,
-                fn ($q) => $q->whereHas(
-                    'cuisines',
-                    fn ($cq) => $cq->whereHas(
-                        'category',
-                        fn ($ccq) => $ccq->where('slug', $categorySlug)
-                    )
-                )
-            )
-            ->when(
-                $priceRange,
-                fn ($q) => $q->where('price_range', $priceRange)
-            );
     }
 
     private function applySort(Builder $query, string $sort, bool $hasCoords): Builder

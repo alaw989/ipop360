@@ -29,9 +29,16 @@ const props = defineProps<{
         priceOptions: string[];
         distanceOptions: number[];
     };
+    hasCoords: boolean;
 }>();
 
 const isLoading = ref(false);
+const dismissedLocationBanner = ref(localStorage.getItem('dismissedLocationBanner') === '1');
+
+function dismissLocationBanner() {
+    dismissedLocationBanner.value = true;
+    localStorage.setItem('dismissedLocationBanner', '1');
+}
 
 router.on('start', () => { isLoading.value = true; });
 router.on('finish', () => { isLoading.value = false; });
@@ -52,7 +59,13 @@ function updateSort(newSort: string) {
 }
 
 function handleFilterChange(changes: Record<string, string | undefined>) {
-    router.get('/search', { ...props.filters, ...changes, page: undefined }, { preserveState: true, replace: true });
+    const merged: Record<string, string> = {};
+    for (const [key, value] of Object.entries({ ...props.filters, ...changes, page: undefined })) {
+        if (value !== undefined && value !== null) {
+            merged[key] = value;
+        }
+    }
+    router.get('/search', merged, { preserveState: true, replace: true });
 }
 
 function goToPage(url: string | null) {
@@ -158,6 +171,20 @@ const structuredData = computed(() => {
                             <div class="h-4 w-full rounded bg-muted" />
                         </div>
                     </div>
+                </div>
+
+                <!-- Location needed banner -->
+                <div
+                    v-if="!dismissedLocationBanner && !hasCoords && filters.distance"
+                    class="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                >
+                    <span>Enable location sharing to filter results by distance.</span>
+                    <button
+                        class="ml-3 shrink-0 font-semibold text-amber-800 hover:text-amber-600 dark:text-amber-200 dark:hover:text-amber-400"
+                        @click="dismissLocationBanner"
+                    >
+                        Dismiss
+                    </button>
                 </div>
 
                 <!-- Empty state -->
