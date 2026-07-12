@@ -52,6 +52,20 @@ describe('usePersistedLocation (spec-045 city + coords round-trip)', () => {
         expect(cb).toHaveBeenCalledOnce();
     });
 
+    it('updates reactive refs immediately (not just localStorage)', () => {
+        const { location, lat, lng, persistLocation } = usePersistedLocation();
+
+        expect(location.value).toEqual({ city: null, state: null });
+        expect(lat.value).toBeNull();
+        expect(lng.value).toBeNull();
+
+        persistLocation('Dallas', 'TX', 32.7767, -96.7970);
+
+        expect(location.value).toEqual({ city: 'Dallas', state: 'TX' });
+        expect(lat.value).toBe(32.7767);
+        expect(lng.value).toBe(-96.7970);
+    });
+
     it('does not re-prompt when a saved city already exists', () => {
         const { persistLocation, restore } = usePersistedLocation();
         persistLocation('Austin', 'TX', 30.27, -97.74);

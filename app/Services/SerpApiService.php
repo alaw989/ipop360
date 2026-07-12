@@ -456,6 +456,7 @@ class SerpApiService
             'country' => $r['country'] ?? null,
             'phone' => $r['phone'] ?? null,
             'price_range' => $r['price_range'] ?? null,
+            'description' => $r['description'] ?? null,
             'photo_url' => $r['photo_url'] ?? null,
             'yelp_rating' => null,
             'yelp_review_count' => 0,

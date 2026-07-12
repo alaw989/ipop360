@@ -38,6 +38,9 @@ export function usePersistedLocation(initialLocation?: Location | null, initialC
      * wrong place.
      */
     function persistLocation(city: string | null, state: string | null, lt: number | null, lg: number | null): void {
+        location.value = { city, state };
+        lat.value = lt;
+        lng.value = lg;
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
             city,
             state,

@@ -391,6 +391,7 @@ class RestaurantEnrichmentService
             'longitude' => $venue['lng'] ?? null,
             'phone' => $venue['phone'] ?? null,
             'price_range' => $venue['price_range'] ?? null,
+            'description' => $venue['description'] ?? null,
             'photo_url' => $venue['photo_url'] ?? null,
             'yelp_rating' => $venue['yelp_rating'] ?? null,
             'yelp_review_count' => $venue['yelp_review_count'] ?? 0,
