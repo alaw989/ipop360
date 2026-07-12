@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { ChevronDown } from '@lucide/vue'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const props = defineProps<{
     cuisines: Array<{
@@ -10,6 +11,7 @@ const props = defineProps<{
         icon: string | null
     }>
     city: string | null
+    loading?: boolean
 }>()
 
 const showAll = ref(false)
@@ -23,7 +25,7 @@ const hasMore = computed(() => props.cuisines.length > initialLimit)
 </script>
 
 <template>
-    <section v-if="cuisines.length" class="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <section class="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <h2 class="mb-1 text-xl font-semibold text-foreground">
             Popular cuisines
             <span v-if="city"> in {{ city }}</span>
@@ -32,28 +34,36 @@ const hasMore = computed(() => props.cuisines.length > initialLimit)
             Discover top cuisines and their best restaurants
         </p>
 
-        <div class="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
-            <a
-                v-for="cuisine in visibleCuisines"
-                :key="cuisine.id"
-                :href="`/search?cuisine=${cuisine.slug}`"
-                class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-                <span class="text-base">{{ cuisine.icon }}</span>
-                <span>{{ cuisine.name }}</span>
-            </a>
+        <div v-if="loading" class="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+            <div v-for="i in 12" :key="'skeleton-' + i" class="flex items-center gap-2 px-2 py-1.5">
+                <Skeleton class="h-4 w-4 rounded-full" />
+                <Skeleton class="h-4 w-28" />
+            </div>
         </div>
+        <template v-else>
+            <div class="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+                <a
+                    v-for="cuisine in visibleCuisines"
+                    :key="cuisine.id"
+                    :href="`/search?cuisine=${cuisine.slug}`"
+                    class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                    <span class="text-base">{{ cuisine.icon }}</span>
+                    <span>{{ cuisine.name }}</span>
+                </a>
+            </div>
 
-        <button
-            v-if="hasMore"
-            class="mt-4 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            @click="showAll = !showAll"
-        >
-            <ChevronDown
-                class="h-4 w-4 transition-transform duration-200"
-                :class="showAll ? 'rotate-180' : ''"
-            />
-            <span>{{ showAll ? 'Show less' : 'Show more' }}</span>
-        </button>
+            <button
+                v-if="hasMore"
+                class="mt-4 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                @click="showAll = !showAll"
+            >
+                <ChevronDown
+                    class="h-4 w-4 transition-transform duration-200"
+                    :class="showAll ? 'rotate-180' : ''"
+                />
+                <span>{{ showAll ? 'Show less' : 'Show more' }}</span>
+            </button>
+        </template>
     </section>
 </template>
