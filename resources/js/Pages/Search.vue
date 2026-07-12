@@ -49,6 +49,8 @@ const sortOptions = [
     { value: 'rating', label: 'Rating' },
     { value: 'reviews', label: 'Reviews' },
     { value: 'price', label: 'Price (Low to High)' },
+    { value: 'social_presence', label: 'Social Presence' },
+    { value: 'website_traffic', label: 'Website Traffic' },
 ];
 
 const currentSort = computed(() => (props.filters.sort as string) || 'best_match');

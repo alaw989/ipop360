@@ -81,6 +81,8 @@ return [
             'google_rating' => env('RANK_WEIGHT_GOOGLE_RATING', 0.0),
             'google_review_count' => env('RANK_WEIGHT_GOOGLE_REVIEW_COUNT', 0.0),
             'popular_times_avg_busyness' => env('RANK_WEIGHT_POPULAR_TIMES', 0.0),
+            'social_links' => env('RANK_WEIGHT_SOCIAL_LINKS', 0.10),
+            'website_clicks_count' => env('RANK_WEIGHT_WEBSITE_CLICKS', 0.10),
         ],
 
         // spec-081: on a cuisine-scoped search, when enough confident matches
