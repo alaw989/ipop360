@@ -65,19 +65,6 @@ class HomeController extends Controller
             }
         }
 
-        if ($popularRestaurants->isEmpty() && $state) {
-            $popularRestaurants = Restaurant::active()
-                ->with('cuisines')
-                ->where('state', $state)
-                ->orderByDesc('popularity_score')
-                ->limit(18)
-                ->get();
-
-            if ($popularRestaurants->isNotEmpty()) {
-                $effectiveLocation = ['city' => null, 'state' => $state];
-            }
-        }
-
         if ($popularRestaurants->isEmpty()) {
             $popularRestaurants = Restaurant::active()
                 ->with('cuisines')
