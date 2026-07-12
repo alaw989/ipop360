@@ -12,7 +12,17 @@ const props = defineProps<{
     }>
     city: string | null
     loading?: boolean
+    lat?: number | null
+    lng?: number | null
 }>()
+
+function cuisineHref(slug: string): string {
+    let url = `/search?cuisine=${slug}`
+    if (props.lat != null && props.lng != null) {
+        url += `&lat=${props.lat}&lng=${props.lng}`
+    }
+    return url
+}
 
 const showAll = ref(false)
 const initialLimit = 12
@@ -45,7 +55,7 @@ const hasMore = computed(() => props.cuisines.length > initialLimit)
                 <a
                     v-for="cuisine in visibleCuisines"
                     :key="cuisine.id"
-                    :href="`/search?cuisine=${cuisine.slug}`"
+                    :href="cuisineHref(cuisine.slug)"
                     class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                     <span class="text-base">{{ cuisine.icon }}</span>
