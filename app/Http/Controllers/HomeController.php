@@ -111,7 +111,8 @@ class HomeController extends Controller
             ->orderBy('sort_order');
 
         if ($city && $state) {
-            $categories->whereHas('cuisines.restaurants', fn ($q) => $q->active()
+            $categories->whereHas('cuisines.restaurants', fn ($q) => $q
+                ->where('restaurants.is_active', true)
                 ->where('restaurants.city', $city)
                 ->where('restaurants.state', $state));
         }
