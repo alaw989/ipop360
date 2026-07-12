@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3'
-import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -46,6 +46,38 @@ interface Location {
     state: string | null
 }
 
+interface Restaurant {
+    id: number
+    name: string
+    slug: string
+    photo_url: string | null
+    city: string | null
+    state: string | null
+    price_range: string | null
+    google_rating: number | null
+    google_review_count: number
+    yelp_rating: number | null
+    yelp_review_count: number
+    has_award: boolean
+    popularity_score: number
+    latitude: number | null
+    longitude: number | null
+    cuisines: Array<{ id: number; name: string; slug: string }>
+}
+
+interface HomepageData {
+    categories: Category[]
+    popularCuisines: Array<{
+        id: number
+        name: string
+        slug: string
+        icon: string | null
+        restaurants_count: number
+    }>
+    popularRestaurants: Restaurant[]
+    location: Location | null
+}
+
 const props = defineProps<{
     categories: Category[]
     popularCuisines: Array<{
@@ -55,24 +87,7 @@ const props = defineProps<{
         icon: string | null
         restaurants_count: number
     }>
-    popularRestaurants: Array<{
-        id: number
-        name: string
-        slug: string
-        photo_url: string | null
-        city: string | null
-        state: string | null
-        price_range: string | null
-        google_rating: number | null
-        google_review_count: number
-        yelp_rating: number | null
-        yelp_review_count: number
-        has_award: boolean
-        popularity_score: number
-        latitude: number | null
-        longitude: number | null
-        cuisines: Array<{ id: number; name: string; slug: string }>
-    }>
+    popularRestaurants: Restaurant[]
     location: Location | null
     fallbackCoords: { lat: number; lng: number } | null
 }>()
@@ -141,6 +156,69 @@ const structuredData = computed(() => {
     const webSite = generateWebSiteJsonLd(`${baseUrl.value}/`, 'iPop360')
     const organization = generateOrganizationJsonLd(`${baseUrl.value}/`, 'iPop360')
     return [webSite, organization]
+})
+
+// Reactive homepage data — initialised from server props, then refetched when
+// the user changes city via LocationPicker. On mount, restorePersistedLocation
+// may pull a saved city from localStorage that differs from the server-rendered
+// props — the watcher below catches that change and fetches the correct data.
+const categories = ref<Category[]>(props.categories)
+const popularCuisines = ref<HomepageData['popularCuisines']>(props.popularCuisines)
+const popularRestaurants = ref<HomepageData['popularRestaurants']>(props.popularRestaurants)
+const dataLoading = ref(false)
+
+// Tracks the actual location scope of the data shown (may differ from the
+// selected city when no restaurants exist for it and fallback kicks in).
+const effectiveLocation = ref<Location | null>(props.location)
+
+onMounted(() => {
+    restorePersistedLocation()
+})
+
+// Abort controller for in-flight homepage-data fetches.
+const homepageAbortController = ref<AbortController | null>(null)
+
+function fetchHomepageData(city: string | null, state: string | null) {
+    homepageAbortController.value?.abort()
+    const controller = new AbortController()
+    homepageAbortController.value = controller
+
+    dataLoading.value = true
+
+    const params = new URLSearchParams()
+    if (city) params.set('city', city)
+    if (state) params.set('state', state)
+
+    fetch(`/api/homepage-data?${params}`, { signal: controller.signal })
+        .then(res => {
+            if (!res.ok) return
+            return res.json() as Promise<HomepageData>
+        })
+        .then(data => {
+            if (!data) return
+            categories.value = data.categories
+            popularCuisines.value = data.popularCuisines
+            popularRestaurants.value = data.popularRestaurants
+            effectiveLocation.value = data.location
+        })
+        .catch(err => {
+            if (err instanceof DOMException && err.name === 'AbortError') return
+        })
+        .finally(() => {
+            dataLoading.value = false
+        })
+}
+
+watch(
+    () => [persistedLocation.value?.city, persistedLocation.value?.state] as const,
+    ([newCity, newState]) => {
+        dataLoading.value = true
+        fetchHomepageData(newCity, newState)
+    },
+)
+
+onUnmounted(() => {
+    homepageAbortController.value?.abort()
 })
 
 // Event handlers from child components
@@ -214,15 +292,6 @@ function dismissGeolocationError() {
 function dismissLoadMoreError() {
     loadMoreError.value = null
 }
-
-// Mount: restore persisted location if one is saved. GPS detection is NOT
-// triggered on load (Lighthouse `geolocation-on-start`) — it fires only from
-// the user-gesture "detect" path (HeroSearch @detect → detectLocation). The
-// server's IP-based fallback coords (props.fallbackCoords) pre-fill a location
-// so the field isn't blank for first-time visitors.
-onMounted(() => {
-    restorePersistedLocation()
-})
 </script>
 
 <template>
@@ -280,16 +349,18 @@ onMounted(() => {
 
             <!-- Yelp-style homepage sections — only in idle phase, no transition needed -->
             <template v-if="phase === 'idle'">
-                <CategoryGrid :categories="categories" />
+                <CategoryGrid :categories="categories" :loading="dataLoading" />
 
                 <PopularCuisines
                     :cuisines="popularCuisines"
-                    :city="persistedLocation?.city ?? null"
+                    :city="effectiveLocation?.city ?? null"
+                    :loading="dataLoading"
                 />
 
                 <PopularRestaurants
                     :restaurants="popularRestaurants"
-                    :city="persistedLocation?.city ?? null"
+                    :city="effectiveLocation?.city ?? null"
+                    :loading="dataLoading"
                 />
             </template>
 

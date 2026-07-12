@@ -36,7 +36,7 @@ class SearchController extends Controller
         $sort = $validated['sort'] ?? 'best_match';
         $cuisineSlug = $validated['cuisine'] ?? null;
         $categorySlug = $validated['category'] ?? null;
-        $priceRange = $validated['price_range'];
+        $priceRange = $validated['price_range'] ?? null;
         $distanceKm = (int) ($validated['distance'] ?? 25);
         $cuisineName = null;
 
