@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
 interface SignalSegment {
   label: string
   contribution: number
   weight: number
   normalized: number
+  detail?: string
   color: string
   width: number
 }
@@ -25,12 +26,11 @@ const props = defineProps<{
       weight: number
       normalized: number
       contribution: number
+      detail?: string
     }>
     total: number
   }
 }>()
-
-const showTooltip = ref(false)
 
 const segmentColors: Record<string, string> = {
   'Quality': 'bg-red-500',
@@ -90,10 +90,6 @@ const scorePercent = computed(() => Math.round(props.breakdown.total * 100))
   <div class="relative">
     <div
       class="flex h-2 w-full overflow-hidden rounded-full bg-muted"
-      @mouseenter="showTooltip = true"
-      @mouseleave="showTooltip = false"
-      @focus="showTooltip = true"
-      @blur="showTooltip = false"
     >
       <div
         v-for="(seg, i) in barSegments"
@@ -107,25 +103,20 @@ const scorePercent = computed(() => Math.round(props.breakdown.total * 100))
       Score {{ scorePercent }}%
     </span>
 
-    <div
-      v-if="showTooltip && tooltipSignals.length > 0"
-      class="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2"
-    >
-      <div class="rounded-lg border border-border bg-popover px-3 py-2 shadow-lg">
-        <p class="mb-1.5 text-xs font-semibold text-popover-foreground">Score Breakdown</p>
-        <div class="space-y-1">
-          <div
-            v-for="seg in tooltipSignals"
-            :key="seg.label"
-            class="flex items-center gap-2 text-xs"
-          >
-            <span class="inline-block h-2 w-2 shrink-0 rounded-full" :class="seg.color" />
-            <span class="text-muted-foreground">{{ seg.label }}</span>
-            <span class="ml-auto tabular-nums text-popover-foreground">
-              {{ Math.round(seg.contribution * 100) }}%
-            </span>
-          </div>
+    <div class="mt-2 space-y-1">
+      <div
+        v-for="seg in tooltipSignals"
+        :key="seg.label"
+        class="flex flex-col gap-0.5"
+      >
+        <div class="flex items-center gap-2 text-xs">
+          <span class="inline-block h-2 w-2 shrink-0 rounded-full" :class="seg.color" />
+          <span class="font-medium text-foreground">{{ seg.label }}</span>
+          <span class="tabular-nums text-muted-foreground">{{ Math.round(seg.contribution * 100) }}%</span>
         </div>
+        <p v-if="seg.detail" class="ml-4 text-[11px] leading-tight text-muted-foreground">
+          {{ seg.detail }}
+        </p>
       </div>
     </div>
   </div>

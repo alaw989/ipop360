@@ -31,7 +31,7 @@ class PopularityScoreService
         'google_rating' => 0.0,
         'google_review_count' => 0.0,
         'popular_times_avg_busyness' => 0.0,
-        'social_links' => 0.10,
+        'social_links_count' => 0.10,
         'website_clicks_count' => 0.10,
     ];
 
@@ -49,7 +49,7 @@ class PopularityScoreService
         'has_award' => 'boolean',
         'cuisine_match' => 'passthrough',
         'popular_times_avg_busyness' => 'minmax',
-        'social_links' => 'boolean',
+        'social_links_count' => 'log_count',
         'website_clicks_count' => 'log_count',
     ];
 
@@ -76,7 +76,7 @@ class PopularityScoreService
         'popular_times_avg_busyness', // Bonus: Outscraper
         'photo_url',       // Bonus: scraper/BizData
         'features',        // Bonus: OSM tag extraction
-        'social_links',    // Bonus: website social link scraping
+        'social_links_count', // Bonus: website social link scraping
     ];
 
     private array $weights;
@@ -190,12 +190,13 @@ class PopularityScoreService
             'google_rating' => 'Google Rating',
             'google_review_count' => 'Google Reviews',
             'popular_times_avg_busyness' => 'Busyness',
-            'social_links' => 'Social Presence',
+            'social_links_count' => 'Social Presence',
             'website_clicks_count' => 'Website Traffic',
         ];
 
         $activeWeights = [];
         $activeNormalized = [];
+        $activeRaw = [];
 
         foreach ($this->weights as $signal => $weight) {
             $method = self::METHODS[$signal] ?? null;
@@ -211,6 +212,7 @@ class PopularityScoreService
 
             $activeWeights[$signal] = (float) $weight;
             $activeNormalized[$signal] = $this->normalize($method, $raw, $signal, $logDenoms, $minmax, $qualityMean);
+            $activeRaw[$signal] = $raw;
         }
 
         $totalActiveWeight = array_sum($activeWeights);
@@ -224,11 +226,13 @@ class PopularityScoreService
             $normalized = $activeNormalized[$signal] ?? 0.0;
             $contribution = ($weight / $totalActiveWeight) * $normalized;
             $score += $contribution;
+            $raw = $activeRaw[$signal] ?? null;
             $signals[] = [
                 'label' => $signalLabels[$signal] ?? $signal,
                 'weight' => round($weight / $totalActiveWeight, 4),
                 'normalized' => round($normalized, 4),
                 'contribution' => round($contribution, 4),
+                'detail' => $this->signalDetail($signal, $raw),
             ];
         }
 
@@ -244,6 +248,42 @@ class PopularityScoreService
             'signals' => $signals,
             'total' => round($score, 4),
         ];
+    }
+
+    private function signalDetail(string $signal, mixed $raw): string
+    {
+        return match ($signal) {
+            'quality' => $this->qualityDetail($raw),
+            'proximity' => sprintf('%.1f mi from your search location.', (float) $raw),
+            'data_completeness' => 'Profile completeness reflects how much information is available for this restaurant.',
+            'has_award' => 'Award-winning restaurant. This recognition is a strong quality signal.',
+            'cuisine_match' => 'Matches your search cuisine preference.',
+            'social_links_count' => sprintf('Found on %d platform(s). Social media presence indicates an active, engaged restaurant.', (int) $raw),
+            'website_clicks_count' => sprintf('%d click(s) from search results this month. Higher click-through rates show strong interest.', (int) $raw),
+            'yelp_rating', 'google_rating' => sprintf('Rated %.1f stars.', (float) ($raw ?? 0)),
+            'yelp_review_count', 'google_review_count' => sprintf('%d review(s).', (int) ($raw ?? 0)),
+            'popular_times_avg_busyness' => 'Popular times data is available for this restaurant.',
+            default => '',
+        };
+    }
+
+    private function qualityDetail(mixed $raw): string
+    {
+        $rating = (float) ($raw['rating'] ?? 0);
+        $reviews = (int) ($raw['reviews'] ?? 0);
+        $parts = [];
+
+        if ($rating > 0) {
+            $parts[] = sprintf('%.1f stars', $rating);
+        }
+        if ($reviews > 0) {
+            $parts[] = sprintf('%d review(s)', $reviews);
+        }
+        if (! empty($parts)) {
+            return implode(' from ', $parts).'. Bayesian rating shrinks low-review outliers toward the credible average.';
+        }
+
+        return 'Rating data is available.';
     }
 
     private function rawValue(Restaurant $restaurant, string $signal): mixed

@@ -133,7 +133,7 @@ class RestaurantWebsiteScraperService
      * Uses its own cache key prefix and 30-day TTL.
      *
      * @param  string  $websiteUrl  The restaurant's own website URL
-     * @return array|null Array of platform keys (e.g. ['instagram', 'facebook']), or null if scrape failed/disallowed
+     * @return array<string,string>|null Platform => URL mapping, or null if scrape failed/disallowed
      */
     public function scrapeSocial(string $websiteUrl): ?array
     {
@@ -188,7 +188,7 @@ class RestaurantWebsiteScraperService
                 $platforms = $this->fetchPageForSocial($pageUrl);
 
                 if ($platforms !== null) {
-                    $allPlatforms = array_values(array_unique([...$allPlatforms, ...$platforms]));
+                    $allPlatforms = array_merge($allPlatforms, $platforms);
                 }
 
                 if (count($allPlatforms) >= self::SOCIAL_STOP_EARLY_COUNT) {
@@ -262,28 +262,28 @@ class RestaurantWebsiteScraperService
     }
 
     /**
-     * Extract social media platform keys from HTML content.
+     * Extract social media links from HTML content.
      *
-     * Returns only the platform identifier (e.g., 'instagram', 'facebook')
-     * for each distinct social network found.
+     * Returns an associative array of platform => URL pairs for each
+     * distinct social network found on the page.
      *
-     * @return array<string> List of platform keys found
+     * @return array<string,string> Platform keys mapped to their full URLs
      */
     private function extractSocialLinks(string $html): array
     {
         $platforms = [];
 
         $patterns = [
-            'instagram' => '/https?:\/\/(www\.)?instagram\.com\/(?!p\/|stories\/)/i',
-            'facebook' => '/https?:\/\/(www\.)?(facebook\.com|fb\.com)\/(?!sharer\/|share\.php)/i',
-            'tiktok' => '/https?:\/\/(www\.)?tiktok\.com\/@/i',
-            'twitter' => '/https?:\/\/(www\.)?(twitter\.com|x\.com)\/(?!share)/i',
-            'youtube' => '/https?:\/\/(www\.)?(youtube\.com\/@|youtube\.com\/channel\/|youtu\.be\/)/i',
+            'instagram' => '/https?:\/\/(www\.)?instagram\.com\/[a-zA-Z0-9_.]+\/?/i',
+            'facebook' => '/https?:\/\/(www\.)?(facebook\.com|fb\.com)\/(?!sharer\/|share\.php)[a-zA-Z0-9.]+\/?/i',
+            'tiktok' => '/https?:\/\/(www\.)?tiktok\.com\/@[a-zA-Z0-9_.]+\/?/i',
+            'twitter' => '/https?:\/\/(www\.)?(twitter\.com|x\.com)\/(?!share)[a-zA-Z0-9_]+\/?/i',
+            'youtube' => '/https?:\/\/(www\.)?(youtube\.com\/(@|channel\/)|youtu\.be\/)[a-zA-Z0-9_-]+\/?/i',
         ];
 
         foreach ($patterns as $platform => $pattern) {
-            if (preg_match($pattern, $html)) {
-                $platforms[] = $platform;
+            if (preg_match($pattern, $html, $matches)) {
+                $platforms[$platform] = rtrim($matches[0], '/');
             }
         }
 
