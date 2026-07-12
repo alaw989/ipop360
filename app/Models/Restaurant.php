@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 /**
@@ -53,7 +54,7 @@ class Restaurant extends Model
         'directions_clicks_count',
         'call_clicks_count',
         'total_engagement',
-        'social_links',
+        'social_links_count',
     ];
 
     protected $casts = [
@@ -74,7 +75,7 @@ class Restaurant extends Model
         'directions_clicks_count' => 'integer',
         'call_clicks_count' => 'integer',
         'total_engagement' => 'integer',
-        'social_links' => 'array',
+        'social_links_count' => 'integer',
     ];
 
     protected static function booted(): void
@@ -98,6 +99,11 @@ class Restaurant extends Model
     {
         return $this->belongsToMany(User::class, 'favorite_restaurant_user')
             ->withTimestamps();
+    }
+
+    public function socialLinks(): HasMany
+    {
+        return $this->hasMany(RestaurantSocialLink::class);
     }
 
     public function scopeActive(Builder $query): Builder

@@ -20,7 +20,7 @@ class ScrapeRestaurantSocialLinks extends Command
             ->where('website_url', '!=', '');
 
         if (! $this->option('force')) {
-            $query->whereNull('social_links');
+            $query->where('social_links_count', 0);
         }
 
         $total = $query->count();
@@ -46,7 +46,16 @@ class ScrapeRestaurantSocialLinks extends Command
                     $links = $scraper->scrapeSocial($restaurant->website_url);
 
                     if ($links !== null) {
-                        $restaurant->update(['social_links' => $links]);
+                        $restaurant->socialLinks()->delete();
+
+                        foreach ($links as $platform => $url) {
+                            $restaurant->socialLinks()->create([
+                                'platform' => $platform,
+                                'url' => $url,
+                            ]);
+                        }
+
+                        $restaurant->update(['social_links_count' => count($links)]);
                         $scraped++;
                     } else {
                         $skipped++;
