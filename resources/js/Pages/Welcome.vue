@@ -350,12 +350,19 @@ function dismissLoadMoreError() {
 
             <!-- Yelp-style homepage sections — only in idle phase, no transition needed -->
             <template v-if="phase === 'idle'">
-                <CategoryGrid :categories="categories" :loading="dataLoading" />
+                <CategoryGrid
+                    :categories="categories"
+                    :loading="dataLoading"
+                    :lat="lat"
+                    :lng="lng"
+                />
 
                 <PopularCuisines
                     :cuisines="popularCuisines"
                     :city="effectiveLocation?.city ?? null"
                     :loading="dataLoading"
+                    :lat="lat"
+                    :lng="lng"
                 />
 
                 <PopularRestaurants

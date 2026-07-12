@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Skeleton } from '@/components/ui/skeleton'
 
-defineProps<{
+const props = defineProps<{
     categories: Array<{
         id: number
         name: string
@@ -9,7 +9,17 @@ defineProps<{
         icon: string | null
     }>
     loading?: boolean
+    lat?: number | null
+    lng?: number | null
 }>()
+
+function categoryHref(slug: string): string {
+    let url = `/search?category=${slug}`
+    if (props.lat != null && props.lng != null) {
+        url += `&lat=${props.lat}&lng=${props.lng}`
+    }
+    return url
+}
 </script>
 
 <template>
@@ -29,7 +39,7 @@ defineProps<{
             <a
                 v-for="category in categories"
                 :key="category.id"
-                :href="`/search?category=${category.slug}`"
+                :href="categoryHref(category.slug)"
                 class="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center transition-all hover:shadow-md hover:-translate-y-0.5"
             >
                 <span class="text-4xl">{{ category.icon }}</span>
