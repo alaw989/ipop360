@@ -66,6 +66,9 @@ class SearchControllerTest extends TestCase
 
     public function test_has_coords_is_false_when_no_coords_and_distance_no_fallback(): void
     {
+        Config::set('restaurant-finder.live_search.distance_fallback_lat', null);
+        Config::set('restaurant-finder.live_search.distance_fallback_lng', null);
+
         $response = $this->get('/search?distance=10');
 
         $response->assertStatus(200);
