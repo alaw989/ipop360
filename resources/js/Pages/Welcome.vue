@@ -163,6 +163,7 @@ const structuredData = computed(() => {
 // may pull a saved city from localStorage that differs from the server-rendered
 // props — the watcher below catches that change and fetches the correct data.
 const categories = ref<Category[]>(props.categories)
+const bannerCategories = ref<Category[]>(props.categories)
 const popularCuisines = ref<HomepageData['popularCuisines']>(props.popularCuisines)
 const popularRestaurants = ref<HomepageData['popularRestaurants']>(props.popularRestaurants)
 const dataLoading = ref(false)
@@ -336,7 +337,7 @@ function dismissLoadMoreError() {
             <Transition name="hero-out">
                 <HeroBanner
                     v-if="phase === 'idle'"
-                    :categories="categories"
+                    :categories="bannerCategories"
                     :location="persistedLocation"
                     :detecting-location="detectingLocation"
                     @cuisine-select="onCuisineSelect"
