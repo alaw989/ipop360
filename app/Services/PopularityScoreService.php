@@ -31,6 +31,8 @@ class PopularityScoreService
         'google_rating' => 0.0,
         'google_review_count' => 0.0,
         'popular_times_avg_busyness' => 0.0,
+        'social_links' => 0.10,
+        'website_clicks_count' => 0.10,
     ];
 
     /**
@@ -47,6 +49,8 @@ class PopularityScoreService
         'has_award' => 'boolean',
         'cuisine_match' => 'passthrough',
         'popular_times_avg_busyness' => 'minmax',
+        'social_links' => 'boolean',
+        'website_clicks_count' => 'log_count',
     ];
 
     /**
@@ -72,6 +76,7 @@ class PopularityScoreService
         'popular_times_avg_busyness', // Bonus: Outscraper
         'photo_url',       // Bonus: scraper/BizData
         'features',        // Bonus: OSM tag extraction
+        'social_links',    // Bonus: website social link scraping
     ];
 
     private array $weights;
@@ -137,6 +142,7 @@ class PopularityScoreService
             'log_denoms' => [
                 'yelp_review_count' => $this->logDenominator($allRestaurants, 'yelp_review_count'),
                 'google_review_count' => $this->logDenominator($allRestaurants, 'google_review_count'),
+                'website_clicks_count' => $this->logDenominator($allRestaurants, 'website_clicks_count'),
             ],
             'minmax' => [
                 'popular_times_avg_busyness' => $this->minmaxStats($allRestaurants, 'popular_times_avg_busyness'),
@@ -168,6 +174,7 @@ class PopularityScoreService
         $logDenoms = ($aggregates['log_denoms'] ?? []) + [
             'yelp_review_count' => (float) $this->logReviewDefault,
             'google_review_count' => (float) $this->logReviewDefault,
+            'website_clicks_count' => (float) $this->logReviewDefault,
         ];
         $minmax = $aggregates['minmax'] ?? [];
         $qualityMean = (float) ($aggregates['quality']['mean_rating'] ?? $this->qualityMeanFallback);
@@ -183,6 +190,8 @@ class PopularityScoreService
             'google_rating' => 'Google Rating',
             'google_review_count' => 'Google Reviews',
             'popular_times_avg_busyness' => 'Busyness',
+            'social_links' => 'Social Presence',
+            'website_clicks_count' => 'Website Traffic',
         ];
 
         $activeWeights = [];

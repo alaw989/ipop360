@@ -53,6 +53,7 @@ class Restaurant extends Model
         'directions_clicks_count',
         'call_clicks_count',
         'total_engagement',
+        'social_links',
     ];
 
     protected $casts = [
@@ -73,6 +74,7 @@ class Restaurant extends Model
         'directions_clicks_count' => 'integer',
         'call_clicks_count' => 'integer',
         'total_engagement' => 'integer',
+        'social_links' => 'array',
     ];
 
     protected static function booted(): void

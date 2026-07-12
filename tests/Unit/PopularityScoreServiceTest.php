@@ -33,7 +33,7 @@ class PopularityScoreServiceTest extends TestCase
 
     /**
      * Eight free-source descriptive fields fully populated, so data_completeness
-     * is a known 8/10 (popular_times/hours left null on the free-only path).
+     * is a known 8/11 (popular_times/hours/social_links left null on the free-only path).
      */
     private function fullFreeFields(): array
     {
@@ -60,10 +60,10 @@ class PopularityScoreServiceTest extends TestCase
         $score = $this->service->calculateScore($restaurant, $all);
 
         // Yelp weights are 0 (removed). Proximity + quality are inactive (no
-        // distance, no Google rating). Only data_completeness (8/10=0.8,
+        // distance, no Google rating). Only data_completeness (8/11=0.7273,
         // weight 0.05) and has_award (false=0.0, weight 0.15) contribute.
-        // Active weight 0.20. = (0.05/0.20)*0.8 = 0.2
-        $this->assertEqualsWithDelta(0.2, $score, 0.001);
+        // Active weight 0.20. = (0.05/0.20)*0.7273 = 0.1818
+        $this->assertEqualsWithDelta(0.1818, $score, 0.001);
     }
 
     public function test_no_data_scores_zero(): void
@@ -100,12 +100,12 @@ class PopularityScoreServiceTest extends TestCase
 
         $score = $this->service->calculateScore($restaurant, $all);
 
-        // completeness = 1/10 = 0.1 (only `name` filled; lat/lng are 0 sentinel);
+        // completeness = 1/11 = 0.0909 (only `name` filled; lat/lng are 0 sentinel);
         // has_award = 0. Proximity + quality inactive. Active weight 0.20
         // (data_completeness 0.05 + has_award 0.15).
-        // = (0.05/0.20)*0.1 = 0.025.
-        // (With the isFilled bug, lat/lng would count -> completeness 3/10 -> 0.1500.)
-        $this->assertEqualsWithDelta(0.025, $score, 0.001);
+        // = (0.05/0.20)*0.0909 = 0.0227.
+        // (With the isFilled bug, lat/lng would count -> completeness 3/11 -> 0.2727.)
+        $this->assertEqualsWithDelta(0.0227, $score, 0.001);
     }
 
     public function test_high_quality_outscores_low_quality(): void
@@ -197,9 +197,9 @@ class PopularityScoreServiceTest extends TestCase
         // Both venues score identically since they have the same data_completeness
         // and Yelp signals are removed (weight 0). Proximity + quality inactive
         // (no distance, Yelp-only). Active weight 0.20 (data_completeness 0.05 +
-        // has_award 0.15).
+        // has_award 0.15). completeness = 8/11 = 0.7273 → score = 0.1818.
         $this->assertEqualsWithDelta($venueScore, $outlierScore, 0.001);
-        $this->assertEqualsWithDelta(0.2, $venueScore, 0.001);
+        $this->assertEqualsWithDelta(0.1818, $venueScore, 0.001);
     }
 
     public function test_log_floor_prevents_compression(): void

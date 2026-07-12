@@ -44,6 +44,13 @@ Schedule::command('seo:sitemap')
     ->onOneServer()
     ->description('Generate sitemap.xml for SEO');
 
+// Schedule social link scraping (runs at 5:30 AM UTC)
+Schedule::command('restaurants:scrape-social')
+    ->dailyAt('05:30')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Scrape restaurant websites for social media links');
+
 // Aggregate engagement data into restaurant counters (runs at 1 AM UTC)
 Schedule::command('restaurants:update-engagement')
     ->dailyAt('01:00')

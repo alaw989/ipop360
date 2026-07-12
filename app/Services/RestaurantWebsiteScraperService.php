@@ -29,6 +29,9 @@ class RestaurantWebsiteScraperService
     /** Cache TTL for scraped data (7 days). */
     private const CACHE_TTL_DAYS = 7;
 
+    /** Cache TTL for social link scrape (30 days — links change rarely). */
+    private const SOCIAL_CACHE_TTL_DAYS = 30;
+
     /** Cache TTL for robots.txt (1 hour). */
     private const ROBOTS_CACHE_TTL_HOURS = 1;
 
@@ -43,6 +46,12 @@ class RestaurantWebsiteScraperService
 
     /** User agent for requests. */
     private const USER_AGENT = 'Mozilla/5.0 (compatible; iPop360-Bot/1.0; +https://ipop360.example.com/bot)';
+
+    /** Pages to check for social media links, in priority order. */
+    private const SOCIAL_SCRAPE_PATHS = ['/', '/contact', '/about'];
+
+    /** Stop early once this many distinct social platforms are found. */
+    private const SOCIAL_STOP_EARLY_COUNT = 3;
 
     /**
      * Scrape a restaurant's own website for opening hours and optional data.
@@ -114,6 +123,171 @@ class RestaurantWebsiteScraperService
         } finally {
             $lock?->release();
         }
+    }
+
+    /**
+     * Scrape a restaurant's own website for social media links.
+     *
+     * Checks multiple pages (homepage, /contact, /about) and stops early
+     * once SOCIAL_STOP_EARLY_COUNT distinct platforms are found.
+     * Uses its own cache key prefix and 30-day TTL.
+     *
+     * @param  string  $websiteUrl  The restaurant's own website URL
+     * @return array|null Array of platform keys (e.g. ['instagram', 'facebook']), or null if scrape failed/disallowed
+     */
+    public function scrapeSocial(string $websiteUrl): ?array
+    {
+        if (empty($websiteUrl)) {
+            return null;
+        }
+
+        if (! str_starts_with($websiteUrl, 'http://') && ! str_starts_with($websiteUrl, 'https://')) {
+            $websiteUrl = 'https://'.$websiteUrl;
+        }
+
+        $domain = $this->parseDomain($websiteUrl);
+        if ($domain === null) {
+            Log::warning('Failed to parse domain for social scrape', ['url' => $websiteUrl]);
+
+            return null;
+        }
+
+        // spec-075 SSRF guard — same as scrape()
+        if (config('restaurant-finder.website_scraper.ssrf_guard', true) && ! $this->isSafeUrl($websiteUrl)) {
+            Log::warning('Social scrape blocked by SSRF guard', ['url' => $websiteUrl, 'domain' => $domain]);
+
+            return null;
+        }
+
+        if (! $this->isAllowedByRobotsTxt($websiteUrl, $domain)) {
+            Log::info('Social scrape disallowed by robots.txt', ['url' => $websiteUrl, 'domain' => $domain]);
+
+            return null;
+        }
+
+        $cacheKey = 'social_scrape:'.md5($websiteUrl);
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $lock = Cache::lock("social_scraper:lock:{$domain}", 15);
+
+        try {
+            if (! $lock->get()) {
+                Log::debug('Concurrent social scrape in progress for domain', ['domain' => $domain]);
+
+                return null;
+            }
+
+            $scheme = parse_url($websiteUrl, PHP_URL_SCHEME) ?: 'https';
+            $allPlatforms = [];
+
+            foreach (self::SOCIAL_SCRAPE_PATHS as $path) {
+                $pageUrl = "{$scheme}://{$domain}{$path}";
+                $platforms = $this->fetchPageForSocial($pageUrl);
+
+                if ($platforms !== null) {
+                    $allPlatforms = array_values(array_unique([...$allPlatforms, ...$platforms]));
+                }
+
+                if (count($allPlatforms) >= self::SOCIAL_STOP_EARLY_COUNT) {
+                    break;
+                }
+            }
+
+            $result = ! empty($allPlatforms) ? $allPlatforms : null;
+
+            if ($result !== null) {
+                Cache::put($cacheKey, $result, now()->addDays(self::SOCIAL_CACHE_TTL_DAYS));
+            }
+
+            return $result;
+        } finally {
+            $lock?->release();
+        }
+    }
+
+    /**
+     * Fetch a single page URL and extract social platform links from its HTML.
+     *
+     * @return array|null Array of platform keys found on this page, or null on failure
+     */
+    private function fetchPageForSocial(string $url): ?array
+    {
+        $lastException = null;
+
+        for ($attempt = 1; $attempt <= self::MAX_RETRIES; $attempt++) {
+            try {
+                $response = Http::timeout(self::REQUEST_TIMEOUT)
+                    ->withUserAgent(self::USER_AGENT)
+                    ->withOptions(['allow_redirects' => $this->redirectOptions()])
+                    ->get($url);
+
+                if (! $response->successful()) {
+                    if ($response->clientError()) {
+                        return null; // 4xx is permanent — no retry
+                    }
+
+                    if ($attempt < self::MAX_RETRIES) {
+                        $this->backoff($attempt);
+
+                        continue;
+                    }
+
+                    return null;
+                }
+
+                $html = $response->body();
+                if (empty($html)) {
+                    return null;
+                }
+
+                return $this->extractSocialLinks($html);
+            } catch (ConnectionException $e) {
+                $lastException = $e;
+                if ($attempt < self::MAX_RETRIES) {
+                    $this->backoff($attempt);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Error during social page fetch', ['url' => $url, 'error' => $e->getMessage()]);
+
+                return null;
+            }
+        }
+
+        Log::warning('All retries exhausted for social page fetch', ['url' => $url]);
+
+        return null;
+    }
+
+    /**
+     * Extract social media platform keys from HTML content.
+     *
+     * Returns only the platform identifier (e.g., 'instagram', 'facebook')
+     * for each distinct social network found.
+     *
+     * @return array<string> List of platform keys found
+     */
+    private function extractSocialLinks(string $html): array
+    {
+        $platforms = [];
+
+        $patterns = [
+            'instagram' => '/https?:\/\/(www\.)?instagram\.com\/(?!p\/|stories\/)/i',
+            'facebook' => '/https?:\/\/(www\.)?(facebook\.com|fb\.com)\/(?!sharer\/|share\.php)/i',
+            'tiktok' => '/https?:\/\/(www\.)?tiktok\.com\/@/i',
+            'twitter' => '/https?:\/\/(www\.)?(twitter\.com|x\.com)\/(?!share)/i',
+            'youtube' => '/https?:\/\/(www\.)?(youtube\.com\/@|youtube\.com\/channel\/|youtu\.be\/)/i',
+        ];
+
+        foreach ($patterns as $platform => $pattern) {
+            if (preg_match($pattern, $html)) {
+                $platforms[] = $platform;
+            }
+        }
+
+        return $platforms;
     }
 
     /**

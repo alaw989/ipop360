@@ -23,7 +23,7 @@ class SearchController extends Controller
     public function __invoke(Request $request)
     {
         $validated = $request->validate([
-            'sort' => 'nullable|in:best_match,nearest,rating,reviews,price',
+            'sort' => 'nullable|in:best_match,nearest,rating,reviews,price,social_presence,website_traffic',
             'price_range' => 'nullable|string|max:4',
             'distance' => 'nullable|integer|min:1|max:100',
             'page' => 'nullable|integer|min:1',
@@ -211,6 +211,12 @@ class SearchController extends Controller
                         ELSE 2
                     END ASC
                 ')
+                ->orderByDesc('popularity_score'),
+            'social_presence' => $query
+                ->orderByRaw('CASE WHEN social_links IS NOT NULL THEN 1 ELSE 0 END DESC')
+                ->orderByDesc('popularity_score'),
+            'website_traffic' => $query
+                ->orderByDesc('website_clicks_count')
                 ->orderByDesc('popularity_score'),
             default => $query->orderByDesc('popularity_score'),
         };
