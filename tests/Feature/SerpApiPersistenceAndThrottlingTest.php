@@ -445,4 +445,73 @@ class SerpApiPersistenceAndThrottlingTest extends TestCase
             'second run should skip the cache-fresh combo (no re-fetch)'
         );
     }
+
+    /**
+     * Test that SerpApi-sourced venues persist description text.
+     */
+    public function test_serpapi_venue_persists_description(): void
+    {
+        Restaurant::query()->delete();
+
+        Http::fake([
+            'bizdata-web.vercel.app/*' => Http::response(['businesses' => []], 200),
+            'overpass-api.de/*' => Http::response(['elements' => []], 200),
+            'socrata*/*' => Http::response(['data' => []], 200),
+            'query.wikidata.org/*' => Http::response(['results' => ['bindings' => []]], 200),
+            'serpapi.com/*' => Http::response([
+                'local_results' => [
+                    [
+                        'title' => 'Descriptive Italian',
+                        'gps_coordinates' => ['latitude' => 37.7749, 'longitude' => -122.4194],
+                        'address' => '456 Oak St',
+                        'phone' => '+14155559876',
+                        'rating' => 4.5,
+                        'reviews' => 100,
+                        'description' => 'Family-owned Italian trattoria serving handmade pasta since 1985.',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $service = app(RestaurantEnrichmentService::class);
+        $service->enrichByCuisine(37.7749, -122.4194, $this->makeCuisine());
+
+        $restaurant = Restaurant::where('name', 'Descriptive Italian')->first();
+        $this->assertNotNull($restaurant);
+        $this->assertSame(
+            'Family-owned Italian trattoria serving handmade pasta since 1985.',
+            $restaurant->description
+        );
+    }
+
+    /**
+     * Test that a venue without a description stores null.
+     */
+    public function test_serpapi_venue_handles_null_description_gracefully(): void
+    {
+        Http::fake([
+            'bizdata-web.vercel.app/*' => Http::response(['businesses' => []], 200),
+            'overpass-api.de/*' => Http::response(['elements' => []], 200),
+            'socrata*/*' => Http::response(['data' => []], 200),
+            'query.wikidata.org/*' => Http::response(['results' => ['bindings' => []]], 200),
+            'serpapi.com/*' => Http::response([
+                'local_results' => [
+                    [
+                        'title' => 'No Description Trattoria',
+                        'gps_coordinates' => ['latitude' => 37.7749, 'longitude' => -122.4194],
+                        'address' => '789 Pine St',
+                        'rating' => 4.0,
+                        'reviews' => 50,
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $service = app(RestaurantEnrichmentService::class);
+        $service->enrichByCuisine(37.7749, -122.4194, $this->makeCuisine());
+
+        $restaurant = Restaurant::where('name', 'No Description Trattoria')->first();
+        $this->assertNotNull($restaurant);
+        $this->assertNull($restaurant->description);
+    }
 }
