@@ -517,6 +517,48 @@ class LiveSearchScoringTest extends TestCase
         $this->assertSame([], $service->search(37.7749, -122.4194, null));
     }
 
+    public function test_live_search_distance_parameter_overrides_config(): void
+    {
+        // The distance km param should override the default config.
+        // Without the param, both venues are within the 50 km default,
+        // but with 5 km the far one must be dropped.
+        $service = $this->makeServiceWithVenues([
+            'serpapi' => [
+                ['name' => 'Nearby', 'source' => 'serpapi', 'lat' => 37.78, 'lng' => -122.42],
+                ['name' => 'Far', 'source' => 'serpapi', 'lat' => 37.98, 'lng' => -122.42],
+            ],
+        ]);
+
+        $results = $service->search(37.7749, -122.4194, null, null, false, 'best_match', 5.0);
+        $names = array_column($results, 'name');
+
+        $this->assertContains('Nearby', $names);
+        $this->assertNotContains('Far', $names);
+    }
+
+    public function test_live_search_null_distance_parameter_falls_back_to_config(): void
+    {
+        $original = config('restaurant-finder.live_search.max_distance_km');
+        Config::set('restaurant-finder.live_search.max_distance_km', 5.0);
+
+        try {
+            $service = $this->makeServiceWithVenues([
+                'serpapi' => [
+                    ['name' => 'Nearby', 'source' => 'serpapi', 'lat' => 37.78, 'lng' => -122.42],
+                    ['name' => 'Far', 'source' => 'serpapi', 'lat' => 37.98, 'lng' => -122.42],
+                ],
+            ]);
+
+            $results = $service->search(37.7749, -122.4194, null);
+            $names = array_column($results, 'name');
+
+            $this->assertContains('Nearby', $names);
+            $this->assertNotContains('Far', $names);
+        } finally {
+            Config::set('restaurant-finder.live_search.max_distance_km', $original);
+        }
+    }
+
     public function test_live_search_drops_bizdata_venue_without_cuisine_keyword(): void
     {
         // The reported bug: a Chinese search surfaced El Comal / Asian Garden from

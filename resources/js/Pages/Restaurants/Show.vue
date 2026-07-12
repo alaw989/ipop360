@@ -177,18 +177,10 @@ const structuredData = computed(() => {
                             <CardContent class="p-4">
                                 <div class="space-y-2">
                                     <div v-if="restaurant.yelp_rating" class="flex items-center justify-between">
-                                        <span class="text-xs font-medium text-muted-foreground">Yelp</span>
-                                        <div class="flex items-center gap-2">
-                                            <StarRating :rating="restaurant.yelp_rating" size="sm" />
-                                            <span class="text-sm tabular-nums text-muted-foreground">({{ restaurant.yelp_review_count }})</span>
-                                        </div>
+                                        <StarRating :rating="restaurant.yelp_rating" source="Yelp" :review-count="restaurant.yelp_review_count" size="sm" />
                                     </div>
                                     <div v-if="restaurant.google_rating" class="flex items-center justify-between">
-                                        <span class="text-xs font-medium text-muted-foreground">Google</span>
-                                        <div class="flex items-center gap-2">
-                                            <StarRating :rating="restaurant.google_rating" size="sm" />
-                                            <span class="text-sm tabular-nums text-muted-foreground">({{ restaurant.google_review_count }})</span>
-                                        </div>
+                                        <StarRating :rating="restaurant.google_rating" source="Google" :review-count="restaurant.google_review_count" size="sm" />
                                     </div>
                                 </div>
                             </CardContent>

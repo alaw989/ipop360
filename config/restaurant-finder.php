@@ -173,6 +173,15 @@ return [
         // city + metro with margin. Env-overridable.
         'max_distance_km' => (float) env('LIVE_SEARCH_MAX_DISTANCE_KM', 50.0),
 
+        // Fallback coordinates used when geolocation is unavailable but the user
+        // has explicitly set a distance filter (e.g. on local dev where IP geo is
+        // skipped for 127.0.0.1). Set DISTANCE_FALLBACK_LAT/LNG in .env to match
+        // your seeded test data's region. Both must be non-empty to activate;
+        // leave unset (or empty) to silently skip distance filtering when coords
+        // are missing (default behaviour).
+        'distance_fallback_lat' => env('DISTANCE_FALLBACK_LAT'),
+        'distance_fallback_lng' => env('DISTANCE_FALLBACK_LNG'),
+
         // Cap the live result list after scoring. Socrata hardcodes a 100-row
         // $limit and SerpApi/Socrata together can return dozens of low-relevance
         // rows; without a cap the page dumps up to ~100 cards trailing to ~5%

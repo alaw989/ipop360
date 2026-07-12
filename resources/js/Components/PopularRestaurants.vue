@@ -47,8 +47,8 @@ const visibleRestaurants = computed(() =>
 const hasMore = computed(() => props.restaurants.length > initialLimit)
 
 function displayRating(r: Restaurant) {
-    if (r.yelp_rating) return { rating: Number(r.yelp_rating), count: r.yelp_review_count }
-    if (r.google_rating) return { rating: Number(r.google_rating), count: r.google_review_count }
+    if (r.yelp_rating) return { rating: Number(r.yelp_rating), count: r.yelp_review_count, source: 'Yelp' as const }
+    if (r.google_rating) return { rating: Number(r.google_rating), count: r.google_review_count, source: 'Google' as const }
     return null
 }
 
@@ -124,34 +124,27 @@ function rankBadge(rank: number) {
                         <div v-if="r.popularity_score > 0" class="absolute right-2 top-2">
                             <ScoreChip :total="r.popularity_score" />
                         </div>
-
-                        <!-- Award pill -->
-                        <div v-if="r.has_award" class="absolute bottom-2 left-2">
-                            <div class="inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-white shadow-lg ring-2 ring-white/50">
-                                <span>⭐</span>
-                                <span>Award</span>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- Details -->
                     <div class="flex flex-1 flex-col gap-1 p-3">
-                        <h3 class="text-sm font-semibold leading-tight text-foreground line-clamp-2">
-                            {{ r.name }}
-                        </h3>
+                        <div class="flex items-center gap-1.5">
+                            <h3 class="text-sm font-semibold leading-tight text-foreground line-clamp-2">
+                                {{ r.name }}
+                            </h3>
+                            <span v-if="r.has_award" class="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">
+                                ⭐
+                            </span>
+                        </div>
 
                         <div class="flex items-center gap-1 text-xs text-muted-foreground">
                             <StarRating
                                 v-if="displayRating(r)"
                                 :rating="displayRating(r)!.rating"
+                                :source="displayRating(r)!.source"
+                                :review-count="displayRating(r)!.count"
                                 size="sm"
                             />
-                            <span v-if="displayRating(r)" class="tabular-nums">
-                                {{ displayRating(r)!.rating.toFixed(1) }}
-                            </span>
-                            <span v-if="displayRating(r)" class="text-muted-foreground/60">
-                                ({{ displayRating(r)!.count }})
-                            </span>
                         </div>
 
                         <div class="flex items-center gap-1.5 text-xs text-muted-foreground">

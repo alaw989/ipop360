@@ -6,6 +6,7 @@ use App\Models\Cuisine;
 use App\Models\CuisineCategory;
 use App\Models\Restaurant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
 class SearchControllerTest extends TestCase
@@ -53,5 +54,43 @@ class SearchControllerTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page->component('Search'));
+    }
+
+    public function test_has_coords_is_false_when_no_coords_and_no_distance(): void
+    {
+        $response = $this->get('/search');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->where('hasCoords', false));
+    }
+
+    public function test_has_coords_is_false_when_no_coords_and_distance_no_fallback(): void
+    {
+        $response = $this->get('/search?distance=10');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->where('hasCoords', false));
+    }
+
+    public function test_has_coords_is_true_when_distance_and_fallback_configured(): void
+    {
+        Config::set('restaurant-finder.live_search.distance_fallback_lat', 30.6199);
+        Config::set('restaurant-finder.live_search.distance_fallback_lng', -88.1967);
+
+        $response = $this->get('/search?distance=10');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->where('hasCoords', true));
+    }
+
+    public function test_fallback_not_used_when_no_distance_param_even_if_configured(): void
+    {
+        Config::set('restaurant-finder.live_search.distance_fallback_lat', 30.6199);
+        Config::set('restaurant-finder.live_search.distance_fallback_lng', -88.1967);
+
+        $response = $this->get('/search');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->where('hasCoords', false));
     }
 }
