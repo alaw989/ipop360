@@ -395,6 +395,7 @@ class BackfillRestaurantWebsites extends Command
         $text = preg_replace('/[^a-z0-9\s-]/', '', $text);
         $text = preg_replace('/\s+/', '-', $text);
         $text = preg_replace('/-+/', '-', $text);
+
         return trim($text, '-');
     }
 }
