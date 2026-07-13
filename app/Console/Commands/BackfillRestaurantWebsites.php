@@ -168,7 +168,7 @@ class BackfillRestaurantWebsites extends Command
             $response = Http::timeout(8)
                 ->withUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
                 ->withOptions(['allow_redirects' => true])
-                ->get('https://www.google.com/search', ['q' => $query]);
+                ->get('https://www.bing.com/search', ['q' => $query]);
 
             if (! $response->successful()) {
                 return null;
@@ -176,8 +176,8 @@ class BackfillRestaurantWebsites extends Command
 
             $html = $response->body();
 
-            // Parse Google result links: <a href="/url?q=REAL_URL&amp;..."
-            preg_match_all('/<a[^>]+href="\/url\?q=([^"&]+)/i', $html, $matches);
+            // Bing stores the real URL in the u= parameter of ck/a redirect links
+            preg_match_all('~u=a1([a-zA-Z0-9+/=]+)~i', $html, $matches);
 
             if (empty($matches[1])) {
                 return null;
@@ -187,14 +187,18 @@ class BackfillRestaurantWebsites extends Command
                 '/facebook\.com/i', '/instagram\.com/i', '/twitter\.com/i', '/x\.com/i',
                 '/yelp\.com/i', '/tripadvisor\.com/i', '/youtube\.com/i', '/tiktok\.com/i',
                 '/linkedin\.com/i', '/pinterest\.com/i',
-                '/google\.com/i', '/googleusercontent\.com/i', '/accounts\.google\.com/i',
-                '/support\.google\.com/i', '/policies\.google\.com/i',
+                '/google\.com/i', '/bing\.com/i', '/microsoft\.com/i',
                 '/wikipedia\.org/i', '/menupix\.com/i', '/allmenus\.com/i',
                 '/restaurantguru\.com/i', '/opentable\.com/i', '/seamless\.com/i',
             ];
 
             foreach ($matches[1] as $encoded) {
-                $url = urldecode($encoded);
+                $decoded = base64_decode($encoded, true);
+                if ($decoded === false || empty($decoded)) {
+                    continue;
+                }
+
+                $url = urldecode($decoded);
 
                 if (! str_starts_with($url, 'http://') && ! str_starts_with($url, 'https://')) {
                     continue;
