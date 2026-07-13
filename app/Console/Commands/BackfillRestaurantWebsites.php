@@ -40,6 +40,12 @@ class BackfillRestaurantWebsites extends Command
             $this->webSearch($dryRun);
         }
 
+        $remaining = $this->countMissing();
+        if ($remaining > 0 && ! $skipSearch) {
+            $this->info("Guessing domains for {$remaining} restaurant(s)...");
+            $this->guessFromTitle($dryRun);
+        }
+
         $newWebsites = $this->countNewWebsites();
         if ($newWebsites > 0 && ! $dryRun) {
             $this->info("Scraping social links for {$newWebsites} new website(s)...");
@@ -305,5 +311,90 @@ class BackfillRestaurantWebsites extends Command
 
         $bar->finish();
         $this->newLine();
+    }
+
+    private function guessFromTitle(bool $dryRun): void
+    {
+        $limit = (int) $this->option('limit');
+        $restaurants = $this->missingRestaurants($limit)->get();
+        $total = $restaurants->count();
+
+        if ($total === 0) {
+            return;
+        }
+
+        $bar = $this->output->createProgressBar($total);
+        $bar->start();
+
+        $found = 0;
+
+        foreach ($restaurants as $restaurant) {
+            $candidates = $this->candidateDomains($restaurant->name, $restaurant->city);
+            $url = null;
+
+            foreach ($candidates as $domain) {
+                try {
+                    $response = Http::timeout(5)
+                        ->withUserAgent('Mozilla/5.0')
+                        ->head($domain);
+
+                    if ($response->successful()) {
+                        $url = $domain;
+                        break;
+                    }
+                } catch (\Throwable $e) {
+                    continue;
+                }
+            }
+
+            if ($url !== null) {
+                if (! $dryRun) {
+                    $restaurant->update(['website_url' => $url]);
+                }
+                $found++;
+                $this->found++;
+            }
+
+            $bar->advance();
+        }
+
+        $bar->finish();
+        $this->newLine();
+        $this->line("  Domain guessing found {$found} website(s).");
+    }
+
+    private function candidateDomains(string $name, ?string $city): array
+    {
+        $slug = $this->toSlug($name);
+        $citySlug = $city ? $this->toSlug($city) : '';
+
+        $domains = [
+            "https://www.{$slug}.com",
+            "https://{$slug}.com",
+        ];
+
+        if ($citySlug !== '') {
+            $domains[] = "https://www.{$slug}{$citySlug}.com";
+            $domains[] = "https://{$slug}{$citySlug}.com";
+        }
+
+        // Try with hyphens between words if multi-word
+        $words = explode('-', $slug);
+        if (count($words) > 1) {
+            $joined = implode('', $words);
+            $domains[] = "https://www.{$joined}.com";
+            $domains[] = "https://{$joined}.com";
+        }
+
+        return array_unique($domains);
+    }
+
+    private function toSlug(string $text): string
+    {
+        $text = strtolower(trim($text));
+        $text = preg_replace('/[^a-z0-9\s-]/', '', $text);
+        $text = preg_replace('/\s+/', '-', $text);
+        $text = preg_replace('/-+/', '-', $text);
+        return trim($text, '-');
     }
 }
