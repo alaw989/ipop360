@@ -44,6 +44,13 @@ Schedule::command('seo:sitemap')
     ->onOneServer()
     ->description('Generate sitemap.xml for SEO');
 
+// Schedule website backfill (runs at 5 AM UTC, before social scrape at 5:30)
+Schedule::command('restaurants:backfill-websites')
+    ->dailyAt('05:00')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Backfill missing website URLs from cache, web search, and domain guessing');
+
 // Schedule social link scraping (runs at 5:30 AM UTC)
 Schedule::command('restaurants:scrape-social')
     ->dailyAt('05:30')
