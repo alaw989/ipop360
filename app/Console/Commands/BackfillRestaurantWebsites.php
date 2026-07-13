@@ -167,8 +167,8 @@ class BackfillRestaurantWebsites extends Command
         try {
             $response = Http::timeout(8)
                 ->withUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-                ->withOptions(['allow_redirects' => false])
-                ->get('https://html.duckduckgo.com/html/', ['q' => $query]);
+                ->withOptions(['allow_redirects' => true])
+                ->get('https://www.google.com/search', ['q' => $query]);
 
             if (! $response->successful()) {
                 return null;
@@ -176,8 +176,8 @@ class BackfillRestaurantWebsites extends Command
 
             $html = $response->body();
 
-            // Parse DDG HTML results: <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=URL_ENCODED_URL">
-            preg_match_all('/uddg=([^&]+)/i', $html, $matches);
+            // Parse Google result links: <a href="/url?q=REAL_URL&amp;..."
+            preg_match_all('/<a[^>]+href="\/url\?q=([^"&]+)/i', $html, $matches);
 
             if (empty($matches[1])) {
                 return null;
@@ -186,10 +186,11 @@ class BackfillRestaurantWebsites extends Command
             $skipPatterns = [
                 '/facebook\.com/i', '/instagram\.com/i', '/twitter\.com/i', '/x\.com/i',
                 '/yelp\.com/i', '/tripadvisor\.com/i', '/youtube\.com/i', '/tiktok\.com/i',
-                '/linkedin\.com/i', '/pinterest\.com/i', '/duckduckgo\.com/i',
-                '/google\.com/i', '/bing\.com/i', '/wikipedia\.org/i',
-                '/menupix\.com/i', '/allmenus\.com/i', '/restaurantguru\.com/i',
-                '/opentable\.com/i',
+                '/linkedin\.com/i', '/pinterest\.com/i',
+                '/google\.com/i', '/googleusercontent\.com/i', '/accounts\.google\.com/i',
+                '/support\.google\.com/i', '/policies\.google\.com/i',
+                '/wikipedia\.org/i', '/menupix\.com/i', '/allmenus\.com/i',
+                '/restaurantguru\.com/i', '/opentable\.com/i', '/seamless\.com/i',
             ];
 
             foreach ($matches[1] as $encoded) {
