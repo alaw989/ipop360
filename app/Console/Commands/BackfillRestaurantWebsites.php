@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
+use App\Models\RestaurantSocialLink;
 use App\Services\RestaurantWebsiteScraperService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
@@ -51,9 +52,10 @@ class BackfillRestaurantWebsites extends Command
 
                         $links = $scraper->scrapeSocial($url);
                         if ($links !== null) {
-                            $restaurant->socialLinks()->delete();
+                            RestaurantSocialLink::where('restaurant_id', $restaurant->id)->delete();
                             foreach ($links as $platform => $linkUrl) {
-                                $restaurant->socialLinks()->create([
+                                RestaurantSocialLink::create([
+                                    'restaurant_id' => $restaurant->id,
                                     'platform' => $platform,
                                     'url' => $linkUrl,
                                 ]);
@@ -77,11 +79,11 @@ class BackfillRestaurantWebsites extends Command
         return self::SUCCESS;
     }
 
-    private function missingRestaurants(int $limit): Restaurant|Builder
+    private function missingRestaurants(int $limit): Builder
     {
         $q = Restaurant::query()
             ->active()
-            ->where(function ($q) {
+            ->where(function (Builder $q) {
                 $q->whereNull('website_url')->orWhere('website_url', '');
             });
 
@@ -111,10 +113,7 @@ class BackfillRestaurantWebsites extends Command
         $hits = 0;
 
         foreach ($cacheEntries as $entry) {
-            $venues = json_decode($entry->data, true);
-            if (! is_array($venues)) {
-                continue;
-            }
+            $venues = $entry->data;
 
             foreach ($venues as $venue) {
                 $websiteUrl = $venue['website_url'] ?? $venue['website'] ?? null;

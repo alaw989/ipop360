@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 
 /**
  * @property-read Collection<int, Cuisine> $cuisines
+ * @property-read Collection<int, RestaurantSocialLink> $socialLinks
  *
  * @method static Builder|Restaurant nearby(float $lat, float $lng, float $radiusKm = 25)
  * @method static Builder|Restaurant active()
