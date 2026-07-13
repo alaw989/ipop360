@@ -8,7 +8,6 @@ use App\Models\RestaurantSocialLink;
 use App\Services\RestaurantWebsiteScraperService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Http;
 
 class BackfillRestaurantWebsites extends Command
 {
@@ -16,74 +15,152 @@ class BackfillRestaurantWebsites extends Command
         {--dry-run : Show what would be updated without making changes}
         {--limit=0 : Max restaurants to process (0 = unlimited)}';
 
-    protected $description = 'Backfill missing website URLs from cache and web search, then scrape social links';
+    protected $description = 'Backfill missing website URLs from enriched cache, then scrape social links';
 
     private int $found = 0;
 
     public function handle(RestaurantWebsiteScraperService $scraper): int
     {
         $dryRun = $this->option('dry-run');
-        $limit = (int) $this->option('limit');
 
-        // Phase A: Match from enrichment cache
-        $this->info('Phase A: Checking enrichment cache...');
-        $this->matchFromCache($dryRun);
+        $this->line('Building cache index from SerpApi data...');
+        [$nameIndex, $phoneIndex] = $this->buildCacheIndex();
 
-        // Phase B: Web search for remaining
-        $remaining = $this->missingRestaurants($limit)->get();
+        $this->line('  Name index: '.count($nameIndex).' entries');
+        $this->line('  Phone index: '.count($phoneIndex).' entries');
 
-        if ($remaining->isEmpty()) {
-            $this->info('All restaurants have website URLs.');
+        // Phase A: Match by name (exact)
+        $this->info('Phase A: Matching by name...');
+        $this->matchFromIndex($nameIndex, 'name', $dryRun);
 
-            return self::SUCCESS;
+        // Phase B: Match remaining by phone
+        $remaining = $this->countMissing();
+        if ($remaining > 0) {
+            $this->info("Phase B: Matching {$remaining} restaurant(s) by phone...");
+            $this->matchFromIndex($phoneIndex, 'phone', $dryRun);
         }
 
-        $this->info('Phase B: Web searching for '.$remaining->count().' restaurants...');
-        $bar = $this->output->createProgressBar($remaining->count());
-        $bar->start();
-
-        foreach ($remaining as $restaurant) {
-            try {
-                $url = $this->searchWebsite($restaurant->name, $restaurant->city, $restaurant->state);
-
-                if ($url !== null) {
-                    if (! $dryRun) {
-                        $restaurant->update(['website_url' => $url]);
-
-                        $links = $scraper->scrapeSocial($url);
-                        if ($links !== null) {
-                            RestaurantSocialLink::where('restaurant_id', $restaurant->id)->delete();
-                            foreach ($links as $platform => $linkUrl) {
-                                RestaurantSocialLink::create([
-                                    'restaurant_id' => $restaurant->id,
-                                    'platform' => $platform,
-                                    'url' => $linkUrl,
-                                ]);
-                            }
-                            $restaurant->update(['social_links_count' => count($links)]);
-                        }
-                    }
-                    $this->found++;
-                }
-            } catch (\Throwable $e) {
-                $this->warn("  Error: {$restaurant->name} - {$e->getMessage()}");
-            }
-
-            $bar->advance();
+        // Phase C: Scrape social links for newly found websites
+        $newWebsites = $this->countNewWebsites($dryRun);
+        if ($newWebsites > 0 && ! $dryRun) {
+            $this->info("Phase C: Scraping social links for {$newWebsites} new website(s)...");
+            $this->scrapeSocialLinks($scraper);
         }
 
-        $bar->finish();
         $this->newLine();
         $this->info("Done. {$this->found} website(s) found.");
 
+        $left = $this->countMissing();
+        if ($left > 0) {
+            $this->warn("  {$left} restaurant(s) still missing website URLs (not found in cache).");
+        }
+
         return self::SUCCESS;
+    }
+
+    private function buildCacheIndex(): array
+    {
+        $nameIndex = [];
+        $phoneIndex = [];
+
+        $cacheEntries = ExternalApiCache::where('source', 'serpapi')->get();
+
+        foreach ($cacheEntries as $entry) {
+            $venues = $entry->data;
+
+            foreach ($venues as $venue) {
+                $website = $venue['website'] ?? $venue['website_url'] ?? null;
+                if (empty($website)) {
+                    continue;
+                }
+
+                $nameKey = $this->normalizeName($venue['title'] ?? $venue['name'] ?? '');
+                if ($nameKey !== '') {
+                    $nameIndex[$nameKey] = $venue + ['_website' => $website];
+                }
+
+                $phone = $venue['phone'] ?? null;
+                if (! empty($phone)) {
+                    $phoneDigits = substr(preg_replace('/\D+/', '', $phone), -10);
+                    if (strlen($phoneDigits) === 10) {
+                        $phoneIndex[$phoneDigits] = $venue + ['_website' => $website];
+                    }
+                }
+            }
+        }
+
+        return [$nameIndex, $phoneIndex];
+    }
+
+    private function normalizeName(string $name): string
+    {
+        return strtolower(trim(preg_replace('/\s+/', ' ', $name)));
+    }
+
+    private function matchFromIndex(array $index, string $matcher, bool $dryRun): void
+    {
+        $missing = $this->missingRestaurants(0)->get();
+
+        /** @var Restaurant $restaurant */
+        foreach ($missing as $restaurant) {
+            if ($matcher === 'name') {
+                $key = $this->normalizeName($restaurant->name);
+                $entry = $index[$key] ?? null;
+            } else {
+                $entry = $this->findByPhone($restaurant, $index);
+            }
+
+            if ($entry !== null) {
+                $website = $entry['_website'] ?? null;
+                if ($website !== null) {
+                    if (! $dryRun) {
+                        $restaurant->update(['website_url' => $website]);
+                    }
+                    $this->found++;
+                }
+            }
+        }
+    }
+
+    private function findByPhone(Restaurant $restaurant, array $phoneIndex): ?array
+    {
+        $restaurantDigits = substr(preg_replace('/\D+/', '', $restaurant->phone ?? ''), -10);
+        if (strlen($restaurantDigits) !== 10) {
+            return null;
+        }
+
+        return $phoneIndex[$restaurantDigits] ?? null;
+    }
+
+    private function countMissing(): int
+    {
+        return Restaurant::query()
+            ->active()
+            ->where(function ($q) {
+                $q->whereNull('website_url')->orWhere('website_url', '');
+            })
+            ->count();
+    }
+
+    private function countNewWebsites(bool $dryRun): int
+    {
+        if ($dryRun) {
+            return 0;
+        }
+
+        return Restaurant::query()
+            ->active()
+            ->whereNotNull('website_url')
+            ->where('website_url', '!=', '')
+            ->where('social_links_count', 0)
+            ->count();
     }
 
     private function missingRestaurants(int $limit): Builder
     {
         $q = Restaurant::query()
             ->active()
-            ->where(function (Builder $q) {
+            ->where(function ($q) {
                 $q->whereNull('website_url')->orWhere('website_url', '');
             });
 
@@ -94,110 +171,47 @@ class BackfillRestaurantWebsites extends Command
         return $q;
     }
 
-    private function matchFromCache(bool $dryRun): void
+    private function scrapeSocialLinks(RestaurantWebsiteScraperService $scraper): void
     {
-        $cacheEntries = ExternalApiCache::where('source', 'serpapi')->get();
+        $query = Restaurant::query()
+            ->active()
+            ->whereNotNull('website_url')
+            ->where('website_url', '!=', '')
+            ->where('social_links_count', 0);
 
-        // Build index of missing restaurants by name+city
-        $missing = $this->missingRestaurants(0)->get();
-        $index = [];
-        foreach ($missing as $r) {
-            $key = strtolower(trim($r->name)).'|'.strtolower(trim($r->city ?? ''));
-            $index[$key] = $r;
-        }
-
-        if (empty($index)) {
+        $total = $query->count();
+        if ($total === 0) {
             return;
         }
 
-        $hits = 0;
+        $bar = $this->output->createProgressBar($total);
+        $bar->start();
 
-        foreach ($cacheEntries as $entry) {
-            $venues = $entry->data;
+        $query->chunkById(50, function ($restaurants) use ($scraper, $bar) {
+            foreach ($restaurants as $restaurant) {
+                try {
+                    $links = $scraper->scrapeSocial($restaurant->website_url);
 
-            foreach ($venues as $venue) {
-                $websiteUrl = $venue['website_url'] ?? $venue['website'] ?? null;
-                if (empty($websiteUrl)) {
-                    continue;
-                }
-
-                $venueName = $venue['title'] ?? $venue['name'] ?? null;
-                $venueCity = $venue['city'] ?? null;
-                if (empty($venueName)) {
-                    continue;
-                }
-
-                $key = strtolower(trim($venueName)).'|'.strtolower(trim($venueCity ?? ''));
-                $restaurant = $index[$key] ?? null;
-
-                if ($restaurant !== null) {
-                    if (! $dryRun) {
-                        $restaurant->update(['website_url' => $websiteUrl]);
+                    if ($links !== null) {
+                        RestaurantSocialLink::where('restaurant_id', $restaurant->id)->delete();
+                        foreach ($links as $platform => $url) {
+                            RestaurantSocialLink::create([
+                                'restaurant_id' => $restaurant->id,
+                                'platform' => $platform,
+                                'url' => $url,
+                            ]);
+                        }
+                        $restaurant->update(['social_links_count' => count($links)]);
                     }
-                    $hits++;
-                    $this->found++;
-                    unset($index[$key]);
-                }
-            }
-        }
-
-        $this->line("  Cache matched {$hits} restaurant(s).");
-    }
-
-    private function searchWebsite(string $name, ?string $city, ?string $state): ?string
-    {
-        $query = trim("{$name} {$city} {$state} official website");
-        $query = substr($query, 0, 200);
-
-        try {
-            $response = Http::timeout(8)
-                ->withUserAgent('Mozilla/5.0 (compatible; iPop360-Bot/1.0)')
-                ->get('https://lite.duckduckgo.com/lite/', ['q' => $query]);
-
-            if (! $response->successful()) {
-                return null;
-            }
-
-            $html = $response->body();
-
-            preg_match_all('/<a[^>]+class="result-link"[^>]*href="([^"]+)"[^>]*>/i', $html, $matches);
-
-            if (empty($matches[1])) {
-                return null;
-            }
-
-            foreach ($matches[1] as $url) {
-                $url = trim(html_entity_decode($url, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-
-                if (! str_starts_with($url, 'http://') && ! str_starts_with($url, 'https://')) {
-                    continue;
+                } catch (\Throwable $e) {
+                    // Individual failure — skip
                 }
 
-                $host = parse_url($url, PHP_URL_HOST);
-                if ($host === false || $host === null) {
-                    continue;
-                }
-
-                $skipDomains = [
-                    'facebook.com', 'instagram.com', 'twitter.com', 'x.com',
-                    'yelp.com', 'tripadvisor.com', 'google.com', 'youtube.com',
-                    'linkedin.com', 'pinterest.com', 'tiktok.com',
-                    'duckduckgo.com', 'bing.com',
-                ];
-
-                $hostLower = strtolower($host);
-                foreach ($skipDomains as $skip) {
-                    if ($hostLower === $skip || str_ends_with($hostLower, '.'.$skip)) {
-                        continue 2;
-                    }
-                }
-
-                return $url;
+                $bar->advance();
             }
+        });
 
-            return null;
-        } catch (\Throwable $e) {
-            return null;
-        }
+        $bar->finish();
+        $this->newLine();
     }
 }
