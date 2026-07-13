@@ -8,128 +8,219 @@ use App\Models\RestaurantSocialLink;
 use App\Services\RestaurantWebsiteScraperService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Http;
 
 class BackfillRestaurantWebsites extends Command
 {
     protected $signature = 'restaurants:backfill-websites
         {--dry-run : Show what would be updated without making changes}
-        {--limit=0 : Max restaurants to process (0 = unlimited)}';
+        {--limit=0 : Max restaurants to process (0 = unlimited)}
+        {--skip-cache : Skip the cache lookup phase}
+        {--skip-search : Skip the web search phase}';
 
-    protected $description = 'Backfill missing website URLs from enriched cache, then scrape social links';
+    protected $description = 'Backfill missing website URLs from cache and web search, then scrape social links';
 
     private int $found = 0;
+
+    private const CACHE_SOURCES = ['serpapi', 'preview', 'bizdata'];
 
     public function handle(RestaurantWebsiteScraperService $scraper): int
     {
         $dryRun = $this->option('dry-run');
+        $skipCache = $this->option('skip-cache');
+        $skipSearch = $this->option('skip-search');
 
-        $this->line('Building cache index from SerpApi data...');
-        [$nameIndex, $phoneIndex] = $this->buildCacheIndex();
-
-        $this->line('  Name index: '.count($nameIndex).' entries');
-        $this->line('  Phone index: '.count($phoneIndex).' entries');
-
-        // Phase A: Match by name (exact)
-        $this->info('Phase A: Matching by name...');
-        $this->matchFromIndex($nameIndex, 'name', $dryRun);
-
-        // Phase B: Match remaining by phone
-        $remaining = $this->countMissing();
-        if ($remaining > 0) {
-            $this->info("Phase B: Matching {$remaining} restaurant(s) by phone...");
-            $this->matchFromIndex($phoneIndex, 'phone', $dryRun);
+        if (! $skipCache) {
+            $this->matchFromCache($dryRun);
         }
 
-        // Phase C: Scrape social links for newly found websites
-        $newWebsites = $this->countNewWebsites($dryRun);
+        $remaining = $this->countMissing();
+        if ($remaining > 0 && ! $skipSearch) {
+            $this->info("Web searching for {$remaining} restaurant(s)...");
+            $this->webSearch($dryRun);
+        }
+
+        $newWebsites = $this->countNewWebsites();
         if ($newWebsites > 0 && ! $dryRun) {
-            $this->info("Phase C: Scraping social links for {$newWebsites} new website(s)...");
+            $this->info("Scraping social links for {$newWebsites} new website(s)...");
             $this->scrapeSocialLinks($scraper);
         }
 
         $this->newLine();
         $this->info("Done. {$this->found} website(s) found.");
-
         $left = $this->countMissing();
         if ($left > 0) {
-            $this->warn("  {$left} restaurant(s) still missing website URLs (not found in cache).");
+            $this->warn("  {$left} restaurant(s) still missing website URLs.");
         }
 
         return self::SUCCESS;
     }
 
-    private function buildCacheIndex(): array
+    private function matchFromCache(bool $dryRun): void
     {
-        $nameIndex = [];
+        $this->line('Building cache index...');
         $phoneIndex = [];
+        $nameIndex = [];
 
-        $cacheEntries = ExternalApiCache::where('source', 'serpapi')->get();
+        foreach (self::CACHE_SOURCES as $source) {
+            $entries = ExternalApiCache::where('source', $source)->get();
+            foreach ($entries as $entry) {
+                $venues = $entry->data;
+                foreach ($venues as $venue) {
+                    $website = $venue['website'] ?? $venue['website_url'] ?? null;
+                    if (empty($website)) {
+                        continue;
+                    }
+                    $name = $this->normalize($venue['title'] ?? $venue['name'] ?? '');
+                    if ($name !== '') {
+                        $nameIndex[$name] = $website;
+                    }
+                    $phone = $venue['phone'] ?? null;
+                    if (! empty($phone)) {
+                        $digits = substr(preg_replace('/\D+/', '', $phone), -10);
+                        if (strlen($digits) === 10) {
+                            $phoneIndex[$digits] = $website;
+                        }
+                    }
+                }
+            }
+        }
 
-        foreach ($cacheEntries as $entry) {
-            $venues = $entry->data;
+        $this->line('  Name index: '.count($nameIndex).', Phone index: '.count($phoneIndex));
 
-            foreach ($venues as $venue) {
-                $website = $venue['website'] ?? $venue['website_url'] ?? null;
-                if (empty($website)) {
+        $missing = $this->missingRestaurants(0)->get();
+        $hits = 0;
+
+        foreach ($missing as $restaurant) {
+            $website = null;
+
+            // Try name match
+            $nameKey = $this->normalize($restaurant->name);
+            if (isset($nameIndex[$nameKey])) {
+                $website = $nameIndex[$nameKey];
+            }
+
+            // Try phone match
+            if ($website === null) {
+                $phoneDigits = substr(preg_replace('/\D+/', '', $restaurant->phone ?? ''), -10);
+                if (strlen($phoneDigits) === 10 && isset($phoneIndex[$phoneDigits])) {
+                    $website = $phoneIndex[$phoneDigits];
+                }
+            }
+
+            if ($website !== null) {
+                if (! $dryRun) {
+                    $restaurant->update(['website_url' => $website]);
+                }
+                $hits++;
+                $this->found++;
+            }
+        }
+
+        $this->line("  Cache matched {$hits} restaurant(s).");
+    }
+
+    private function webSearch(bool $dryRun): void
+    {
+        $limit = (int) $this->option('limit');
+        $restaurants = $this->missingRestaurants($limit)->get();
+        $total = $restaurants->count();
+
+        if ($total === 0) {
+            return;
+        }
+
+        $bar = $this->output->createProgressBar($total);
+        $bar->start();
+
+        $found = 0;
+
+        foreach ($restaurants as $restaurant) {
+            $url = $this->searchDuckDuckGo($restaurant->name, $restaurant->city, $restaurant->state);
+
+            if ($url !== null) {
+                if (! $dryRun) {
+                    $restaurant->update(['website_url' => $url]);
+                }
+                $found++;
+                $this->found++;
+            }
+
+            // Small delay to avoid rate limiting
+            if (! $dryRun) {
+                usleep(200_000);
+            }
+
+            $bar->advance();
+        }
+
+        $bar->finish();
+        $this->newLine();
+        $this->line("  Web search found {$found} website(s).");
+    }
+
+    private function searchDuckDuckGo(string $name, ?string $city, ?string $state): ?string
+    {
+        $query = trim("{$name} {$city} {$state} official website");
+        $query = substr($query, 0, 200);
+
+        try {
+            $response = Http::timeout(8)
+                ->withUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+                ->withOptions(['allow_redirects' => false])
+                ->get('https://html.duckduckgo.com/html/', ['q' => $query]);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $html = $response->body();
+
+            // Parse DDG HTML results: <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=URL_ENCODED_URL">
+            preg_match_all('/uddg=([^&]+)/i', $html, $matches);
+
+            if (empty($matches[1])) {
+                return null;
+            }
+
+            $skipPatterns = [
+                '/facebook\.com/i', '/instagram\.com/i', '/twitter\.com/i', '/x\.com/i',
+                '/yelp\.com/i', '/tripadvisor\.com/i', '/youtube\.com/i', '/tiktok\.com/i',
+                '/linkedin\.com/i', '/pinterest\.com/i', '/duckduckgo\.com/i',
+                '/google\.com/i', '/bing\.com/i', '/wikipedia\.org/i',
+                '/menupix\.com/i', '/allmenus\.com/i', '/restaurantguru\.com/i',
+                '/opentable\.com/i',
+            ];
+
+            foreach ($matches[1] as $encoded) {
+                $url = urldecode($encoded);
+
+                if (! str_starts_with($url, 'http://') && ! str_starts_with($url, 'https://')) {
                     continue;
                 }
 
-                $nameKey = $this->normalizeName($venue['title'] ?? $venue['name'] ?? '');
-                if ($nameKey !== '') {
-                    $nameIndex[$nameKey] = $venue + ['_website' => $website];
-                }
-
-                $phone = $venue['phone'] ?? null;
-                if (! empty($phone)) {
-                    $phoneDigits = substr(preg_replace('/\D+/', '', $phone), -10);
-                    if (strlen($phoneDigits) === 10) {
-                        $phoneIndex[$phoneDigits] = $venue + ['_website' => $website];
+                $skip = false;
+                foreach ($skipPatterns as $pattern) {
+                    if (preg_match($pattern, $url)) {
+                        $skip = true;
+                        break;
                     }
                 }
-            }
-        }
 
-        return [$nameIndex, $phoneIndex];
-    }
-
-    private function normalizeName(string $name): string
-    {
-        return strtolower(trim(preg_replace('/\s+/', ' ', $name)));
-    }
-
-    private function matchFromIndex(array $index, string $matcher, bool $dryRun): void
-    {
-        $missing = $this->missingRestaurants(0)->get();
-
-        /** @var Restaurant $restaurant */
-        foreach ($missing as $restaurant) {
-            if ($matcher === 'name') {
-                $key = $this->normalizeName($restaurant->name);
-                $entry = $index[$key] ?? null;
-            } else {
-                $entry = $this->findByPhone($restaurant, $index);
-            }
-
-            if ($entry !== null) {
-                $website = $entry['_website'] ?? null;
-                if ($website !== null) {
-                    if (! $dryRun) {
-                        $restaurant->update(['website_url' => $website]);
-                    }
-                    $this->found++;
+                if (! $skip) {
+                    return $url;
                 }
             }
-        }
-    }
 
-    private function findByPhone(Restaurant $restaurant, array $phoneIndex): ?array
-    {
-        $restaurantDigits = substr(preg_replace('/\D+/', '', $restaurant->phone ?? ''), -10);
-        if (strlen($restaurantDigits) !== 10) {
+            return null;
+        } catch (\Throwable $e) {
             return null;
         }
+    }
 
-        return $phoneIndex[$restaurantDigits] ?? null;
+    private function normalize(string $name): string
+    {
+        return strtolower(trim(preg_replace('/\s+/', ' ', preg_replace('/[^a-z0-9\s]/i', '', $name))));
     }
 
     private function countMissing(): int
@@ -142,12 +233,8 @@ class BackfillRestaurantWebsites extends Command
             ->count();
     }
 
-    private function countNewWebsites(bool $dryRun): int
+    private function countNewWebsites(): int
     {
-        if ($dryRun) {
-            return 0;
-        }
-
         return Restaurant::query()
             ->active()
             ->whereNotNull('website_url')

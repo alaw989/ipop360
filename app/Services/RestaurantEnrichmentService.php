@@ -390,6 +390,7 @@ class RestaurantEnrichmentService
             'latitude' => $venue['lat'] ?? null,
             'longitude' => $venue['lng'] ?? null,
             'phone' => $venue['phone'] ?? null,
+            'website_url' => $venue['website_url'] ?? $venue['website'] ?? null,
             'price_range' => $venue['price_range'] ?? null,
             'description' => $venue['description'] ?? null,
             'photo_url' => $venue['photo_url'] ?? null,
@@ -432,7 +433,49 @@ class RestaurantEnrichmentService
 
         $restaurant->cuisines()->syncWithoutDetaching([$cuisine->id]);
 
+        // Post-creation backfill: if still no website_url, check cache by phone
+        if (empty($restaurant->website_url) && ! empty($venue['phone'])) {
+            $cachedUrl = $this->findWebsiteByPhoneInCache($venue['phone']);
+            if ($cachedUrl !== null) {
+                $restaurant->update(['website_url' => $cachedUrl]);
+            }
+        }
+
         return $restaurant;
+    }
+
+    /**
+     * Search the external API cache for a website URL matching a phone number.
+     */
+    private function findWebsiteByPhoneInCache(string $phone): ?string
+    {
+        $phoneDigits = substr(preg_replace('/\D+/', '', $phone), -10);
+        if (strlen($phoneDigits) !== 10) {
+            return null;
+        }
+
+        $cacheEntries = ExternalApiCache::whereIn('source', ['serpapi', 'preview', 'bizdata'])->get();
+
+        foreach ($cacheEntries as $entry) {
+            $venues = $entry->data;
+
+            foreach ($venues as $venue) {
+                $cachedPhone = $venue['phone'] ?? null;
+                if (empty($cachedPhone)) {
+                    continue;
+                }
+
+                $cachedDigits = substr(preg_replace('/\D+/', '', $cachedPhone), -10);
+                if ($cachedDigits === $phoneDigits) {
+                    $website = $venue['website'] ?? $venue['website_url'] ?? null;
+                    if (! empty($website)) {
+                        return $website;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
