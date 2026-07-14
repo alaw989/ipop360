@@ -330,12 +330,13 @@ return [
     */
     'enrich' => [
         // Max real SerpApi calls per enrich run (cache hits don't count).
-        // Defaults to 5 to leave headroom for live search + audits.
-        'per_run_cap' => (int) env('ENRICH_PER_RUN_CAP', 5),
+        // Bumped from 5 to 15 to make more progress per night.
+        'per_run_cap' => (int) env('ENRICH_PER_RUN_CAP', 15),
 
-        // Max real SerpApi calls per 30-day rolling window. Conservative at 40
-        // even though the quota is now 250 — leaves the bulk for live search.
-        'monthly_budget' => (int) env('ENRICH_MONTHLY_BUDGET', 40),
+        // Max real SerpApi calls per 30-day rolling window. Bumped from 40 to
+        // 150 — leaves 100 of the 250 quota for live search, which is already
+        // protected by the read-path circuit breaker at 80 % (200).
+        'monthly_budget' => (int) env('ENRICH_MONTHLY_BUDGET', 150),
     ],
 
     /*
