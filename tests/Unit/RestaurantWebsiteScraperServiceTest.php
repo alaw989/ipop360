@@ -275,4 +275,115 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
         // The first matching link with "menu" text should be found and converted to absolute URL
         $this->assertEquals('https://example.com/menu', $result['menu_url']);
     }
+
+    // ──── scrapeSocial tests ────
+
+    public function test_scrape_social_returns_null_for_empty_url(): void
+    {
+        $this->assertNull($this->service->scrapeSocial(''));
+        $this->assertNull($this->service->scrapeSocial('   '));
+    }
+
+    public function test_scrape_social_skips_known_non_restaurant_domains(): void
+    {
+        $this->assertNull(
+            $this->service->scrapeSocial('https://www.facebook.com/SomeRestaurant')
+        );
+        $this->assertNull(
+            $this->service->scrapeSocial('https://www.instagram.com/someaccount')
+        );
+        $this->assertNull(
+            $this->service->scrapeSocial('https://www.yelp.com/biz/some-restaurant')
+        );
+    }
+
+    public function test_scrape_social_extracts_platform_urls(): void
+    {
+        $html = '<html><body>
+            <a href="https://www.instagram.com/testrestaurant">Instagram</a>
+            <a href="https://www.facebook.com/testrestaurant">Facebook</a>
+            <a href="https://www.tiktok.com/@testrestaurant">TikTok</a>
+        </body></html>';
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response($html, 200),
+        ]);
+
+        $result = $this->service->scrapeSocial('https://example.com');
+
+        $this->assertNotNull($result);
+        $this->assertArrayHasKey('instagram', $result);
+        $this->assertArrayHasKey('facebook', $result);
+        $this->assertArrayHasKey('tiktok', $result);
+        $this->assertEquals('https://www.instagram.com/testrestaurant', $result['instagram']);
+    }
+
+    public function test_scrape_social_returns_null_when_no_links_found(): void
+    {
+        $html = '<html><body><p>No social links here</p></body></html>';
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response($html, 200),
+            'https://example.com/contact' => Http::response($html, 200),
+            'https://example.com/about' => Http::response($html, 200),
+        ]);
+
+        $result = $this->service->scrapeSocial('https://example.com');
+
+        $this->assertNull($result);
+    }
+
+    public function test_scrape_social_handles_connection_errors(): void
+    {
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response('', 500),
+        ]);
+
+        $result = $this->service->scrapeSocial('https://example.com');
+
+        $this->assertNull($result);
+    }
+
+    public function test_scrape_social_stops_early_after_finding_enough_platforms(): void
+    {
+        $html = '<html><body>
+            <a href="https://www.instagram.com/test">Instagram</a>
+            <a href="https://www.facebook.com/test">Facebook</a>
+            <a href="https://www.youtube.com/@test">YouTube</a>
+            <a href="https://www.tiktok.com/@test">TikTok</a>
+        </body></html>';
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response($html, 200),
+        ]);
+
+        $result = $this->service->scrapeSocial('https://example.com');
+
+        $this->assertNotNull($result);
+        // Should have found enough social platforms (early stop)
+        $this->assertGreaterThanOrEqual(3, count($result));
+    }
+
+    public function test_scrape_social_skips_sharer_links(): void
+    {
+        $html = '<html><body>
+            <a href="https://www.facebook.com/sharer/sharer.php">Share</a>
+            <a href="https://www.facebook.com/RealPage">Real Page</a>
+        </body></html>';
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response($html, 200),
+        ]);
+
+        $result = $this->service->scrapeSocial('https://example.com');
+
+        $this->assertNotNull($result);
+        $this->assertArrayHasKey('facebook', $result);
+        $this->assertEquals('https://www.facebook.com/RealPage', $result['facebook']);
+    }
 }
