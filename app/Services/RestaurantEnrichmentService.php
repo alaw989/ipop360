@@ -520,15 +520,22 @@ class RestaurantEnrichmentService
      */
     private function enrichWebsiteData(Collection $restaurants): void
     {
+        $scraped = 0;
+        $alreadyHave = 0;
+        $noWebsite = 0;
+        $failed = 0;
+
         foreach ($restaurants as $restaurant) {
             try {
-                // Skip if no website URL
                 if (empty($restaurant->website_url)) {
+                    $noWebsite++;
+
                     continue;
                 }
 
-                // Skip if we already have opening_hours data (cached)
                 if (! empty($restaurant->opening_hours)) {
+                    $alreadyHave++;
+
                     continue;
                 }
 
@@ -538,8 +545,25 @@ class RestaurantEnrichmentService
                     $restaurant->update([
                         'opening_hours' => $scrapedData['opening_hours'],
                     ]);
+                    $scraped++;
+
+                    Log::info('Website scrape found opening hours', [
+                        'restaurant_id' => $restaurant->id,
+                        'restaurant_name' => $restaurant->name,
+                        'website_url' => $restaurant->website_url,
+                        'has_menu_url' => ! empty($scrapedData['menu_url']),
+                    ]);
+                } else {
+                    $failed++;
+                    Log::info('Website scrape returned no opening hours', [
+                        'restaurant_id' => $restaurant->id,
+                        'restaurant_name' => $restaurant->name,
+                        'website_url' => $restaurant->website_url,
+                        'scraped_data_null' => $scrapedData === null,
+                    ]);
                 }
             } catch (\Throwable $e) {
+                $failed++;
                 Log::warning('Website scraping failed for restaurant', [
                     'restaurant_id' => $restaurant->id,
                     'website_url' => $restaurant->website_url ?? null,
@@ -547,6 +571,14 @@ class RestaurantEnrichmentService
                 ]);
             }
         }
+
+        Log::info('Website enrichment summary', [
+            'total_processed' => $restaurants->count(),
+            'already_have_opening_hours' => $alreadyHave,
+            'no_website_url' => $noWebsite,
+            'scraped_new_hours' => $scraped,
+            'scrape_failed_or_empty' => $failed,
+        ]);
     }
 
     /**

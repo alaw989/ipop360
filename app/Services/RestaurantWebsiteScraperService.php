@@ -53,6 +53,60 @@ class RestaurantWebsiteScraperService
     /** Stop early once this many distinct social platforms are found. */
     private const SOCIAL_STOP_EARLY_COUNT = 3;
 
+    /** Domains that are NOT restaurant-owned websites — skip preemptively. */
+    private const NON_RESTAURANT_DOMAINS = [
+        'facebook.com',
+        'www.facebook.com',
+        'm.facebook.com',
+        'fb.com',
+        'instagram.com',
+        'www.instagram.com',
+        'twitter.com',
+        'www.twitter.com',
+        'x.com',
+        'www.x.com',
+        'tiktok.com',
+        'www.tiktok.com',
+        'youtube.com',
+        'www.youtube.com',
+        'youtu.be',
+        'linkedin.com',
+        'www.linkedin.com',
+        'yelp.com',
+        'www.yelp.com',
+        'tripadvisor.com',
+        'www.tripadvisor.com',
+        'toasttab.com',
+        'www.toasttab.com',
+        'toast.site',
+        'www.toast.site',
+        'uorder.io',
+        'www.uorder.io',
+        'bentoobox.net',
+        'www.bentoobox.net',
+        'ordering.menubillet.com',
+        'menu.ordering.com',
+        'google.com',
+        'www.google.com',
+        'maps.google.com',
+        'bing.com',
+        'www.bing.com',
+        'wikipedia.org',
+        'www.wikipedia.org',
+        'pinterest.com',
+        'www.pinterest.com',
+        'opentable.com',
+        'www.opentable.com',
+        'seamless.com',
+        'www.seamless.com',
+        'allmenus.com',
+        'www.allmenus.com',
+        'menupix.com',
+        'www.menupix.com',
+        'restaurantguru.com',
+        'www.restaurantguru.com',
+    ];
+
     /**
      * Scrape a restaurant's own website for opening hours and optional data.
      *
@@ -74,6 +128,13 @@ class RestaurantWebsiteScraperService
         $domain = $this->parseDomain($websiteUrl);
         if ($domain === null) {
             Log::warning('Failed to parse domain from website URL', ['url' => $websiteUrl]);
+
+            return null;
+        }
+
+        // Skip known non-restaurant domains preemptively
+        if ($this->isSkipDomain($domain)) {
+            Log::info('Website scrape skipped — not a restaurant-owned domain', ['url' => $websiteUrl, 'domain' => $domain]);
 
             return null;
         }
@@ -100,6 +161,8 @@ class RestaurantWebsiteScraperService
         $cacheKey = 'website_scrape:'.md5($websiteUrl);
         $cached = Cache::get($cacheKey);
         if ($cached !== null) {
+            Log::info('Cache hit for website scrape', ['url' => $websiteUrl]);
+
             return $cached;
         }
 
@@ -148,6 +211,13 @@ class RestaurantWebsiteScraperService
         $domain = $this->parseDomain($websiteUrl);
         if ($domain === null) {
             Log::warning('Failed to parse domain for social scrape', ['url' => $websiteUrl]);
+
+            return null;
+        }
+
+        // Skip known non-restaurant domains preemptively
+        if ($this->isSkipDomain($domain)) {
+            Log::info('Social scrape skipped — not a restaurant-owned domain', ['url' => $websiteUrl, 'domain' => $domain]);
 
             return null;
         }
@@ -301,6 +371,15 @@ class RestaurantWebsiteScraperService
         }
 
         return $parsed['host'];
+    }
+
+    /**
+     * Check if a domain belongs to a known non-restaurant platform (social
+     * media, ordering services, aggregators, etc.).
+     */
+    private function isSkipDomain(string $domain): bool
+    {
+        return in_array(strtolower($domain), self::NON_RESTAURANT_DOMAINS, true);
     }
 
     /**
@@ -720,12 +799,15 @@ class RestaurantWebsiteScraperService
      */
     private function extractHoursFromText(DOMXPath $xpath): ?array
     {
-        // Look for common hours container patterns
         $selectors = [
             "//div[contains(@class, 'hour')]",
             "//span[contains(@class, 'hour')]",
             "//p[contains(@class, 'hour')]",
             "//*[contains(@id, 'hour')]",
+            "//div[contains(@class, 'info')]",
+            "//div[contains(@class, 'schedule')]",
+            "//div[contains(@class, 'time')]",
+            "//section[contains(@class, 'hours')]",
         ];
 
         foreach ($selectors as $selector) {
@@ -742,6 +824,23 @@ class RestaurantWebsiteScraperService
             }
         }
 
+        // Fallback: scan all visible text blocks for hour patterns
+        try {
+            $body = $xpath->query('//body');
+            if ($body->length > 0) {
+                $bodyText = $body->item(0)->textContent;
+                $blocks = preg_split('/\n\s*\n/', $bodyText);
+                foreach ($blocks as $block) {
+                    $block = trim($block);
+                    if (strlen($block) > 20 && strlen($block) < 500 && $this->looksLikeHoursText($block)) {
+                        return $this->parseHoursText($block);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // fallback failed silently
+        }
+
         return null;
     }
 
@@ -750,11 +849,24 @@ class RestaurantWebsiteScraperService
      */
     private function looksLikeHoursText(string $text): bool
     {
-        // Look for time patterns (HH:MM, HH:MM AM/PM, etc.)
-        return (bool) preg_match(
-            '/(?:mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday).*?(?:\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.))/i',
-            $text
-        );
+        $patterns = [
+            // Day name followed by time range (e.g., "Mon-Fri 11am-9pm", "Monday - Friday 11:00 AM - 9:00 PM")
+            '/(?:mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday).*?\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)/i',
+            // "Open daily 11am-9pm" or "Hours: 11am-9pm"
+            '/(?:open|hours?|hrs?)\s*:?.+?\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)/i',
+            // Standalone time range with AM/PM (e.g., "11:00 AM - 9:00 PM")
+            '/\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)\s*(?:-|–|—|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)/i',
+            // 24h format (e.g., "11:00-21:00", "09:00 - 17:00")
+            '/\b\d{1,2}:\d{2}\s*(?:-|–|—|to)\s*\d{1,2}:\d{2}\b/',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $text)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
