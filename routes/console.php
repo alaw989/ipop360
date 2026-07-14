@@ -51,12 +51,20 @@ Schedule::command('restaurants:backfill-websites')
     ->onOneServer()
     ->description('Backfill missing website URLs from cache, web search, and domain guessing');
 
-// Schedule social link scraping (runs at 5:30 AM UTC)
+// Schedule social link scraping (runs at 5:30 AM UTC daily)
+// Saturday run uses --force to refresh all existing links weekly
 Schedule::command('restaurants:scrape-social')
     ->dailyAt('05:30')
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('Scrape restaurant websites for social media links');
+    ->description('Scrape new restaurant websites for social media links');
+
+// Saturday at 06:30 — refresh all existing social links (honours 30-day cache)
+Schedule::command('restaurants:scrape-social --force')
+    ->weeklyOn(6, '06:30')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Weekly re-scrape of all social media links');
 
 // Aggregate engagement data into restaurant counters (runs at 1 AM UTC)
 Schedule::command('restaurants:update-engagement')
@@ -64,3 +72,10 @@ Schedule::command('restaurants:update-engagement')
     ->withoutOverlapping()
     ->onOneServer()
     ->description('Aggregate engagement clicks into restaurant counters');
+
+// Weekly website URL dead-link verification (Sundays at 6 AM UTC)
+Schedule::command('restaurants:verify-websites --limit=200')
+    ->weeklyOn(0, '06:00')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('HEAD-check existing website URLs, clear dead links');

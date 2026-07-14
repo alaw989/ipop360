@@ -197,7 +197,7 @@ class BackfillRestaurantWebsites extends Command
         $found = 0;
 
         foreach ($restaurants as $restaurant) {
-            $url = $this->searchDuckDuckGo($restaurant->name, $restaurant->city, $restaurant->state);
+            $url = $this->searchWeb($restaurant->name, $restaurant->city, $restaurant->state);
 
             if ($url !== null) {
                 if (! $dryRun) {
@@ -220,7 +220,25 @@ class BackfillRestaurantWebsites extends Command
         $this->line("  Web search found {$found} website(s).");
     }
 
-    private function searchDuckDuckGo(string $name, ?string $city, ?string $state): ?string
+    /**
+     * Try Bing first, fall back to DuckDuckGo if Bing fails or returns nothing.
+     */
+    private function searchWeb(string $name, ?string $city, ?string $state): ?string
+    {
+        $url = $this->searchBing($name, $city, $state);
+
+        if ($url !== null) {
+            return $url;
+        }
+
+        return $this->searchDuckDuckGoHtml($name, $city, $state);
+    }
+
+    /**
+     * Search Bing HTML results for the restaurant website.
+     * Parses base64-encoded redirect URLs from Bing's search result links.
+     */
+    private function searchBing(string $name, ?string $city, ?string $state): ?string
     {
         $query = trim("{$name} {$city} {$state} official website");
         $query = substr($query, 0, 200);
@@ -265,6 +283,95 @@ class BackfillRestaurantWebsites extends Command
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    /**
+     * Fallback search using DuckDuckGo HTML.
+     * Parses redirect URLs from DuckDuckGo's search result links (uddg parameter).
+     */
+    private function searchDuckDuckGoHtml(string $name, ?string $city, ?string $state): ?string
+    {
+        $query = trim("{$name} {$city} {$state} official website");
+        $query = substr($query, 0, 200);
+
+        try {
+            $response = Http::timeout(8)
+                ->withUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+                ->withOptions(['allow_redirects' => true])
+                ->get('https://html.duckduckgo.com/html/', ['q' => $query]);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $html = $response->body();
+
+            // DuckDuckGo wraps result links in <a> with class result__a
+            // They redirect via the uddg parameter (base64-encoded URL)
+            preg_match_all('#uddg=([a-zA-Z0-9+/=%]+)#i', $html, $matches);
+
+            if (empty($matches[1])) {
+                // Fallback: try scraping direct href from result links
+                libxml_use_internal_errors(true);
+                $dom = new \DOMDocument;
+                $dom->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+                libxml_clear_errors();
+
+                $xpath = new \DOMXPath($dom);
+                $links = $xpath->query("//a[contains(@class, 'result__a')]");
+
+                foreach ($links as $link) {
+                    $href = $link->getAttribute('href');
+                    if (empty($href)) {
+                        continue;
+                    }
+                    // Direct URL (no DDG redirect wrapper)
+                    if (str_starts_with($href, 'http://') || str_starts_with($href, 'https://')) {
+                        if (! $this->isSkipDomainUrl($href)) {
+                            return $href;
+                        }
+
+                        continue;
+                    }
+                    // Maybe a DDG-style redirect URL
+                    $url = $this->extractUrlFromDdgRedirect($href);
+                    if ($url !== null && ! $this->isSkipDomainUrl($url)) {
+                        return $url;
+                    }
+                }
+
+                return null;
+            }
+
+            foreach ($matches[1] as $encoded) {
+                $url = $this->extractUrlFromDdgRedirect($encoded);
+                if ($url !== null && ! $this->isSkipDomainUrl($url)) {
+                    return $url;
+                }
+            }
+
+            return null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Extract a real URL from a DuckDuckGo redirect parameter.
+     */
+    private function extractUrlFromDdgRedirect(string $encoded): ?string
+    {
+        $decoded = urldecode($encoded);
+        $decoded = base64_decode($decoded, true);
+        if ($decoded === false || empty($decoded)) {
+            return null;
+        }
+
+        if (! str_starts_with($decoded, 'http://') && ! str_starts_with($decoded, 'https://')) {
+            return null;
+        }
+
+        return $decoded;
     }
 
     private function normalize(string $name): string
