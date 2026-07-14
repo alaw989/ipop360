@@ -115,7 +115,7 @@ class UptimeCanary extends Command
         // SerpApi quota health check (read-only, no outbound calls)
         try {
             $stats = ExternalApiCache::stats();
-            $serpapiCalls = $stats['serpapi_calls_last_30d'] ?? 0;
+            $serpapiCalls = $stats['serpapi_calls_last_30d'];
             $freeQuota = (int) config('restaurant-finder.serpapi.free_quota', 250);
             $circuitBreakerThreshold = (int) ceil($freeQuota * (float) config('restaurant-finder.serpapi.circuit_breaker_fraction', 0.8));
             $enrichBudget = (int) config('restaurant-finder.enrich.monthly_budget', 150);
