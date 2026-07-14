@@ -290,7 +290,7 @@ class SerpApiService
             // Parse rating and reviews from SerpApi response
             $rating = $r['rating'] ?? null;
             $reviews = $r['reviews'] ?? null;
-            $priceLevel = $this->parsePriceRange($r['price_level'] ?? null);
+            $priceLevel = $this->parsePriceRange($r);
             // Size Google's thumbnail so we don't ship multi-MB originals.
             // See sizeGoogleThumbnail(): only lh[3-6].googleusercontent.com URLs are touched.
             $photo = $this->sizeGoogleThumbnail($r['thumbnail'] ?? null);
@@ -361,21 +361,37 @@ class SerpApiService
      * Parse SerpApi price_level to our price_range format.
      * SerpApi uses integers 1-4; we convert to $-$$$$.
      */
-    private function parsePriceRange(?string $priceLevel): ?string
+    private function parsePriceRange(array $venue): ?string
     {
-        if ($priceLevel === null) {
-            return null;
+        // SerpApi returns extracted_price (int, low-end of price range) and
+        // price (string like "$10–20"). price_level is never present — Google
+        // discontinued it in favor of the numeric range format.
+        $raw = $venue['extracted_price'] ?? null;
+        if (is_numeric($raw)) {
+            $val = (int) $raw;
+
+            return match (true) {
+                $val < 15 => '$',
+                $val < 30 => '$$',
+                $val < 50 => '$$$',
+                default => '$$$$',
+            };
         }
 
-        $level = (int) $priceLevel;
+        // Fallback: parse the human-readable price string
+        $price = $venue['price'] ?? null;
+        if ($price !== null && preg_match('/(\d+)/', $price, $m)) {
+            $val = (int) $m[1];
 
-        return match ($level) {
-            1 => '$',
-            2 => '$$',
-            3 => '$$$',
-            4 => '$$$$',
-            default => null,
-        };
+            return match (true) {
+                $val < 15 => '$',
+                $val < 30 => '$$',
+                $val < 50 => '$$$',
+                default => '$$$$',
+            };
+        }
+
+        return null;
     }
 
     /**

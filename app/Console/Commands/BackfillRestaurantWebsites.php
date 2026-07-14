@@ -77,15 +77,20 @@ class BackfillRestaurantWebsites extends Command
                     if (empty($website)) {
                         continue;
                     }
+                    $parsedPrice = $this->parseExtractedPrice($venue);
+                    $entryData = [
+                        '_website' => $website,
+                        '_price_range' => $parsedPrice,
+                    ];
                     $name = $this->normalize($venue['title'] ?? $venue['name'] ?? '');
                     if ($name !== '') {
-                        $nameIndex[$name] = $website;
+                        $nameIndex[$name] = $entryData;
                     }
                     $phone = $venue['phone'] ?? null;
                     if (! empty($phone)) {
                         $digits = substr(preg_replace('/\D+/', '', $phone), -10);
                         if (strlen($digits) === 10) {
-                            $phoneIndex[$digits] = $website;
+                            $phoneIndex[$digits] = $entryData;
                         }
                     }
                 }
@@ -98,25 +103,32 @@ class BackfillRestaurantWebsites extends Command
         $hits = 0;
 
         foreach ($missing as $restaurant) {
-            $website = null;
+            $entryData = null;
 
             // Try name match
             $nameKey = $this->normalize($restaurant->name);
             if (isset($nameIndex[$nameKey])) {
-                $website = $nameIndex[$nameKey];
+                $entryData = $nameIndex[$nameKey];
             }
 
             // Try phone match
-            if ($website === null) {
+            if ($entryData === null) {
                 $phoneDigits = substr(preg_replace('/\D+/', '', $restaurant->phone ?? ''), -10);
                 if (strlen($phoneDigits) === 10 && isset($phoneIndex[$phoneDigits])) {
-                    $website = $phoneIndex[$phoneDigits];
+                    $entryData = $phoneIndex[$phoneDigits];
                 }
             }
 
-            if ($website !== null) {
-                if (! $dryRun) {
-                    $restaurant->update(['website_url' => $website]);
+            if ($entryData !== null) {
+                $updates = [];
+                if (empty($restaurant->website_url) && is_string($entryData['_website'])) {
+                    $updates['website_url'] = $entryData['_website'];
+                }
+                if (empty($restaurant->price_range) && is_string($entryData['_price_range'])) {
+                    $updates['price_range'] = $entryData['_price_range'];
+                }
+                if (! empty($updates) && ! $dryRun) {
+                    $restaurant->update($updates);
                 }
                 $hits++;
                 $this->found++;
@@ -124,6 +136,35 @@ class BackfillRestaurantWebsites extends Command
         }
 
         $this->line("  Cache matched {$hits} restaurant(s).");
+    }
+
+    private function parseExtractedPrice(array $venue): ?string
+    {
+        $raw = $venue['extracted_price'] ?? null;
+        if (is_numeric($raw)) {
+            $val = (int) $raw;
+
+            return match (true) {
+                $val < 15 => '$',
+                $val < 30 => '$$',
+                $val < 50 => '$$$',
+                default => '$$$$',
+            };
+        }
+
+        $price = $venue['price'] ?? null;
+        if ($price !== null && preg_match('/(\d+)/', $price, $m)) {
+            $val = (int) $m[1];
+
+            return match (true) {
+                $val < 15 => '$',
+                $val < 30 => '$$',
+                $val < 50 => '$$$',
+                default => '$$$$',
+            };
+        }
+
+        return null;
     }
 
     private function webSearch(bool $dryRun): void
