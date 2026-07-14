@@ -70,6 +70,16 @@ class RestaurantResource extends JsonResource
             'features' => $this->resource->features ?? [],
             'source' => 'ipop360',
             'score_breakdown' => $this->getScoreBreakdown(),
+            'social_links' => $this->when($isShowRoute, fn () => $this->resource->relationLoaded('socialLinks')
+                    ? $this->resource->socialLinks->map(fn ($l) => [
+                        'platform' => $l->platform,
+                        'url' => $l->url,
+                        'followers' => $l->followers,
+                    ])
+                    : []
+            ),
+            'opening_hours' => $this->when($isShowRoute, fn () => $this->resource->opening_hours
+            ),
         ];
     }
 

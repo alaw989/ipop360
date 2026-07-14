@@ -6,9 +6,9 @@ import ScoreChip from '@/Components/ScoreChip.vue';
 import { Badge } from '@/components/ui/badge';
 import { Heart, Navigation, Phone, Globe } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
-import { callPhone, openWebsite, trackDirections, mapsUrl } from '@/lib/restaurant';
-import { cuisineGradient, FOOD_FALLBACK_GRADIENT } from '@/lib/cuisine';
+import { callPhone, openWebsite, trackDirections } from '@/lib/restaurant';
 import type { Restaurant } from '@/types/restaurant';
+import { getDetailUrl, getDisplayRating, getMapCoords, getRankStyle, getRestaurantGradient } from '@/composables/useRestaurantDisplay';
 
 const props = defineProps<{
     restaurant: Restaurant;
@@ -19,37 +19,15 @@ const props = defineProps<{
 
 const { isFavorited, toggle } = useFavorites();
 
-const detailOrMapsUrl = computed(() => {
-    if (props.restaurant.id > 0) {
-        return `/restaurants/${props.restaurant.slug}`;
-    }
-    if (props.restaurant.slug) {
-        return `/restaurants/preview/${props.restaurant.slug}`;
-    }
-    return mapsUrl(props.restaurant.name, props.restaurant.city);
-});
+const detailOrMapsUrl = computed(() => getDetailUrl(props.restaurant));
 
-const displayRating = computed(() => {
-    if (props.restaurant.yelp_rating) return { rating: props.restaurant.yelp_rating, count: props.restaurant.yelp_review_count, source: 'Yelp' as const };
-    if (props.restaurant.google_rating) return { rating: props.restaurant.google_rating, count: props.restaurant.google_review_count, source: 'Google' as const };
-    return null;
-});
+const displayRating = computed(() => getDisplayRating(props.restaurant));
 
-const mapCoords = computed(() => {
-    if (props.restaurant.lat != null && props.restaurant.lng != null) {
-        return { lat: props.restaurant.lat, lng: props.restaurant.lng };
-    }
-    return null;
-});
+const mapCoords = computed(() => getMapCoords(props.restaurant));
 
 const saved = computed(() => isFavorited(props.restaurant));
 
-const rankStyle = computed(() => {
-    if (props.rank === 1) return { bg: 'from-amber-400 to-yellow-500', text: 'text-white' };
-    if (props.rank === 2) return { bg: 'from-slate-300 to-slate-400', text: 'text-slate-900' };
-    if (props.rank === 3) return { bg: 'from-orange-400 to-amber-600', text: 'text-white' };
-    return { bg: 'from-muted to-muted-foreground/20', text: 'text-muted-foreground' };
-});
+const rankStyle = computed(() => getRankStyle(props.rank));
 
 const reviewSnippet = computed(() => {
     if (!props.restaurant.description) return null;
@@ -58,10 +36,7 @@ const reviewSnippet = computed(() => {
         : props.restaurant.description;
 });
 
-const gradient = computed(() => {
-    const primaryCuisine = props.restaurant.cuisines[0]?.slug;
-    return primaryCuisine ? cuisineGradient(primaryCuisine) : FOOD_FALLBACK_GRADIENT;
-});
+const gradient = computed(() => getRestaurantGradient(props.restaurant));
 </script>
 
 <template>
