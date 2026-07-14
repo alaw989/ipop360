@@ -542,17 +542,25 @@ class RestaurantEnrichmentService
 
                 $scrapedData = $this->websiteScraper->scrape($restaurant->website_url);
 
-                if ($scrapedData !== null && ! empty($scrapedData['opening_hours'])) {
-                    $restaurant->update([
-                        'opening_hours' => $scrapedData['opening_hours'],
-                    ]);
+                if ($scrapedData !== null && (! empty($scrapedData['opening_hours']) || ! empty($scrapedData['menu_url']))) {
+                    $updates = [];
+                    if (! empty($scrapedData['opening_hours'])) {
+                        $updates['opening_hours'] = $scrapedData['opening_hours'];
+                    }
+                    if (! empty($scrapedData['menu_url'])) {
+                        $updates['menu_url'] = $scrapedData['menu_url'];
+                    }
+                    if (! empty($updates)) {
+                        $restaurant->update($updates);
+                    }
                     $scraped++;
 
-                    Log::info('Website scrape found opening hours', [
+                    Log::info('Website scrape found data', [
                         'restaurant_id' => $restaurant->id,
                         'restaurant_name' => $restaurant->name,
                         'website_url' => $restaurant->website_url,
                         'has_menu_url' => ! empty($scrapedData['menu_url']),
+                        'has_opening_hours' => ! empty($scrapedData['opening_hours']),
                     ]);
                 } else {
                     $failed++;

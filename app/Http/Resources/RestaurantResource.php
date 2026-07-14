@@ -58,6 +58,7 @@ class RestaurantResource extends JsonResource
             'price_range' => $this->resource->price_range,
             'phone' => $this->resource->phone,
             'website_url' => $this->resource->website_url,
+            'menu_url' => $this->when($isShowRoute, fn () => $this->resource->menu_url),
             'google_rating' => $this->resource->google_rating,
             'google_review_count' => $this->resource->google_review_count,
             'yelp_rating' => $this->resource->yelp_rating,

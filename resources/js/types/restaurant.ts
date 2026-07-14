@@ -70,4 +70,5 @@ export interface Restaurant {
     google_place_id?: string | null;
     social_links?: SocialLink[];
     opening_hours?: OpeningHours;
+    menu_url?: string | null;
 }

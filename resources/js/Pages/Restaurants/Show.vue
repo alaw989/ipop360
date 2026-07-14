@@ -12,7 +12,7 @@ import { getRestaurantGradient } from '@/composables/useRestaurantDisplay';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { callPhone, openWebsite, trackDirections, directionsUrl } from '@/lib/restaurant';
-import { Heart, ArrowLeft, MapPin, Navigation, Phone, Globe } from '@lucide/vue';
+import { Heart, ArrowLeft, MapPin, Navigation, Phone, Globe, UtensilsCrossed } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
 import { useSeo, generateRestaurantJsonLd } from '@/composables/useSeo';
 import { useBaseUrl } from '@/composables/useBaseUrl';
@@ -227,6 +227,17 @@ const structuredData = computed(() => {
                             <Globe :size="16" class="shrink-0" />
                             {{ restaurant.website_url.replace(/^https?:\/\//, '') }}
                         </button>
+
+                        <a
+                            v-if="restaurant.menu_url"
+                            :href="restaurant.menu_url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="flex w-full items-center gap-2.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+                        >
+                            <UtensilsCrossed :size="16" class="shrink-0" />
+                            View Menu
+                        </a>
                     </div>
 
                     <!-- Social links -->

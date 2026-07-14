@@ -56,6 +56,7 @@ class Restaurant extends Model
         'call_clicks_count',
         'total_engagement',
         'social_links_count',
+        'menu_url',
     ];
 
     protected $casts = [
