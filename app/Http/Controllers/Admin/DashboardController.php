@@ -52,9 +52,9 @@ class DashboardController extends Controller
             ->select([
                 'id', 'name', 'slug',
                 DB::raw("CASE WHEN website_url IS NULL OR website_url = '' THEN 1 ELSE 0 END as missing_website"),
-                DB::raw("CASE WHEN social_links_count = 0 THEN 1 ELSE 0 END as missing_social"),
-                DB::raw("CASE WHEN opening_hours IS NULL THEN 1 ELSE 0 END as missing_hours"),
-                DB::raw("CASE WHEN photo_url IS NULL THEN 1 ELSE 0 END as missing_photo"),
+                DB::raw('CASE WHEN social_links_count = 0 THEN 1 ELSE 0 END as missing_social'),
+                DB::raw('CASE WHEN opening_hours IS NULL THEN 1 ELSE 0 END as missing_hours'),
+                DB::raw('CASE WHEN photo_url IS NULL THEN 1 ELSE 0 END as missing_photo'),
             ])
             ->havingRaw('missing_website + missing_social + missing_hours + missing_photo > 0')
             ->orderByRaw('missing_website + missing_social + missing_hours + missing_photo DESC')
