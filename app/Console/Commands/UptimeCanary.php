@@ -72,6 +72,45 @@ class UptimeCanary extends Command
             }
         }
 
+        // Social scrape health check
+        try {
+            $totalWebsites = DB::table('restaurants')
+                ->where('is_active', true)
+                ->whereNotNull('website_url')
+                ->where('website_url', '!=', '')
+                ->count();
+
+            $withSocial = DB::table('restaurants')
+                ->where('is_active', true)
+                ->where('social_links_count', '>', 0)
+                ->count();
+
+            $lastScrape = DB::table('restaurant_social_links')
+                ->max('updated_at');
+
+            $hoursSinceLastScrape = $lastScrape
+                ? now()->diffInHours($lastScrape)
+                : null;
+
+            $checks['social_scrape'] = 'ok';
+            $this->info("✓ Social: {$withSocial}/{$totalWebsites} websites have social links");
+
+            if ($totalWebsites > 0 && $withSocial === 0) {
+                $status = $status === 'ok' ? 'degraded' : $status;
+                $checks['social_scrape'] = 'warning: no social links found';
+                $this->warn('⚠ Social scrape: no social links found for any restaurant');
+            }
+
+            if ($hoursSinceLastScrape !== null && $hoursSinceLastScrape > 48) {
+                $status = $status === 'ok' ? 'degraded' : $status;
+                $checks['social_scrape'] = "warning: last scrape {$hoursSinceLastScrape}h ago";
+                $this->warn("⚠ Social scrape: not run in {$hoursSinceLastScrape} hours");
+            }
+        } catch (\Exception $e) {
+            $checks['social_scrape'] = 'failed: '.$e->getMessage();
+            $this->warn('⚠ Social scrape check failed');
+        }
+
         // Log the overall status
         Log::info('Uptime canary check', [
             'status' => $status,
