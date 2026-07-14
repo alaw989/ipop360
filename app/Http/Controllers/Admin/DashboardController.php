@@ -48,26 +48,27 @@ class DashboardController extends Controller
         $withPhoto = Restaurant::whereNotNull('photo_url')->count();
 
         // Restaurants missing the most data (at least one gap, sorted by gaps, most gaps first)
-        $missingData = Restaurant::select([
-            'id', 'name', 'slug',
-            DB::raw("CASE WHEN website_url IS NULL OR website_url = '' THEN 1 ELSE 0 END as missing_website"),
-            DB::raw('CASE WHEN social_links_count = 0 THEN 1 ELSE 0 END as missing_social'),
-            DB::raw('CASE WHEN opening_hours IS NULL THEN 1 ELSE 0 END as missing_hours'),
-            DB::raw('CASE WHEN photo_url IS NULL THEN 1 ELSE 0 END as missing_photo'),
-        ])
+        $missingData = DB::table('restaurants')
+            ->select([
+                'id', 'name', 'slug',
+                DB::raw("CASE WHEN website_url IS NULL OR website_url = '' THEN 1 ELSE 0 END as missing_website"),
+                DB::raw("CASE WHEN social_links_count = 0 THEN 1 ELSE 0 END as missing_social"),
+                DB::raw("CASE WHEN opening_hours IS NULL THEN 1 ELSE 0 END as missing_hours"),
+                DB::raw("CASE WHEN photo_url IS NULL THEN 1 ELSE 0 END as missing_photo"),
+            ])
             ->havingRaw('missing_website + missing_social + missing_hours + missing_photo > 0')
             ->orderByRaw('missing_website + missing_social + missing_hours + missing_photo DESC')
             ->limit(20)
             ->get()
             ->map(fn ($r) => [
-                'id' => $r->id,
-                'name' => $r->name,
-                'slug' => $r->slug,
+                'id' => (int) $r->id,
+                'name' => (string) $r->name,
+                'slug' => (string) $r->slug,
                 'gaps' => collect([
-                    $r->missing_website ? 'website' : null,
-                    $r->missing_social ? 'social' : null,
-                    $r->missing_hours ? 'hours' : null,
-                    $r->missing_photo ? 'photo' : null,
+                    (int) $r->missing_website ? 'website' : null,
+                    (int) $r->missing_social ? 'social' : null,
+                    (int) $r->missing_hours ? 'hours' : null,
+                    (int) $r->missing_photo ? 'photo' : null,
                 ])->filter()->values(),
                 'gap_count' => (int) $r->missing_website + (int) $r->missing_social + (int) $r->missing_hours + (int) $r->missing_photo,
             ]);
