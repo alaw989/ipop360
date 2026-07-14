@@ -21,6 +21,24 @@ export interface ScoreBreakdown {
     total: number;
 }
 
+export interface SocialLink {
+    platform: string;
+    url: string;
+    followers: number | null;
+}
+
+export interface OpeningHoursStructured {
+    structured: true;
+    hours: { day: string; open: string; close: string }[];
+}
+
+export interface OpeningHoursRaw {
+    structured: false;
+    raw_text: string;
+}
+
+export type OpeningHours = OpeningHoursStructured | OpeningHoursRaw | null;
+
 export interface Restaurant {
     id: number;
     name: string;
@@ -50,4 +68,6 @@ export interface Restaurant {
     source: string | null;
     score_breakdown?: ScoreBreakdown;
     google_place_id?: string | null;
+    social_links?: SocialLink[];
+    opening_hours?: OpeningHours;
 }

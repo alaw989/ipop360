@@ -4,21 +4,14 @@ import { ChevronDown } from '@lucide/vue'
 import StarRating from '@/Components/StarRating.vue'
 import ScoreChip from '@/Components/ScoreChip.vue'
 import RestaurantCardSkeleton from '@/Components/RestaurantCardSkeleton.vue'
-import { cuisineGradient, FOOD_FALLBACK_GRADIENT } from '@/lib/cuisine'
-
-interface Cuisine {
-    id: number
-    name: string
-    slug: string
-}
-
-interface Restaurant {
+import { cuisineGradient } from '@/lib/cuisine'
+interface PopularRestaurant {
     id: number
     name: string
     slug: string
     photo_url: string | null
-    city: string | null
-    state: string | null
+    city?: string | null
+    state?: string | null
     price_range: string | null
     google_rating: number | null
     google_review_count: number
@@ -26,13 +19,11 @@ interface Restaurant {
     yelp_review_count: number
     has_award: boolean
     popularity_score: number
-    latitude: number | null
-    longitude: number | null
-    cuisines: Cuisine[]
+    cuisines: Array<{ id: number; name: string; slug: string }>
 }
 
 const props = defineProps<{
-    restaurants: Restaurant[]
+    restaurants: PopularRestaurant[]
     city: string | null
     loading?: boolean
 }>()
@@ -46,19 +37,19 @@ const visibleRestaurants = computed(() =>
 
 const hasMore = computed(() => props.restaurants.length > initialLimit)
 
-function displayRating(r: Restaurant) {
+function displayRating(r: PopularRestaurant) {
     if (r.yelp_rating) return { rating: Number(r.yelp_rating), count: r.yelp_review_count, source: 'Yelp' as const }
     if (r.google_rating) return { rating: Number(r.google_rating), count: r.google_review_count, source: 'Google' as const }
     return null
 }
 
-function primaryCuisine(r: Restaurant): Cuisine | null {
+function primaryCuisine(r: PopularRestaurant) {
     return r.cuisines?.[0] ?? null
 }
 
-function gradient(r: Restaurant): string {
-    const slug = primaryCuisine(r)?.slug
-    return slug ? cuisineGradient(slug) : FOOD_FALLBACK_GRADIENT
+function gradient(r: PopularRestaurant): string {
+    const slug = r.cuisines?.[0]?.slug
+    return slug ? cuisineGradient(slug) : 'from-muted to-muted-foreground/20'
 }
 
 function rankBadge(rank: number) {

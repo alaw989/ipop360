@@ -7,10 +7,10 @@ import ScoreChip from '@/Components/ScoreChip.vue';
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import type { Restaurant } from '@/types/restaurant';
-import { cuisineGradient, FOOD_FALLBACK_GRADIENT } from '@/lib/cuisine';
-import { callPhone, openWebsite, trackDirections, mapsUrl } from '@/lib/restaurant';
+import { callPhone, openWebsite, trackDirections } from '@/lib/restaurant';
 import { Phone, Globe, Navigation, Heart } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
+import { getDetailUrl, getRankStyle, getRestaurantPhotos, getRestaurantGradient, getDisplayRating, getMapCoords } from '@/composables/useRestaurantDisplay';
 
 const props = defineProps<{
     restaurant: Restaurant;
@@ -23,52 +23,17 @@ const props = defineProps<{
 
 const { isFavorited, toggle } = useFavorites();
 
-const detailOrMapsUrl = computed(() => {
-    if (props.restaurant.id > 0) {
-        return `/restaurants/${props.restaurant.slug}`;
-    }
-    if (props.restaurant.slug) {
-        return `/restaurants/preview/${props.restaurant.slug}`;
-    }
-    return mapsUrl(props.restaurant.name, props.restaurant.city);
-});
+const detailOrMapsUrl = computed(() => getDetailUrl(props.restaurant));
 
-const isTop3 = computed(() => props.rank <= 3);
+const rankStyle = computed(() => getRankStyle(props.rank));
 
-const rankStyle = computed(() => {
-    if (props.rank === 1) return { bg: 'from-amber-400 to-yellow-500', text: 'text-white', ring: 'shadow-amber-500/30' };
-    if (props.rank === 2) return { bg: 'from-slate-300 to-slate-400', text: 'text-slate-900', ring: 'shadow-slate-400/30' };
-    if (props.rank === 3) return { bg: 'from-orange-400 to-amber-600', text: 'text-white', ring: 'shadow-orange-500/30' };
-    return { bg: 'from-muted to-muted-foreground/20', text: 'text-muted-foreground', ring: '' };
-});
+const photos = computed(() => getRestaurantPhotos(props.restaurant));
 
-const rankLabel = computed(() => {
-    if (props.rank === 1) return '1';
-    return String(props.rank);
-});
+const gradient = computed(() => getRestaurantGradient(props.restaurant));
 
-const photos = computed(() => {
-    const unique = Array.from(new Set([props.restaurant.photo_url, ...(props.restaurant.photos ?? [])].filter(Boolean))) as string[];
-    return unique.slice(0, 6);
-});
+const displayRating = computed(() => getDisplayRating(props.restaurant));
 
-const gradient = computed(() => {
-    const primaryCuisine = props.restaurant.cuisines[0]?.slug;
-    return primaryCuisine ? cuisineGradient(primaryCuisine) : FOOD_FALLBACK_GRADIENT;
-});
-
-const displayRating = computed(() => {
-    if (props.restaurant.yelp_rating) return { rating: props.restaurant.yelp_rating, count: props.restaurant.yelp_review_count, source: 'Yelp' as const };
-    if (props.restaurant.google_rating) return { rating: props.restaurant.google_rating, count: props.restaurant.google_review_count, source: 'Google' as const };
-    return null;
-});
-
-const mapCoords = computed(() => {
-    if (props.restaurant.lat != null && props.restaurant.lng != null) {
-        return { lat: props.restaurant.lat, lng: props.restaurant.lng };
-    }
-    return null;
-});
+const mapCoords = computed(() => getMapCoords(props.restaurant));
 
 const saved = computed(() => isFavorited(props.restaurant));
 
@@ -95,7 +60,7 @@ const ariaLabel = computed(() => (saved.value ? 'Saved' : 'Save restaurant'));
                         :class="[rankStyle.bg, rankStyle.text]"
                     >
                         <span v-if="rank === 1">🔥</span>
-                        <span v-else class="tabular-nums">#{{ rankLabel }}</span>
+                        <span v-else class="tabular-nums">#{{ rank }}</span>
                     </div>
                 </div>
 

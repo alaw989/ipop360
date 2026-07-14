@@ -61,8 +61,8 @@ watch(query, (val) => {
     searching.value = true
     debounceTimer = setTimeout(async () => {
         try {
-            const res = await fetch(`/api/geocode/search?q=${encodeURIComponent(val)}`)
-            const data = await res.json()
+            const { get } = await import('@/lib/api')
+            const data = await get<any[]>(`/api/geocode/search?q=${encodeURIComponent(val)}`)
             results.value = data ?? []
             selectedIndex.value = -1
         } catch {

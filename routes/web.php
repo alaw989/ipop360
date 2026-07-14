@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\CuisineController;
 use App\Http\Controllers\EngagementController;
 use App\Http\Controllers\FavoriteController;
@@ -32,6 +33,10 @@ Route::get('/restaurants/{restaurant:slug}', [RestaurantController::class, 'show
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::get('/admin', AdminDashboardController::class)
+    ->middleware(['auth', 'verified'])
+    ->name('admin.dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

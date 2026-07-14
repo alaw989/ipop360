@@ -6,9 +6,11 @@ import StarRating from '@/Components/StarRating.vue';
 import ScoreBreakdown from '@/Components/ScoreBreakdown.vue';
 import DetailMap from '@/Components/DetailMap.vue';
 import CardGallery from '@/Components/CardGallery.vue';
+import SocialLinks from '@/Components/SocialLinks.vue';
+import OpeningHours from '@/Components/OpeningHours.vue';
+import { getRestaurantGradient } from '@/composables/useRestaurantDisplay';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { cuisineGradient } from '@/lib/cuisine';
 import { callPhone, openWebsite, trackDirections, directionsUrl } from '@/lib/restaurant';
 import { Heart, ArrowLeft, MapPin, Navigation, Phone, Globe } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
@@ -41,7 +43,7 @@ const photos = computed(() =>
 );
 
 const gradient = computed(() =>
-    cuisineGradient(props.restaurant.cuisines[0]?.slug),
+    getRestaurantGradient(props.restaurant),
 );
 
 // SEO
@@ -225,6 +227,16 @@ const structuredData = computed(() => {
                             <Globe :size="16" class="shrink-0" />
                             {{ restaurant.website_url.replace(/^https?:\/\//, '') }}
                         </button>
+                    </div>
+
+                    <!-- Social links -->
+                    <div v-if="restaurant.social_links && restaurant.social_links.length > 0" class="mt-5">
+                        <SocialLinks :links="restaurant.social_links" />
+                    </div>
+
+                    <!-- Opening hours -->
+                    <div v-if="restaurant.opening_hours" class="mt-5">
+                        <OpeningHours :hours="restaurant.opening_hours" />
                     </div>
 
                     <!-- Score -->

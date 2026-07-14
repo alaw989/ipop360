@@ -44,10 +44,10 @@ export function useGeolocation(persistLocation: PersistLocationFn): GeolocationR
                 lng.value = position.coords.longitude;
 
                 try {
-                    const res = await fetch(
+                    const { get } = await import('@/lib/api');
+                    const data = await get<{ city?: string; state?: string }>(
                         `/api/geocode?lat=${lat.value}&lng=${lng.value}`
                     );
-                    const data = await res.json();
                     if (data.city || data.state) {
                         location.value = {
                             city: data.city ?? null,

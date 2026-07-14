@@ -211,7 +211,7 @@ class RestaurantController extends Controller
 
     public function show(Restaurant $restaurant)
     {
-        $restaurant->load('cuisines.category');
+        $restaurant->load(['cuisines.category', 'socialLinks']);
 
         $collection = collect([$restaurant]);
 

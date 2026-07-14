@@ -115,11 +115,8 @@ export function useRestaurantSearch(
         const query = buildSearchParams(params);
 
         try {
-            const response = await fetch(`/api/restaurants?${query}`);
-            if (!response.ok) {
-                throw new Error('Resort failed');
-            }
-            const data = await response.json();
+            const { get } = await import('@/lib/api');
+            const data = await get<{ data: Restaurant[]; next_page_url: string | null }>(`/api/restaurants?${query}`);
             restaurants.value = data.data ?? [];
             nextPageUrl.value = data.next_page_url;
             if (restaurants.value.length === 0) {
@@ -144,11 +141,8 @@ export function useRestaurantSearch(
         if (!nextPageUrl.value || getPhase() !== 'results') return;
 
         try {
-            const response = await fetch(nextPageUrl.value);
-            if (!response.ok) {
-                throw new Error('Load more failed');
-            }
-            const data = await response.json();
+            const { get } = await import('@/lib/api');
+            const data = await get<{ data: Restaurant[]; next_page_url: string | null }>(nextPageUrl.value);
             restaurants.value.push(...(data.data ?? []));
             nextPageUrl.value = data.next_page_url;
             loadMoreError.value = null;
