@@ -24,6 +24,16 @@ class BackfillRestaurantWebsites extends Command
 
     private const CACHE_SOURCES = ['serpapi', 'preview', 'bizdata'];
 
+    private const DOMAIN_SKIP_PATTERNS = [
+        '/facebook\.com/i', '/instagram\.com/i', '/twitter\.com/i', '/x\.com/i',
+        '/yelp\.com/i', '/tripadvisor\.com/i', '/youtube\.com/i', '/tiktok\.com/i',
+        '/linkedin\.com/i', '/pinterest\.com/i',
+        '/google\.com/i', '/bing\.com/i', '/microsoft\.com/i',
+        '/wikipedia\.org/i', '/menupix\.com/i', '/allmenus\.com/i',
+        '/restaurantguru\.com/i', '/opentable\.com/i', '/seamless\.com/i',
+        '/toasttab\.com/i', '/toast\.site/i', '/uorder\.io/i', '/bentoobox\.net/i',
+    ];
+
     public function handle(RestaurantWebsiteScraperService $scraper): int
     {
         $dryRun = $this->option('dry-run');
@@ -122,7 +132,11 @@ class BackfillRestaurantWebsites extends Command
             if ($entryData !== null) {
                 $updates = [];
                 if (empty($restaurant->website_url) && is_string($entryData['_website'])) {
-                    $updates['website_url'] = $entryData['_website'];
+                    if (! $this->isSkipDomainUrl($entryData['_website'])) {
+                        $updates['website_url'] = $entryData['_website'];
+                    } else {
+                        $this->line("  Skipped cache URL (non-restaurant domain): {$entryData['_website']}");
+                    }
                 }
                 if (empty($restaurant->price_range) && is_string($entryData['_price_range'])) {
                     $updates['price_range'] = $entryData['_price_range'];
@@ -230,15 +244,6 @@ class BackfillRestaurantWebsites extends Command
                 return null;
             }
 
-            $skipPatterns = [
-                '/facebook\.com/i', '/instagram\.com/i', '/twitter\.com/i', '/x\.com/i',
-                '/yelp\.com/i', '/tripadvisor\.com/i', '/youtube\.com/i', '/tiktok\.com/i',
-                '/linkedin\.com/i', '/pinterest\.com/i',
-                '/google\.com/i', '/bing\.com/i', '/microsoft\.com/i',
-                '/wikipedia\.org/i', '/menupix\.com/i', '/allmenus\.com/i',
-                '/restaurantguru\.com/i', '/opentable\.com/i', '/seamless\.com/i',
-            ];
-
             foreach ($matches[1] as $encoded) {
                 $decoded = base64_decode($encoded, true);
                 if ($decoded === false || empty($decoded)) {
@@ -251,15 +256,7 @@ class BackfillRestaurantWebsites extends Command
                     continue;
                 }
 
-                $skip = false;
-                foreach ($skipPatterns as $pattern) {
-                    if (preg_match($pattern, $url)) {
-                        $skip = true;
-                        break;
-                    }
-                }
-
-                if (! $skip) {
+                if (! $this->isSkipDomainUrl($url)) {
                     return $url;
                 }
             }
@@ -273,6 +270,20 @@ class BackfillRestaurantWebsites extends Command
     private function normalize(string $name): string
     {
         return strtolower(trim(preg_replace('/\s+/', ' ', preg_replace('/[^a-z0-9\s]/i', '', $name))));
+    }
+
+    /**
+     * Check if a URL belongs to a known non-restaurant domain via skip patterns.
+     */
+    private function isSkipDomainUrl(string $url): bool
+    {
+        foreach (self::DOMAIN_SKIP_PATTERNS as $pattern) {
+            if (preg_match($pattern, $url)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function countMissing(): int
@@ -389,6 +400,12 @@ class BackfillRestaurantWebsites extends Command
             }
 
             if ($url !== null) {
+                if ($this->isSkipDomainUrl($url)) {
+                    $this->line("  Skipped guessed URL (non-restaurant domain): {$url}");
+                    $bar->advance();
+
+                    continue;
+                }
                 if (! $dryRun) {
                     $restaurant->update(['website_url' => $url]);
                 }
