@@ -282,6 +282,7 @@ class BizDataApiService
             'phone' => $r['phone'] ?? null,
             'price_range' => null,
             'photo_url' => null,
+            'opening_hours' => $r['opening_hours'] ?? null,
             'yelp_rating' => null,
             'yelp_review_count' => 0,
             'features' => [],

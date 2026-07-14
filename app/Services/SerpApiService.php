@@ -474,6 +474,7 @@ class SerpApiService
             'price_range' => $r['price_range'] ?? null,
             'description' => $r['description'] ?? null,
             'photo_url' => $r['photo_url'] ?? null,
+            'opening_hours' => $r['opening_hours'] ?? null,
             'yelp_rating' => null,
             'yelp_review_count' => 0,
             'google_rating' => isset($rating) && is_numeric($rating) ? (float) $rating : null,

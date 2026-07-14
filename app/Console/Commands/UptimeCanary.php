@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\ExternalApiCache;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -109,6 +110,36 @@ class UptimeCanary extends Command
         } catch (\Exception $e) {
             $checks['social_scrape'] = 'failed: '.$e->getMessage();
             $this->warn('⚠ Social scrape check failed');
+        }
+
+        // SerpApi quota health check (read-only, no outbound calls)
+        try {
+            $stats = ExternalApiCache::stats();
+            $serpapiCalls = $stats['serpapi_calls_last_30d'] ?? 0;
+            $freeQuota = (int) config('restaurant-finder.serpapi.free_quota', 250);
+            $circuitBreakerThreshold = (int) ceil($freeQuota * (float) config('restaurant-finder.serpapi.circuit_breaker_fraction', 0.8));
+            $enrichBudget = (int) config('restaurant-finder.enrich.monthly_budget', 150);
+            $remaining = max(0, $freeQuota - $serpapiCalls);
+            $pctUsed = $freeQuota > 0 ? round(($serpapiCalls / $freeQuota) * 100) : 0;
+
+            $checks['serpapi_quota'] = "{$serpapiCalls}/{$freeQuota} ({$pctUsed}%) used, {$remaining} remaining";
+            $this->info("✓ SerpApi quota: {$serpapiCalls}/{$freeQuota} ({$pctUsed}%) used, {$remaining} remaining");
+
+            if ($serpapiCalls >= $freeQuota) {
+                $status = $status === 'ok' ? 'degraded' : $status;
+                $checks['serpapi_quota'] = "exhausted: {$serpapiCalls}/{$freeQuota} used, resets monthly";
+                $this->warn("⚠ SerpApi quota: exhausted ({$serpapiCalls}/{$freeQuota})");
+            } elseif ($serpapiCalls >= $circuitBreakerThreshold) {
+                $status = $status === 'ok' ? 'degraded' : $status;
+                $checks['serpapi_quota'] = "near limit: {$serpapiCalls}/{$freeQuota} (circuit breaker at {$circuitBreakerThreshold})";
+                $this->warn("⚠ SerpApi quota: near limit ({$serpapiCalls}/{$freeQuota}, circuit breaker at {$circuitBreakerThreshold})");
+            } elseif ($serpapiCalls >= $enrichBudget) {
+                $checks['serpapi_quota'] = "enrichment budget exhausted: {$serpapiCalls}/{$enrichBudget} used, {$remaining} remaining for live search";
+                $this->info("ℹ SerpApi enrichment budget used ({$serpapiCalls}/{$enrichBudget}), {$remaining} remaining for live search");
+            }
+        } catch (\Exception $e) {
+            $checks['serpapi_quota'] = 'failed: '.$e->getMessage();
+            $this->warn('⚠ SerpApi quota check failed');
         }
 
         // Log the overall status

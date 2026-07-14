@@ -394,6 +394,7 @@ class RestaurantEnrichmentService
             'price_range' => $venue['price_range'] ?? null,
             'description' => $venue['description'] ?? null,
             'photo_url' => $venue['photo_url'] ?? null,
+            'opening_hours' => $venue['opening_hours'] ?? null,
             'yelp_rating' => $venue['yelp_rating'] ?? null,
             'yelp_review_count' => $venue['yelp_review_count'] ?? 0,
             'google_rating' => isset($rating) && is_numeric($rating) ? (float) $rating : null,
