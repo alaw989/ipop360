@@ -253,9 +253,23 @@ jobs:
             "cd ${{ secrets.DEPLOY_PATH }} && \
              (sudo systemctl reload php8.4-fpm 2>/dev/null || sudo systemctl restart php8.4-fpm 2>/dev/null || true) && \
              (supervisorctl restart ipop360-worker:* || echo 'worker restart failed (non-fatal)') && \
-             (supervisorctl restart ipop360-ssr:* || echo 'ssr restart failed (non-fatal)')"
+             (supervisorctl restart ipop360-ssr:* || echo 'ssr restart failed (non-fatal)') && \
+             (supervisorctl restart ipop360-scheduler:* || echo 'scheduler restart failed (non-fatal)')"
 
-      - name: Ensure Laravel scheduler cron (restaurants:score, apicache:gc, uptime:canary)
+      - name: Register the scheduler supervisor program (secondary safeguard)
+        # schedule:work runs alongside cron (schedule:run). If cron stalls,
+        # supervisor keeps the long-lived worker dispatching due tasks.
+        continue-on-error: true
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "DEPLOY=${{ secrets.DEPLOY_PATH }} && \
+             sed \"s|{{DEPLOY_PATH}}|\${DEPLOY}|g\" \${DEPLOY}/deploy/supervisor-ipop360-scheduler.conf \
+               | sudo tee /etc/supervisor/conf.d/ipop360-scheduler.conf >/dev/null && \
+             supervisorctl reread && \
+             supervisorctl update"
+
+      - name: Ensure Laravel scheduler cron + logrotate (restaurants:score, apicache:gc, uptime:canary)
         continue-on-error: true
         run: |
           ssh -i ~/.ssh/deploy_key \
@@ -264,7 +278,13 @@ jobs:
              echo \"* * * * * www-data cd \${{ secrets.DEPLOY_PATH }} && \${PHP_BIN} artisan schedule:run >> \${{ secrets.DEPLOY_PATH }}/storage/logs/scheduler.log 2>&1\" \
                | sudo tee /etc/cron.d/ipop360 > /dev/null && \
              sudo chmod 644 /etc/cron.d/ipop360 && \
-             echo 'CRON INSTALLED:' && sudo cat /etc/cron.d/ipop360"
+             echo 'CRON INSTALLED:' && sudo cat /etc/cron.d/ipop360 && \
+             echo '--- LOGROTATE ---' && \
+             DEPLOY_PATH_ESC=\$(echo \"\${{ secrets.DEPLOY_PATH }}\" | sed 's|/|\\/|g') && \
+             cat deploy/logrotate-ipop360 | sed \"s/{{ DEPLOY_PATH }}/\$DEPLOY_PATH_ESC/g\" \
+               | sudo tee /etc/logrotate.d/ipop360 > /dev/null && \
+             sudo chmod 644 /etc/logrotate.d/ipop360 && \
+             echo 'LOGROTATE INSTALLED:' && sudo cat /etc/logrotate.d/ipop360"
 
       - name: Bring site out of maintenance
         # spec-077: ALWAYS exit maintenance, even if migrate failed — a hard

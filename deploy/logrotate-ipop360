@@ -1,0 +1,11 @@
+# iPop360 scheduler log — rotate weekly, keep 4 weeks, compress.
+# Installed by deploy.yml to /etc/logrotate.d/ipop360
+{{ DEPLOY_PATH }}/storage/logs/scheduler.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

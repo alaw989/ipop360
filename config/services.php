@@ -35,6 +35,19 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Uptime alerting webhook
+    |--------------------------------------------------------------------------
+    | Used by uptime:canary to notify when the application status is degraded
+    | for N+ consecutive checks. Set to a Slack webhook URL or any generic
+    | webhook that accepts JSON POST bodies.
+    */
+    'alerting' => [
+        'webhook_url' => env('ALERTING_WEBHOOK_URL'),
+        'consecutive_threshold' => (int) env('ALERTING_CONSECUTIVE_THRESHOLD', 3),
+    ],
+
     'serpapi' => [
         'api_key' => env('SERPAPI_API_KEY'),
     ],

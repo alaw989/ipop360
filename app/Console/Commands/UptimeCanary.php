@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\ExternalApiCache;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -151,6 +152,60 @@ class UptimeCanary extends Command
 
         $this->info("Overall status: {$status}");
 
+        $this->notifyIfDegraded($status, $checks);
+
         return $status === 'ok' ? Command::SUCCESS : Command::FAILURE;
+    }
+
+    /**
+     * Track consecutive degraded/critical runs and fire webhook when threshold is reached.
+     */
+    private function notifyIfDegraded(string $status, array $checks): void
+    {
+        $webhookUrl = config('services.alerting.webhook_url');
+
+        if ($status === 'ok') {
+            Cache::forget('uptime:degraded_count');
+
+            return;
+        }
+
+        $threshold = (int) config('services.alerting.consecutive_threshold', 3);
+        $count = (int) Cache::get('uptime:degraded_count', 0) + 1;
+        Cache::put('uptime:degraded_count', $count, now()->addDay());
+
+        if ($count < $threshold) {
+            Log::info("Uptime degraded ({$count}/{$threshold} consecutive), alert pending", [
+                'checks' => $checks,
+            ]);
+
+            return;
+        }
+
+        Log::warning("Uptime degraded for {$count} consecutive checks — threshold reached", [
+            'checks' => $checks,
+        ]);
+
+        if (empty($webhookUrl)) {
+            return;
+        }
+
+        try {
+            Http::timeout(10)->post($webhookUrl, [
+                'text' => '⚠️ *iPop360 Uptime Alert*',
+                'attachments' => [[
+                    'color' => $status === 'critical' ? 'danger' : 'warning',
+                    'fields' => collect($checks)->map(fn ($val, $key) => [
+                        'title' => $key,
+                        'value' => $val,
+                        'short' => true,
+                    ])->values()->all(),
+                    'footer' => 'uptime:canary',
+                    'ts' => now()->timestamp,
+                ]],
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send uptime alert webhook', ['error' => $e->getMessage()]);
+        }
     }
 }
