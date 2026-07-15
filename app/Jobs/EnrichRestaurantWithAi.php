@@ -26,7 +26,17 @@ class EnrichRestaurantWithAi implements ShouldQueue
     /**
      * The number of times the job may be attempted.
      */
-    public int $tries = 2;
+    public int $tries = 5;
+
+    /**
+     * Backoff between retries (seconds). Exponential: 30s, 60s, 120s, 240s.
+     */
+    public array $backoff = [30, 60, 120, 240];
+
+    /**
+     * Max exceptions before marking failed (prevents infinite retry on 429).
+     */
+    public int $maxExceptions = 5;
 
     /**
      * The maximum number of seconds the job should run.
@@ -39,7 +49,7 @@ class EnrichRestaurantWithAi implements ShouldQueue
     public function __construct(
         public int $restaurantId
     ) {
-        // Queue is set via $queue property above
+        //
     }
 
     /**
@@ -103,6 +113,15 @@ class EnrichRestaurantWithAi implements ShouldQueue
             if (! empty($enriched['description']) && empty($restaurant->description)) {
                 $updates['description'] = $enriched['description'];
                 $aiMetadata['fields_updated'][] = 'description';
+            }
+
+            // Update price_range if provided and missing
+            if (! empty($enriched['price_range']) && empty($restaurant->price_range)) {
+                $inferred = $enriched['price_range'];
+                if (in_array($inferred, ['$', '$$', '$$$', '$$$$'], true)) {
+                    $updates['price_range'] = $inferred;
+                    $aiMetadata['fields_updated'][] = 'price_range';
+                }
             }
 
             // Store cuisines in ai_metadata (cuisine attachment is handled separately if needed)

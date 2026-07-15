@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -69,6 +70,11 @@ class AiEnrichmentService
                     'status' => $response->status(),
                     'restaurant_id' => $restaurantData['id'] ?? null,
                 ]);
+
+                // Throw on rate limit so the queued job retries with backoff
+                if ($response->status() === 429) {
+                    throw new RequestException($response);
+                }
 
                 return null;
             }
@@ -149,6 +155,7 @@ class AiEnrichmentService
         $prompt .= "- normalized_address: full normalized street address\n";
         $prompt .= "- phone: normalized phone number (if present and can be normalized)\n";
         $prompt .= "- website_url: normalized/cleaned website URL (if present)\n";
+        $prompt .= "- price_range: estimated price level ($/$$/$$$/$$$$) based on cuisine type and location\n";
         $prompt .= "- cuisines: array of cuisine types (e.g., [\"Italian\", \"Pizza\"])\n";
         $prompt .= "- description: brief description (if missing and can be inferred)\n";
         $prompt .= "\nDO NOT include: rating, review_count, score, or any ratings fields.";
