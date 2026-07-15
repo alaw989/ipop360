@@ -244,17 +244,21 @@ jobs:
         # moved to a SEPARATE step (`if: always()`) below, so a cache-build
         # failure (or a migrate failure) can never strand FPM on stale opcache
         # while `artisan up` serves the half-applied tree.
+        # IMPORTANT: all artisan commands run as www-data (sudo -u) so cache files
+        # are owned by www-data, not root. Otherwise tempnam() in BladeCompiler
+        # fails with "file created in the system's temporary directory" when
+        # www-data cannot overwrite root-owned compiled views at runtime.
         run: |
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
             "cd ${{ secrets.DEPLOY_PATH }} && \
              sudo chown -R www-data:www-data storage database bootstrap/cache && \
-             php8.4 artisan migrate --force && \
-             (php8.4 artisan config:cache || echo 'config:cache failed (non-fatal)') && \
-             (php8.4 artisan route:cache || echo 'route:cache failed (non-fatal)') && \
-             (php8.4 artisan view:cache || echo 'view:cache failed (non-fatal)') && \
-             (php8.4 artisan cache:clear || echo 'cache:clear failed (non-fatal)') && \
-             (php8.4 artisan seo:sitemap || echo 'seo:sitemap failed (non-fatal)')"
+             sudo -u www-data php8.4 artisan migrate --force && \
+             (sudo -u www-data php8.4 artisan config:cache || echo 'config:cache failed (non-fatal)') && \
+             (sudo -u www-data php8.4 artisan route:cache || echo 'route:cache failed (non-fatal)') && \
+             (sudo -u www-data php8.4 artisan view:cache || echo 'view:cache failed (non-fatal)') && \
+             (sudo -u www-data php8.4 artisan cache:clear || echo 'cache:clear failed (non-fatal)') && \
+             (sudo -u www-data php8.4 artisan seo:sitemap || echo 'seo:sitemap failed (non-fatal)')"
 
       - name: Restart services (always runs)
         # spec-087 + spec-090: the safety-critical restarts run unconditionally
