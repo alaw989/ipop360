@@ -90,7 +90,7 @@ class LiveSearchService
                 'lng' => $lng,
                 'scope' => $scope->isScoped() ? $scope->primarySlug : 'unscoped',
                 'sort' => $sort,
-                'distance' => $distanceKm ?? $scope->maxDistance ?? 'default',
+                'distance' => $distanceKm ?? 'default',
             ]);
         }
 
