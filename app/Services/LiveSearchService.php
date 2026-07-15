@@ -84,6 +84,16 @@ class LiveSearchService
         // Bound the list: drop the weak tail and cap the count (scored + sorted).
         $results = $this->boundResults($results);
 
+        if (empty($results)) {
+            Log::info('LiveSearch returned zero results', [
+                'lat' => $lat,
+                'lng' => $lng,
+                'scope' => $scope->isScoped() ? $scope->primarySlug : 'unscoped',
+                'sort' => $sort,
+                'distance' => $distanceKm ?? $scope->maxDistance ?? 'default',
+            ]);
+        }
+
         return $results;
     }
 
@@ -408,8 +418,10 @@ class LiveSearchService
      */
     private function applyOverpassNameFallback(array $merged, float $lat, float $lng, array $keywords): array
     {
+        // For unscoped searches (any cuisine), use generic restaurant keywords
+        // so Overpass's name-regex search can find untagged restaurants.
         if (empty($keywords)) {
-            return $merged;
+            $keywords = ['restaurant', 'cafe', 'grill', 'pizza', 'kitchen', 'bar', 'diner', 'bistro', 'sushi', 'taco', 'burger', 'thai', 'italian', 'mexican', 'chinese', 'japanese', 'indian', 'breakfast', 'lunch', 'dinner'];
         }
 
         foreach ($merged as $r) {

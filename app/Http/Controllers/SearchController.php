@@ -55,10 +55,12 @@ class SearchController extends Controller
 
         $coords = $this->geolocationService->resolveCoordinates($request);
 
-        // When no geolocation coords are available but the user explicitly passed a
-        // distance param, try the configured fallback so the distance filter still
-        // works (e.g. on local dev where IP geo is skipped for 127.0.0.1).
-        if ($coords === null && $request->has('distance')) {
+        // When no geolocation coords are available, try the configured fallback so
+        // the distance filter and live search still work (e.g. on local dev where
+        // IP geo is skipped for 127.0.0.1). Removed the $request->has('distance')
+        // guard so the initial homepage search (which now always sends distance=25)
+        // benefits from the same fallback as a distance-filter toggle.
+        if ($coords === null) {
             $fallbackLat = config('restaurant-finder.live_search.distance_fallback_lat');
             $fallbackLng = config('restaurant-finder.live_search.distance_fallback_lng');
             if ($fallbackLat !== null && $fallbackLng !== null) {

@@ -246,6 +246,7 @@ function onSearch() {
         category: selectedCategory.value || undefined,
         lat: lat.value ?? undefined,
         lng: lng.value ?? undefined,
+        distance: '25',
         sort: sort.value,
     })
 }

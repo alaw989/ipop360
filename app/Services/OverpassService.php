@@ -575,7 +575,7 @@ class OverpassService
     public function poolRequestsFor(float $lat, float $lng, ?string $cuisine = null, array $context = []): array
     {
         $timeout = ($context['read_path'] ?? false)
-            ? (float) config('restaurant-finder.live_search.overpass_timeout', 10.0)
+            ? (float) config('restaurant-finder.live_search.overpass_timeout', 15.0)
             : 30.0;
 
         $resolved = $cuisine ? $this->resolveCuisine($cuisine) : null;
@@ -583,16 +583,24 @@ class OverpassService
         $limit = (int) config('restaurant-finder.sources.overpass.live_limit', 80);
         $query = $this->buildQuery($lat, $lng, $resolved, 25000, $limit);
 
-        return [
-            new RequestSpec(
+        // Live path: try up to 2 mirrors for resilience (the primary mirror has
+        // been flaky). Each mirror gets the full timeout budget since they run
+        // concurrently via Http::pool. The enrichment path fan-out is handled
+        // by executeSearch() with all 3 mirrors + radii.
+        $specs = [];
+        $mirrorCount = min(2, count($this->mirrors));
+        for ($i = 0; $i < $mirrorCount; $i++) {
+            $specs[] = new RequestSpec(
                 method: 'POST',
-                url: $this->mirrors[0],
+                url: $this->mirrors[$i],
                 body: ['data' => $query],
                 headers: ['User-Agent' => 'iPop360/1.0'],
                 timeout: $timeout,
                 asForm: true,
-            ),
-        ];
+            );
+        }
+
+        return $specs;
     }
 
     /**

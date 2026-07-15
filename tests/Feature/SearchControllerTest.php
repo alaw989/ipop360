@@ -56,8 +56,11 @@ class SearchControllerTest extends TestCase
         $response->assertInertia(fn ($page) => $page->component('Search'));
     }
 
-    public function test_has_coords_is_false_when_no_coords_and_no_distance(): void
+    public function test_has_coords_is_false_when_no_coords_and_no_fallback_configured(): void
     {
+        Config::set('restaurant-finder.live_search.distance_fallback_lat', null);
+        Config::set('restaurant-finder.live_search.distance_fallback_lng', null);
+
         $response = $this->get('/search');
 
         $response->assertStatus(200);
@@ -86,7 +89,7 @@ class SearchControllerTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where('hasCoords', true));
     }
 
-    public function test_fallback_not_used_when_no_distance_param_even_if_configured(): void
+    public function test_fallback_used_when_configured_even_without_distance_param(): void
     {
         Config::set('restaurant-finder.live_search.distance_fallback_lat', 30.6199);
         Config::set('restaurant-finder.live_search.distance_fallback_lng', -88.1967);
@@ -94,6 +97,6 @@ class SearchControllerTest extends TestCase
         $response = $this->get('/search');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page->where('hasCoords', false));
+        $response->assertInertia(fn ($page) => $page->where('hasCoords', true));
     }
 }
