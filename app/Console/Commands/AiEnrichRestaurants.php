@@ -18,7 +18,7 @@ class AiEnrichRestaurants extends Command
     /**
      * The name and signature of the console command.
      */
-    protected $signature = 'restaurants:ai-enrich {
+    protected $signature = 'restaurants:ai-enrich
                             {--all : Process all restaurants, not just those needing enrichment}
                             {--id=* : Specific restaurant IDs to enrich}
                             {--dry-run : Show what would be processed without dispatching jobs}';
