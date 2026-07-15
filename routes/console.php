@@ -73,6 +73,15 @@ Schedule::command('restaurants:update-engagement')
     ->onOneServer()
     ->description('Aggregate engagement clicks into restaurant counters');
 
+// AI enrichment fills missing description, phone, website_url, price_range,
+// and cuisines on all restaurants (uses Groq LLM, not SerpApi quota).
+// Runs every 6 hours so rate-limited records are gradually filled.
+Schedule::command('restaurants:ai-enrich')
+    ->everySixHours()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('AI enrichment for missing fields on all restaurants');
+
 // Weekly website URL dead-link verification (Sundays at 6 AM UTC)
 Schedule::command('restaurants:verify-websites --limit=200')
     ->weeklyOn(0, '06:00')
