@@ -1051,14 +1051,14 @@ class RestaurantWebsiteScraperService
                 $response = Http::timeout(8)
                     ->withUserAgent(self::API_USER_AGENT)
                     ->get('https://commons.wikimedia.org/w/api.php', [
-                    'action' => 'query',
-                    'list' => 'search',
-                    'srsearch' => $query,
-                    'srnamespace' => 6,
-                    'srlimit' => 3,
-                    'format' => 'json',
-                    'origin' => '*',
-                ]);
+                        'action' => 'query',
+                        'list' => 'search',
+                        'srsearch' => $query,
+                        'srnamespace' => 6,
+                        'srlimit' => 3,
+                        'format' => 'json',
+                        'origin' => '*',
+                    ]);
 
                 if (! $response->successful()) {
                     continue;
@@ -1098,14 +1098,14 @@ class RestaurantWebsiteScraperService
             $response = Http::timeout(5)
                 ->withUserAgent(self::API_USER_AGENT)
                 ->get('https://commons.wikimedia.org/w/api.php', [
-                'action' => 'query',
-                'titles' => $title,
-                'prop' => 'imageinfo',
-                'iiprop' => 'url',
-                'iiurlwidth' => 800,
-                'format' => 'json',
-                'origin' => '*',
-            ]);
+                    'action' => 'query',
+                    'titles' => $title,
+                    'prop' => 'imageinfo',
+                    'iiprop' => 'url',
+                    'iiurlwidth' => 800,
+                    'format' => 'json',
+                    'origin' => '*',
+                ]);
 
             if (! $response->successful()) {
                 return null;
@@ -1158,13 +1158,13 @@ class RestaurantWebsiteScraperService
                 $response = Http::timeout(5)
                     ->withUserAgent(self::API_USER_AGENT)
                     ->get('https://en.wikipedia.org/w/api.php', [
-                    'action' => 'query',
-                    'list' => 'search',
-                    'srsearch' => $query,
-                    'srlimit' => 3,
-                    'format' => 'json',
-                    'origin' => '*',
-                ]);
+                        'action' => 'query',
+                        'list' => 'search',
+                        'srsearch' => $query,
+                        'srlimit' => 3,
+                        'format' => 'json',
+                        'origin' => '*',
+                    ]);
 
                 if (! $response->successful()) {
                     continue;
@@ -1203,13 +1203,13 @@ class RestaurantWebsiteScraperService
             $response = Http::timeout(5)
                 ->withUserAgent(self::API_USER_AGENT)
                 ->get('https://en.wikipedia.org/w/api.php', [
-                'action' => 'query',
-                'titles' => $title,
-                'prop' => 'pageimages',
-                'pithumbsize' => 500,
-                'format' => 'json',
-                'origin' => '*',
-            ]);
+                    'action' => 'query',
+                    'titles' => $title,
+                    'prop' => 'pageimages',
+                    'pithumbsize' => 500,
+                    'format' => 'json',
+                    'origin' => '*',
+                ]);
 
             if (! $response->successful()) {
                 return null;
