@@ -9,112 +9,165 @@ use Illuminate\Support\Facades\Log;
 /**
  * AI enrichment service using OpenAI-compatible API (default: Groq).
  *
+ * Supports a fallback provider chain — when the primary is rate-limited (429),
+ * subsequent providers are tried before the job releases back to the queue.
+ * All providers must be OpenAI-compatible (same chat/completions format).
+ *
  * Normalizes and extracts structured fields from restaurant data:
  * - cuisines (normalized list)
  * - normalized address
- * - gap fields (phone, website_url, etc.)
+ * - price_range (estimated)
+ * - gap fields (phone, website_url, description)
  *
  * NEVER produces ratings - only structural/attribute fields.
  * Gracefully degrades to no-op when no key is configured.
  */
 class AiEnrichmentService
 {
-    private ?string $apiKey;
-
-    private ?string $baseUrl;
-
-    private ?string $model;
-
-    public function __construct()
-    {
-        $this->apiKey = config('services.ai.api_key');
-        $this->baseUrl = config('services.ai.base_url', 'https://api.groq.com/openai/v1');
-        $this->model = config('services.ai.model', 'llama-3.3-70b-versatile');
-    }
-
-    /**
-     * Enrich a single restaurant with AI-extracted structured data.
-     * Returns the enrichment data or null on error/no-key.
-     */
     public function enrichRestaurant(array $restaurantData): ?array
     {
-        if (empty($this->apiKey)) {
+        $providers = $this->buildProviderChain();
+
+        if (empty($providers)) {
             return null;
         }
 
-        try {
-            $prompt = $this->buildPrompt($restaurantData);
-            $response = Http::timeout(30)
-                ->withHeaders([
-                    'Authorization' => 'Bearer '.$this->apiKey,
-                    'Content-Type' => 'application/json',
-                ])
-                ->post("{$this->baseUrl}/chat/completions", [
-                    'model' => $this->model,
-                    'messages' => [
-                        [
-                            'role' => 'system',
-                            'content' => 'You are a data normalization assistant for restaurant data. Extract structured information and normalize it. NEVER invent ratings or scores - only extract structural/attribute fields that are present or can be reasonably inferred. Return valid JSON only.',
-                        ],
-                        [
-                            'role' => 'user',
-                            'content' => $prompt,
-                        ],
-                    ],
-                    'temperature' => 0.1,
-                    'response_format' => ['type' => 'json_object'],
-                ]);
+        $lastException = null;
 
-            if ($response->failed()) {
-                Log::warning('AI enrichment request failed', [
-                    'status' => $response->status(),
-                    'restaurant_id' => $restaurantData['id'] ?? null,
-                ]);
+        foreach ($providers as $provider) {
+            if (empty($provider['api_key'])) {
+                continue;
+            }
 
-                // Throw on rate limit so the queued job retries with backoff
-                if ($response->status() === 429) {
-                    throw new RequestException($response);
+            try {
+                $result = $this->tryProvider($restaurantData, $provider);
+                if ($result !== null) {
+                    return $result;
                 }
 
                 return null;
-            }
+            } catch (RequestException $e) {
+                $lastException = $e;
 
-            $data = $response->json();
+                if ($e->response->status() !== 429) {
+                    Log::warning('AI provider returned non-retryable error', [
+                        'provider' => $provider['base_url'],
+                        'status' => $e->response->status(),
+                        'restaurant_id' => $restaurantData['id'] ?? null,
+                    ]);
 
-            $content = $data['choices'][0]['message']['content'] ?? null;
+                    return null;
+                }
 
-            if (empty($content)) {
-                return null;
-            }
-
-            $parsed = json_decode($content, true);
-
-            if (! is_array($parsed)) {
-                Log::warning('AI enrichment returned invalid JSON', [
-                    'content' => $content,
+                Log::info('AI provider rate-limited, trying fallback', [
+                    'provider' => $provider['base_url'],
                     'restaurant_id' => $restaurantData['id'] ?? null,
                 ]);
+            } catch (\Throwable $e) {
+                $lastException = $e;
+                Log::warning('AI provider threw exception, trying fallback', [
+                    'provider' => $provider['base_url'],
+                    'message' => $e->getMessage(),
+                    'restaurant_id' => $restaurantData['id'] ?? null,
+                ]);
+            }
+        }
 
-                return null;
+        Log::warning('All AI providers exhausted', [
+            'restaurant_id' => $restaurantData['id'] ?? null,
+            'last_error' => $lastException?->getMessage(),
+        ]);
+
+        throw new \RuntimeException('All AI providers rate-limited or failed');
+    }
+
+    private function buildProviderChain(): array
+    {
+        $primaryKey = config('services.ai.api_key');
+        if (empty($primaryKey)) {
+            return [];
+        }
+
+        $providers = [
+            [
+                'api_key' => $primaryKey,
+                'base_url' => config('services.ai.base_url', 'https://api.groq.com/openai/v1'),
+                'model' => config('services.ai.model', 'llama-3.3-70b-versatile'),
+            ],
+        ];
+
+        foreach (config('services.ai.fallback', []) as $fallback) {
+            if (! empty($fallback['api_key'])) {
+                $providers[] = $fallback;
+            }
+        }
+
+        return $providers;
+    }
+
+    private function tryProvider(array $restaurantData, array $provider): ?array
+    {
+        $prompt = $this->buildPrompt($restaurantData);
+
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'Authorization' => 'Bearer '.$provider['api_key'],
+                'Content-Type' => 'application/json',
+            ])
+            ->post("{$provider['base_url']}/chat/completions", [
+                'model' => $provider['model'],
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'You are a data normalization assistant for restaurant data. Extract structured information and normalize it. NEVER invent ratings or scores - only extract structural/attribute fields that are present or can be reasonably inferred. Return valid JSON only.',
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => $prompt,
+                    ],
+                ],
+                'temperature' => 0.1,
+                'response_format' => ['type' => 'json_object'],
+            ]);
+
+        if ($response->failed()) {
+            Log::warning('AI enrichment request failed', [
+                'provider' => $provider['base_url'],
+                'status' => $response->status(),
+                'restaurant_id' => $restaurantData['id'] ?? null,
+            ]);
+
+            if ($response->status() === 429) {
+                throw new RequestException($response);
             }
 
-            // Filter out any ratings (AI must not produce ratings)
-            unset($parsed['rating'], $parsed['review_count'], $parsed['score']);
+            return null;
+        }
 
-            return $parsed;
-        } catch (\Throwable $e) {
-            Log::warning('AI enrichment threw exception', [
-                'message' => $e->getMessage(),
+        $data = $response->json();
+        $content = $data['choices'][0]['message']['content'] ?? null;
+
+        if (empty($content)) {
+            return null;
+        }
+
+        $parsed = json_decode($content, true);
+
+        if (! is_array($parsed)) {
+            Log::warning('AI enrichment returned invalid JSON', [
+                'provider' => $provider['base_url'],
+                'content' => $content,
                 'restaurant_id' => $restaurantData['id'] ?? null,
             ]);
 
             return null;
         }
+
+        unset($parsed['rating'], $parsed['review_count'], $parsed['score']);
+
+        return $parsed;
     }
 
-    /**
-     * Build the enrichment prompt for a restaurant.
-     */
     private function buildPrompt(array $restaurantData): string
     {
         $name = $restaurantData['name'] ?? 'Unknown';

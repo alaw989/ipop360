@@ -72,6 +72,16 @@ return [
         'api_key' => env('AI_API_KEY'),
         'base_url' => env('AI_BASE_URL', 'https://api.groq.com/openai/v1'),
         'model' => env('AI_MODEL', 'llama-3.3-70b-versatile'),
+        // Fallback provider chain — tried when primary returns 429 (rate-limited).
+        // Each entry needs api_key, base_url, and model. Currently configured for
+        // GitHub Models (free with GitHub PAT).
+        'fallback' => [
+            [
+                'api_key' => env('AI_FALLBACK_KEY'),
+                'base_url' => env('AI_FALLBACK_URL', 'https://models.inference.ai.azure.com'),
+                'model' => env('AI_FALLBACK_MODEL', 'gpt-4o-mini'),
+            ],
+        ],
     ],
 
 ];

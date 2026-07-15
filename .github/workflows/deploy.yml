@@ -194,6 +194,21 @@ jobs:
                  "cat >> ${{ secrets.DEPLOY_PATH }}/.env" \
             && echo 'AI_API_KEY injected into .env'
 
+      - name: Inject AI fallback key into server .env
+        # GitHub Models free tier (gpt-4o-mini) used when Groq is rate-limited.
+        env:
+          AI_FALLBACK_KEY: ${{ secrets.AI_FALLBACK_KEY }}
+        if: ${{ env.AI_FALLBACK_KEY != '' }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && sed -i '/^AI_FALLBACK_KEY=/d' .env" \
+            && printf 'AI_FALLBACK_KEY=%s\n' "$AI_FALLBACK_KEY" \
+               | ssh -i ~/.ssh/deploy_key \
+                 ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+                 "cat >> ${{ secrets.DEPLOY_PATH }}/.env" \
+            && echo 'AI_FALLBACK_KEY injected into .env'
+
       - name: Ensure Node 22 on droplet (for the Inertia SSR server)
         # The SSR process (spec-063) runs `node bootstrap/ssr/ssr.js`. The droplet
         # only ships php8.4, so ensure Node 22 matches the build runner.
