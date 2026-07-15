@@ -47,6 +47,9 @@ class RestaurantWebsiteScraperService
     /** User agent for requests. */
     private const USER_AGENT = 'Mozilla/5.0 (compatible; iPop360-Bot/1.0; +https://ipop360.example.com/bot)';
 
+    /** User agent for free APIs (Wikimedia, Google). Includes contact for rate-limit issues. */
+    private const API_USER_AGENT = 'iPop360/1.0 (https://ipop360.vp-associates.com; alaw989@gmail.com)';
+
     /** Pages to check for social media links, in priority order. */
     private const SOCIAL_SCRAPE_PATHS = ['/', '/contact', '/about'];
 
@@ -1045,7 +1048,9 @@ class RestaurantWebsiteScraperService
 
         foreach ($queries as $query) {
             try {
-                $response = Http::timeout(8)->get('https://commons.wikimedia.org/w/api.php', [
+                $response = Http::timeout(8)
+                    ->withUserAgent(self::API_USER_AGENT)
+                    ->get('https://commons.wikimedia.org/w/api.php', [
                     'action' => 'query',
                     'list' => 'search',
                     'srsearch' => $query,
@@ -1090,7 +1095,9 @@ class RestaurantWebsiteScraperService
     private function resolveCommonsImageUrl(string $title): ?string
     {
         try {
-            $response = Http::timeout(5)->get('https://commons.wikimedia.org/w/api.php', [
+            $response = Http::timeout(5)
+                ->withUserAgent(self::API_USER_AGENT)
+                ->get('https://commons.wikimedia.org/w/api.php', [
                 'action' => 'query',
                 'titles' => $title,
                 'prop' => 'imageinfo',
@@ -1148,7 +1155,9 @@ class RestaurantWebsiteScraperService
             }
 
             try {
-                $response = Http::timeout(5)->get('https://en.wikipedia.org/w/api.php', [
+                $response = Http::timeout(5)
+                    ->withUserAgent(self::API_USER_AGENT)
+                    ->get('https://en.wikipedia.org/w/api.php', [
                     'action' => 'query',
                     'list' => 'search',
                     'srsearch' => $query,
@@ -1191,7 +1200,9 @@ class RestaurantWebsiteScraperService
     private function resolveWikipediaPageImage(string $title): ?string
     {
         try {
-            $response = Http::timeout(5)->get('https://en.wikipedia.org/w/api.php', [
+            $response = Http::timeout(5)
+                ->withUserAgent(self::API_USER_AGENT)
+                ->get('https://en.wikipedia.org/w/api.php', [
                 'action' => 'query',
                 'titles' => $title,
                 'prop' => 'pageimages',
