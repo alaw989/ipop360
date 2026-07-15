@@ -638,11 +638,11 @@ class RestaurantWebsiteScraperService
                 $result = [
                     'opening_hours' => $this->extractOpeningHours($dom, $xpath, $url),
                     'menu_url' => $this->extractMenuUrl($dom, $xpath, $url),
-                    'photo_url' => null, // Could be extended to extract gallery images
+                    'photo_url' => $this->extractPhotoUrl($dom, $xpath, $url),
                 ];
 
                 // Only return result if we found something useful
-                if ($result['opening_hours'] !== null || $result['menu_url'] !== null) {
+                if ($result['opening_hours'] !== null || $result['menu_url'] !== null || $result['photo_url'] !== null) {
                     return $result;
                 }
 
@@ -991,6 +991,136 @@ class RestaurantWebsiteScraperService
                     return $href;
                 }
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract photo URL from og:image or twitter:image meta tags.
+     */
+    private function extractPhotoUrl(DOMDocument $dom, DOMXPath $xpath, string $baseUrl): ?string
+    {
+        $patterns = [
+            "//meta[@property='og:image']",
+            "//meta[@name='twitter:image']",
+            "//meta[@property='og:image:secure_url']",
+        ];
+
+        foreach ($patterns as $pattern) {
+            $nodes = $xpath->query($pattern);
+            if ($nodes !== false && $nodes->length > 0) {
+                $content = $nodes->item(0)->getAttribute('content');
+                if (! empty($content)) {
+                    if (str_starts_with($content, 'http://') || str_starts_with($content, 'https://')) {
+                        return $content;
+                    }
+                    if (str_starts_with($content, '//')) {
+                        return 'https:'.$content;
+                    }
+                    return $this->resolveUrl($content, $baseUrl);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Search Wikimedia Commons for a restaurant photo by name + location.
+     * Free, no API key required. Used as fallback when og:image is missing.
+     *
+     * @return string|null URL of the first matching image, or null
+     */
+    public function searchWikimediaCommons(string $restaurantName, ?string $city = null, ?string $state = null): ?string
+    {
+        $queries = [$restaurantName];
+        if ($city) {
+            $queries[] = "{$restaurantName} {$city}";
+        }
+        if ($state) {
+            $queries[] = "{$restaurantName} {$state}";
+        }
+
+        foreach ($queries as $query) {
+            try {
+                $response = Http::timeout(8)->get('https://commons.wikimedia.org/w/api.php', [
+                    'action' => 'query',
+                    'list' => 'search',
+                    'srsearch' => $query,
+                    'srnamespace' => 6,
+                    'srlimit' => 3,
+                    'format' => 'json',
+                    'origin' => '*',
+                ]);
+
+                if (! $response->successful()) {
+                    continue;
+                }
+
+                $data = $response->json();
+                $pages = $data['query']['search'] ?? [];
+
+                foreach ($pages as $page) {
+                    $title = $page['title'] ?? '';
+                    if (empty($title)) {
+                        continue;
+                    }
+
+                    $imageUrl = $this->resolveCommonsImageUrl($title);
+                    if ($imageUrl !== null) {
+                        return $imageUrl;
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::debug('Wikimedia Commons search failed', [
+                    'query' => $query,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve a Wikimedia Commons file title to its full image URL.
+     */
+    private function resolveCommonsImageUrl(string $title): ?string
+    {
+        try {
+            $response = Http::timeout(5)->get('https://commons.wikimedia.org/w/api.php', [
+                'action' => 'query',
+                'titles' => $title,
+                'prop' => 'imageinfo',
+                'iiprop' => 'url',
+                'iiurlwidth' => 800,
+                'format' => 'json',
+                'origin' => '*',
+            ]);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $data = $response->json();
+            $pages = $data['query']['pages'] ?? [];
+
+            foreach ($pages as $page) {
+                $imageInfo = $page['imageinfo'][0] ?? null;
+                if ($imageInfo !== null && ! empty($imageInfo['url'])) {
+                    $url = $imageInfo['url'];
+                    if (str_ends_with($url, '.jpg') || str_ends_with($url, '.png') || str_ends_with($url, '.jpeg')) {
+                        return $url;
+                    }
+                    return $imageInfo['thumburl'] ?? $url;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::debug('Wikimedia Commons image resolution failed', [
+                'title' => $title,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return null;

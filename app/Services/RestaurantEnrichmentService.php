@@ -531,6 +531,22 @@ class RestaurantEnrichmentService
                 if (empty($restaurant->website_url)) {
                     $noWebsite++;
 
+                    // Try Wikimedia Commons for a photo even without a website
+                    if (empty($restaurant->photo_url)) {
+                        $wikimediaPhoto = $this->websiteScraper->searchWikimediaCommons(
+                            $restaurant->name,
+                            $restaurant->city,
+                            $restaurant->state,
+                        );
+                        if ($wikimediaPhoto !== null) {
+                            $restaurant->update(['photo_url' => $wikimediaPhoto]);
+                            Log::info('Wikimedia Commons found photo for restaurant without website', [
+                                'restaurant_id' => $restaurant->id,
+                                'restaurant_name' => $restaurant->name,
+                            ]);
+                        }
+                    }
+
                     continue;
                 }
 
@@ -542,13 +558,16 @@ class RestaurantEnrichmentService
 
                 $scrapedData = $this->websiteScraper->scrape($restaurant->website_url);
 
-                if ($scrapedData !== null && (! empty($scrapedData['opening_hours']) || ! empty($scrapedData['menu_url']))) {
+                if ($scrapedData !== null && (! empty($scrapedData['opening_hours']) || ! empty($scrapedData['menu_url']) || ! empty($scrapedData['photo_url']))) {
                     $updates = [];
                     if (! empty($scrapedData['opening_hours'])) {
                         $updates['opening_hours'] = $scrapedData['opening_hours'];
                     }
                     if (! empty($scrapedData['menu_url'])) {
                         $updates['menu_url'] = $scrapedData['menu_url'];
+                    }
+                    if (! empty($scrapedData['photo_url']) && empty($restaurant->photo_url)) {
+                        $updates['photo_url'] = $scrapedData['photo_url'];
                     }
                     if (! empty($updates)) {
                         $restaurant->update($updates);
@@ -561,9 +580,28 @@ class RestaurantEnrichmentService
                         'website_url' => $restaurant->website_url,
                         'has_menu_url' => ! empty($scrapedData['menu_url']),
                         'has_opening_hours' => ! empty($scrapedData['opening_hours']),
+                        'has_photo_url' => ! empty($scrapedData['photo_url']),
                     ]);
                 } else {
                     $failed++;
+                    // Fallback: try Wikimedia Commons for photo if scrape didn't find one
+                    if (empty($restaurant->photo_url)) {
+                        $wikimediaPhoto = $this->websiteScraper->searchWikimediaCommons(
+                            $restaurant->name,
+                            $restaurant->city,
+                            $restaurant->state,
+                        );
+                        if ($wikimediaPhoto !== null) {
+                            $restaurant->update(['photo_url' => $wikimediaPhoto]);
+                            $scraped++;
+                            Log::info('Wikimedia Commons found photo', [
+                                'restaurant_id' => $restaurant->id,
+                                'restaurant_name' => $restaurant->name,
+                                'photo_url' => $wikimediaPhoto,
+                            ]);
+                        }
+                    }
+
                     Log::info('Website scrape returned no opening hours', [
                         'restaurant_id' => $restaurant->id,
                         'restaurant_name' => $restaurant->name,
