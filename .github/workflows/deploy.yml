@@ -209,6 +209,26 @@ jobs:
                  "cat >> ${{ secrets.DEPLOY_PATH }}/.env" \
             && echo 'AI_FALLBACK_KEY injected into .env'
 
+      - name: Inject Google Custom Search key into server .env
+        # Free tier: 100 queries/day. Searches configured review sites for images.
+        env:
+          GOOGLE_CSE_API_KEY: ${{ secrets.GOOGLE_CSE_API_KEY }}
+          GOOGLE_CSE_CX: ${{ secrets.GOOGLE_CSE_CX }}
+        if: ${{ env.GOOGLE_CSE_API_KEY != '' && env.GOOGLE_CSE_CX != '' }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && sed -i '/^GOOGLE_CSE_API_KEY=/d;/^GOOGLE_CSE_CX=/d' .env" \
+            && printf 'GOOGLE_CSE_API_KEY=%s\n' "$GOOGLE_CSE_API_KEY" \
+               | ssh -i ~/.ssh/deploy_key \
+                 ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+                 "cat >> ${{ secrets.DEPLOY_PATH }}/.env" \
+            && printf 'GOOGLE_CSE_CX=%s\n' "$GOOGLE_CSE_CX" \
+               | ssh -i ~/.ssh/deploy_key \
+                 ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+                 "cat >> ${{ secrets.DEPLOY_PATH }}/.env" \
+            && echo 'GOOGLE_CSE keys injected into .env'
+
       - name: Ensure Node 22 on droplet (for the Inertia SSR server)
         # The SSR process (spec-063) runs `node bootstrap/ssr/ssr.js`. The droplet
         # only ships php8.4, so ensure Node 22 matches the build runner.

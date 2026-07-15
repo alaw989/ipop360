@@ -531,16 +531,16 @@ class RestaurantEnrichmentService
                 if (empty($restaurant->website_url)) {
                     $noWebsite++;
 
-                    // Try Wikimedia Commons for a photo even without a website
                     if (empty($restaurant->photo_url)) {
-                        $wikimediaPhoto = $this->websiteScraper->searchWikimediaCommons(
+                        $photoUrl = $this->websiteScraper->searchAnyImage(
                             $restaurant->name,
                             $restaurant->city,
                             $restaurant->state,
                         );
-                        if ($wikimediaPhoto !== null) {
-                            $restaurant->update(['photo_url' => $wikimediaPhoto]);
-                            Log::info('Wikimedia Commons found photo for restaurant without website', [
+                        if ($photoUrl !== null) {
+                            $restaurant->update(['photo_url' => $photoUrl]);
+                            $scraped++;
+                            Log::info('Image enrichment found photo for restaurant without website', [
                                 'restaurant_id' => $restaurant->id,
                                 'restaurant_name' => $restaurant->name,
                             ]);
@@ -584,20 +584,19 @@ class RestaurantEnrichmentService
                     ]);
                 } else {
                     $failed++;
-                    // Fallback: try Wikimedia Commons for photo if scrape didn't find one
+
                     if (empty($restaurant->photo_url)) {
-                        $wikimediaPhoto = $this->websiteScraper->searchWikimediaCommons(
+                        $photoUrl = $this->websiteScraper->searchAnyImage(
                             $restaurant->name,
                             $restaurant->city,
                             $restaurant->state,
                         );
-                        if ($wikimediaPhoto !== null) {
-                            $restaurant->update(['photo_url' => $wikimediaPhoto]);
+                        if ($photoUrl !== null) {
+                            $restaurant->update(['photo_url' => $photoUrl]);
                             $scraped++;
-                            Log::info('Wikimedia Commons found photo', [
+                            Log::info('Image enrichment found photo via fallback', [
                                 'restaurant_id' => $restaurant->id,
                                 'restaurant_name' => $restaurant->name,
-                                'photo_url' => $wikimediaPhoto,
                             ]);
                         }
                     }

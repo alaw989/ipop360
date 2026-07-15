@@ -1129,6 +1129,185 @@ class RestaurantWebsiteScraperService
     }
 
     /**
+     * Search Wikipedia for a restaurant photo via the page's infobox image.
+     * Free, unlimited, no API key required.
+     *
+     * @return string|null URL of the article's page image, or null
+     */
+    public function searchWikipediaImage(string $restaurantName, ?string $city = null, ?string $state = null): ?string
+    {
+        $queries = [
+            trim("{$restaurantName} {$city} {$state} restaurant"),
+            trim("{$restaurantName} {$city} (restaurant)"),
+            trim("{$restaurantName} restaurant"),
+        ];
+
+        foreach ($queries as $query) {
+            if (empty($query)) {
+                continue;
+            }
+
+            try {
+                $response = Http::timeout(5)->get('https://en.wikipedia.org/w/api.php', [
+                    'action' => 'query',
+                    'list' => 'search',
+                    'srsearch' => $query,
+                    'srlimit' => 3,
+                    'format' => 'json',
+                    'origin' => '*',
+                ]);
+
+                if (! $response->successful()) {
+                    continue;
+                }
+
+                $pages = $response->json('query.search', []);
+
+                foreach ($pages as $page) {
+                    $title = $page['title'] ?? '';
+                    if (empty($title)) {
+                        continue;
+                    }
+
+                    $imageUrl = $this->resolveWikipediaPageImage($title);
+                    if ($imageUrl !== null) {
+                        return $imageUrl;
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::debug('Wikipedia image search failed', [
+                    'query' => $query,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the page image (infobox photo) for a Wikipedia article.
+     */
+    private function resolveWikipediaPageImage(string $title): ?string
+    {
+        try {
+            $response = Http::timeout(5)->get('https://en.wikipedia.org/w/api.php', [
+                'action' => 'query',
+                'titles' => $title,
+                'prop' => 'pageimages',
+                'pithumbsize' => 500,
+                'format' => 'json',
+                'origin' => '*',
+            ]);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $pages = $response->json('query.pages', []);
+
+            foreach ($pages as $page) {
+                $thumb = $page['thumbnail']['source'] ?? null;
+                if ($thumb !== null) {
+                    return $thumb;
+                }
+
+                $pageImage = $page['pageimage'] ?? null;
+                if ($pageImage !== null) {
+                    return "https://en.wikipedia.org/wiki/Special:Redirect/file/{$pageImage}?width=500";
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::debug('Wikipedia page image resolution failed', [
+                'title' => $title,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Search Google Custom Search for a restaurant image via review/menu sites.
+     * Requires a Google Custom Search API key + engine ID (cx).
+     * Free tier: 100 queries/day.
+     *
+     * Searches configured sites (yelp, tripadvisor, etc.) for the restaurant
+     * name and returns the first image result.
+     */
+    public function searchGoogleImages(string $name, ?string $city = null, ?string $state = null): ?string
+    {
+        $apiKey = config('services.google_custom_search.api_key');
+        $cx = config('services.google_custom_search.cx');
+
+        if (empty($apiKey) || empty($cx)) {
+            return null;
+        }
+
+        $query = trim("{$name} {$city} {$state} restaurant");
+        if (empty($query)) {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(8)->get('https://www.googleapis.com/customsearch/v1', [
+                'key' => $apiKey,
+                'cx' => $cx,
+                'q' => $query,
+                'searchType' => 'image',
+                'num' => 1,
+                'safe' => 'active',
+            ]);
+
+            if ($response->failed()) {
+                Log::debug('Google Custom Search failed', [
+                    'query' => $query,
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            $items = $response->json('items', []);
+
+            return $items[0]['link'] ?? null;
+        } catch (\Throwable $e) {
+            Log::debug('Google Custom Search threw exception', [
+                'query' => $query,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Chain all image sources in order, returning the first match.
+     * Website og:image → Twitter:image → Wikimedia Commons → Wikipedia → Google Custom Search
+     */
+    public function searchAnyImage(string $name, ?string $city = null, ?string $state = null, ?string $websiteUrl = null): ?string
+    {
+        if (! empty($websiteUrl)) {
+            $scraped = $this->scrape($websiteUrl);
+            if ($scraped !== null && ! empty($scraped['photo_url'])) {
+                return $scraped['photo_url'];
+            }
+        }
+
+        $wikimedia = $this->searchWikimediaCommons($name, $city, $state);
+        if ($wikimedia !== null) {
+            return $wikimedia;
+        }
+
+        $wikipedia = $this->searchWikipediaImage($name, $city, $state);
+        if ($wikipedia !== null) {
+            return $wikipedia;
+        }
+
+        return $this->searchGoogleImages($name, $city, $state);
+    }
+
+    /**
      * Resolve a relative URL against a base URL.
      */
     private function resolveUrl(string $relative, string $base): string
