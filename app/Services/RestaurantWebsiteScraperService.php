@@ -1018,6 +1018,7 @@ class RestaurantWebsiteScraperService
                     if (str_starts_with($content, '//')) {
                         return 'https:'.$content;
                     }
+
                     return $this->resolveUrl($content, $baseUrl);
                 }
             }
@@ -1113,6 +1114,7 @@ class RestaurantWebsiteScraperService
                     if (str_ends_with($url, '.jpg') || str_ends_with($url, '.png') || str_ends_with($url, '.jpeg')) {
                         return $url;
                     }
+
                     return $imageInfo['thumburl'] ?? $url;
                 }
             }

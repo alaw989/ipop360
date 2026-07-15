@@ -175,6 +175,23 @@ jobs:
                  "cat >> ${{ secrets.DEPLOY_PATH }}/.env" \
             && echo 'SERPAPI_API_KEY injected into .env'
 
+      - name: Inject AI enrichment key into server .env
+        # Same pattern as SerpApi key above. AI_API_KEY enables the LLM enrichment
+        # pipeline (AiEnrichmentService) which fills description, phone, website_url,
+        # and cuisines on non-SerpApi records. Skipped if no secret is set.
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+        if: ${{ env.AI_API_KEY != '' }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && sed -i '/^AI_API_KEY=/d' .env" \
+            && printf 'AI_API_KEY=%s\n' "$AI_API_KEY" \
+               | ssh -i ~/.ssh/deploy_key \
+                 ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+                 "cat >> ${{ secrets.DEPLOY_PATH }}/.env" \
+            && echo 'AI_API_KEY injected into .env'
+
       - name: Ensure Node 22 on droplet (for the Inertia SSR server)
         # The SSR process (spec-063) runs `node bootstrap/ssr/ssr.js`. The droplet
         # only ships php8.4, so ensure Node 22 matches the build runner.
