@@ -66,7 +66,9 @@ ratings from search engines (LLMs hallucinate numbers), Foursquare ratings
 (premium field — the key returns 429, no credits).
 
 ## Deploy / infra gotchas
-- Deploy: `.github/workflows/deploy.yml` on push to master. CI runs
+- **All work goes through PRs** — never push directly to master.
+  Open a PR → quality checks run (tests, Pint, PHPStan) → you review → you merge → deploy.
+- Deploy: `.github/workflows/deploy.yml` on push to master (merge). CI runs
   `migrate --force` (one-time data migrations auto-apply) + `config:cache` +
   php8.4-fpm reload.
 - **`.env` is deploy-excluded** (`--exclude '.env'`): the droplet keeps its own

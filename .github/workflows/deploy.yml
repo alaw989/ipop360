@@ -327,6 +327,19 @@ jobs:
              supervisorctl reread && \
              supervisorctl update"
 
+      - name: Register the queue worker supervisor program
+        # Runs queue:work so dispatched jobs (AI enrichment, etc.) actually
+        # process. Idempotent: supervisorctl reread+update only acts on changes.
+        continue-on-error: true
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "DEPLOY=${{ secrets.DEPLOY_PATH }} && \
+             sed \"s|{{DEPLOY_PATH}}|\${DEPLOY}|g\" \${DEPLOY}/deploy/supervisor-ipop360-worker.conf \
+               | sudo tee /etc/supervisor/conf.d/ipop360-worker.conf >/dev/null && \
+             supervisorctl reread && \
+             supervisorctl update"
+
       - name: Ensure Laravel scheduler cron + logrotate (restaurants:score, apicache:gc, uptime:canary)
         continue-on-error: true
         run: |
