@@ -28,6 +28,7 @@ class SerpApiPersistenceAndThrottlingTest extends TestCase
 
         // This suite specifically tests SerpApi behavior
         Config::set('services.serpapi.api_key', 'test-serpapi-key');
+        Config::set('services.ai.api_key', '');
     }
 
     private function makeCuisine(): Cuisine

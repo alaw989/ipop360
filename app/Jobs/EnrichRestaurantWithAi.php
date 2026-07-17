@@ -31,7 +31,7 @@ class EnrichRestaurantWithAi implements ShouldQueue
     /**
      * Backoff between retries (seconds). Exponential: 30s, 60s, 120s, 240s.
      */
-    public array $backoff = [30, 60, 120, 240];
+    public array $backoff = [60, 120, 240, 480];
 
     /**
      * Max exceptions before marking failed (prevents infinite retry on 429).
@@ -135,7 +135,7 @@ class EnrichRestaurantWithAi implements ShouldQueue
 
             // Update the restaurant
             if (! empty($updates)) {
-                DB::transaction(function () use ($restaurant, $updates, $popularityScore) {
+                DB::transaction(function () use ($restaurant, $updates, $popularityScore, $aiMetadata) {
                     $restaurant->update($updates);
 
                     // Re-score the restaurant with enriched data
@@ -147,13 +147,26 @@ class EnrichRestaurantWithAi implements ShouldQueue
                         'score_breakdown' => $breakdown,
                     ]);
 
-                    Log::info('AI enrichment complete', [
+                    $changes = [];
+                    foreach ($aiMetadata['fields_updated'] as $field) {
+                        $changes[] = [
+                            'field' => $field,
+                            'old' => $restaurant->getOriginal($field) ?? null,
+                            'new' => $updates[$field] ?? null,
+                        ];
+                    }
+
+                    Log::channel('enrichment')->info('AI enrichment complete', [
                         'restaurant_id' => $restaurant->id,
-                        'fields_updated' => $aiMetadata['fields_updated'] ?? [],
+                        'restaurant_name' => $restaurant->name,
+                        'model' => $aiMetadata['model'],
+                        'changes' => $changes,
+                        'score_before' => $restaurant->getOriginal('popularity_score'),
+                        'score_after' => $breakdown['total'],
                     ]);
                 });
             } else {
-                Log::debug('AI enrichment produced no new fields', [
+                Log::channel('enrichment')->debug('AI enrichment produced no new fields', [
                     'restaurant_id' => $restaurant->id,
                 ]);
             }
