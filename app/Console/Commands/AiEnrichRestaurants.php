@@ -80,15 +80,19 @@ class AiEnrichRestaurants extends Command
         $bar->start();
 
         $dispatched = 0;
+        $i = 0;
 
         foreach ($restaurants as $restaurant) {
             if ($dryRun) {
                 $this->newLine();
                 $this->line("  Would dispatch: Restaurant #{$restaurant->id} - {$restaurant->name}");
             } else {
-                EnrichRestaurantWithAi::dispatch($restaurant->id);
+                EnrichRestaurantWithAi::dispatch($restaurant->id)
+                    ->delay(now()->addSeconds($i * 5));
                 $dispatched++;
             }
+
+            $i++;
 
             $bar->advance();
         }
