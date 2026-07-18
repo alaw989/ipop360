@@ -213,7 +213,8 @@ class VenuePipeline
         $fields = [
             'name', 'lat', 'lng', 'latitude', 'longitude',
             'address', 'city', 'state', 'postal_code', 'country',
-            'phone', 'price_range', 'photo_url',
+            'phone', 'website_url', 'price_range', 'photo_url',
+            'opening_hours', 'description', 'features',
             'yelp_rating', 'yelp_review_count', 'google_rating', 'google_review_count',
             'yelp_business_id', 'google_place_id',
             'source', 'distance', 'cuisine',
