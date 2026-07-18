@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -13,14 +14,20 @@ Schedule::command('restaurants:score')
     ->dailyAt('02:00')
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('Recompute popularity scores for all restaurants');
+    ->description('Recompute popularity scores for all restaurants')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:score']);
+    });
 
 // Schedule nightly API cache garbage collection (runs at 3 AM UTC)
 Schedule::command('apicache:gc')
     ->dailyAt('03:00')
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('Garbage collect expired API cache entries');
+    ->description('Garbage collect expired API cache entries')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'apicache:gc']);
+    });
 
 // Schedule uptime canary (runs every 15 minutes)
 Schedule::command('uptime:canary')
@@ -35,7 +42,10 @@ Schedule::command('restaurants:enrich --throttled')
     ->dailyAt('04:00')
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('Throttled DB enrichment under SerpApi quota');
+    ->description('Throttled DB enrichment under SerpApi quota')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:enrich --throttled']);
+    });
 
 // Schedule daily sitemap generation (runs at 5 AM UTC)
 Schedule::command('seo:sitemap')
@@ -49,29 +59,40 @@ Schedule::command('restaurants:backfill-websites')
     ->dailyAt('05:00')
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('Backfill missing website URLs from cache, web search, and domain guessing');
+    ->description('Backfill missing website URLs from cache, web search, and domain guessing')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:backfill-websites']);
+    });
 
 // Schedule social link scraping (runs at 5:30 AM UTC daily)
-// Saturday run uses --force to refresh all existing links weekly
 Schedule::command('restaurants:scrape-social')
     ->dailyAt('05:30')
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('Scrape new restaurant websites for social media links');
+    ->description('Scrape new restaurant websites for social media links')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:scrape-social']);
+    });
 
 // Saturday at 06:30 — refresh all existing social links (honours 30-day cache)
 Schedule::command('restaurants:scrape-social --force')
     ->weeklyOn(6, '06:30')
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('Weekly re-scrape of all social media links');
+    ->description('Weekly re-scrape of all social media links')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:scrape-social --force']);
+    });
 
 // Aggregate engagement data into restaurant counters (runs at 1 AM UTC)
 Schedule::command('restaurants:update-engagement')
     ->dailyAt('01:00')
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('Aggregate engagement clicks into restaurant counters');
+    ->description('Aggregate engagement clicks into restaurant counters')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:update-engagement']);
+    });
 
 // AI enrichment fills missing description, phone, website_url, price_range,
 // and cuisines on all restaurants (uses Groq LLM, not SerpApi quota).
@@ -80,7 +101,10 @@ Schedule::command('restaurants:ai-enrich')
     ->everySixHours()
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('AI enrichment for missing fields on all restaurants');
+    ->description('AI enrichment for missing fields on all restaurants')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:ai-enrich']);
+    });
 
 // Weekly website URL dead-link verification (Sundays at 6 AM UTC)
 Schedule::command('restaurants:verify-websites --limit=200')

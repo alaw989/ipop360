@@ -29,7 +29,7 @@ class ScrapeRestaurantSocialLinks extends Command
 
         $total = $query->count();
 
-        Log::info('Starting social scrape', [
+        Log::channel('enrichment')->info('Starting social scrape', [
             'total_with_websites' => $totalWithWebsites,
             'total_to_scrape' => $total,
             'force' => $force,
@@ -81,7 +81,7 @@ class ScrapeRestaurantSocialLinks extends Command
                             'platforms' => implode(',', $platforms),
                         ];
 
-                        Log::info('Social scrape found links', [
+                        Log::channel('enrichment')->info('Social scrape found links', [
                             'restaurant_id' => $restaurant->id,
                             'restaurant_name' => $restaurant->name,
                             'website_url' => $restaurant->website_url,
@@ -93,7 +93,7 @@ class ScrapeRestaurantSocialLinks extends Command
                     }
                 } catch (\Throwable $e) {
                     $errors++;
-                    Log::warning('Social scrape error', [
+                    Log::channel('enrichment')->warning('Social scrape error', [
                         'restaurant_id' => $restaurant->id,
                         'restaurant_name' => $restaurant->name,
                         'website_url' => $restaurant->website_url,
@@ -109,7 +109,7 @@ class ScrapeRestaurantSocialLinks extends Command
         $this->newLine();
         $this->info("Done. {$scraped} updated, {$skipped} skipped, {$errors} errors.");
 
-        Log::info('Social scrape completed', [
+        Log::channel('enrichment')->info('Social scrape completed', [
             'updated' => $scraped,
             'skipped' => $skipped,
             'errors' => $errors,

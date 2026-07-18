@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class UpdateEngagement extends Command
 {
@@ -13,8 +14,10 @@ class UpdateEngagement extends Command
 
     public function handle(): int
     {
-        $updated = DB::transaction(function () {
-            return DB::table('restaurant_engagement')
+        $updatedCount = 0;
+
+        DB::transaction(function () use (&$updatedCount) {
+            DB::table('restaurant_engagement')
                 ->select('restaurant_id')
                 ->selectRaw("SUM(CASE WHEN action_type = 'website_click' THEN 1 ELSE 0 END) AS website_clicks")
                 ->selectRaw("SUM(CASE WHEN action_type = 'directions_click' THEN 1 ELSE 0 END) AS directions_clicks")
@@ -22,7 +25,7 @@ class UpdateEngagement extends Command
                 ->selectRaw('COUNT(*) AS total')
                 ->groupBy('restaurant_id')
                 ->orderBy('restaurant_id')
-                ->chunk(200, function ($aggregates) {
+                ->chunk(200, function ($aggregates) use (&$updatedCount) {
                     foreach ($aggregates as $row) {
                         DB::table('restaurants')
                             ->where('id', $row->restaurant_id)
@@ -32,11 +35,15 @@ class UpdateEngagement extends Command
                                 'call_clicks_count' => $row->call_clicks,
                                 'total_engagement' => $row->total,
                             ]);
+                        $updatedCount++;
                     }
                 });
         });
 
         $this->info('Engagement counters updated successfully.');
+        Log::channel('enrichment')->info('Engagement counters updated', [
+            'restaurants_updated' => $updatedCount,
+        ]);
 
         return self::SUCCESS;
     }

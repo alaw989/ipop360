@@ -6,6 +6,7 @@ use App\Models\Restaurant;
 use App\Services\PopularityScoreService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ScoreRestaurants extends Command
 {
@@ -84,6 +85,11 @@ class ScoreRestaurants extends Command
         $bar->finish();
         $this->newLine();
         $this->info("Scoring complete. {$scored} restaurants scored.");
+        Log::channel('enrichment')->info('Scoring complete', [
+            'total' => $total,
+            'scored' => $scored,
+            'city' => $this->option('city') ?? 'all',
+        ]);
 
         return self::SUCCESS;
     }

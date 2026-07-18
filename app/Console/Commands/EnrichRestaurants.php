@@ -6,6 +6,7 @@ use App\Models\Cuisine;
 use App\Services\RestaurantEnrichmentService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Log;
 
 class EnrichRestaurants extends Command
 {
@@ -15,7 +16,8 @@ class EnrichRestaurants extends Command
     protected $signature = 'restaurants:enrich {city? : City name, or omit with --all-cities}
                             {--cuisine=* : Specific cuisine slugs to enrich}
                             {--all-cities : Run enrichment for all configured cities}
-                            {--throttled : Run throttled enrichment (quota-protected, cache-aware rotation)}';
+                            {--throttled : Run throttled enrichment (quota-protected, cache-aware rotation)}
+                            {--free-only : Skip SerpApi, use only free sources (BizData, Overpass, Socrata)}';
 
     /**
      * The console command description.
@@ -28,8 +30,13 @@ class EnrichRestaurants extends Command
     public function handle(RestaurantEnrichmentService $enrichmentService): int
     {
         $throttled = $this->option('throttled');
+        $freeOnly = $this->option('free-only');
 
         if ($throttled) {
+            if ($freeOnly) {
+                $this->warn('--free-only is redundant with --throttled (throttled enrichment already limits SerpApi calls). Running throttled enrichment.');
+            }
+
             return $this->enrichThrottled($enrichmentService);
         }
 
@@ -37,7 +44,9 @@ class EnrichRestaurants extends Command
         $cityArg = $this->argument('city');
 
         if ($allCities) {
-            return $this->enrichAllCities($enrichmentService);
+            $this->info('Free-only mode: '.($freeOnly ? 'ON (skipping SerpApi)' : 'OFF'));
+
+            return $this->enrichAllCities($enrichmentService, $freeOnly);
         }
 
         if (empty($cityArg)) {
@@ -46,15 +55,15 @@ class EnrichRestaurants extends Command
             return self::FAILURE;
         }
 
-        return $this->enrichSingleCity($enrichmentService, $cityArg);
+        return $this->enrichSingleCity($enrichmentService, $cityArg, $freeOnly);
     }
 
     /**
      * Enrich restaurants for a single city.
      */
-    protected function enrichSingleCity(RestaurantEnrichmentService $enrichmentService, string $city): int
+    protected function enrichSingleCity(RestaurantEnrichmentService $enrichmentService, string $city, bool $freeOnly = false): int
     {
-        $this->info("Starting restaurant enrichment for city: {$city}");
+        $this->info("Starting restaurant enrichment for city: {$city}".($freeOnly ? ' (free sources only)' : ''));
 
         $coordinates = $this->resolveCityCoordinates($city);
 
@@ -82,7 +91,7 @@ class EnrichRestaurants extends Command
             $this->info("Searching for {$cuisine->name} restaurants...");
 
             try {
-                $count = $enrichmentService->enrichByCuisine($lat, $lng, $cuisine);
+                $count = $enrichmentService->enrichByCuisine($lat, $lng, $cuisine, $freeOnly);
                 $totalEnriched += $count;
                 $this->info("  -> Enriched {$count} {$cuisine->name} restaurants");
             } catch (\Throwable $e) {
@@ -91,6 +100,10 @@ class EnrichRestaurants extends Command
         }
 
         $this->info("Enrichment complete. Total restaurants enriched: {$totalEnriched}");
+        Log::channel('enrichment')->info('Single-city enrichment complete', [
+            'city' => $city,
+            'total_enriched' => $totalEnriched,
+        ]);
 
         return self::SUCCESS;
     }
@@ -98,7 +111,7 @@ class EnrichRestaurants extends Command
     /**
      * Enrich restaurants for all configured cities.
      */
-    protected function enrichAllCities(RestaurantEnrichmentService $enrichmentService): int
+    protected function enrichAllCities(RestaurantEnrichmentService $enrichmentService, bool $freeOnly = false): int
     {
         $cities = config('restaurant-finder.cities', []);
 
@@ -108,7 +121,7 @@ class EnrichRestaurants extends Command
             return self::FAILURE;
         }
 
-        $this->info('Starting enrichment for all configured cities:');
+        $this->info('Starting enrichment for all configured cities'.($freeOnly ? ' (free sources only)' : '').':');
         $this->table(['City', 'Latitude', 'Longitude'], collect($cities)->map(fn ($coords, $name) => [
             $name,
             $coords[0],
@@ -136,7 +149,7 @@ class EnrichRestaurants extends Command
 
             foreach ($cuisines as $cuisine) {
                 try {
-                    $count = $enrichmentService->enrichByCuisine($lat, $lng, $cuisine);
+                    $count = $enrichmentService->enrichByCuisine($lat, $lng, $cuisine, $freeOnly);
                     $cityTotal += $count;
                     $this->info("  -> {$cuisine->name}: {$count} restaurants");
                 } catch (\Throwable $e) {
@@ -153,12 +166,17 @@ class EnrichRestaurants extends Command
         $this->newLine();
         $this->table(['City', 'Enriched'], collect($cityResults)->map(fn ($count, $city) => [$city, $count]));
         $this->info("Grand total: {$grandTotal} restaurants enriched across ".count($cities).' cities.');
+        Log::channel('enrichment')->info('All-cities enrichment complete', [
+            'total_enriched' => $grandTotal,
+            'cities_count' => count($cities),
+            'city_results' => $cityResults,
+        ]);
 
         return self::SUCCESS;
     }
 
     /**
-     * Get cuisines to enrich, either from --cuisine option or all from database.
+     * Get cuisines to enrich, either from --cuisine option or configured cuisines.
      */
     protected function getCuisines(): Collection
     {
@@ -168,7 +186,15 @@ class EnrichRestaurants extends Command
             return Cuisine::whereIn('slug', $cuisineSlugs)->get();
         }
 
-        return Cuisine::all();
+        $configuredCuisines = config('restaurant-finder.cuisines', []);
+
+        if (empty($configuredCuisines)) {
+            return Cuisine::all();
+        }
+
+        $slugs = array_map(fn (string $name) => str()->slug($name), $configuredCuisines);
+
+        return Cuisine::whereIn('slug', $slugs)->get();
     }
 
     /**
@@ -204,6 +230,7 @@ class EnrichRestaurants extends Command
     protected function enrichThrottled(RestaurantEnrichmentService $enrichmentService): int
     {
         $this->info('Starting throttled enrichment (quota-protected)');
+        Log::channel('enrichment')->info('Starting throttled enrichment (quota-protected)');
 
         $result = $enrichmentService->enrichAllCitiesThrottled();
 
@@ -217,11 +244,19 @@ class EnrichRestaurants extends Command
             ]
         );
 
+        Log::channel('enrichment')->info('Throttled enrichment result', [
+            'combos_processed' => $result['total_processed'],
+            'real_calls_made' => $result['real_calls_made'],
+            'cache_hits_skipped' => $result['cache_hits_skipped'],
+            'quota_exhausted' => $result['quota_exhausted'],
+        ]);
+
         if ($result['quota_exhausted']) {
             $this->warn('Monthly quota exhausted or per-run cap reached. Consider increasing the budget or running more frequently.');
         }
 
         $this->info('Throttled enrichment complete');
+        Log::channel('enrichment')->info('Throttled enrichment complete');
 
         return self::SUCCESS;
     }

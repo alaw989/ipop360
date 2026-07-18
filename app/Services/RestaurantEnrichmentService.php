@@ -43,13 +43,13 @@ class RestaurantEnrichmentService
      * Enrich restaurants for a given cuisine near a location.
      * Returns the count of restaurants enriched.
      */
-    public function enrichByCuisine(float $lat, float $lng, Cuisine $cuisine): int
+    public function enrichByCuisine(float $lat, float $lng, Cuisine $cuisine, bool $freeOnly = false): int
     {
-        // Fetch all sources concurrently
-        $venues = $this->fetchAndNormalizeAllSources($lat, $lng, $cuisine);
+        // Fetch all sources concurrently (skip SerpApi when freeOnly)
+        $venues = $this->fetchAndNormalizeAllSources($lat, $lng, $cuisine, $freeOnly);
 
         if (empty($venues)) {
-            Log::info('No free venues found', [
+            Log::channel('enrichment')->info('No free venues found', [
                 'lat' => $lat,
                 'lng' => $lng,
                 'cuisine' => $cuisine->name,
@@ -73,7 +73,7 @@ class RestaurantEnrichmentService
                     $restaurantIds[] = $restaurant->id;
                 }
             } catch (\Throwable $e) {
-                Log::error('Failed to process free venue', [
+                Log::channel('enrichment')->error('Failed to process free venue', [
                     'name' => $venue['name'] ?? '',
                     'message' => $e->getMessage(),
                 ]);
@@ -113,7 +113,7 @@ class RestaurantEnrichmentService
                     'score_breakdown' => json_encode($breakdown),
                 ];
             } catch (\Throwable $e) {
-                Log::error('Failed to compute popularity score', [
+                Log::channel('enrichment')->error('Failed to compute popularity score', [
                     'restaurant_id' => $restaurant->id,
                     'message' => $e->getMessage(),
                 ]);
@@ -156,7 +156,7 @@ class RestaurantEnrichmentService
             });
         }
 
-        Log::info('Restaurant enrichment complete', [
+        Log::channel('enrichment')->info('Restaurant enrichment complete', [
             'cuisine' => $cuisine->name,
             'enriched_count' => count($restaurantIds),
         ]);
@@ -168,7 +168,7 @@ class RestaurantEnrichmentService
      * Fetch and normalize all sources using real Http::pool() concurrency.
      * Wall time is max of sources, not sum. Isolates failures per source.
      */
-    private function fetchAndNormalizeAllSources(float $lat, float $lng, Cuisine $cuisine): array
+    private function fetchAndNormalizeAllSources(float $lat, float $lng, Cuisine $cuisine, bool $freeOnly = false): array
     {
         // Enrichment must issue the SAME queries the live read path issues and
         // cache them under the SAME keys, so nightly enrichment pre-warms the
@@ -182,9 +182,12 @@ class RestaurantEnrichmentService
         $specs = [
             'bizdata' => $this->bizData->poolRequestsFor($lat, $lng, $queryTerm, $context),
             'overpass' => $this->overpass->poolRequestsFor($lat, $lng, $cuisine->slug, $context),
-            'serpapi' => $this->serpApiService->poolRequestsFor($lat, $lng, $queryTerm, $context),
             'socrata' => $this->socrataService->poolRequestsFor($lat, $lng, $queryTerm, $context),
         ];
+
+        if (! $freeOnly) {
+            $specs['serpapi'] = $this->serpApiService->poolRequestsFor($lat, $lng, $queryTerm, $context);
+        }
 
         // Flatten to composite keys for the pool
         $flat = [];
@@ -292,7 +295,7 @@ class RestaurantEnrichmentService
 
             return $venues;
         } catch (\Throwable $e) {
-            Log::warning("{$label} pool response consumption failed", ['message' => $e->getMessage()]);
+            Log::channel('enrichment')->warning("{$label} pool response consumption failed", ['message' => $e->getMessage()]);
 
             return [];
         }
@@ -371,7 +374,7 @@ class RestaurantEnrichmentService
         // columns are nullable and the nearby() scope excludes null-coord rows,
         // so persist the venue rather than silently dropping its data.
         if ($venue['lat'] === null || $venue['lng'] === null) {
-            Log::info('Persisting free venue without coordinates', [
+            Log::channel('enrichment')->info('Persisting free venue without coordinates', [
                 'name' => $venue['name'],
                 'source' => $venue['source'] ?? null,
             ]);
@@ -442,6 +445,27 @@ class RestaurantEnrichmentService
             }
         }
 
+        $populatedFields = [];
+        foreach (['phone', 'website_url', 'price_range', 'description', 'photo_url', 'opening_hours', 'google_rating', 'google_review_count', 'features'] as $f) {
+            if (! empty($attributes[$f])) {
+                $populatedFields[] = $f;
+            }
+        }
+
+        Log::channel('enrichment')->info(
+            $existing ? 'Venue updated' : 'Venue created',
+            [
+                'restaurant_id' => $restaurant->id,
+                'restaurant_name' => $restaurant->name,
+                'source' => $venue['source'] ?? null,
+                'cuisine' => $cuisine->name,
+                'has_coords' => $venue['lat'] !== null && $venue['lng'] !== null,
+                'populated_fields' => $populatedFields,
+                'google_rating' => $attributes['google_rating'] ?? null,
+                'google_review_count' => $attributes['google_review_count'] ?? 0,
+            ]
+        );
+
         return $restaurant;
     }
 
@@ -507,10 +531,15 @@ class RestaurantEnrichmentService
 
                 if ((bool) $restaurant->has_award !== $hasAward) {
                     $restaurant->update(['has_award' => $hasAward]);
+                    Log::channel('enrichment')->info('Award status changed', [
+                        'restaurant_id' => $restaurant->id,
+                        'restaurant_name' => $restaurant->name,
+                        'has_award' => $hasAward,
+                    ]);
                 }
             }
         } catch (\Throwable $e) {
-            Log::debug('Award enrichment skipped', ['message' => $e->getMessage()]);
+            Log::channel('enrichment')->debug('Award enrichment skipped', ['message' => $e->getMessage()]);
         }
     }
 
@@ -540,9 +569,10 @@ class RestaurantEnrichmentService
                         if ($photoUrl !== null) {
                             $restaurant->update(['photo_url' => $photoUrl]);
                             $scraped++;
-                            Log::info('Image enrichment found photo for restaurant without website', [
+                            Log::channel('enrichment')->info('Image enrichment found photo for restaurant without website', [
                                 'restaurant_id' => $restaurant->id,
                                 'restaurant_name' => $restaurant->name,
+                                'photo_url' => $photoUrl,
                             ]);
                         }
                     }
@@ -574,13 +604,13 @@ class RestaurantEnrichmentService
                     }
                     $scraped++;
 
-                    Log::info('Website scrape found data', [
+                    Log::channel('enrichment')->info('Website scrape found data', [
                         'restaurant_id' => $restaurant->id,
                         'restaurant_name' => $restaurant->name,
                         'website_url' => $restaurant->website_url,
-                        'has_menu_url' => ! empty($scrapedData['menu_url']),
-                        'has_opening_hours' => ! empty($scrapedData['opening_hours']),
-                        'has_photo_url' => ! empty($scrapedData['photo_url']),
+                        'menu_url' => $scrapedData['menu_url'] ?? null,
+                        'opening_hours_count' => isset($scrapedData['opening_hours']) ? (is_array($scrapedData['opening_hours']) ? count($scrapedData['opening_hours']) : 1) : 0,
+                        'photo_url' => $scrapedData['photo_url'] ?? null,
                     ]);
                 } else {
                     $failed++;
@@ -594,14 +624,15 @@ class RestaurantEnrichmentService
                         if ($photoUrl !== null) {
                             $restaurant->update(['photo_url' => $photoUrl]);
                             $scraped++;
-                            Log::info('Image enrichment found photo via fallback', [
+                            Log::channel('enrichment')->info('Image enrichment found photo via fallback', [
                                 'restaurant_id' => $restaurant->id,
                                 'restaurant_name' => $restaurant->name,
+                                'photo_url' => $photoUrl,
                             ]);
                         }
                     }
 
-                    Log::info('Website scrape returned no opening hours', [
+                    Log::channel('enrichment')->info('Website scrape returned no opening hours', [
                         'restaurant_id' => $restaurant->id,
                         'restaurant_name' => $restaurant->name,
                         'website_url' => $restaurant->website_url,
@@ -610,7 +641,7 @@ class RestaurantEnrichmentService
                 }
             } catch (\Throwable $e) {
                 $failed++;
-                Log::warning('Website scraping failed for restaurant', [
+                Log::channel('enrichment')->warning('Website scraping failed for restaurant', [
                     'restaurant_id' => $restaurant->id,
                     'website_url' => $restaurant->website_url ?? null,
                     'message' => $e->getMessage(),
@@ -618,7 +649,7 @@ class RestaurantEnrichmentService
             }
         }
 
-        Log::info('Website enrichment summary', [
+        Log::channel('enrichment')->info('Website enrichment summary', [
             'total_processed' => $restaurants->count(),
             'already_have_opening_hours' => $alreadyHave,
             'no_website_url' => $noWebsite,
@@ -651,7 +682,7 @@ class RestaurantEnrichmentService
                 // Dispatch async job (never blocks request path)
                 EnrichRestaurantWithAi::dispatch($restaurant->id);
             } catch (\Throwable $e) {
-                Log::warning('AI enrichment dispatch failed for restaurant', [
+                Log::channel('enrichment')->warning('AI enrichment dispatch failed for restaurant', [
                     'restaurant_id' => $restaurant->id,
                     'message' => $e->getMessage(),
                 ]);
@@ -740,7 +771,7 @@ class RestaurantEnrichmentService
         $totalProcessed = 0;
         $quotaExhausted = false;
 
-        Log::info('Starting throttled enrichment', [
+        Log::channel('enrichment')->info('Starting throttled enrichment', [
             'per_run_cap' => $perRunCap,
             'monthly_budget' => $monthlyBudget,
             'real_calls_this_month' => $realCallsThisMonth,
@@ -777,14 +808,14 @@ class RestaurantEnrichmentService
                 $realCallsThisRun++;
                 $realCallsThisMonth++;
                 $totalProcessed++;
-                Log::info('Enriched combo', [
+                Log::channel('enrichment')->info('Enriched combo', [
                     'city' => $cityName,
                     'cuisine' => $cuisine->name,
                     'restaurants_enriched' => $count,
                     'real_calls_this_run' => $realCallsThisRun,
                 ]);
             } catch (\Throwable $e) {
-                Log::error('Failed to enrich combo', [
+                Log::channel('enrichment')->error('Failed to enrich combo', [
                     'city' => $cityName,
                     'cuisine' => $cuisine->name,
                     'message' => $e->getMessage(),
@@ -792,7 +823,7 @@ class RestaurantEnrichmentService
             }
         }
 
-        Log::info('Throttled enrichment complete', [
+        Log::channel('enrichment')->info('Throttled enrichment complete', [
             'total_processed' => $totalProcessed,
             'real_calls_made' => $realCallsThisRun,
             'cache_hits_skipped' => $cacheHitsSkipped,
@@ -837,7 +868,7 @@ class RestaurantEnrichmentService
     private function withinBudget(int $realCallsThisMonth, int $realCallsThisRun, int $monthlyBudget, int $perRunCap): bool
     {
         if ($realCallsThisMonth >= $monthlyBudget) {
-            Log::info('Monthly budget exhausted, stopping enrichment', [
+            Log::channel('enrichment')->info('Monthly budget exhausted, stopping enrichment', [
                 'real_calls_this_month' => $realCallsThisMonth,
                 'monthly_budget' => $monthlyBudget,
             ]);
@@ -846,7 +877,7 @@ class RestaurantEnrichmentService
         }
 
         if ($realCallsThisRun >= $perRunCap) {
-            Log::info('Per-run cap reached, stopping enrichment', [
+            Log::channel('enrichment')->info('Per-run cap reached, stopping enrichment', [
                 'real_calls_this_run' => $realCallsThisRun,
                 'per_run_cap' => $perRunCap,
             ]);
@@ -863,7 +894,7 @@ class RestaurantEnrichmentService
     private function shouldSkipCombo(float $lat, float $lng, Cuisine $cuisine, string $cityName): bool
     {
         if ($this->isSerpApiCacheFresh($lat, $lng, $this->cuisineMatcher->humanize($cuisine->slug))) {
-            Log::debug('Skipping cache-fresh combo', [
+            Log::channel('enrichment')->debug('Skipping cache-fresh combo', [
                 'city' => $cityName,
                 'cuisine' => $cuisine->name,
             ]);

@@ -9,6 +9,7 @@ use App\Services\RestaurantWebsiteScraperService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class BackfillRestaurantWebsites extends Command
 {
@@ -143,6 +144,12 @@ class BackfillRestaurantWebsites extends Command
                 }
                 if (! empty($updates) && ! $dryRun) {
                     $restaurant->update($updates);
+                    Log::channel('enrichment')->info('Website backfilled from cache', [
+                        'restaurant_id' => $restaurant->id,
+                        'restaurant_name' => $restaurant->name,
+                        'website_url' => $updates['website_url'] ?? null,
+                        'price_range' => $updates['price_range'] ?? null,
+                    ]);
                 }
                 $hits++;
                 $this->found++;
@@ -202,6 +209,11 @@ class BackfillRestaurantWebsites extends Command
             if ($url !== null) {
                 if (! $dryRun) {
                     $restaurant->update(['website_url' => $url]);
+                    Log::channel('enrichment')->info('Website backfilled from web search', [
+                        'restaurant_id' => $restaurant->id,
+                        'restaurant_name' => $restaurant->name,
+                        'website_url' => $url,
+                    ]);
                 }
                 $found++;
                 $this->found++;
@@ -515,6 +527,11 @@ class BackfillRestaurantWebsites extends Command
                 }
                 if (! $dryRun) {
                     $restaurant->update(['website_url' => $url]);
+                    Log::channel('enrichment')->info('Website backfilled from domain guess', [
+                        'restaurant_id' => $restaurant->id,
+                        'restaurant_name' => $restaurant->name,
+                        'website_url' => $url,
+                    ]);
                 }
                 $found++;
                 $this->found++;
