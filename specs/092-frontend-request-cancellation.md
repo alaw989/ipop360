@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-30
 
-**Status**: PROPOSED (P2 — fresh full-app audit 2026-06-30 cycle 2, frontend correctness)
+**Status**: SHIPPED — 2026-07-18 (all 5 ACs verified; 406 backend + 118 frontend tests green; Pint clean; build passes)
 
 **Series**: Fresh-audit P2 wave (092 → 093 → 094 → 095 → 096 → 097).
 

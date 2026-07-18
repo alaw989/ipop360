@@ -11,20 +11,11 @@ interface SearchParams {
     sort: Ref<string>;
 }
 
-interface SearchState {
-    restaurants: Ref<Restaurant[]>;
-    phase: Ref<Phase>;
-    shouldStagger: Ref<boolean>;
-    isResorting: Ref<boolean>;
-    nextPageUrl: Ref<string | null>;
-    searchError: Ref<string | null>;
-    loadMoreError: Ref<string | null>;
+interface ApiResponse {
+    data?: Restaurant[];
+    next_page_url?: string | null;
 }
 
-/**
- * Composable for restaurant search, resort, and load-more functionality.
- * Manages the search phase machine and provides URLSearchParams builder.
- */
 export function useRestaurantSearch(
     setPhase: (phase: Phase) => void,
     getPhase: () => Phase
@@ -32,14 +23,14 @@ export function useRestaurantSearch(
     const restaurants = ref<Restaurant[]>([]);
     const shouldStagger = ref(false);
     const isResorting = ref(false);
+    const isLoadingMore = ref(false);
     const nextPageUrl = ref<string | null>(null);
     const searchError = ref<string | null>(null);
     const loadMoreError = ref<string | null>(null);
 
-    /**
-     * Build URLSearchParams for search/resort requests.
-     * Shared logic between search() and resort().
-     */
+    let currentRequestId = 0;
+    let abortController: AbortController | null = null;
+
     function buildSearchParams(params: SearchParams): URLSearchParams {
         const query = new URLSearchParams();
         if (params.selectedCuisine) {
@@ -57,11 +48,30 @@ export function useRestaurantSearch(
         return query;
     }
 
-    /**
-     * Perform a full search with spinner and card stagger.
-     * Called on initial search and "Start Over" / "Try Again".
-     */
+    async function fetchValidated(url: string, signal?: AbortSignal): Promise<ApiResponse> {
+        const response = await fetch(url, { signal });
+        if (!response.ok) {
+            throw new Error('Search failed');
+        }
+        const data: unknown = await response.json();
+        if (typeof data !== 'object' || data === null || !Array.isArray((data as ApiResponse).data)) {
+            throw new Error('Invalid response');
+        }
+        return data as ApiResponse;
+    }
+
+    function abortPending(): void {
+        if (abortController) {
+            abortController.abort();
+        }
+        abortController = new AbortController();
+    }
+
     async function search(params: SearchParams): Promise<void> {
+        abortPending();
+        isLoadingMore.value = false;
+
+        const id = ++currentRequestId;
         setPhase('searching');
         searchError.value = null;
         loadMoreError.value = null;
@@ -69,18 +79,15 @@ export function useRestaurantSearch(
         const query = buildSearchParams(params);
 
         try {
-            const response = await fetch(`/api/restaurants?${query}`);
-            if (!response.ok) {
-                throw new Error('Search failed');
-            }
-            const data = await response.json();
+            const data = await fetchValidated(`/api/restaurants?${query}`, abortController!.signal);
+            if (id !== currentRequestId) return;
+
             restaurants.value = data.data ?? [];
-            nextPageUrl.value = data.next_page_url;
+            nextPageUrl.value = data.next_page_url ?? null;
 
             if (restaurants.value.length === 0) {
                 setPhase('empty');
             } else {
-                // Arm the stagger for this render only
                 shouldStagger.value = true;
                 setPhase('results');
                 nextTick(() => {
@@ -88,7 +95,10 @@ export function useRestaurantSearch(
                 });
             }
             searchError.value = null;
-        } catch {
+        } catch (error: unknown) {
+            if (error instanceof DOMException && error.name === 'AbortError') return;
+            if (id !== currentRequestId) return;
+
             searchError.value = 'Couldn\'t reach the listing service. Please try again.';
             restaurants.value = [];
             nextPageUrl.value = null;
@@ -96,18 +106,16 @@ export function useRestaurantSearch(
         }
     }
 
-    /**
-     * Re-fetch on sort change WITHOUT the spinner + full card stagger.
-     * Same endpoint + query as search(); only the UX wrapper differs
-     * (brief grid dim, no phase flip to 'searching', no re-armed stagger).
-     * Falls back to a full search if somehow invoked before we have results.
-     */
     async function resort(params: SearchParams): Promise<void> {
         const currentPhase = getPhase();
         if (currentPhase !== 'results' && currentPhase !== 'empty') {
             return search(params);
         }
 
+        abortPending();
+        isLoadingMore.value = false;
+
+        const id = ++currentRequestId;
         isResorting.value = true;
         searchError.value = null;
         loadMoreError.value = null;
@@ -115,16 +123,20 @@ export function useRestaurantSearch(
         const query = buildSearchParams(params);
 
         try {
-            const { get } = await import('@/lib/api');
-            const data = await get<{ data: Restaurant[]; next_page_url: string | null }>(`/api/restaurants?${query}`);
+            const data = await fetchValidated(`/api/restaurants?${query}`, abortController!.signal);
+            if (id !== currentRequestId) return;
+
             restaurants.value = data.data ?? [];
-            nextPageUrl.value = data.next_page_url;
+            nextPageUrl.value = data.next_page_url ?? null;
             if (restaurants.value.length === 0) {
                 setPhase('empty');
             } else {
                 setPhase('results');
             }
-        } catch {
+        } catch (error: unknown) {
+            if (error instanceof DOMException && error.name === 'AbortError') return;
+            if (id !== currentRequestId) return;
+
             searchError.value = 'Couldn\'t reach the listing service. Please try again.';
             restaurants.value = [];
             nextPageUrl.value = null;
@@ -134,39 +146,50 @@ export function useRestaurantSearch(
         }
     }
 
-    /**
-     * Load more results from pagination.
-     */
     async function loadMore(): Promise<void> {
-        if (!nextPageUrl.value || getPhase() !== 'results') return;
+        if (!nextPageUrl.value || getPhase() !== 'results' || isLoadingMore.value) return;
+
+        isLoadingMore.value = true;
+        const id = ++currentRequestId;
+        const signal = abortController?.signal;
 
         try {
-            const { get } = await import('@/lib/api');
-            const data = await get<{ data: Restaurant[]; next_page_url: string | null }>(nextPageUrl.value);
+            const data = await fetchValidated(nextPageUrl.value, signal);
+            if (id !== currentRequestId) return;
+
             restaurants.value.push(...(data.data ?? []));
-            nextPageUrl.value = data.next_page_url;
+            nextPageUrl.value = data.next_page_url ?? null;
             loadMoreError.value = null;
-        } catch {
+        } catch (error: unknown) {
+            if (error instanceof DOMException && error.name === 'AbortError') return;
+            if (id !== currentRequestId) return;
+
             loadMoreError.value = 'Couldn\'t load more results. Please try again.';
+        } finally {
+            isLoadingMore.value = false;
         }
     }
 
-    /**
-     * Reset search state to initial idle state.
-     */
     function resetState(): void {
+        if (abortController) {
+            abortController.abort();
+            abortController = null;
+        }
+        currentRequestId = 0;
         restaurants.value = [];
         nextPageUrl.value = null;
         searchError.value = null;
         loadMoreError.value = null;
         shouldStagger.value = false;
         isResorting.value = false;
+        isLoadingMore.value = false;
     }
 
     return {
         restaurants,
         shouldStagger,
         isResorting,
+        isLoadingMore,
         nextPageUrl,
         searchError,
         loadMoreError,
