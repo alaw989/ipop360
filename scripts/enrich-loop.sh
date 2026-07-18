@@ -7,13 +7,15 @@
 # enrichment pipeline in a continuous loop to build nationwide coverage.
 #
 # Usage:
-#   ./scripts/enrich-loop.sh                    # Run with defaults (3600s interval)
+#   ./scripts/enrich-loop.sh                    # Run with defaults (1h interval, 30m timeout)
 #   ./scripts/enrich-loop.sh 1800               # Run with 30-minute interval
 #   ./scripts/enrich-loop.sh --interval=3600    # Explicit interval
 #   ./scripts/enrich-loop.sh --once             # Single pass, no loop
+#   ./scripts/enrich-loop.sh --timeout=600      # 10 min timeout per enrich command
 #
 # Config (env overrides):
 #   ENRICH_INTERVAL    Seconds between full cycles (default: 3600)
+#   ENRICH_TIMEOUT     Max seconds for each enrichment command (default: 1800)
 #   ENRICH_CUISINES    Comma-separated cuisine slugs (default: all)
 #
 
@@ -26,6 +28,7 @@ LOG_DIR="$PROJECT_DIR/logs"
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
 
 INTERVAL="${ENRICH_INTERVAL:-3600}"
+TIMEOUT="${ENRICH_TIMEOUT:-1800}"
 ONCE=false
 DRY_RUN=false
 CUISINE_FLAG=""
@@ -53,6 +56,10 @@ while [[ $# -gt 0 ]]; do
             INTERVAL="${1#*=}"
             shift
             ;;
+        --timeout=*)
+            TIMEOUT="${1#*=}"
+            shift
+            ;;
         --cuisine=*)
             CUISINE_FLAG="--cuisine=${1#*=}"
             shift
@@ -66,10 +73,12 @@ while [[ $# -gt 0 ]]; do
             echo "  ./scripts/enrich-loop.sh --interval=3600    # Explicit interval"
             echo "  ./scripts/enrich-loop.sh --once             # Single pass, no loop"
             echo "  ./scripts/enrich-loop.sh --dry-run          # Show what would run, don't execute"
+            echo "  ./scripts/enrich-loop.sh --timeout=600      # Kill stuck enrich after 10 min"
             echo "  ./scripts/enrich-loop.sh --cuisine=thai     # Single cuisine"
             echo ""
             echo "Env overrides:"
             echo "  ENRICH_INTERVAL    Seconds between passes (default: 3600)"
+            echo "  ENRICH_TIMEOUT     Max seconds per enrich command (default: 1800)"
             exit 0
             ;;
         [0-9]*)
@@ -111,6 +120,7 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo -e "${GREEN}      ENRICH LOOP STARTING                       ${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}Mode:${NC}      $([ "$DRY_RUN" = true ] && echo 'dry-run' || ([ "$ONCE" = true ] && echo 'single pass' || echo "continuous (${INTERVAL}s interval)"))"
+echo -e "${BLUE}Timeout:${NC}   ${TIMEOUT}s per enrich command"
 echo -e "${BLUE}Cuisines:${NC}  ${CUISINE_FLAG:-all}"
 echo -e "${BLUE}Log:${NC}       $SESSION_LOG"
 echo ""
@@ -125,29 +135,29 @@ while true; do
     echo ""
 
     # Phase 1: Free-source enrichment (all cities, no SerpApi)
-    ENRICH_CMD="php artisan restaurants:enrich --all-cities --free-only $CUISINE_FLAG"
-    echo -e "${YELLOW}[Phase 1] Free-source enrichment (all cities, no SerpApi)...${NC}"
+    ENRICH_CMD="timeout $TIMEOUT php artisan restaurants:enrich --all-cities --free-only $CUISINE_FLAG"
+    echo -e "${YELLOW}[Phase 1] Free-source enrichment (all cities, no SerpApi, ${TIMEOUT}s timeout)...${NC}"
     echo -e "${BLUE}  \$ ${ENRICH_CMD}${NC}"
     if [ "$DRY_RUN" = false ]; then
         if $ENRICH_CMD 2>&1 | tee -a "$SESSION_LOG"; then
             echo -e "${GREEN}[Phase 1] Enrichment complete${NC}"
         else
-            echo -e "${RED}[Phase 1] Enrichment encountered errors (continuing)${NC}"
+            echo -e "${RED}[Phase 1] Enrichment encountered errors or timed out (continuing)${NC}"
         fi
     else
         echo -e "${YELLOW}  (dry-run — skipped)${NC}"
     fi
 
     # Phase 2: Re-score all restaurants
-    SCORE_CMD="php artisan restaurants:score"
+    SCORE_CMD="timeout $TIMEOUT php artisan restaurants:score"
     echo ""
-    echo -e "${YELLOW}[Phase 2] Re-scoring all restaurants...${NC}"
+    echo -e "${YELLOW}[Phase 2] Re-scoring all restaurants${NC}"
     echo -e "${BLUE}  \$ ${SCORE_CMD}${NC}"
     if [ "$DRY_RUN" = false ]; then
         if $SCORE_CMD 2>&1 | tee -a "$SESSION_LOG"; then
             echo -e "${GREEN}[Phase 2] Scoring complete${NC}"
         else
-            echo -e "${RED}[Phase 2] Scoring encountered errors (continuing)${NC}"
+            echo -e "${RED}[Phase 2] Scoring encountered errors or timed out (continuing)${NC}"
         fi
     else
         echo -e "${YELLOW}  (dry-run — skipped)${NC}"
