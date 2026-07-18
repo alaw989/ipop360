@@ -462,7 +462,7 @@ class RestaurantEnrichmentService
                 'has_coords' => $venue['lat'] !== null && $venue['lng'] !== null,
                 'populated_fields' => $populatedFields,
                 'google_rating' => $attributes['google_rating'] ?? null,
-                'google_review_count' => $attributes['google_review_count'] ?? 0,
+                'google_review_count' => $attributes['google_review_count'],
             ]
         );
 
