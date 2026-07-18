@@ -43,7 +43,7 @@ class RestaurantEnrichmentService
      * Enrich restaurants for a given cuisine near a location.
      * Returns the count of restaurants enriched.
      */
-    public function enrichByCuisine(float $lat, float $lng, Cuisine $cuisine, bool $freeOnly = false): int
+    public function enrichByCuisine(float $lat, float $lng, Cuisine $cuisine, bool $freeOnly = false, ?string $cityName = null, ?string $stateCode = null): int
     {
         // Fetch all sources concurrently (skip SerpApi when freeOnly)
         $venues = $this->fetchAndNormalizeAllSources($lat, $lng, $cuisine, $freeOnly);
@@ -68,7 +68,7 @@ class RestaurantEnrichmentService
         $restaurantIds = [];
         foreach ($venues as $venue) {
             try {
-                $restaurant = DB::transaction(fn () => $this->processFreeVenue($venue, $cuisine));
+                $restaurant = DB::transaction(fn () => $this->processFreeVenue($venue, $cuisine, $cityName, $stateCode));
                 if ($restaurant !== null) {
                     $restaurantIds[] = $restaurant->id;
                 }
@@ -363,7 +363,7 @@ class RestaurantEnrichmentService
      * Process a single free venue: build attributes, upsert, attach cuisine.
      * Upserts by yelp_business_id when present, else by name + ≤200m proximity.
      */
-    private function processFreeVenue(array $venue, Cuisine $cuisine): ?Restaurant
+    private function processFreeVenue(array $venue, Cuisine $cuisine, ?string $cityName = null, ?string $stateCode = null): ?Restaurant
     {
         if (empty($venue['name'])) {
             return null;
@@ -386,8 +386,8 @@ class RestaurantEnrichmentService
         $attributes = [
             'name' => $venue['name'],
             'address' => $venue['address'] ?? null,
-            'city' => $venue['city'] ?? null,
-            'state' => $venue['state'] ?? null,
+            'city' => $venue['city'] ?? $cityName,
+            'state' => $venue['state'] ?? $stateCode,
             'postal_code' => $venue['postal_code'] ?? null,
             'country' => $venue['country'] ?? 'US',
             'latitude' => $venue['lat'] ?? null,
@@ -804,7 +804,8 @@ class RestaurantEnrichmentService
 
             // Enrich this combo (will make one real SerpApi call)
             try {
-                $count = $this->enrichByCuisine($lat, $lng, $cuisine);
+                $stateCode = config('restaurant-finder.city_states.'.$cityName);
+                $count = $this->enrichByCuisine($lat, $lng, $cuisine, false, $cityName, $stateCode);
                 $realCallsThisRun++;
                 $realCallsThisMonth++;
                 $totalProcessed++;

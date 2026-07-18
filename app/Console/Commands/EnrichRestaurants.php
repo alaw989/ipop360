@@ -87,11 +87,13 @@ class EnrichRestaurants extends Command
 
         $totalEnriched = 0;
 
+        $stateCode = config('restaurant-finder.city_states.'.$city);
+
         foreach ($cuisines as $cuisine) {
             $this->info("Searching for {$cuisine->name} restaurants...");
 
             try {
-                $count = $enrichmentService->enrichByCuisine($lat, $lng, $cuisine, $freeOnly);
+                $count = $enrichmentService->enrichByCuisine($lat, $lng, $cuisine, $freeOnly, $city, $stateCode);
                 $totalEnriched += $count;
                 $this->info("  -> Enriched {$count} {$cuisine->name} restaurants");
             } catch (\Throwable $e) {
@@ -145,11 +147,13 @@ class EnrichRestaurants extends Command
 
             [$lat, $lng] = $coordinates;
 
+            $stateCode = config('restaurant-finder.city_states.'.$cityName);
+
             $cityTotal = 0;
 
             foreach ($cuisines as $cuisine) {
                 try {
-                    $count = $enrichmentService->enrichByCuisine($lat, $lng, $cuisine, $freeOnly);
+                    $count = $enrichmentService->enrichByCuisine($lat, $lng, $cuisine, $freeOnly, $cityName, $stateCode);
                     $cityTotal += $count;
                     $this->info("  -> {$cuisine->name}: {$count} restaurants");
                 } catch (\Throwable $e) {
