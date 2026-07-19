@@ -163,6 +163,39 @@ while true; do
         echo -e "${YELLOW}  (dry-run — skipped)${NC}"
     fi
 
+    # Phase 3: Backfill city/state via reverse geocoding for any restaurants
+    # that were enriched or persisted without city/state. This discovers new
+    # cities from live-search results that aren't in the configured list.
+    GEO_CMD="timeout $TIMEOUT php artisan restaurants:backfill-location --phase=geocode"
+    echo ""
+    echo -e "${YELLOW}[Phase 3] Reverse-geocoding missing city/state...${NC}"
+    echo -e "${BLUE}  \$ ${GEO_CMD}${NC}"
+    if [ "$DRY_RUN" = false ]; then
+        if $GEO_CMD 2>&1 | tee -a "$SESSION_LOG"; then
+            echo -e "${GREEN}[Phase 3] Geocode complete${NC}"
+        else
+            echo -e "${RED}[Phase 3] Geocode encountered errors or timed out (continuing)${NC}"
+        fi
+    else
+        echo -e "${YELLOW}  (dry-run — skipped)${NC}"
+    fi
+
+    # Phase 4: Enrich discovered cities (cities that appeared in the DB from
+    # live-search persistence but aren't in the configured cities list).
+    DISCOVERED_CMD="timeout $TIMEOUT php artisan restaurants:enrich --discovered --free-only"
+    echo ""
+    echo -e "${YELLOW}[Phase 4] Enriching discovered cities...${NC}"
+    echo -e "${BLUE}  \$ ${DISCOVERED_CMD}${NC}"
+    if [ "$DRY_RUN" = false ]; then
+        if $DISCOVERED_CMD 2>&1 | tee -a "$SESSION_LOG"; then
+            echo -e "${GREEN}[Phase 4] Discovered-city enrichment complete${NC}"
+        else
+            echo -e "${RED}[Phase 4] Discovered-city enrichment encountered errors or timed out (continuing)${NC}"
+        fi
+    else
+        echo -e "${YELLOW}  (dry-run — skipped)${NC}"
+    fi
+
     CYCLE_END=$(date +%s)
     CYCLE_DURATION=$((CYCLE_END - CYCLE_START))
     echo ""

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Cuisine;
+use App\Models\Restaurant;
 use App\Services\RestaurantEnrichmentService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
@@ -16,6 +17,7 @@ class EnrichRestaurants extends Command
     protected $signature = 'restaurants:enrich {city? : City name, or omit with --all-cities}
                             {--cuisine=* : Specific cuisine slugs to enrich}
                             {--all-cities : Run enrichment for all configured cities}
+                            {--discovered : Enrich cities discovered from the DB that are not in the config}
                             {--throttled : Run throttled enrichment (quota-protected, cache-aware rotation)}
                             {--free-only : Skip SerpApi, use only free sources (BizData, Overpass, Socrata)}';
 
@@ -41,7 +43,17 @@ class EnrichRestaurants extends Command
         }
 
         $allCities = $this->option('all-cities');
+        $discovered = $this->option('discovered');
         $cityArg = $this->argument('city');
+
+        if ($allCities && $discovered) {
+            $this->info('Running configured cities first, then discovered cities...');
+            $result = $this->enrichAllCities($enrichmentService, $freeOnly);
+            $this->newLine();
+            $this->enrichDiscoveredCities($enrichmentService, $freeOnly);
+
+            return $result;
+        }
 
         if ($allCities) {
             $this->info('Free-only mode: '.($freeOnly ? 'ON (skipping SerpApi)' : 'OFF'));
@@ -49,8 +61,12 @@ class EnrichRestaurants extends Command
             return $this->enrichAllCities($enrichmentService, $freeOnly);
         }
 
+        if ($discovered) {
+            return $this->enrichDiscoveredCities($enrichmentService, $freeOnly);
+        }
+
         if (empty($cityArg)) {
-            $this->error('Either provide a city name, use --all-cities, or use --throttled for quota-protected enrichment.');
+            $this->error('Either provide a city name, use --all-cities, use --discovered, or use --throttled for quota-protected enrichment.');
 
             return self::FAILURE;
         }
@@ -173,6 +189,91 @@ class EnrichRestaurants extends Command
         Log::channel('enrichment')->info('All-cities enrichment complete', [
             'total_enriched' => $grandTotal,
             'cities_count' => count($cities),
+            'city_results' => $cityResults,
+        ]);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Enrich restaurants for cities discovered in the database that are not
+     * in the configured cities list. These are cities that were added via
+     * live search persistence or other means.
+     */
+    protected function enrichDiscoveredCities(RestaurantEnrichmentService $enrichmentService, bool $freeOnly = false): int
+    {
+        $configured = config('restaurant-finder.cities', []);
+        $configuredLower = array_map('strtolower', array_keys($configured));
+
+        // Find distinct city/state pairs from the DB that may not be configured
+        $discovered = Restaurant::selectRaw('city, state, AVG(latitude) as avg_lat, AVG(longitude) as avg_lng, COUNT(*) as cnt')
+            ->whereNotNull('city')
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
+            ->where('latitude', '!=', 0)
+            ->where('longitude', '!=', 0)
+            ->groupBy('city', 'state')
+            ->orderByDesc('cnt')
+            ->get()
+            ->filter(fn ($row) => ! in_array(strtolower($row->city), $configuredLower, true))
+            ->values();
+
+        if ($discovered->isEmpty()) {
+            $this->info('No discovered cities to enrich (all DB cities are already configured).');
+
+            return self::SUCCESS;
+        }
+
+        $this->info('Enriching '.count($discovered).' discovered cities not in config:');
+        $this->table(
+            ['City', 'State', 'Avg Lat', 'Avg Lng', 'Restaurants'],
+            $discovered->map(fn ($r) => [$r->city, $r->state ?? '?', round($r->avg_lat, 4), round($r->avg_lng, 4), $r->cnt])
+        );
+
+        $cuisines = $this->getCuisines();
+
+        if ($cuisines->isEmpty()) {
+            $this->warn('No cuisines found. Run db:seed --class=CuisineSeeder first.');
+
+            return self::FAILURE;
+        }
+
+        $grandTotal = 0;
+        $cityResults = [];
+
+        foreach ($discovered as $row) {
+            $cityName = $row->city;
+            $this->newLine();
+            $this->info("Processing discovered city: {$cityName}...");
+
+            [$lat, $lng] = [$row->avg_lat, $row->avg_lng];
+            $stateCode = $row->state;
+
+            $cityResults[$cityName] = 0;
+
+            foreach ($cuisines as $cuisine) {
+                try {
+                    $count = $enrichmentService->enrichByCuisine($lat, $lng, $cuisine, $freeOnly, $cityName, $stateCode);
+                } catch (\Throwable $e) {
+                    $this->error("  -> {$cuisine->name} failed: {$e->getMessage()}");
+                    $count = 0;
+                }
+
+                $totalForCuisine = $count ?? 0;
+                $cityResults[$cityName] += $totalForCuisine;
+                $grandTotal += $totalForCuisine;
+                $this->info("  -> {$cuisine->name}: {$totalForCuisine} restaurants");
+            }
+
+            $this->info("{$cityName}: {$cityResults[$cityName]} restaurants enriched");
+        }
+
+        $this->newLine();
+        $this->table(['City', 'Enriched'], collect($cityResults)->map(fn ($count, $city) => [$city, $count]));
+        $this->info("Grand total: {$grandTotal} restaurants enriched across ".count($discovered).' discovered cities.');
+        Log::channel('enrichment')->info('Discovered-cities enrichment complete', [
+            'total_enriched' => $grandTotal,
+            'cities_count' => count($discovered),
             'city_results' => $cityResults,
         ]);
 
