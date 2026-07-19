@@ -9,6 +9,7 @@ interface SearchParams {
     lat: Ref<number | null>;
     lng: Ref<number | null>;
     sort: Ref<string>;
+    distance?: number;
 }
 
 interface ApiResponse {
@@ -45,6 +46,9 @@ export function useRestaurantSearch(
             query.set('lng', params.lng.value.toString());
         }
         query.set('sort', params.sort.value);
+        if (params.distance !== undefined) {
+            query.set('distance', params.distance.toString());
+        }
         return query;
     }
 

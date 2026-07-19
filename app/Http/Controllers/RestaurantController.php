@@ -146,6 +146,7 @@ class RestaurantController extends Controller
         $sort = $validated['sort'] ?? 'best_match';
         $cuisineSlug = $request->query('cuisine');
         $categorySlug = $request->query('category');
+        $distanceKm = $request->query('distance') !== null ? (float) $request->query('distance') : null;
         $cuisineName = null;
 
         // Cuisine takes precedence. For a cuisine scope, derive the parent
@@ -173,7 +174,7 @@ class RestaurantController extends Controller
         $query = $this->buildRestaurantQuery($request)
             ->when(
                 $coords !== null,
-                fn ($query) => $query->nearby($coords['lat'], $coords['lng'])
+                fn ($query) => $query->nearby($coords['lat'], $coords['lng'], $distanceKm)
             )
             ->active();
 
@@ -262,6 +263,7 @@ class RestaurantController extends Controller
         $sort = $validated['sort'] ?? 'best_match';
         $cuisineSlug = $request->query('cuisine');
         $categorySlug = $request->query('category');
+        $distanceKm = $request->query('distance') !== null ? (float) $request->query('distance') : null;
 
         $coords = $this->geolocationService->resolveCoordinates($request);
 
@@ -270,7 +272,7 @@ class RestaurantController extends Controller
         $query = $this->buildRestaurantQuery($request)
             ->when(
                 $coords !== null,
-                fn ($query) => $query->nearby($coords['lat'], $coords['lng'])
+                fn ($query) => $query->nearby($coords['lat'], $coords['lng'], $distanceKm)
             )
             ->active();
 
@@ -311,6 +313,7 @@ class RestaurantController extends Controller
                     $categorySlug,
                     false, // cacheOnly
                     $sort,  // spec-069 4B: sort happens inside search(), before the bound
+                    $distanceKm,
                 );
 
                 // Persist all live results to the restaurants table so engagement

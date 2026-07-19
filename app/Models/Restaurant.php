@@ -113,8 +113,10 @@ class Restaurant extends Model
         return $query->where('is_active', true);
     }
 
-    public function scopeNearby(Builder $query, float $lat, float $lng, float $radiusKm = 25): Builder
+    public function scopeNearby(Builder $query, float $lat, float $lng, ?float $radiusKm = null): Builder
     {
+        $radiusKm ??= (float) config('restaurant-finder.live_search.nearby_radius_km', 25);
+
         $haversine = '(
             6371 * acos(
                 MIN(1.0, MAX(-1.0, cos(radians(?))

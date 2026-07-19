@@ -287,6 +287,11 @@ return [
         // Default per-request timeout for the simple sources (BizData, SerpApi).
         'http_timeout' => (float) env('LIVE_SEARCH_HTTP_TIMEOUT', 8.0),
 
+        // Radius for the DB path's nearby() scope. When persisted restaurants
+        // exist within this radius, they're returned directly (no live search).
+        // Raise this to return more DB-served results at larger distances.
+        'nearby_radius_km' => (float) env('NEARBY_RADIUS_KM', 25),
+
         // spec-074: max seconds a waiter blocks on the per-key SerpApi fetch lock
         // (thundering-herd guard). Concurrent cold requests for the same key wait
         // for the holder to warm the cache, then reuse it instead of re-fetching.
