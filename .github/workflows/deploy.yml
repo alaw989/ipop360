@@ -312,7 +312,8 @@ jobs:
              (sudo systemctl reload php8.4-fpm 2>/dev/null || sudo systemctl restart php8.4-fpm 2>/dev/null || true) && \
              (supervisorctl restart ipop360-worker:* || echo 'worker restart failed (non-fatal)') && \
              (supervisorctl restart ipop360-ssr:* || echo 'ssr restart failed (non-fatal)') && \
-             (supervisorctl restart ipop360-scheduler:* || echo 'scheduler restart failed (non-fatal)')"
+              (supervisorctl restart ipop360-scheduler:* || echo 'scheduler restart failed (non-fatal)') && \
+             (supervisorctl restart ipop360-enrich-loop:* || echo 'enrich-loop restart failed (non-fatal)')"
 
       - name: Register the scheduler supervisor program (secondary safeguard)
         # schedule:work runs alongside cron (schedule:run). If cron stalls,
@@ -337,6 +338,19 @@ jobs:
             "DEPLOY=${{ secrets.DEPLOY_PATH }} && \
              sed \"s|{{DEPLOY_PATH}}|\${DEPLOY}|g\" \${DEPLOY}/deploy/supervisor-ipop360-worker.conf \
                | sudo tee /etc/supervisor/conf.d/ipop360-worker.conf >/dev/null && \
+             supervisorctl reread && \
+              supervisorctl update"
+
+      - name: Register the enrich loop supervisor program
+        # Runs scripts/enrich-loop.sh as a long-lived daemon for continuous
+        # free-source restaurant enrichment. Idempotent.
+        continue-on-error: true
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "DEPLOY=${{ secrets.DEPLOY_PATH }} && \
+             sed \"s|{{DEPLOY_PATH}}|\${DEPLOY}|g\" \${DEPLOY}/deploy/supervisor-ipop360-enrich-loop.conf \
+               | sudo tee /etc/supervisor/conf.d/ipop360-enrich-loop.conf >/dev/null && \
              supervisorctl reread && \
              supervisorctl update"
 
@@ -432,6 +446,7 @@ jobs:
              (sudo systemctl reload php8.4-fpm 2>/dev/null || sudo systemctl restart php8.4-fpm 2>/dev/null || true) && \
              (supervisorctl restart ipop360-worker:* || true) && \
              (supervisorctl restart ipop360-ssr:* || true) && \
+             (supervisorctl restart ipop360-enrich-loop:* || echo 'enrich-loop restart failed (non-fatal)') && \
              (sudo -u www-data php8.4 artisan up 2>/dev/null || sudo rm -f storage/framework/down || true) && \
              echo 'ROLLBACK COMPLETE'"
 

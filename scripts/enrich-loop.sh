@@ -24,7 +24,7 @@ set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-LOG_DIR="$PROJECT_DIR/logs"
+LOG_DIR="$PROJECT_DIR/storage/logs"
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
 
 INTERVAL="${ENRICH_INTERVAL:-3600}"
