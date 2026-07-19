@@ -31,8 +31,8 @@ class PopularityScoreService
         'google_rating' => 0.0,
         'google_review_count' => 0.0,
         'popular_times_avg_busyness' => 0.0,
-        'social_links_count' => 0.10,
-        'website_clicks_count' => 0.10,
+        'social_links_count' => 0.15,
+        'website_clicks_count' => 0.15,
     ];
 
     /**
@@ -143,6 +143,7 @@ class PopularityScoreService
                 'yelp_review_count' => $this->logDenominator($allRestaurants, 'yelp_review_count'),
                 'google_review_count' => $this->logDenominator($allRestaurants, 'google_review_count'),
                 'website_clicks_count' => $this->logDenominator($allRestaurants, 'website_clicks_count'),
+                'social_links_count' => $this->logDenominator($allRestaurants, 'social_links_count'),
             ],
             'minmax' => [
                 'popular_times_avg_busyness' => $this->minmaxStats($allRestaurants, 'popular_times_avg_busyness'),

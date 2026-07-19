@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import CuisinePicker from '@/Components/CuisinePicker.vue'
 import LocationPicker from '@/Components/LocationPicker.vue'
 import BrandLogo from '@/Components/BrandLogo.vue'
+import { Badge } from '@/components/ui/badge'
 import { slides } from '@/lib/slideshow'
 
 interface Category {
@@ -160,8 +161,9 @@ function onDetect() {
             <div class="flex flex-1 flex-col items-center justify-center px-4 pb-20">
                 <div class="w-full max-w-4xl text-center">
                     <!-- Logo -->
-                    <a href="/" class="mb-6 inline-block" aria-label="iPop360 home" @click.prevent="$emit('search')">
+                    <a href="/" class="mb-6 inline-flex items-center gap-2" aria-label="iPop360 home" @click.prevent="$emit('search')">
                         <BrandLogo class="text-[6rem] text-white sm:text-[8rem]" />
+                        <Badge variant="outline" class="text-xs text-white border-white/50">Beta</Badge>
                     </a>
 
                     <!-- Dynamic sentence -->
