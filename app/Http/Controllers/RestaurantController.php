@@ -141,12 +141,13 @@ class RestaurantController extends Controller
     {
         $validated = $request->validate([
             'sort' => 'nullable|in:best_match,nearest,rating,reviews,price',
+            'distance' => 'nullable|numeric|min:1|max:500',
         ]);
 
         $sort = $validated['sort'] ?? 'best_match';
         $cuisineSlug = $request->query('cuisine');
         $categorySlug = $request->query('category');
-        $distanceKm = $request->query('distance') !== null ? (float) $request->query('distance') : null;
+        $distanceKm = isset($validated['distance']) ? (float) $validated['distance'] : null;
         $cuisineName = null;
 
         // Cuisine takes precedence. For a cuisine scope, derive the parent
@@ -168,6 +169,18 @@ class RestaurantController extends Controller
         }
 
         $coords = $this->geolocationService->resolveCoordinates($request);
+
+        // Coordinate fallback for when IP geolocation is unavailable (local dev,
+        // VPN, privacy browsers) AND the user has explicitly set a distance filter.
+        // Uses DISTANCE_FALLBACK_LAT/LNG from .env; only activates when a distance
+        // is requested so normal requests without coordinates still work.
+        if ($coords === null && $distanceKm !== null) {
+            $fallbackLat = config('restaurant-finder.live_search.distance_fallback_lat');
+            $fallbackLng = config('restaurant-finder.live_search.distance_fallback_lng');
+            if ($fallbackLat !== null && $fallbackLng !== null) {
+                $coords = ['lat' => (float) $fallbackLat, 'lng' => (float) $fallbackLng];
+            }
+        }
 
         // Build the shared query with cuisine/category filtering
         /** @var Builder $query */
@@ -204,7 +217,7 @@ class RestaurantController extends Controller
 
         return Inertia::render('Restaurants/Index', [
             'restaurants' => $restaurants,
-            'filters' => $request->only(['cuisine', 'category', 'lat', 'lng', 'sort']),
+            'filters' => $request->only(['cuisine', 'category', 'lat', 'lng', 'sort', 'distance']),
             'cuisineName' => $cuisineName,
             'categorySlug' => $categorySlug,
         ]);
@@ -258,14 +271,24 @@ class RestaurantController extends Controller
     {
         $validated = $request->validate([
             'sort' => 'nullable|in:best_match,nearest,rating,reviews,price',
+            'distance' => 'nullable|numeric|min:1|max:500',
         ]);
 
         $sort = $validated['sort'] ?? 'best_match';
         $cuisineSlug = $request->query('cuisine');
         $categorySlug = $request->query('category');
-        $distanceKm = $request->query('distance') !== null ? (float) $request->query('distance') : null;
+        $distanceKm = isset($validated['distance']) ? (float) $validated['distance'] : null;
 
         $coords = $this->geolocationService->resolveCoordinates($request);
+
+        // Coordinate fallback for when IP geolocation is unavailable.
+        if ($coords === null && $distanceKm !== null) {
+            $fallbackLat = config('restaurant-finder.live_search.distance_fallback_lat');
+            $fallbackLng = config('restaurant-finder.live_search.distance_fallback_lng');
+            if ($fallbackLat !== null && $fallbackLng !== null) {
+                $coords = ['lat' => (float) $fallbackLat, 'lng' => (float) $fallbackLng];
+            }
+        }
 
         // Build the shared query with cuisine/category filtering
         /** @var Builder $query */
