@@ -94,34 +94,39 @@ class BackfillRestaurantLocation extends Command
             return;
         }
 
-        $processed = 0;
+        $attempted = 0;
         $updated = 0;
         $failed = 0;
+        $totalToProcess = $query->count();
 
         $query->when($limit > 0, fn ($q) => $q->limit($limit))
-            ->each(function (Restaurant $r) use ($geolocation, &$processed, &$updated, &$failed) {
+            ->each(function (Restaurant $r) use ($geolocation, &$attempted, &$updated, &$failed, $totalToProcess) {
+                $attempted++;
+
                 $result = $geolocation->reverseGeocode($r->latitude, $r->longitude);
 
                 if ($result === null) {
                     $failed++;
-
-                    return;
+                } else {
+                    $r->city = $result['city'];
+                    if ($result['state'] !== null) {
+                        $r->state = $result['state'];
+                    }
+                    $r->save();
+                    $updated++;
                 }
 
-                $r->city = $result['city'];
-                if ($result['state'] !== null) {
-                    $r->state = $result['state'];
+                // Nominatim usage policy: max 1 request per second
+                if ($attempted < $totalToProcess) {
+                    sleep(1);
                 }
-                $r->save();
-                $updated++;
 
-                $processed++;
-                if ($processed % 50 === 0) {
-                    $this->line("  ... {$processed} processed, {$updated} updated, {$failed} failed");
+                if ($attempted % 50 === 0) {
+                    $this->line("  ... {$attempted} attempted, {$updated} updated, {$failed} failed");
                 }
             });
 
-        $this->info("  Processed: {$processed}, Updated: {$updated}, Failed: {$failed}");
+        $this->info("  Attempted: {$attempted}, Updated: {$updated}, Failed: {$failed}");
     }
 
     private function extractCityState(string $address): ?array
