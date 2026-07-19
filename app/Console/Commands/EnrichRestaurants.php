@@ -3,10 +3,10 @@
 namespace App\Console\Commands;
 
 use App\Models\Cuisine;
-use App\Models\Restaurant;
 use App\Services\RestaurantEnrichmentService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class EnrichRestaurants extends Command
@@ -206,7 +206,8 @@ class EnrichRestaurants extends Command
         $configuredLower = array_map('strtolower', array_keys($configured));
 
         // Find distinct city/state pairs from the DB that may not be configured
-        $discovered = Restaurant::selectRaw('city, state, AVG(latitude) as avg_lat, AVG(longitude) as avg_lng, COUNT(*) as cnt')
+        $discovered = DB::table('restaurants')
+            ->selectRaw('city, state, AVG(latitude) as avg_lat, AVG(longitude) as avg_lng, COUNT(*) as cnt')
             ->whereNotNull('city')
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
@@ -259,7 +260,7 @@ class EnrichRestaurants extends Command
                     $count = 0;
                 }
 
-                $totalForCuisine = $count ?? 0;
+                $totalForCuisine = $count;
                 $cityResults[$cityName] += $totalForCuisine;
                 $grandTotal += $totalForCuisine;
                 $this->info("  -> {$cuisine->name}: {$totalForCuisine} restaurants");
