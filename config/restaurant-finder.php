@@ -212,8 +212,8 @@ return [
             'google_rating' => env('RANK_WEIGHT_GOOGLE_RATING', 0.0),
             'google_review_count' => env('RANK_WEIGHT_GOOGLE_REVIEW_COUNT', 0.0),
             'popular_times_avg_busyness' => env('RANK_WEIGHT_POPULAR_TIMES', 0.0),
-            'social_links_count' => env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.10),
-            'website_clicks_count' => env('RANK_WEIGHT_WEBSITE_CLICKS', 0.10),
+            'social_links_count' => env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.15),
+            'website_clicks_count' => env('RANK_WEIGHT_WEBSITE_CLICKS', 0.15),
         ],
 
         // spec-081: on a cuisine-scoped search, when enough confident matches
@@ -271,6 +271,12 @@ return [
         // When false, no stamp is written → the signal is inactive everywhere →
         // ranking reverts to pre-spec-071 without a redeploy.
         'cuisine_match' => filter_var(env('RANK_CUISINE_MATCH', true), FILTER_VALIDATE_BOOL),
+
+        // spec-104: number of days after which a restaurant's score begins to
+        // decay based on its updated_at timestamp. At 0 days, freshness = 1.0
+        // (full score). At decay_days, freshness = decay_floor.
+        'score_decay_days' => (int) env('RANK_SCORE_DECAY_DAYS', 90),
+        'score_decay_floor' => (float) env('RANK_SCORE_DECAY_FLOOR', 0.5),
     ],
 
     /*

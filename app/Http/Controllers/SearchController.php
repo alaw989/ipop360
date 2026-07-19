@@ -175,17 +175,19 @@ class SearchController extends Controller
 
     private function applySort(Builder $query, string $sort, bool $hasCoords): Builder
     {
+        $decayedScore = Restaurant::decayedPopularityScoreExpression();
+
         return match ($sort) {
-            'best_match' => $query->orderByDesc('popularity_score'),
+            'best_match' => $query->orderByRaw("{$decayedScore} DESC"),
             'nearest' => $hasCoords
                 ? $query->orderBy('distance')
-                : $query->orderByDesc('popularity_score'),
+                : $query->orderByRaw("{$decayedScore} DESC"),
             'rating' => $query
                 ->orderByRaw('COALESCE(google_rating, yelp_rating) DESC NULLS LAST')
-                ->orderByDesc('popularity_score'),
+                ->orderByRaw("{$decayedScore} DESC"),
             'reviews' => $query
                 ->orderByRaw('COALESCE(google_review_count, yelp_review_count) DESC NULLS LAST')
-                ->orderByDesc('popularity_score'),
+                ->orderByRaw("{$decayedScore} DESC"),
             'price' => $query
                 ->orderByRaw('
                     CASE
@@ -213,14 +215,14 @@ class SearchController extends Controller
                         ELSE 2
                     END ASC
                 ')
-                ->orderByDesc('popularity_score'),
+                ->orderByRaw("{$decayedScore} DESC"),
             'social_presence' => $query
                 ->orderByRaw('CASE WHEN social_links IS NOT NULL THEN 1 ELSE 0 END DESC')
-                ->orderByDesc('popularity_score'),
+                ->orderByRaw("{$decayedScore} DESC"),
             'website_traffic' => $query
                 ->orderByDesc('website_clicks_count')
-                ->orderByDesc('popularity_score'),
-            default => $query->orderByDesc('popularity_score'),
+                ->orderByRaw("{$decayedScore} DESC"),
+            default => $query->orderByRaw("{$decayedScore} DESC"),
         };
     }
 

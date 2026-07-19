@@ -3,6 +3,7 @@ import { Link } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 import { Search, MapPin } from '@lucide/vue'
 import BrandLogo from '@/Components/BrandLogo.vue'
+import { Badge } from '@/components/ui/badge'
 
 interface Location {
     city: string | null
@@ -30,8 +31,9 @@ function onRefineSearch() {
     <div class="sticky top-0 z-20 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div class="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:gap-4">
             <!-- Logo mark -->
-            <Link href="/" @click.prevent="onRefineSearch" class="flex items-center" aria-label="iPop360 home">
+            <Link href="/" @click.prevent="onRefineSearch" class="flex items-center gap-2" aria-label="iPop360 home">
                 <BrandLogo class="text-[2rem]" />
+                <Badge variant="outline" class="text-xs">Beta</Badge>
             </Link>
 
             <!-- Location (compact cuisine picker removed in spec-044 —

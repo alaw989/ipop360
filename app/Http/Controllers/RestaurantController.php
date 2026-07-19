@@ -62,20 +62,20 @@ class RestaurantController extends Controller
      */
     private function applySortMode(Builder $query, string $sort, bool $hasCoords): Builder
     {
+        $decayedScore = Restaurant::decayedPopularityScoreExpression();
+
         return match ($sort) {
-            'best_match' => $query->orderByDesc('popularity_score'),
+            'best_match' => $query->orderByRaw("{$decayedScore} DESC"),
             'nearest' => $hasCoords
                 ? $query->orderBy('distance')
-                : $query->orderByDesc('popularity_score'), // Fall back to best_match
+                : $query->orderByRaw("{$decayedScore} DESC"),
             'rating' => $query
                 ->orderByRaw('COALESCE(google_rating, yelp_rating) DESC NULLS LAST')
-                ->orderByDesc('popularity_score'), // Tie-breaker
+                ->orderByRaw("{$decayedScore} DESC"),
             'reviews' => $query
                 ->orderByRaw('COALESCE(google_review_count, yelp_review_count) DESC NULLS LAST')
-                ->orderByDesc('popularity_score'), // Tie-breaker
+                ->orderByRaw("{$decayedScore} DESC"),
             'price' => $query
-                // Order by normalized price level (1=cheap, 4=expensive), NULLs last
-                // For SQLite: use a CASE statement with common patterns
                 ->orderByRaw('
                     CASE
                         WHEN price_range IS NULL THEN 999
@@ -103,8 +103,8 @@ class RestaurantController extends Controller
                         ELSE 2
                     END ASC
                 ')
-                ->orderByDesc('popularity_score'), // Tie-breaker
-            default => $query->orderByDesc('popularity_score'),
+                ->orderByRaw("{$decayedScore} DESC"),
+            default => $query->orderByRaw("{$decayedScore} DESC"),
         };
     }
 

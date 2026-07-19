@@ -149,6 +149,23 @@ class Restaurant extends Model
 
     public function scopeByPopularity(Builder $query): Builder
     {
-        return $query->orderByDesc('popularity_score');
+        return $query->orderByRaw(self::decayedPopularityScoreExpression().' DESC');
+    }
+
+    /**
+     * SQL expression that applies a linear freshness decay to popularity_score
+     * based on how long ago the restaurant's data was last updated.
+     * See spec-104.
+     */
+    public static function decayedPopularityScoreExpression(): string
+    {
+        $decayDays = (int) config('restaurant-finder.ranking.score_decay_days', 90);
+        $decayFloor = (float) config('restaurant-finder.ranking.score_decay_floor', 0.5);
+
+        return sprintf(
+            "popularity_score * MAX(%F, 1.0 - (julianday('now') - julianday(updated_at)) / %d)",
+            $decayFloor,
+            $decayDays
+        );
     }
 }
