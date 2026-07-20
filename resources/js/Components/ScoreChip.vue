@@ -22,6 +22,7 @@ const tier = computed(() => {
 <template>
     <span
         v-if="tier"
+        title="Based on Google ratings, proximity, awards, and data completeness."
         class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums shadow-sm"
         :class="tier.classes"
     >
