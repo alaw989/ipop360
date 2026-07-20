@@ -229,8 +229,8 @@ class SearchController extends Controller
     private function persistLiveResults(array $results, array $cuisineIds = [], ?array $defaultLocation = null): void
     {
         foreach ($results as $venue) {
-            $city = $venue['city'] ?? ($defaultLocation['city'] ?? null);
-            $state = $venue['state'] ?? ($defaultLocation['state'] ?? null);
+            $city = $venue['city'] ?? null;
+            $state = $venue['state'] ?? null;
 
             $attributes = [
                 'name' => $venue['name'] ?? 'Unknown',

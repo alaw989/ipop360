@@ -180,8 +180,8 @@ class FavoriteController extends Controller
             'name' => $data['name'] ?? 'Unknown',
             'slug' => $data['slug'] ?? null,
             'address' => $data['address'] ?? null,
-            'city' => $data['city'] ?? null,
-            'state' => $data['state'] ?? null,
+            'city' => isset($data['city']) && trim($data['city']) !== '' ? trim($data['city']) : null,
+            'state' => isset($data['state']) && trim($data['state']) !== '' ? trim($data['state']) : null,
             'latitude' => $data['lat'] ?? null,  // Map client 'lat' to DB 'latitude'
             'longitude' => $data['lng'] ?? null, // Map client 'lng' to DB 'longitude'
             'phone' => $data['phone'] ?? null,

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Restaurant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -168,7 +169,7 @@ class GeolocationService
                         'lon' => $lng,
                         'format' => 'json',
                         'addressdetails' => 1,
-                        'zoom' => 10,
+                        'zoom' => 14,
                     ]);
 
                 if ($response->failed()) {
@@ -192,6 +193,28 @@ class GeolocationService
                 return null;
             }
         });
+    }
+
+    public function randomCity(): ?array
+    {
+        $pool = Cache::remember('featured_cities_pool', now()->addHour(), function () {
+            return Restaurant::active()
+                ->whereNotNull('city')
+                ->whereNotNull('state')
+                ->select('city', 'state')
+                ->distinct()
+                ->get()
+                ->shuffle()
+                ->values()
+                ->toArray();
+        });
+
+        $count = count($pool);
+        if ($count === 0) {
+            return null;
+        }
+
+        return $pool[random_int(0, $count - 1)];
     }
 
     public function ipLookupFull(string $ip): ?array
