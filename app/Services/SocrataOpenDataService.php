@@ -463,7 +463,7 @@ class SocrataOpenDataService
             'description' => $grade ? "Grade: {$grade}".($score ? " (Score: {$score})" : '') : null,
             'address' => $fullAddress,
             'city' => $city,
-            'state' => $row['state'] ?? 'NY',
+            'state' => $row['state'] ?? null,
             'postal_code' => $zip,
             'country' => $row['country'] ?? $row['country_code'] ?? 'US',
             'lat' => $lat !== null ? (float) $lat : null,

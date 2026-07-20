@@ -386,8 +386,8 @@ class RestaurantEnrichmentService
         $attributes = [
             'name' => $venue['name'],
             'address' => $venue['address'] ?? null,
-            'city' => $venue['city'] ?? $cityName,
-            'state' => $venue['state'] ?? $stateCode,
+            'city' => $venue['city'] ?? null,
+            'state' => $venue['state'] ?? null,
             'postal_code' => $venue['postal_code'] ?? null,
             'country' => $venue['country'] ?? 'US',
             'latitude' => $venue['lat'] ?? null,

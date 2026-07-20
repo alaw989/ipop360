@@ -51,4 +51,9 @@ class GeocodeController extends Controller
 
         return response()->json($result ?? ['lat' => null, 'lng' => null]);
     }
+
+    public function randomCity()
+    {
+        return response()->json($this->geolocationService->randomCity());
+    }
 }
