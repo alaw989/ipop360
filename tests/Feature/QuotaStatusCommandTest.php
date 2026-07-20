@@ -32,16 +32,20 @@ class QuotaStatusCommandTest extends TestCase
 
     public function test_quota_status_shows_zero_burn_when_no_cache_entries(): void
     {
+        Config::set('restaurant-finder.enrich.monthly_budget', 250);
+
         $this->artisan('quota:status')
             ->assertExitCode(0)
-            ->expectsOutputToContain('Calls made: 0 / 250 (free tier) | 0 / 150 (enrich budget)')
-            ->expectsOutputToContain('Remaining: 250 (100% of free) | 150 (100% of budget)')
+            ->expectsOutputToContain('Calls made: 0 / 250 (free tier) | 0 / 250 (enrich budget)')
+            ->expectsOutputToContain('Remaining: 250 (100% of free) | 250 (100% of budget)')
             ->expectsOutputToContain('Total rows: 0')
             ->expectsOutputToContain('Expiring within 7 days: 0');
     }
 
     public function test_quota_status_shows_correct_burn_with_cache_entries(): void
     {
+        Config::set('restaurant-finder.enrich.monthly_budget', 250);
+
         // Create 12 SerpApi cache entries within last 30 days
         for ($i = 0; $i < 12; $i++) {
             ExternalApiCache::create([
@@ -75,8 +79,8 @@ class QuotaStatusCommandTest extends TestCase
         // old-entry is outside 30 days, so not counted
         $this->artisan('quota:status')
             ->assertExitCode(0)
-            ->expectsOutputToContain('Calls made: 13 / 250 (free tier) | 13 / 150 (enrich budget)')
-            ->expectsOutputToContain('Remaining: 237 (95% of free) | 137 (91% of budget)')
+            ->expectsOutputToContain('Calls made: 13 / 250 (free tier) | 13 / 250 (enrich budget)')
+            ->expectsOutputToContain('Remaining: 237 (95% of free) | 237 (95% of budget)')
             ->expectsOutputToContain('Total rows: 14')
             ->expectsOutputToContain('Expiring within 7 days: 1')
             ->expectsOutputToContain('serpapi: 14');
