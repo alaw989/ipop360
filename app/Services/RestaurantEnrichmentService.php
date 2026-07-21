@@ -37,6 +37,7 @@ class RestaurantEnrichmentService
         private AiEnrichmentService $aiEnrichment,
         private CuisineMatcher $cuisineMatcher,
         private VenuePipeline $venuePipeline,
+        private RestaurantValidationService $restaurantValidation,
     ) {}
 
     /**
@@ -405,6 +406,8 @@ class RestaurantEnrichmentService
             'features' => ! empty($venue['features']) ? $venue['features'] : null,
             'is_active' => true,
         ];
+
+        $attributes = $this->restaurantValidation->normalize($attributes);
 
         $yelpId = $venue['yelp_business_id'] ?? null;
 

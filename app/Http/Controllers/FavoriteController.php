@@ -6,6 +6,7 @@ use App\Http\Resources\RestaurantResource;
 use App\Models\Cuisine;
 use App\Models\Restaurant;
 use App\Services\PopularityScoreService;
+use App\Services\RestaurantValidationService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -234,6 +235,8 @@ class FavoriteController extends Controller
             try {
                 // spec-088: a client-created restaurant is NEVER public until vetted.
                 $attributes['is_active'] = false;
+
+                $attributes = app(RestaurantValidationService::class)->normalize($attributes);
 
                 $restaurant = Restaurant::create($attributes);
 
