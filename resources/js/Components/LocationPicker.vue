@@ -28,6 +28,7 @@ const emit = defineEmits<{
     update: [location: Location]
     coords: [lat: number, lng: number]
     detect: []
+    cycle: [payload: { city: string; state: string | null; lat: number; lng: number }]
 }>()
 
 const open = ref(false)
@@ -35,20 +36,26 @@ const query = ref('')
 const results = ref<CityResult[]>([])
 const searching = ref(false)
 const selectedIndex = ref(-1)
-const cycleCity = ref<{ city: string; state: string | null } | null>(null)
+interface CycleCity {
+    city: string
+    state: string | null
+    lat?: number
+    lng?: number
+}
+const cycleCity = ref<CycleCity | null>(null)
 let cycleTimer: ReturnType<typeof setInterval> | null = null
 
 const displayText = computed(() => {
     if (props.detecting) return 'Detecting...'
+    if (props.location?.city && props.location?.state) {
+        return `${props.location.city}, ${props.location.state}`
+    }
+    if (props.location?.city) return props.location.city
     if (cycleCity.value?.city) {
         return cycleCity.value.state
             ? `${cycleCity.value.city}, ${cycleCity.value.state}`
             : cycleCity.value.city
     }
-    if (props.location?.city && props.location?.state) {
-        return `${props.location.city}, ${props.location.state}`
-    }
-    if (props.location?.city) return props.location.city
     return 'your city'
 })
 
@@ -59,8 +66,18 @@ function useMyLocation() {
 
 function fetchRandomCity() {
     import('@/lib/api').then(({ get }) => {
-        get<{ city: string; state: string | null }>('/api/random-city').then(data => {
-            if (data?.city) cycleCity.value = data
+        get<{ city: string; state: string | null; lat?: number; lng?: number } | null>('/api/random-city').then(data => {
+            if (data?.city) {
+                cycleCity.value = data
+                if (data.lat != null && data.lng != null) {
+                    emit('cycle', {
+                        city: data.city,
+                        state: data.state,
+                        lat: data.lat,
+                        lng: data.lng,
+                    })
+                }
+            }
         }).catch(() => {})
     })
 }
