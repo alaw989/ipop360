@@ -56,9 +56,4 @@ class GeocodeController extends Controller
     {
         return response()->json($this->geolocationService->randomCity());
     }
-
-    public function randomCuisine()
-    {
-        return response()->json($this->geolocationService->randomCuisine());
-    }
 }

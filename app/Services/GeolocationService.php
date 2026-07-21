@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Cuisine;
 use App\Models\Restaurant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -202,46 +201,9 @@ class GeolocationService
             return Restaurant::active()
                 ->whereNotNull('city')
                 ->whereNotNull('state')
-                ->select('city', 'state', 'latitude', 'longitude')
+                ->select('city', 'state')
+                ->distinct()
                 ->get()
-                ->unique(fn ($r) => "{$r->city}|{$r->state}")
-                ->values()
-                ->map(fn ($r) => [
-                    'city' => $r->city,
-                    'state' => $r->state,
-                    'lat' => (float) $r->latitude,
-                    'lng' => (float) $r->longitude,
-                ])
-                ->shuffle()
-                ->values()
-                ->toArray();
-        });
-
-        $count = count($pool);
-        if ($count === 0) {
-            return null;
-        }
-
-        return $pool[random_int(0, $count - 1)];
-    }
-
-    public function randomCuisine(): ?array
-    {
-        $cacheKey = 'featured_cuisines_pool';
-        $pool = Cache::remember($cacheKey, now()->addHour(), function () {
-            $activeIds = Restaurant::active()->select('id');
-
-            return Cuisine::query()
-                ->whereHas('restaurants', fn ($q) => $q->whereIn('id', $activeIds))
-                ->with('category')
-                ->get()
-                ->map(fn ($c) => [
-                    'category_name' => $c->category->name,
-                    'category_slug' => $c->category->slug,
-                    'cuisine_name' => $c->name,
-                    'cuisine_slug' => $c->slug,
-                    'label' => "{$c->category->name} ▸ {$c->name}",
-                ])
                 ->shuffle()
                 ->values()
                 ->toArray();

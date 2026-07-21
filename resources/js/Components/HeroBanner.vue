@@ -29,9 +29,7 @@ interface Props {
 
 interface Emits {
     (e: 'cuisineSelect', payload: { category: string; cuisine?: string; label: string }): void
-    (e: 'cuisineCycle', payload: { category: string; cuisine?: string; label: string }): void
     (e: 'locationUpdate', location: Location): void
-    (e: 'locationCycle', payload: { city: string; state: string | null; lat: number; lng: number }): void
     (e: 'coords', lat: number, lng: number): void
     (e: 'detect'): void
     (e: 'search'): void
@@ -93,16 +91,8 @@ function onCuisineSelect(payload: { category: string; cuisine?: string; label: s
     emit('cuisineSelect', payload)
 }
 
-function onCuisineCycle(payload: { category: string; cuisine?: string; label: string }) {
-    emit('cuisineCycle', payload)
-}
-
 function onLocationUpdate(newLocation: Location) {
     emit('locationUpdate', newLocation)
-}
-
-function onLocationCycle(payload: { city: string; state: string | null; lat: number; lng: number }) {
-    emit('locationCycle', payload)
 }
 
 function onCoords(lt: number, lg: number) {
@@ -183,7 +173,6 @@ function onDetect() {
                             inverted
                             :categories="categories"
                             @select="onCuisineSelect"
-                            @cycle="onCuisineCycle"
                         />
                         <span>Restaurants in</span>
                         <LocationPicker
@@ -193,7 +182,6 @@ function onDetect() {
                             @update="onLocationUpdate"
                             @coords="onCoords"
                             @detect="onDetect"
-                            @cycle="onLocationCycle"
                         />
                     </h2>
 
