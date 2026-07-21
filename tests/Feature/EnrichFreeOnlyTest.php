@@ -242,8 +242,8 @@ class EnrichFreeOnlyTest extends TestCase
         $restaurant = Restaurant::where('name', 'LIKE', 'Tony%')->first();
         $this->assertNotNull($restaurant, 'Should persist the deduped venue');
 
-        // Should have phone from the BizData source (merge non-empty fields)
-        $this->assertSame('555-0100', $restaurant->phone);
+        // Should have phone from the BizData source (merge non-empty fields, normalized)
+        $this->assertSame('5550100', $restaurant->phone);
     }
 
     public function test_cross_source_dedup_proximity_within_radius(): void
