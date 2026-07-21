@@ -258,8 +258,12 @@ function onSearch() {
     router.get('/search', {
         cuisine: selectedCuisine.value || cyclingCuisine.value || undefined,
         category: (selectedCategory.value || cyclingCategory.value) || undefined,
-        lat: (lat.value ?? cyclingCoords.value?.lat) ?? undefined,
-        lng: (lng.value ?? cyclingCoords.value?.lng) ?? undefined,
+        lat: persistedLocation.value?.city
+            ? lat.value
+            : (cyclingCoords.value?.lat ?? lat.value) ?? undefined,
+        lng: persistedLocation.value?.city
+            ? lng.value
+            : (cyclingCoords.value?.lng ?? lng.value) ?? undefined,
         distance: '25',
         sort: sort.value,
     })
