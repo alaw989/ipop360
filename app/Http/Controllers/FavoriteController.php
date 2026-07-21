@@ -10,6 +10,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class FavoriteController extends Controller
@@ -235,6 +236,15 @@ class FavoriteController extends Controller
                 $attributes['is_active'] = false;
 
                 $restaurant = Restaurant::create($attributes);
+
+                Log::channel('enrichment')->info('Venue created via favorites', [
+                    'restaurant_id' => $restaurant->id,
+                    'restaurant_name' => $restaurant->name,
+                    'city' => $restaurant->city,
+                    'state' => $restaurant->state,
+                    'user_id' => request()->user()?->id,
+                    'google_place_id' => $restaurant->google_place_id,
+                ]);
 
                 if (! empty($cuisineIds)) {
                     $restaurant->cuisines()->sync($cuisineIds);

@@ -455,6 +455,7 @@ class RestaurantEnrichmentService
         Log::channel('enrichment')->info(
             $existing ? 'Venue updated' : 'Venue created',
             [
+                'origin' => 'enrichment',
                 'restaurant_id' => $restaurant->id,
                 'restaurant_name' => $restaurant->name,
                 'source' => $venue['source'] ?? null,

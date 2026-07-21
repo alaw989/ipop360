@@ -11,6 +11,7 @@ use App\Services\LiveSearchService;
 use App\Services\PopularityScoreService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class SearchController extends Controller
@@ -270,6 +271,15 @@ class SearchController extends Controller
                 $restaurant->update($attributes);
             } else {
                 $restaurant = Restaurant::create($attributes);
+
+                Log::channel('enrichment')->info('Venue created via search', [
+                    'restaurant_id' => $restaurant->id,
+                    'restaurant_name' => $restaurant->name,
+                    'city' => $restaurant->city,
+                    'state' => $restaurant->state,
+                    'source' => $venue['source'] ?? 'api',
+                    'google_place_id' => $restaurant->google_place_id,
+                ]);
             }
 
             if (! empty($cuisineIds)) {
