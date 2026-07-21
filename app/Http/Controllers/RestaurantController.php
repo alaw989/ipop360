@@ -11,6 +11,7 @@ use App\Models\Restaurant;
 use App\Services\GeolocationService;
 use App\Services\LiveSearchService;
 use App\Services\PopularityScoreService;
+use App\Services\RestaurantValidationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -24,6 +25,7 @@ class RestaurantController extends Controller
     public function __construct(
         private GeolocationService $geolocationService,
         private LiveSearchService $liveSearchService,
+        private RestaurantValidationService $restaurantValidation,
     ) {}
 
     /**
@@ -448,6 +450,8 @@ class RestaurantController extends Controller
                 'features' => $venue['features'] ?? [],
                 'is_active' => true,
             ];
+
+            $attributes = $this->restaurantValidation->normalize($attributes);
 
             $restaurant = null;
             if (! empty($attributes['google_place_id'])) {
