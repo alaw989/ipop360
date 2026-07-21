@@ -229,7 +229,7 @@ class GeolocationService
     {
         $pool = Cache::remember('featured_cuisines_pool', now()->addHour(), function () {
             return Cuisine::query()
-                ->whereHas('restaurants', fn ($q) => $q->active())
+                ->whereHas('restaurants', fn (\Illuminate\Database\Eloquent\Builder $q) => $q->active())
                 ->with('category')
                 ->get()
                 ->map(fn ($c) => [
