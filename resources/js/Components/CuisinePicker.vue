@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
     Command,
@@ -32,13 +32,25 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     select: [payload: { category: string; cuisine?: string; label: string }]
+    cycle: [payload: { category: string; cuisine?: string; label: string }]
 }>()
 
 const open = ref(false)
 const drillCategory = ref<Category | null>(null)
 const selectedLabel = ref<string | null>(null)
+interface CycleCuisine {
+    category: string
+    cuisine?: string
+    label: string
+}
+const cycleCuisine = ref<CycleCuisine | null>(null)
+let cycleTimer: ReturnType<typeof setInterval> | null = null
 
-const displayText = computed(() => selectedLabel.value ?? 'any cuisine')
+const displayText = computed(() => {
+    if (selectedLabel.value) return selectedLabel.value
+    if (cycleCuisine.value?.label) return cycleCuisine.value.label
+    return 'any cuisine'
+})
 
 function selectCategory(cat: Category) {
     drillCategory.value = cat
@@ -76,6 +88,56 @@ function clearSelection() {
     open.value = false
     emit('select', { category: '', label: 'any cuisine' })
 }
+
+interface RandomCuisineResponse {
+    category_slug: string
+    cuisine_slug?: string
+    label: string
+}
+
+function fetchRandomCuisine() {
+    import('@/lib/api').then(({ get }) => {
+        get<RandomCuisineResponse | null>('/api/random-cuisine').then(data => {
+            if (data?.label) {
+                const cycle = {
+                    category: data.category_slug,
+                    cuisine: data.cuisine_slug,
+                    label: data.label,
+                }
+                cycleCuisine.value = cycle
+                emit('cycle', cycle)
+            }
+        }).catch(() => {})
+    })
+}
+
+function startCycling() {
+    fetchRandomCuisine()
+    cycleTimer = setInterval(fetchRandomCuisine, 5000)
+}
+
+function stopCycling() {
+    if (cycleTimer) {
+        clearInterval(cycleTimer)
+        cycleTimer = null
+    }
+}
+
+onMounted(() => {
+    startCycling()
+})
+
+onUnmounted(() => {
+    stopCycling()
+})
+
+watch(open, (isOpen) => {
+    if (isOpen) {
+        stopCycling()
+    } else {
+        startCycling()
+    }
+})
 </script>
 
 <template>
@@ -90,7 +152,9 @@ function clearSelection() {
                     { 'opacity-60': !selectedLabel }
                 ]"
             >
-                {{ displayText }}
+                <Transition name="cuisine-cycle" mode="out-in">
+                    <span :key="displayText">{{ displayText }}</span>
+                </Transition>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
                 </svg>
@@ -150,3 +214,14 @@ function clearSelection() {
         </PopoverContent>
     </Popover>
 </template>
+
+<style scoped>
+.cuisine-cycle-enter-active,
+.cuisine-cycle-leave-active {
+    transition: opacity 0.4s ease;
+}
+.cuisine-cycle-enter-from,
+.cuisine-cycle-leave-to {
+    opacity: 0;
+}
+</style>

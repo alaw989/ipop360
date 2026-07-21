@@ -223,6 +223,11 @@ onUnmounted(() => {
     homepageAbortController.value?.abort()
 })
 
+// Cycling fallback values (used when no manual selection was made)
+const cyclingCategory = ref('')
+const cyclingCuisine = ref<string | undefined>()
+const cyclingCoords = ref<{ lat: number; lng: number } | null>(null)
+
 // Event handlers from child components
 function onCuisineSelect(payload: { category: string; cuisine?: string; label: string }) {
     selectedCategory.value = payload.category
@@ -230,8 +235,17 @@ function onCuisineSelect(payload: { category: string; cuisine?: string; label: s
     selectedLabel.value = payload.label
 }
 
+function onCuisineCycle(payload: { category: string; cuisine?: string; label: string }) {
+    cyclingCategory.value = payload.category
+    cyclingCuisine.value = payload.cuisine
+}
+
 function onLocationUpdate(newLocation: Location) {
     persistedLocation.value = newLocation
+}
+
+function onLocationCycle(payload: { city: string; state: string | null; lat: number; lng: number }) {
+    cyclingCoords.value = { lat: payload.lat, lng: payload.lng }
 }
 
 function onCoords(lt: number, lg: number) {
@@ -242,10 +256,10 @@ function onCoords(lt: number, lg: number) {
 
 function onSearch() {
     router.get('/search', {
-        cuisine: selectedCuisine.value,
-        category: selectedCategory.value || undefined,
-        lat: lat.value ?? undefined,
-        lng: lng.value ?? undefined,
+        cuisine: selectedCuisine.value || cyclingCuisine.value || undefined,
+        category: (selectedCategory.value || cyclingCategory.value) || undefined,
+        lat: (lat.value ?? cyclingCoords.value?.lat) ?? undefined,
+        lng: (lng.value ?? cyclingCoords.value?.lng) ?? undefined,
         distance: '25',
         sort: sort.value,
     })
