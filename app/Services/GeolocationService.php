@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Cuisine;
 use App\Models\Restaurant;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -228,9 +227,12 @@ class GeolocationService
 
     public function randomCuisine(): ?array
     {
-        $pool = Cache::remember('featured_cuisines_pool', now()->addHour(), function () {
+        $cacheKey = 'featured_cuisines_pool';
+        $pool = Cache::remember($cacheKey, now()->addHour(), function () {
+            $activeIds = Restaurant::active()->select('id');
+
             return Cuisine::query()
-                ->whereHas('restaurants', fn (Builder $q) => $q->active())
+                ->whereHas('restaurants', fn ($q) => $q->whereIn('id', $activeIds))
                 ->with('category')
                 ->get()
                 ->map(fn ($c) => [
