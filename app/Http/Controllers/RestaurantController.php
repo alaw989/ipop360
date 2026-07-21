@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class RestaurantController extends Controller
@@ -460,6 +461,15 @@ class RestaurantController extends Controller
                 $restaurant->update($attributes);
             } else {
                 $restaurant = Restaurant::create($attributes);
+
+                Log::channel('enrichment')->info('Venue created via search', [
+                    'restaurant_id' => $restaurant->id,
+                    'restaurant_name' => $restaurant->name,
+                    'city' => $restaurant->city,
+                    'state' => $restaurant->state,
+                    'source' => $venue['source'] ?? 'api',
+                    'google_place_id' => $restaurant->google_place_id,
+                ]);
             }
 
             $venue['id'] = $restaurant->id;
