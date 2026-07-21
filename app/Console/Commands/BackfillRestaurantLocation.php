@@ -168,31 +168,10 @@ class BackfillRestaurantLocation extends Command
 
     private function isNonCityToken(string $value): bool
     {
-        $normalized = strtolower(trim($value));
-
-        if (preg_match('/^\d/', $normalized)) {
-            return true;
-        }
-
-        // Full zip code or zip+4 (e.g. "02134", "02134-1234")
-        if (preg_match('/^\d{5}(?:-\d{4})?$/', $normalized)) {
-            return true;
-        }
-
-        // State-abbreviation + zip (e.g. "ca 90012", "tx 78701")
-        if (preg_match('/^[a-z]{2}\s+\d{5}/', $normalized)) {
-            return true;
-        }
-
-        // Canadian postal code (e.g. "l0s 1n0")
-        if (preg_match('/^[a-z]\d[a-z]\s*\d[a-z]\d$/', $normalized)) {
-            return true;
-        }
-
-        return in_array($normalized, [
-            '', 'inc', 'llc', 'suite', 'ste', 'unit', 'ph', 'bldg', 'fl',
-            'north', 'south', 'east', 'west', 'floor', 'room', 'apt', 'box',
-            'usa', 'us', 'canada', 'ca',
-        ], true);
+        return preg_match('/^\d/', $value)
+            || in_array(strtolower($value), [
+                '', 'inc', 'llc', 'suite', 'ste', 'unit', 'ph', 'bldg', 'fl',
+                'north', 'south', 'east', 'west', 'floor', 'room', 'apt', 'box',
+            ], true);
     }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -35,16 +35,9 @@ const query = ref('')
 const results = ref<CityResult[]>([])
 const searching = ref(false)
 const selectedIndex = ref(-1)
-const cycleCity = ref<{ city: string; state: string | null } | null>(null)
-let cycleTimer: ReturnType<typeof setInterval> | null = null
 
 const displayText = computed(() => {
     if (props.detecting) return 'Detecting...'
-    if (cycleCity.value?.city) {
-        return cycleCity.value.state
-            ? `${cycleCity.value.city}, ${cycleCity.value.state}`
-            : cycleCity.value.city
-    }
     if (props.location?.city && props.location?.state) {
         return `${props.location.city}, ${props.location.state}`
     }
@@ -55,26 +48,6 @@ const displayText = computed(() => {
 function useMyLocation() {
     open.value = false
     emit('detect')
-}
-
-function fetchRandomCity() {
-    import('@/lib/api').then(({ get }) => {
-        get<{ city: string; state: string | null }>('/api/random-city').then(data => {
-            if (data?.city) cycleCity.value = data
-        }).catch(() => {})
-    })
-}
-
-function startCycling() {
-    fetchRandomCity()
-    cycleTimer = setInterval(fetchRandomCity, 5000)
-}
-
-function stopCycling() {
-    if (cycleTimer) {
-        clearInterval(cycleTimer)
-        cycleTimer = null
-    }
 }
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -123,22 +96,6 @@ function onKeydown(e: KeyboardEvent) {
         open.value = false
     }
 }
-
-onMounted(() => {
-    startCycling()
-})
-
-onUnmounted(() => {
-    stopCycling()
-})
-
-watch(open, (isOpen) => {
-    if (isOpen) {
-        stopCycling()
-    } else {
-        startCycling()
-    }
-})
 </script>
 
 <template>
@@ -157,9 +114,7 @@ watch(open, (isOpen) => {
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                 </svg>
-                <Transition name="city-cycle" mode="out-in">
-                    <span :key="displayText">{{ displayText }}</span>
-                </Transition>
+                {{ displayText }}
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
                 </svg>
@@ -225,14 +180,3 @@ watch(open, (isOpen) => {
         </PopoverContent>
     </Popover>
 </template>
-
-<style scoped>
-.city-cycle-enter-active,
-.city-cycle-leave-active {
-    transition: opacity 0.4s ease;
-}
-.city-cycle-enter-from,
-.city-cycle-leave-to {
-    opacity: 0;
-}
-</style>
