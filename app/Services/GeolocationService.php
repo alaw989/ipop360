@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Cuisine;
 use App\Models\Restaurant;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -229,7 +230,7 @@ class GeolocationService
     {
         $pool = Cache::remember('featured_cuisines_pool', now()->addHour(), function () {
             return Cuisine::query()
-                ->whereHas('restaurants', fn (\Illuminate\Database\Eloquent\Builder $q) => $q->active())
+                ->whereHas('restaurants', fn (Builder $q) => $q->active())
                 ->with('category')
                 ->get()
                 ->map(fn ($c) => [
