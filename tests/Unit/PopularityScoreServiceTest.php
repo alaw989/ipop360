@@ -61,9 +61,9 @@ class PopularityScoreServiceTest extends TestCase
 
         // Yelp weights are 0 (removed). Proximity + quality are inactive (no
         // distance, no Google rating). Only data_completeness (8/11=0.7273,
-        // weight 0.05) and has_award (false=0.0, weight 0.15) contribute.
-        // Active weight 0.20. = (0.05/0.20)*0.7273 = 0.1818
-        $this->assertEqualsWithDelta(0.1818, $score, 0.001);
+        // weight 0.05) and has_award (false=0.0, weight 0.10) contribute.
+        // Active weight 0.15. = (0.05/0.15)*0.7273 = 0.2424
+        $this->assertEqualsWithDelta(0.2424, $score, 0.001);
     }
 
     public function test_no_data_scores_zero(): void
@@ -101,11 +101,11 @@ class PopularityScoreServiceTest extends TestCase
         $score = $this->service->calculateScore($restaurant, $all);
 
         // completeness = 1/11 = 0.0909 (only `name` filled; lat/lng are 0 sentinel);
-        // has_award = 0. Proximity + quality inactive. Active weight 0.20
-        // (data_completeness 0.05 + has_award 0.15).
-        // = (0.05/0.20)*0.0909 = 0.0227.
+        // has_award = 0. Proximity + quality inactive. Active weight 0.15
+        // (data_completeness 0.05 + has_award 0.10).
+        // = (0.05/0.15)*0.0909 = 0.0303.
         // (With the isFilled bug, lat/lng would count -> completeness 3/11 -> 0.2727.)
-        $this->assertEqualsWithDelta(0.0227, $score, 0.001);
+        $this->assertEqualsWithDelta(0.0303, $score, 0.001);
     }
 
     public function test_high_quality_outscores_low_quality(): void
@@ -196,10 +196,10 @@ class PopularityScoreServiceTest extends TestCase
 
         // Both venues score identically since they have the same data_completeness
         // and Yelp signals are removed (weight 0). Proximity + quality inactive
-        // (no distance, Yelp-only). Active weight 0.20 (data_completeness 0.05 +
-        // has_award 0.15). completeness = 8/11 = 0.7273 → score = 0.1818.
+        // (no distance, Yelp-only). Active weight 0.15 (data_completeness 0.05 +
+        // has_award 0.10). completeness = 8/11 = 0.7273 → score = 0.2424.
         $this->assertEqualsWithDelta($venueScore, $outlierScore, 0.001);
-        $this->assertEqualsWithDelta(0.1818, $venueScore, 0.001);
+        $this->assertEqualsWithDelta(0.2424, $venueScore, 0.001);
     }
 
     public function test_log_floor_prevents_compression(): void

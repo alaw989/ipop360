@@ -19,10 +19,10 @@ class PopularityScoreService
     private const DEFAULT_WEIGHTS = [
         'yelp_rating' => 0.0,
         'yelp_review_count' => 0.0,
-        'quality' => 0.60,
-        'proximity' => 0.20,
+        'quality' => 0.35,
+        'proximity' => 0.15,
         'data_completeness' => 0.05,
-        'has_award' => 0.15,
+        'has_award' => 0.10,
         // spec-071: on a cuisine-scoped search, boost venues matching the
         // searched cuisine. Inactive (null) unless stamped by
         // LiveSearchService::stampCuisineMatchStrength; stamped 0.0 for
@@ -31,8 +31,11 @@ class PopularityScoreService
         'google_rating' => 0.0,
         'google_review_count' => 0.0,
         'popular_times_avg_busyness' => 0.0,
-        'social_links_count' => 0.15,
-        'website_clicks_count' => 0.15,
+        'social_links_count' => 0.10,
+        'website_clicks_count' => 0.20,
+        'pageviews_count' => 0.10,
+        'social_link_clicks_count' => 0.05,
+        'menu_click_count' => 0.05,
     ];
 
     /**
@@ -51,6 +54,9 @@ class PopularityScoreService
         'popular_times_avg_busyness' => 'minmax',
         'social_links_count' => 'log_count',
         'website_clicks_count' => 'log_count',
+        'pageviews_count' => 'log_count',
+        'social_link_clicks_count' => 'log_count',
+        'menu_click_count' => 'log_count',
     ];
 
     /**
@@ -144,6 +150,9 @@ class PopularityScoreService
                 'google_review_count' => $this->logDenominator($allRestaurants, 'google_review_count'),
                 'website_clicks_count' => $this->logDenominator($allRestaurants, 'website_clicks_count'),
                 'social_links_count' => $this->logDenominator($allRestaurants, 'social_links_count'),
+                'pageviews_count' => $this->logDenominator($allRestaurants, 'pageviews_count'),
+                'social_link_clicks_count' => $this->logDenominator($allRestaurants, 'social_link_clicks_count'),
+                'menu_click_count' => $this->logDenominator($allRestaurants, 'menu_click_count'),
             ],
             'minmax' => [
                 'popular_times_avg_busyness' => $this->minmaxStats($allRestaurants, 'popular_times_avg_busyness'),
@@ -176,6 +185,9 @@ class PopularityScoreService
             'yelp_review_count' => (float) $this->logReviewDefault,
             'google_review_count' => (float) $this->logReviewDefault,
             'website_clicks_count' => (float) $this->logReviewDefault,
+            'pageviews_count' => (float) $this->logReviewDefault,
+            'social_link_clicks_count' => (float) $this->logReviewDefault,
+            'menu_click_count' => (float) $this->logReviewDefault,
         ];
         $minmax = $aggregates['minmax'] ?? [];
         $qualityMean = (float) ($aggregates['quality']['mean_rating'] ?? $this->qualityMeanFallback);
@@ -193,6 +205,9 @@ class PopularityScoreService
             'popular_times_avg_busyness' => 'Busyness',
             'social_links_count' => 'Social Presence',
             'website_clicks_count' => 'Website Traffic',
+            'pageviews_count' => 'Page Views',
+            'social_link_clicks_count' => 'Social Link Clicks',
+            'menu_click_count' => 'Menu Clicks',
         ];
 
         $activeWeights = [];
@@ -261,6 +276,9 @@ class PopularityScoreService
             'cuisine_match' => 'Matches your search cuisine preference.',
             'social_links_count' => sprintf('Found on %d platform(s). Social media presence indicates an active, engaged restaurant.', (int) $raw),
             'website_clicks_count' => sprintf('%d click(s) from search results this month. Higher click-through rates show strong interest.', (int) $raw),
+            'pageviews_count' => sprintf('%d detail page view(s). Shows strong discovery interest.', (int) $raw),
+            'social_link_clicks_count' => sprintf('%d social link click(s). Indicates active social engagement.', (int) $raw),
+            'menu_click_count' => sprintf('%d menu click(s). Menu interest signals purchase intent.', (int) $raw),
             'yelp_rating', 'google_rating' => sprintf('Rated %.1f stars.', (float) ($raw ?? 0)),
             'yelp_review_count', 'google_review_count' => sprintf('%d review(s).', (int) ($raw ?? 0)),
             'popular_times_avg_busyness' => 'Popular times data is available for this restaurant.',

@@ -84,9 +84,10 @@ Schedule::command('restaurants:scrape-social --force')
         Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:scrape-social --force']);
     });
 
-// Aggregate engagement data into restaurant counters (runs at 1 AM UTC)
+// Aggregate engagement data into restaurant counters (runs at 00:30 UTC,
+// before the 02:00 scoring run, so scores reflect the freshest engagement data)
 Schedule::command('restaurants:update-engagement')
-    ->dailyAt('01:00')
+    ->dailyAt('00:30')
     ->withoutOverlapping()
     ->onOneServer()
     ->description('Aggregate engagement clicks into restaurant counters')

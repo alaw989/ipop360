@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import StarRating from '@/Components/StarRating.vue';
@@ -11,7 +11,7 @@ import OpeningHours from '@/Components/OpeningHours.vue';
 import { getRestaurantGradient } from '@/composables/useRestaurantDisplay';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { callPhone, openWebsite, trackDirections, directionsUrl } from '@/lib/restaurant';
+import { callPhone, openWebsite, trackDirections, trackPageview, trackMenuClick, directionsUrl } from '@/lib/restaurant';
 import { Heart, ArrowLeft, MapPin, Navigation, Phone, Globe, UtensilsCrossed } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
 import { useSeo, generateRestaurantJsonLd } from '@/composables/useSeo';
@@ -89,6 +89,17 @@ const structuredData = computed(() => {
 
     return generateRestaurantJsonLd(restaurantData)
 })
+
+onMounted(() => {
+    trackPageview(props.restaurant.id);
+})
+
+function handleMenuClick(): void {
+    if (props.restaurant.menu_url) {
+        trackMenuClick(props.restaurant.id);
+        window.open(props.restaurant.menu_url, '_blank');
+    }
+}
 </script>
 
 <template>
@@ -228,21 +239,19 @@ const structuredData = computed(() => {
                             {{ restaurant.website_url.replace(/^https?:\/\//, '') }}
                         </button>
 
-                        <a
+                        <button
                             v-if="restaurant.menu_url"
-                            :href="restaurant.menu_url"
-                            target="_blank"
-                            rel="noopener noreferrer"
                             class="flex w-full items-center gap-2.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+                            @click="handleMenuClick"
                         >
                             <UtensilsCrossed :size="16" class="shrink-0" />
                             View Menu
-                        </a>
+                        </button>
                     </div>
 
                     <!-- Social links -->
                     <div v-if="restaurant.social_links && restaurant.social_links.length > 0" class="mt-5">
-                        <SocialLinks :links="restaurant.social_links" />
+                        <SocialLinks :links="restaurant.social_links" :restaurant-id="restaurant.id" />
                     </div>
 
                     <!-- Opening hours -->

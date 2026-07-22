@@ -13,7 +13,7 @@ describe('SocialLinks', () => {
         expect(wrapper.find('div').exists()).toBe(false)
     })
 
-    it('renders a link for each platform', () => {
+    it('renders a button for each platform', () => {
         const links = [
             { platform: 'facebook', url: 'https://facebook.com/test', followers: null },
             { platform: 'instagram', url: 'https://instagram.com/test', followers: 1000 },
@@ -22,23 +22,10 @@ describe('SocialLinks', () => {
             props: { links },
             global: { stubs },
         })
-        const anchors = wrapper.findAll('a')
-        expect(anchors.length).toBe(2)
-        expect(anchors[0].text()).toContain('Facebook')
-        expect(anchors[1].text()).toContain('Instagram')
-    })
-
-    it('opens links in new tab with rel attributes', () => {
-        const links = [
-            { platform: 'twitter', url: 'https://twitter.com/test', followers: null },
-        ]
-        const wrapper = mount(SocialLinks, {
-            props: { links },
-            global: { stubs },
-        })
-        const anchor = wrapper.find('a')
-        expect(anchor.attributes('target')).toBe('_blank')
-        expect(anchor.attributes('rel')).toBe('noopener noreferrer')
+        const buttons = wrapper.findAll('button')
+        expect(buttons.length).toBe(2)
+        expect(buttons[0].text()).toContain('Facebook')
+        expect(buttons[1].text()).toContain('Instagram')
     })
 
     it('shows follower count in title attribute', () => {
@@ -49,8 +36,8 @@ describe('SocialLinks', () => {
             props: { links },
             global: { stubs },
         })
-        const anchor = wrapper.find('a')
-        expect(anchor.attributes('title')).toContain('50,000')
+        const button = wrapper.find('button')
+        expect(button.attributes('title')).toContain('50,000')
     })
 
     it('uses platform label as fallback for unknown platforms', () => {

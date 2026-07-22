@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Globe } from '@lucide/vue';
+import { trackSocialLinkClick } from '@/lib/restaurant';
 import type { SocialLink } from '@/types/restaurant';
 
-defineProps<{
+const props = defineProps<{
     links: SocialLink[];
+    restaurantId?: number;
 }>();
 
 const platformConfig: Record<string, { label: string; hoverBg: string; hoverText: string }> = {
@@ -13,16 +15,20 @@ const platformConfig: Record<string, { label: string; hoverBg: string; hoverText
     tiktok: { label: 'TikTok', hoverBg: 'hover:bg-black/5 dark:hover:bg-white/10', hoverText: 'hover:text-black dark:hover:text-white' },
     youtube: { label: 'YouTube', hoverBg: 'hover:bg-[#FF0000]/10', hoverText: 'hover:text-[#FF0000]' },
 };
+
+function handleClick(link: SocialLink): void {
+    if (props.restaurantId) {
+        trackSocialLinkClick(props.restaurantId);
+    }
+    window.open(link.url, '_blank', 'noopener');
+}
 </script>
 
 <template>
     <div v-if="links.length > 0" class="flex flex-wrap gap-2">
-        <a
+        <button
             v-for="link in links"
             :key="link.platform"
-            :href="link.url"
-            target="_blank"
-            rel="noopener noreferrer"
             :title="`${platformConfig[link.platform]?.label ?? link.platform}${link.followers ? ` (${link.followers.toLocaleString()} followers)` : ''}`"
             :class="[
                 'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
@@ -30,6 +36,7 @@ const platformConfig: Record<string, { label: string; hoverBg: string; hoverText
                 platformConfig[link.platform]?.hoverBg ?? 'hover:bg-neutral-100 dark:hover:bg-neutral-700',
                 platformConfig[link.platform]?.hoverText ?? 'hover:text-neutral-900 dark:hover:text-white',
             ]"
+            @click="handleClick(link)"
         >
             <!-- Facebook -->
             <svg v-if="link.platform === 'facebook'" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
@@ -53,8 +60,7 @@ const platformConfig: Record<string, { label: string; hoverBg: string; hoverText
             </svg>
             <!-- Fallback -->
             <Globe v-else class="h-4 w-4" />
-
             <span>{{ platformConfig[link.platform]?.label ?? link.platform }}</span>
-        </a>
+        </button>
     </div>
 </template>

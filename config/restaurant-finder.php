@@ -250,10 +250,10 @@ return [
     */
     'ranking' => [
         'weights' => [
-            'quality' => env('RANK_WEIGHT_QUALITY', 0.60),
-            'proximity' => env('RANK_WEIGHT_PROXIMITY', 0.20),
+            'quality' => env('RANK_WEIGHT_QUALITY', 0.35),
+            'proximity' => env('RANK_WEIGHT_PROXIMITY', 0.15),
             'data_completeness' => env('RANK_WEIGHT_DATA_COMPLETENESS', 0.05),
-            'has_award' => env('RANK_WEIGHT_HAS_AWARD', 0.15),
+            'has_award' => env('RANK_WEIGHT_HAS_AWARD', 0.10),
             // spec-071: on a cuisine-scoped search, boost venues matching the
             // searched cuisine so a genuine match outranks a borderline-nearby
             // one. Recall-safe (re-rank only, drops nothing); 0.0 unless stamped
@@ -262,8 +262,11 @@ return [
             'google_rating' => env('RANK_WEIGHT_GOOGLE_RATING', 0.0),
             'google_review_count' => env('RANK_WEIGHT_GOOGLE_REVIEW_COUNT', 0.0),
             'popular_times_avg_busyness' => env('RANK_WEIGHT_POPULAR_TIMES', 0.0),
-            'social_links_count' => env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.15),
-            'website_clicks_count' => env('RANK_WEIGHT_WEBSITE_CLICKS', 0.15),
+            'social_links_count' => env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.10),
+            'website_clicks_count' => env('RANK_WEIGHT_WEBSITE_CLICKS', 0.20),
+            'pageviews_count' => env('RANK_WEIGHT_PAGEVIEWS', 0.10),
+            'social_link_clicks_count' => env('RANK_WEIGHT_SOCIAL_LINK_CLICKS', 0.05),
+            'menu_click_count' => env('RANK_WEIGHT_MENU_CLICKS', 0.05),
         ],
 
         // spec-081: on a cuisine-scoped search, when enough confident matches

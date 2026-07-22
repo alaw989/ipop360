@@ -56,6 +56,9 @@ class Restaurant extends Model
         'call_clicks_count',
         'total_engagement',
         'social_links_count',
+        'pageviews_count',
+        'social_link_clicks_count',
+        'menu_click_count',
         'menu_url',
     ];
 
@@ -80,6 +83,9 @@ class Restaurant extends Model
         'call_clicks_count' => 'integer',
         'total_engagement' => 'integer',
         'social_links_count' => 'integer',
+        'pageviews_count' => 'integer',
+        'social_link_clicks_count' => 'integer',
+        'menu_click_count' => 'integer',
     ];
 
     protected static function booted(): void
