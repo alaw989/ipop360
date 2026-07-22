@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Restaurant;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -142,7 +143,7 @@ class EngagementApiTest extends TestCase
 
     public function test_dedup_same_authenticated_user(): void
     {
-        $user = \App\Models\User::factory()->create();
+        $user = User::factory()->create();
 
         // First request
         $this->actingAs($user)->post('/api/engage', [
