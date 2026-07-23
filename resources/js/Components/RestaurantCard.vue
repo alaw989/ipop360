@@ -8,8 +8,9 @@ import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import type { Restaurant } from '@/types/restaurant';
 import { callPhone, openWebsite, trackDirections } from '@/lib/restaurant';
-import { Phone, Globe, Navigation, Heart } from '@lucide/vue';
+import { Phone, Globe, Navigation, Heart, ArrowUp, ArrowDown, Minus } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
+import { useCompare } from '@/composables/useCompare';
 import { getDetailUrl, getRankStyle, getRestaurantPhotos, getRestaurantGradient, getDisplayRating, getMapCoords } from '@/composables/useRestaurantDisplay';
 
 const props = defineProps<{
@@ -37,7 +38,26 @@ const mapCoords = computed(() => getMapCoords(props.restaurant));
 
 const saved = computed(() => isFavorited(props.restaurant));
 
+const { isInCompare, toggleCompare } = useCompare();
+const inCompare = computed(() => isInCompare(props.restaurant));
+
 const ariaLabel = computed(() => (saved.value ? 'Saved' : 'Save restaurant'));
+
+const rankChangeColor = computed(() => {
+    const c = props.restaurant.rank_change;
+    if (c == null) return '';
+    if (c > 0) return 'text-green-600 dark:text-green-400';
+    if (c < 0) return 'text-red-600 dark:text-red-400';
+    return 'text-muted-foreground';
+});
+
+const rankChangeTitle = computed(() => {
+    const c = props.restaurant.rank_change;
+    if (c == null) return '';
+    if (c > 0) return `Up ${c} spots`;
+    if (c < 0) return `Down ${Math.abs(c)} spots`;
+    return 'Steady';
+});
 </script>
 
 <template>
@@ -54,7 +74,7 @@ const ariaLabel = computed(() => (saved.value ? 'Saved' : 'Save restaurant'));
         >
             <template #overlays>
                 <!-- Rank badge (top-left) -->
-                <div class="absolute left-3 top-3">
+                <div class="absolute left-3 top-3 flex items-start gap-1">
                     <div
                         class="flex h-9 min-w-[36px] items-center justify-center rounded-full bg-gradient-to-r px-3 text-sm font-bold shadow-lg ring-2 ring-white/50 transition-transform duration-200 group-hover:scale-110"
                         :class="[rankStyle.bg, rankStyle.text]"
@@ -62,16 +82,42 @@ const ariaLabel = computed(() => (saved.value ? 'Saved' : 'Save restaurant'));
                         <span v-if="rank === 1">🔥</span>
                         <span v-else class="tabular-nums">#{{ rank }}</span>
                     </div>
+                    <div
+                        v-if="restaurant.rank_change != null"
+                        class="mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-background/80 text-[10px] font-bold shadow-sm ring-1 ring-border backdrop-blur-sm"
+                        :class="rankChangeColor"
+                        :title="rankChangeTitle"
+                    >
+                        <ArrowUp v-if="restaurant.rank_change > 0" class="h-3 w-3" />
+                        <ArrowDown v-else-if="restaurant.rank_change < 0" class="h-3 w-3" />
+                        <Minus v-else class="h-3 w-3" />
+                    </div>
                 </div>
 
                 <!-- ScoreChip (bottom-right) -->
                 <div v-if="restaurant.popularity_score != null" class="absolute bottom-3 right-3">
-                    <ScoreChip :total="restaurant.popularity_score" />
+                    <ScoreChip :total="restaurant.popularity_score" :breakdown="restaurant.score_breakdown ?? null" />
+                </div>
+
+                <!-- Compare button (bottom-left) -->
+                <div class="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                        class="flex h-7 w-7 items-center justify-center rounded-full bg-background/80 text-[10px] font-bold shadow-sm ring-1 ring-border backdrop-blur-sm hover:bg-background transition-colors"
+                        :class="inCompare ? 'text-primary ring-primary/50' : 'text-muted-foreground'"
+                        :title="inCompare ? 'Remove from comparison' : 'Add to comparison'"
+                        @click.stop="toggleCompare(props.restaurant)"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
+                            <rect x="2" y="3" width="6" height="18" rx="1" />
+                            <rect x="9" y="7" width="6" height="14" rx="1" />
+                            <rect x="16" y="5" width="6" height="16" rx="1" />
+                        </svg>
+                    </button>
                 </div>
 
                 <!-- Heart/favorites button (top-right) -->
                 <button
-                    class="relative z-10 absolute -right-1.5 -top-1.5 flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-foreground shadow-md ring-2 ring-white/50 transition-all hover:bg-white hover:scale-110 group-hover:opacity-100 opacity-0"
+                    class="relative z-10 absolute -right-1.5 -top-1.5 flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-foreground shadow-md ring-2 ring-white/50 transition-all hover:bg-white hover:scale-110 group-hover:opacity-0"
                     :class="{ 'text-red-500 fill-red-500': saved, 'opacity-100': saved }"
                     :aria-label="ariaLabel"
                     @click.stop="() => toggle(restaurant)"

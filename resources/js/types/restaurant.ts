@@ -62,6 +62,7 @@ export interface Restaurant {
     popular_times_avg_busyness?: number | null;
     has_award: boolean;
     popularity_score: number;
+    rank_change: number | null;
     distance: number | null;
     cuisines: Cuisine[];
     features?: Record<string, string>;

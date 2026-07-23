@@ -489,4 +489,67 @@ class RestaurantController extends Controller
             return $venue;
         }, $results);
     }
+
+    public function leaderboard(Request $request)
+    {
+        $coords = $this->geolocationService->resolveCoordinates($request);
+
+        $query = Restaurant::active()
+            ->with('cuisines')
+            ->when(
+                $coords !== null,
+                fn ($query) => $query->nearby($coords['lat'], $coords['lng'])
+            )
+            ->orderByRaw(Restaurant::decayedPopularityScoreExpression().' DESC')
+            ->orderBy('id', 'asc');
+
+        $restaurants = $query->paginate(50)->withQueryString();
+
+        $items = $restaurants->getCollection();
+        $aggregates = app(PopularityScoreService::class)->computeAggregates($items);
+
+        $formatted = RestaurantResource::collection($items);
+        $formatted->collection->each(fn ($resource) => $resource
+            ->withAllRestaurants($items)
+            ->withAggregates($aggregates));
+
+        $restaurants->setCollection(collect($formatted->resolve()));
+
+        return Inertia::render('Leaderboard/Index', [
+            'restaurants' => $restaurants,
+            'filters' => $request->only(['lat', 'lng']),
+        ]);
+    }
+
+    public function compare(Request $request)
+    {
+        $ids = $request->query('ids', '');
+        $idList = collect(explode(',', $ids))
+            ->map(fn ($v) => (int) trim($v))
+            ->filter(fn ($v) => $v > 0)
+            ->values()
+            ->toArray();
+
+        if (empty($idList)) {
+            return Inertia::render('Compare/Index', [
+                'restaurants' => [],
+            ]);
+        }
+
+        $restaurants = Restaurant::active()
+            ->with('cuisines')
+            ->whereIn('id', $idList)
+            ->get();
+
+        $aggregates = app(PopularityScoreService::class)->computeAggregates($restaurants);
+
+        $formatted = RestaurantResource::collection($restaurants);
+        $formatted->collection->each(fn ($resource) => $resource
+            ->withAllRestaurants($restaurants)
+            ->withAggregates($aggregates));
+
+        return Inertia::render('Compare/Index', [
+            'restaurants' => $formatted->resolve(),
+        ]);
+    }
 }
