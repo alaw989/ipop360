@@ -28,7 +28,7 @@ export function getRankStyle(rank: number): RankStyle {
     if (rank === 1) return { bg: 'from-amber-400 to-yellow-500', text: 'text-white', ring: 'shadow-amber-500/30' };
     if (rank === 2) return { bg: 'from-slate-300 to-slate-400', text: 'text-slate-900', ring: 'shadow-slate-400/30' };
     if (rank === 3) return { bg: 'from-orange-400 to-amber-600', text: 'text-white', ring: 'shadow-orange-500/30' };
-    return { bg: 'from-muted to-muted-foreground/20', text: 'text-muted-foreground', ring: '' };
+    return { bg: 'from-gray-800 to-gray-900', text: 'text-white', ring: 'shadow-gray-900/30' };
 }
 
 export function isTopRank(rank: number): boolean {
