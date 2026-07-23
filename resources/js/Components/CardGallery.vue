@@ -103,6 +103,8 @@ onUnmounted(() => {
     >
         <!-- cuisine gradient backdrop (perceived-perf + graceful no-photo) -->
         <div class="absolute inset-0" :style="{ background: gradient }" />
+        <!-- subtle dark scrim when no photo, so floating badges remain legible -->
+        <div v-if="!photos[0]" class="absolute inset-0 bg-black/10" />
 
         <!-- Hero image: always rendered (LCP-relevant). Crossfades via opacity
              over the gradient — no backdrop-blur veil needed. -->
