@@ -17,6 +17,12 @@ import { Badge } from '@/components/ui/badge';
 
                     <div class="flex items-center gap-4">
                         <Link
+                            href="/leaderboard"
+                            class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                        >
+                            Leaderboard
+                        </Link>
+                        <Link
                             v-if="$page.props.auth?.user"
                             href="/favorites"
                             class="text-sm text-muted-foreground hover:text-primary transition-colors"

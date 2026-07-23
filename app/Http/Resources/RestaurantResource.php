@@ -66,6 +66,7 @@ class RestaurantResource extends JsonResource
             'popular_times_avg_busyness' => $this->resource->popular_times_avg_busyness,
             'has_award' => $this->resource->has_award,
             'popularity_score' => $this->resource->popularity_score,
+            'rank_change' => $this->resource->rank_change,
             'distance' => $this->when(! $isShowRoute && ! is_null($this->resource->distance), fn () => $this->resource->distance),
             'cuisines' => $this->resource->cuisines->toArray(),
             'features' => $this->resource->features ?? [],

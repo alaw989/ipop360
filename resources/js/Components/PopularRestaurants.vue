@@ -19,6 +19,10 @@ interface PopularRestaurant {
     yelp_review_count: number
     has_award: boolean
     popularity_score: number
+    score_breakdown?: {
+        signals: Array<{ label: string; weight: number; normalized: number; contribution: number; detail?: string }>;
+        total: number;
+    } | null;
     cuisines: Array<{ id: number; name: string; slug: string }>
 }
 
@@ -113,7 +117,7 @@ function rankBadge(rank: number) {
 
                         <!-- Score chip -->
                         <div v-if="r.popularity_score > 0" class="absolute right-2 top-2">
-                            <ScoreChip :total="r.popularity_score" />
+                            <ScoreChip :total="r.popularity_score" :breakdown="r.score_breakdown ?? null" />
                         </div>
                     </div>
 

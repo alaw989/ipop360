@@ -29,6 +29,8 @@ Route::get('/cuisine/{category:slug}', [CuisineController::class, 'show']);
 Route::get('/restaurants', [RestaurantController::class, 'index']);
 Route::get('/restaurants/preview/{slug}', [RestaurantController::class, 'preview'])->name('restaurants.preview');
 Route::get('/restaurants/{restaurant:slug}', [RestaurantController::class, 'show']);
+Route::get('/leaderboard', [RestaurantController::class, 'leaderboard']);
+Route::get('/compare', [RestaurantController::class, 'compare']);
 
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');

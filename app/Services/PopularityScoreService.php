@@ -79,7 +79,6 @@ class PopularityScoreService
         'longitude',       // BizData, Overpass
         'price_range',     // Overpass
         'website_url',     // BizData, Overpass
-        'popular_times_avg_busyness', // Bonus: Outscraper
         'photo_url',       // Bonus: scraper/BizData
         'features',        // Bonus: OSM tag extraction
         'social_links_count', // Bonus: website social link scraping

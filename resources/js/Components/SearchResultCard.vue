@@ -4,7 +4,7 @@ import { Link } from '@inertiajs/vue3';
 import StarRating from '@/Components/StarRating.vue';
 import ScoreChip from '@/Components/ScoreChip.vue';
 import { Badge } from '@/components/ui/badge';
-import { Heart, Navigation, Phone, Globe } from '@lucide/vue';
+import { Heart, Navigation, Phone, Globe, ArrowUp, ArrowDown, Minus } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
 import { callPhone, openWebsite, trackDirections } from '@/lib/restaurant';
 import type { Restaurant } from '@/types/restaurant';
@@ -37,6 +37,22 @@ const reviewSnippet = computed(() => {
 });
 
 const gradient = computed(() => getRestaurantGradient(props.restaurant));
+
+const rankChangeColor = computed(() => {
+    const c = props.restaurant.rank_change;
+    if (c == null) return '';
+    if (c > 0) return 'text-green-600 dark:text-green-400';
+    if (c < 0) return 'text-red-600 dark:text-red-400';
+    return 'text-muted-foreground';
+});
+
+const rankChangeTitle = computed(() => {
+    const c = props.restaurant.rank_change;
+    if (c == null) return '';
+    if (c > 0) return `Up ${c} spots`;
+    if (c < 0) return `Down ${Math.abs(c)} spots`;
+    return 'Steady';
+});
 </script>
 
 <template>
@@ -56,7 +72,7 @@ const gradient = computed(() => getRestaurantGradient(props.restaurant));
             </div>
 
             <!-- Rank badge -->
-            <div class="absolute left-2 top-2">
+            <div class="absolute left-2 top-2 flex items-start gap-1">
                 <div
                     class="flex h-8 min-w-[32px] items-center justify-center rounded-full bg-gradient-to-r px-2.5 text-xs font-bold shadow-lg ring-2 ring-white/50"
                     :class="[rankStyle.bg, rankStyle.text]"
@@ -64,11 +80,21 @@ const gradient = computed(() => getRestaurantGradient(props.restaurant));
                     <span v-if="rank === 1">🔥</span>
                     <span v-else class="tabular-nums">#{{ rank }}</span>
                 </div>
+                <div
+                    v-if="restaurant.rank_change != null"
+                    class="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-background/80 text-[8px] font-bold shadow-sm ring-1 ring-border backdrop-blur-sm"
+                    :class="rankChangeColor"
+                    :title="rankChangeTitle"
+                >
+                    <ArrowUp v-if="restaurant.rank_change > 0" class="h-2.5 w-2.5" />
+                    <ArrowDown v-else-if="restaurant.rank_change < 0" class="h-2.5 w-2.5" />
+                    <Minus v-else class="h-2.5 w-2.5" />
+                </div>
             </div>
 
             <!-- ScoreChip -->
             <div v-if="restaurant.popularity_score != null" class="absolute bottom-2 left-2">
-                <ScoreChip :total="restaurant.popularity_score" />
+                <ScoreChip :total="restaurant.popularity_score" :breakdown="restaurant.score_breakdown ?? null" />
             </div>
         </div>
 
