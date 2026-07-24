@@ -3,15 +3,12 @@ type Action = 'website' | 'directions' | 'call' | 'pageview' | 'social_link_clic
 function trackEngagement(restaurantId: number, action: Action): void {
     const payload = JSON.stringify({ restaurant_id: restaurantId, action });
 
-    if (navigator.sendBeacon) {
-        navigator.sendBeacon('/api/engage', new Blob([payload], { type: 'application/json' }));
-    } else {
-        fetch('/api/engage', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: payload,
-        }).catch(() => {});
-    }
+    fetch('/api/engage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: payload,
+        keepalive: true,
+    }).catch(() => {});
 }
 
 export function trackPageview(restaurantId: number): void {
