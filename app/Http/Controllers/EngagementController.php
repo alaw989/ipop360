@@ -72,6 +72,19 @@ class EngagementController extends Controller
             'created_at' => now(),
         ]);
 
+        \DB::table('restaurants')->where('id', $validated['restaurant_id'])->increment(
+            match ($actionType) {
+                'website_click' => 'website_clicks_count',
+                'directions_click' => 'directions_clicks_count',
+                'call_click' => 'call_clicks_count',
+                'pageview' => 'pageviews_count',
+                'social_link_click' => 'social_link_clicks_count',
+                'menu_click' => 'menu_click_count',
+            }
+        );
+
+        \DB::table('restaurants')->where('id', $validated['restaurant_id'])->increment('total_engagement');
+
         return response()->noContent();
     }
 }
