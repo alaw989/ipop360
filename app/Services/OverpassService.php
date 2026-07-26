@@ -599,12 +599,14 @@ class OverpassService
         $limit = (int) config('restaurant-finder.sources.overpass.live_limit', 80);
         $query = $this->buildQuery($lat, $lng, $resolved, 25000, $limit);
 
-        // Live path: try up to 2 mirrors for resilience (the primary mirror has
-        // been flaky). Each mirror gets the full timeout budget since they run
-        // concurrently via Http::pool. The enrichment path fan-out is handled
-        // by executeSearch() with all 3 mirrors + radii.
+        // Live path: use 1 mirror (the first, typically overpass-api.de).
+        // Overpass rate-limits to 2 concurrent slots per IP — firing 2 mirrors
+        // simultaneously consumes both slots and forces the serial name-regex
+        // fallback (which runs after the pool resolves) to queue behind them,
+        // causing persistent 30s+ timeouts. The name-regex fallback also uses
+        // the first mirror only, so both paths stay in sync.
         $specs = [];
-        $mirrorCount = min(2, count($this->mirrors));
+        $mirrorCount = ($context['read_path'] ?? false) ? 1 : min(2, count($this->mirrors));
         for ($i = 0; $i < $mirrorCount; $i++) {
             $specs[] = new RequestSpec(
                 method: 'POST',

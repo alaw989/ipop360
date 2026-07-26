@@ -562,8 +562,10 @@ class LiveSearchScoringTest extends TestCase
     public function test_live_search_drops_bizdata_venue_without_cuisine_keyword(): void
     {
         // The reported bug: a Chinese search surfaced El Comal / Asian Garden from
-        // BizData (BizData ignores its cuisine `query` param). Off-keyword BizData
-        // rows are dropped; a BizData venue whose name signals the cuisine is kept.
+        // BizData (BizData ignores its cuisine `query` param). Previously off-keyword
+        // BizData rows were hard-dropped, but now they are kept with cuisine_match=0.0
+        // so results appear even when Overpass/SerpApi are unavailable. The confidence
+        // filter drops them when 2+ confident matches exist.
         $this->seedCuisine('Chinese', 'chinese');
 
         $service = $this->makeServiceWithVenues([
@@ -578,15 +580,18 @@ class LiveSearchScoringTest extends TestCase
         $names = array_column($results, 'name');
 
         $this->assertContains('China Wok', $names);
-        $this->assertNotContains('El Comal | Tacos y Cantina', $names);
-        $this->assertNotContains('Asian Garden', $names);
+        // BizData rows without on-keywords are now kept as ambiguous (cuisine_match=0.0)
+        // rather than hard-dropped, so they appear when no confident matches exist.
+        $this->assertContains('El Comal | Tacos y Cantina', $names);
+        $this->assertContains('Asian Garden', $names);
     }
 
     public function test_live_search_keeps_trusted_source_venue_by_name_keyword(): void
     {
         // "Panda Express" contains "panda" (a Chinese ON keyword), so it
         // survives the cuisine filter even without place_types/description.
-        // Cracker Barrel (bizdata) has no Chinese keyword → dropped.
+        // Cracker Barrel (bizdata) has no Chinese keyword but is now kept
+        // as ambiguous (cuisine_match=0.0) rather than hard-dropped.
         $this->seedCuisine('Chinese', 'chinese');
 
         $service = $this->makeServiceWithVenues([
@@ -602,7 +607,7 @@ class LiveSearchScoringTest extends TestCase
         $names = array_column($results, 'name');
 
         $this->assertContains('Panda Express', $names);
-        $this->assertNotContains('Cracker Barrel', $names);
+        $this->assertContains('Cracker Barrel', $names);
     }
 
     public function test_live_search_drops_serpapi_off_cuisine_venue_with_rival_type(): void
@@ -745,9 +750,8 @@ class LiveSearchScoringTest extends TestCase
     public function test_cuisine_filter_unmapped_cuisine_falls_back_to_bare_word(): void
     {
         // Filipino is now fully mapped in config/cuisine-keywords.php (it was
-        // previously unmapped). This still validates the on/off-cuisine keep/drop
-        // for a less-common cuisine: an on-cuisine venue survives, an off-cuisine
-        // one is dropped.
+        // previously unmapped). An on-cuisine venue survives; an off-cuisine one
+        // is kept as ambiguous (cuisine_match=0.0) rather than hard-dropped.
         $this->seedCuisine('Filipino', 'filipino');
 
         $service = $this->makeServiceWithVenues([
@@ -761,7 +765,9 @@ class LiveSearchScoringTest extends TestCase
         $names = array_column($results, 'name');
 
         $this->assertContains('Filipino Kitchen', $names);
-        $this->assertNotContains('Buddy Seafood', $names);
+        // Buddy Seafood has no Filipino keyword but is kept as ambiguous
+        // (cuisine_match=0.0) — the confidence filter handles the rest.
+        $this->assertContains('Buddy Seafood', $names);
     }
 
     public function test_category_search_filters_to_member_cuisines(): void

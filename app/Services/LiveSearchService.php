@@ -961,14 +961,21 @@ class LiveSearchService
             $source = strtolower((string) ($r['source'] ?? ''));
             $name = (string) ($r['name'] ?? '');
 
-            // Unfiltered source: gate on NAME only (BizData carries no
-            // type/description, so this is byte-identical to the prior behavior).
+            // Unfiltered source: keep if name matches on-cuisine keywords.
+            // Non-matching rows are still kept with cuisine_match=0.0
+            // (recall-safe fallback when Overpass and other sources are
+            // unavailable). The confidence filter (filterByCuisineConfidence)
+            // drops ambiguous rows when enough confident matches exist.
             if (isset($unfilteredSet[$source])) {
                 if ($name === '') {
                     return false; // nameless noise from an unfiltered source
                 }
 
-                return preg_match($onPattern, $name) === 1;
+                if (preg_match($onPattern, $name) === 1) {
+                    return true; // on-cuisine keyword → cuisine_match=1.0
+                }
+
+                return true; // keep as ambiguous → cuisine_match=0.0
             }
 
             // Trusted source.
