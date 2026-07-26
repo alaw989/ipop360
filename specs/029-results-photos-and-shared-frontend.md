@@ -67,7 +67,7 @@
 - **SC-002**: `php artisan test` 235 green.
 - **SC-003**: `photos` key present in `/api/restaurants` JSON.
 - **SC-004**: GHA deploy run for the pushed SHA is green AND the live
-  `https://ipop360.vp-associates.com/api/restaurants?lat=..&lng=..` still returns within the
+  `https://ipop360.com/api/restaurants?lat=..&lng=..` still returns within the
   nginx 60s limit (the deploy's own verify step is a real cache-cold search — `photos` must not
   break the live read path).
 

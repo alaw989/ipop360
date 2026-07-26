@@ -99,7 +99,7 @@ on droplet + supervisor + deploy wiring + live verify (hero in initial HTML).
 
 - **Self-contained bundle:** after `npm run build`, `head bootstrap/ssr/ssr.js`
   has **no** bare `import … from "@inertiajs/…" / "vue" / "@vue/..."` (all inlined).
-- **SSR actually serving:** `curl -s https://ipop360.vp-associates.com/ | grep -c
+- **SSR actually serving:** `curl -s https://ipop360.com/ | grep -c
   'Find Popular'` ≥ 1 (hero in the initial HTML; 0 = silently CSR fallback). The
   `<div id="app">` has **children** (pre-rendered tree), not empty.
 - **Process health:** `sudo supervisorctl status ipop360-ssr:*` → RUNNING.

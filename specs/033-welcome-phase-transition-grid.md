@@ -88,6 +88,6 @@ reorder is phase 2.
 ## Completion
 FRs met, build + tests green, committed + pushed → output `<promise>DONE</promise>`.
 > After this spec deploys, do the **full behavioral browser-verify** on the live site
-> (https://ipop360.vp-associates.com): search → hero collapse → grid stagger → hover-swap →
+> (https://ipop360.com): search → hero collapse → grid stagger → hover-swap →
 > detail → dark mode. (Per the binding `CLAUDE.md` rule — don't stop at "deploy succeeded.")
 <!-- NR_OF_TRIES: 0 -->

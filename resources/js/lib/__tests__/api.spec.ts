@@ -34,7 +34,7 @@ describe('buildParams (drops null/undefined, keeps falsy-but-valid)', () => {
 describe('getBaseUrl (client branch under jsdom)', () => {
     it('derives origin from window.location, never the hard-coded prod URL', () => {
         expect(getBaseUrl()).toBe(`${window.location.protocol}//${window.location.host}`);
-        expect(getBaseUrl()).not.toBe('https://ipop360.vp-associates.com');
+        expect(getBaseUrl()).not.toBe('https://ipop360.com');
     });
 });
 

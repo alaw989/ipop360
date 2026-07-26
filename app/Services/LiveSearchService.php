@@ -418,11 +418,13 @@ class LiveSearchService
      */
     private function applyOverpassNameFallback(array $merged, float $lat, float $lng, array $keywords): array
     {
-        // For unscoped searches (any cuisine), use generic restaurant keywords
-        // so Overpass's name-regex search can find untagged restaurants.
-        if (empty($keywords)) {
-            $keywords = ['restaurant', 'cafe', 'grill', 'pizza', 'kitchen', 'bar', 'diner', 'bistro', 'sushi', 'taco', 'burger', 'thai', 'italian', 'mexican', 'chinese', 'japanese', 'indian', 'breakfast', 'lunch', 'dinner'];
-        }
+        // Use generic restaurant keywords for the name-regex search so Overpass
+        // can find untagged restaurants regardless of cuisine scope. The
+        // downstream cuisine-relevance and confidence filters handle classifying
+        // the returned rows. The $keywords parameter is ignored for scoped
+        // searches since it contains narrow dish-level terms that miss
+        // restaurants with generic names (e.g. "Cafe Soriah" for Middle Eastern).
+        $keywords = ['restaurant', 'cafe', 'grill', 'pizza', 'kitchen', 'bar', 'diner', 'bistro', 'sushi', 'taco', 'burger', 'thai', 'italian', 'mexican', 'chinese', 'japanese', 'indian', 'breakfast', 'lunch', 'dinner'];
 
         foreach ($merged as $r) {
             if (($r['source'] ?? null) === 'overpass') {

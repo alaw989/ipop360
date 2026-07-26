@@ -37,7 +37,7 @@
 #   ./scripts/ralph-loop.sh plan         # Planning mode (creates IMPLEMENTATION_PLAN.md)
 #
 # NOTE: pushing to the configured branch triggers the GitHub Actions deploy to the
-# live site (https://ipop360.vp-associates.com). The green-test gate prevents red
+# live site (https://ipop360.com). The green-test gate prevents red
 # builds from being pushed, but review the queue before running unattended.
 #
 

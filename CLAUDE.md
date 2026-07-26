@@ -19,6 +19,6 @@ machines, so durable context lives here in the repo.
   that commit **succeeds** (`gh run watch` if authed; otherwise poll the
   unauthenticated `api.github.com/repos/alaw989/ipop360/actions/runs?head_sha=<sha>`),
   **then verify the change is actually live on the droplet by testing it in the
-  browser** (load the live site at https://ipop360.vp-associates.com and reproduce the
+  browser** (load the live site at https://ipop360.com and reproduce the
   scenario). Do not stop at "the deploy finished" — confirm behaviorally in the
   browser.

@@ -8,10 +8,10 @@ import { getBaseUrl } from '@/lib/api';
 
 describe('SSR fallback (no window)', () => {
     it('useBaseUrl falls back to the production origin', () => {
-        expect(useBaseUrl().value).toBe('https://ipop360.vp-associates.com');
+        expect(useBaseUrl().value).toBe('https://ipop360.com');
     });
 
     it('getBaseUrl falls back to the production origin', () => {
-        expect(getBaseUrl()).toBe('https://ipop360.vp-associates.com');
+        expect(getBaseUrl()).toBe('https://ipop360.com');
     });
 });

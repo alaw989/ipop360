@@ -15,6 +15,6 @@ export function useBaseUrl() {
         if (typeof window !== 'undefined') {
             return `${window.location.protocol}//${window.location.host}`;
         }
-        return 'https://ipop360.vp-associates.com';
+        return 'https://ipop360.com';
     });
 }

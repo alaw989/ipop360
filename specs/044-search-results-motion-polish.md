@@ -141,7 +141,7 @@ needs to re-search because it is only reachable from idle. `CuisinePicker.vue` i
 3. Manual local (`php artisan serve`; this machine has no SerpApi key → `is_live:true` but empty, so
    the results-grid path couldn't be exercised locally): homepage renders, hero intact, no console
    errors.
-4. **Verified live** at https://ipop360.vp-associates.com after deploy (`2f5bde5`): Mobile search →
+4. **Verified live** at https://ipop360.com after deploy (`2f5bde5`): Mobile search →
    30 real results with the new transition; compact cuisine dropdown GONE; re-sort to Rating
    reordered the top-3 (Yellow Deli + Oasis, both 4.9★, → #1/#2) with `sawSpinner:false` and a grid
    dim→restore; zero console errors.

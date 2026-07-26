@@ -19,11 +19,15 @@
  * Keyword conventions:
  *  - Lowercase. Use `.` to match a separator so "dim.sum" matches "dim sum",
  *    "dimsum", "dim-sum" (the filter uses these as RAW regex fragments).
- *  - Keep terms cuisine-SPECIFIC. Do NOT add cross-cuisine regional words
- *    (e.g. "mediterranean", "asian") or generic structural words
- *    ("grill", "bar", "kitchen", "house", "restaurant") — those cause false
- *    rival-drops (a "Japanese grill" must not be dropped from a Japanese
- *    search) and false on-matches.
+ *  - Keep terms cuisine-SPECIFIC. Avoid cross-cuisine regional words
+ *    (e.g. "asian") or generic structural words ("grill", "bar", "kitchen",
+ *    "house", "restaurant") — those cause false rival-drops (a "Japanese grill"
+ *    must not be dropped from a Japanese search) and false on-matches.
+ *    "mediterranean" and "halal" are notable exceptions added pragmatically:
+ *    they are the most common words in US restaurant names for Middle Eastern
+ *    / Mediterranean cuisines, and without them the BizData name-only filter
+ *    drops nearly all genuine venues in those categories — producing zero
+ *    results. The downstream cuisine-confidence filter mitigates false on-matches.
  *  - Avoid short ambiguous substrings (e.g. "wat", "poi") that match unrelated
  *    words ("water", "pointer").
  *
@@ -43,7 +47,7 @@ return [
         'thai' => ['thai', 'thailand', 'bangkok', 'pad.thai', 'tom.yum', 'lemongrass', 'som.tum', 'massaman'],
         'vietnamese' => ['vietnamese', 'pho', 'saigon', 'hanoi', 'banh.mi', 'bun.cha', 'goi.cuon'],
         'filipino' => ['filipino', 'pinoy', 'adobo', 'lumpia', 'sinigang', 'lechon', 'pancit', 'halo.halo', 'sisig', 'kare.kare'],
-        'indian' => ['indian', 'tandoor', 'curry', 'biryani', 'masala', 'korma', 'naan', 'dosa', 'samosa', 'paneer', 'chaat', 'butter.chicken'],
+        'indian' => ['indian', 'tandoor', 'curry', 'biryani', 'masala', 'korma', 'naan', 'dosa', 'samosa', 'paneer', 'chaat', 'butter.chicken', 'halal', 'kabob'],
         'malaysian' => ['malaysian', 'laksa', 'satay', 'nasi.lemak', 'roti.canai', 'char.kway.teow', 'rendang'],
         'indonesian' => ['indonesian', 'nasi.goreng', 'rendang', 'sate', 'sambal', 'gado.gado', 'mie.goreng', 'rijsttafel'],
         'taiwanese' => ['taiwanese', 'bubble.tea', 'boba', 'beef.noodle', 'lu.rou.fan', 'gua.bao', 'scallion.pancake'],
@@ -54,10 +58,10 @@ return [
         'burmese' => ['burmese', 'myanmar', 'mohinga', 'laphet', 'khao.swe', 'tea.leaf'],
 
         // ── European ───────────────────────────────────────────────────────
-        'italian' => ['italian', 'pasta', 'trattoria', 'ristorante', 'risotto', 'gnocchi', 'bruschetta'],
+        'italian' => ['italian', 'pasta', 'trattoria', 'ristorante', 'risotto', 'gnocchi', 'bruschetta', 'pizza', 'italia'],
         'french' => ['french', 'croissant', 'crepe', 'baguette', 'escargot', 'provencal', 'bouchon', 'confit', 'bouillabaisse'],
         'spanish' => ['spanish', 'tapas', 'paella', 'jamon', 'churros', 'gazpacho', 'sangria', 'iberico', 'patatas.bravas'],
-        'greek' => ['greek', 'gyro', 'souvlaki', 'moussaka', 'tzatziki', 'spanakopita', 'feta', 'athens', 'santorini', 'dolmades', 'pastitsio'],
+        'greek' => ['greek', 'gyro', 'souvlaki', 'moussaka', 'tzatziki', 'spanakopita', 'feta', 'athens', 'santorini', 'dolmades', 'pastitsio', 'mediterranean'],
         'german' => ['german', 'wurst', 'bratwurst', 'schnitzel', 'pretzel', 'sauerkraut', 'bavarian', 'spatzle', 'weisswurst', 'haxe'],
         'british' => ['british', 'english', 'fish.and.chips', 'bangers', 'toad.in.the.hole', 'yorkshire', 'shepherd', 'steak.and.ale', 'scotch.egg'],
         'portuguese' => ['portuguese', 'bacalhau', 'pastel.de.nata', 'piri.piri', 'francesinha', 'cataplana', 'custard.tart'],
@@ -77,25 +81,25 @@ return [
         'chilean' => ['chilean', 'pastel.de.choclo', 'cazuela', 'chorillana', 'pisco', 'curanto', 'humita'],
 
         // ── Middle Eastern ─────────────────────────────────────────────────
-        'lebanese' => ['lebanese', 'shawarma', 'hummus', 'falafel', 'tabbouleh', 'baba.ganoush', 'manakish', 'kibbeh', 'kafta', 'fattoush'],
-        'turkish' => ['turkish', 'kebab', 'doner', 'baklava', 'lahmacun', 'pide', 'borek', 'manti', 'meze', 'kofte'],
-        'persian' => ['persian', 'iranian', 'saffron', 'tahdig', 'ghormeh', 'koobideh', 'fesenjan', 'zereshk', 'zereshk polo', 'tahchin'],
-        'israeli' => ['israeli', 'shakshuka', 'sabich', 'shwarma', 'falafel', 'hummus', 'pita', 'shakshouka', 'bourekas'],
-        'moroccan' => ['moroccan', 'tagine', 'couscous', 'harira', 'ras.el.hanout', 'pastilla', 'bastilla', 'zaalouk', 'kefta'],
-        'egyptian' => ['egyptian', 'koshari', 'ful.medames', 'molokhia', 'feteer', 'tameya', 'karkadeh', 'om.ali'],
-        'afghan' => ['afghan', 'afghani', 'kabul', 'mantu', 'bolani', 'qabili', 'ashak', 'palaw'],
+        'lebanese' => ['lebanese', 'shawarma', 'hummus', 'falafel', 'tabbouleh', 'baba.ganoush', 'manakish', 'kibbeh', 'kafta', 'fattoush', 'halal', 'mediterranean', 'kabob', 'arab', 'arabic'],
+        'turkish' => ['turkish', 'kebab', 'kabob', 'doner', 'baklava', 'lahmacun', 'pide', 'borek', 'manti', 'meze', 'kofte', 'halal', 'mediterranean'],
+        'persian' => ['persian', 'iranian', 'saffron', 'tahdig', 'ghormeh', 'koobideh', 'fesenjan', 'zereshk', 'zereshk polo', 'tahchin', 'kabob', 'halal'],
+        'israeli' => ['israeli', 'shakshuka', 'sabich', 'shwarma', 'falafel', 'hummus', 'pita', 'shakshouka', 'bourekas', 'kabob', 'halal', 'mediterranean'],
+        'moroccan' => ['moroccan', 'tagine', 'couscous', 'harira', 'ras.el.hanout', 'pastilla', 'bastilla', 'zaalouk', 'kefta', 'halal', 'mediterranean'],
+        'egyptian' => ['egyptian', 'koshari', 'ful.medames', 'molokhia', 'feteer', 'tameya', 'karkadeh', 'om.ali', 'halal', 'mediterranean'],
+        'afghan' => ['afghan', 'afghani', 'kabul', 'mantu', 'bolani', 'qabili', 'ashak', 'palaw', 'kabob'],
 
         // ── American ───────────────────────────────────────────────────────
         'southern' => ['southern', 'soul.food', 'fried.chicken', 'biscuit', 'grits', 'collard', 'cornbread', 'catfish', 'shrimp.and.grits', 'lowcountry'],
         'cajun-creole' => ['cajun', 'creole', 'gumbo', 'jambalaya', 'etouffee', 'andouille', 'po.boy', 'beignet', 'maque.choux', 'boudin'],
-        'tex-mex' => ['tex.mex', 'nachos', 'queso', 'chili.con.carne', 'fajita', 'enchilada', 'fajitas'],
+        'tex-mex' => ['tex.mex', 'tex', 'nachos', 'queso', 'chili.con.carne', 'fajita', 'enchilada', 'fajitas'],
         'bbq' => ['bbq', 'barbecue', 'smokehouse', 'brisket', 'pulled.pork', 'burnt.ends', 'dry.rub', 'pork.spare.ribs', 'texas.brisket', 'kansas.city', 'memphis.rub', 'st.louis.ribs'],
-        'new-american' => ['new.american', 'farm.to.table', 'artisanal', 'small.plate', 'tasting.menu', 'avocado.toast'],
+        'new-american' => ['new.american', 'american', 'farm.to.table', 'artisanal', 'small.plate', 'tasting.menu', 'avocado.toast'],
         'hawaiian' => ['hawaiian', 'poke', 'spam.musubi', 'plate.lunch', 'loco.moco', 'kalua', 'lomi', 'malasada'],
 
         // ── African ────────────────────────────────────────────────────────
         'ethiopian' => ['ethiopian', 'african', 'injera', 'berbere', 'tibs', 'kitfo', 'doro.wat', 'teff', 'abyssinia', 'shiro', 'misir.wot'],
-        'nigerian' => ['nigerian', 'african', 'jollof', 'suya', 'egusi', 'pounded.yam', 'fufu', 'ogbono', 'ewedu', 'puff.puff'],
+        'nigerian' => ['nigerian', 'african', 'jollof', 'suya', 'egusi', 'pounded.yam', 'fufu', 'ogbono', 'ewedu', 'puff.puff', 'halal'],
         'south-african' => ['south.african', 'african', 'braai', 'boerewors', 'bunny.chow', 'biltong', 'bobotie', 'malva', 'koeksister', 'chakalaka'],
         'west-african' => ['west.african', 'african', 'jollof', 'fufu', 'egusi', 'suya', 'waakye', 'groundnut', 'pepper.soup', 'attieke', 'thieboudienne'],
         'kenyan' => ['kenyan', 'african', 'nyama.choma', 'ugali', 'sukuma', 'irio', 'chapati', 'mandazi', 'githeri', 'nyama'],

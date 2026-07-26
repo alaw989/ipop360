@@ -58,7 +58,7 @@ Extend the existing `<Head>` usage (`Welcome.vue:235`, `Index.vue:94`, `Show.vue
   `app/Console/Kernel.php`; `routes/console.php` already schedules `restaurants:score`, `apicache:gc`,
   etc.) and run it in the deploy step.
 - **`public/robots.txt`**: add
-  `Sitemap: https://ipop360.vp-associates.com/sitemap.xml` (keep the existing `User-agent: *` /
+  `Sitemap: https://ipop360.com/sitemap.xml` (keep the existing `User-agent: *` /
   `Disallow:` — an empty disallow already permits all).
 
 ### 4. Semantic footer
