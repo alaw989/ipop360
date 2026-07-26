@@ -6,7 +6,7 @@
 
 ## What this is
 A restaurant-discovery app that ranks venues with a free-first scoring blend.
-**Live site:** https://ipop360.vp-associates.com. Stack: Laravel 13 / PHP 8.4,
+**Live site:** https://ipop360.com. Stack: Laravel 13 / PHP 8.4,
 SQLite, Inertia.js + Vue 3, Tailwind, shadcn-vue. Full principles + process in
 `constitution.md`.
 
@@ -97,7 +97,7 @@ ratings from search engines (LLMs hallucinate numbers), Foursquare ratings
 - `php artisan search:audit <city> [<city>...] [--limit=N] [--cuisine=slug]
   [--lat= --lng=]` — verify live ranking quality across cities; respects the
   cache (no quota burn on repeat). Aliases: nyc, sf, la, vegas, philly.
-- Live API: `https://ipop360.vp-associates.com/api/restaurants?lat=..&lng=..`
+- Live API: `https://ipop360.com/api/restaurants?lat=..&lng=..`
   (`is_live: true` = served from live search; false/null = DB-served).
 - Scorer: `app/Services/PopularityScoreService.php` (Bayesian `quality`).
 - Retriever: `app/Services/LiveSearchService.php`.

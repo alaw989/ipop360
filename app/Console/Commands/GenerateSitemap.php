@@ -19,7 +19,7 @@ class GenerateSitemap extends Command
     public function handle(): int
     {
         $sitemapPath = public_path('sitemap.xml');
-        $baseUrl = config('app.url') ?? 'https://ipop360.vp-associates.com';
+        $baseUrl = config('app.url') ?? 'https://ipop360.com';
 
         $xml = $this->generateSitemapXml($baseUrl);
 

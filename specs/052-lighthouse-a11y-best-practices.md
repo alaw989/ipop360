@@ -17,7 +17,7 @@ failing audits. The **Mobile Performance** lever is a separate spec —
 
 ## The problem
 
-A real throttled Lighthouse run on `https://ipop360.vp-associates.com/` (mobile + desktop,
+A real throttled Lighthouse run on `https://ipop360.com/` (mobile + desktop,
 same result) gives **Accessibility 90** and **Best Practices 96** (SEO 100, desktop Perf 98).
 The four failing audits are:
 

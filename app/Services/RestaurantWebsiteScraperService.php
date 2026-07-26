@@ -48,7 +48,7 @@ class RestaurantWebsiteScraperService
     private const USER_AGENT = 'Mozilla/5.0 (compatible; iPop360-Bot/1.0; +https://ipop360.example.com/bot)';
 
     /** User agent for free APIs (Wikimedia, Google). Includes contact for rate-limit issues. */
-    private const API_USER_AGENT = 'iPop360/1.0 (https://ipop360.vp-associates.com; alaw989@gmail.com)';
+    private const API_USER_AGENT = 'iPop360/1.0 (https://ipop360.com; alaw989@gmail.com)';
 
     /** Pages to check for social media links, in priority order. */
     private const SOCIAL_SCRAPE_PATHS = ['/', '/contact', '/about'];

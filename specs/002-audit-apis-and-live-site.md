@@ -27,7 +27,7 @@ As the operator, I want a recorded health check of every external API so I know 
 As a user, I want relevant, well-populated results for common cuisine×city searches, so the rankings actually help me.
 
 **Acceptance Scenarios**:
-1. **Given** a fixed cuisine×city matrix (SF enriched vs NY/Chicago live-only), **When** `/api/restaurants` is queried on local and on `https://ipop360.vp-associates.com`, **Then** per cell: result count, top-3 names, % populated `photo_url`/`phone`/`address`, dup count (same name ≤0.2km), and whether `Proximity`/`Award` appear in `score_breakdown` are recorded.
+1. **Given** a fixed cuisine×city matrix (SF enriched vs NY/Chicago live-only), **When** `/api/restaurants` is queried on local and on `https://ipop360.com`, **Then** per cell: result count, top-3 names, % populated `photo_url`/`phone`/`address`, dup count (same name ≤0.2km), and whether `Proximity`/`Award` appear in `score_breakdown` are recorded.
 2. **Given** a fully-blanked key set, **When** the matrix runs, **Then** the app still returns data for SF (DB path) and an unenriched city (live path) with no errors (key-independence).
 
 ### User Story 3 - Performance baseline is captured (Priority: P2)
@@ -48,7 +48,7 @@ As the operator, I want a measured baseline (latency, query count, `EXPLAIN`) so
 ### Key Entities
 - External services in `app/Services/` (BizData, Overpass, Wikidata, Foursquare, GooglePlaces, Outscraper, GeolocationService)
 - `RestaurantController::apiIndex` + `LiveSearchService::search`
-- Live site: `https://ipop360.vp-associates.com`
+- Live site: `https://ipop360.com`
 
 ## Success Criteria
 

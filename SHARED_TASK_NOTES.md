@@ -2,7 +2,7 @@
 
 ## Current state (2026-06-19) — Yelp removed, search quality fixes deployed
 
-**All 133 tests pass (469 assertions).** Deployed to https://ipop360.vp-associates.com (DO droplet, `root@165.245.141.179`, SSH key at `~/.ssh/droplet-vp-nuxt`).
+**All 133 tests pass (469 assertions).** Deployed to https://ipop360.com (DO droplet, `root@167.71.107.253`, SSH key at `~/.ssh/id_ed25519_nopass`).
 
 ### What's built (multi-source aggregation)
 | Source | Cost | Key Needed? | Status |
@@ -55,8 +55,9 @@ Installed per https://github.com/fstandhartinger/ralph-wiggum. Uses spec-driven 
 - `OUTSCRAPER_API_KEY` = empty
 
 ### Server access
-- IP: `165.245.141.179`
-- SSH key: `~/.ssh/droplet-vp-nuxt` (private) / `~/.ssh/droplet-vp-nuxt.pub` (public)
+- Domain: `https://ipop360.com`
+- IP: `167.71.107.253`
+- SSH key: `~/.ssh/id_ed25519_nopass` (private) / `~/.ssh/id_ed25519_nopass.pub` (public)
 - Deploy: GitHub Actions on push to `master` → rsync → migrate → cache → verify
 - Worker: `supervisorctl restart ipop360-worker:*` (runs in post-deploy)
 

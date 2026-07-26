@@ -1,11 +1,104 @@
-# Agent Instructions
+# iPop360 — Agent Guide
 
-**Read the constitution:** `.specify/memory/constitution.md`
+## Stack
+- **Backend**: Laravel 13 + PHP 8.3
+- **Frontend**: Inertia 2 + Vue 3 + TypeScript + Tailwind 4 + Vite 8
+- **UI**: shadcn-vue (reka-nova style), lucide icons, Leaflet maps
+- **DB**: SQLite (dev/test), MySQL (prod)
 
-That file is your single source of truth for this project.
+## Commands
 
-## Workflow rules
+| Command | What it does |
+|---------|-------------|
+| `composer dev` | Dev server (port 8090) + queue worker + log tailer + Vite HMR, all via concurrently |
+| `composer test` | `php artisan config:clear` then `php artisan test` (PHPUnit) |
+| `npm run test` | `vitest run` (frontend tests, jsdom, no globals, explicit vitest imports) |
+| `npm run build` | `vue-tsc && vite build && vite build --ssr` — **must pass before pushing** |
+| `vendor/bin/pint --test` | Laravel Pint lint check |
+| `./vendor/bin/phpstan analyse` | PHPStan level 5 (baseline in phpstan-baseline.neon) |
 
-- **All work goes through PRs** — never push directly to master.
-- Open a PR → quality checks run (tests, Pint, PHPStan) → you review → you merge → deploy.
-- **Before opening a PR:** Always run `php artisan test`, `vendor/bin/pint --test`, and `npm run build` locally first. All tests must pass and the build must succeed before pushing.
+## Local DB setup
+
+The dev database is `database/database.sqlite` (SQLite). If it becomes corrupted (e.g. from abrupt shutdown), you'll see `database disk image is malformed` errors on every request.
+
+To recover:
+1. Kill any process holding a lock (`lsof -ti:8090 | xargs kill`)
+2. Dump critical data table-by-table to a fresh DB:
+   ```bash
+   php artisan tinker --execute="
+   \$old = new SQLite3('database/database.sqlite');
+   \$new = new SQLite3('database/database-recovered.sqlite');
+   foreach (['migrations','cuisine_categories','cuisines','restaurants','cuisine_restaurant','users','restaurant_social_links','restaurant_engagement','external_api_cache'] as \$t) {
+       \$new->exec(\$old->querySingle(\"SELECT sql FROM sqlite_master WHERE type='table' AND name='\$t'\"));
+       \$rows = \$old->query(\"SELECT * FROM \\\"\$t\\\"\");
+       while (\$r = \$rows->fetchArray(SQLITE3_ASSOC)) {
+           \$cols = implode(',', array_keys(\$r));
+           \$vals = implode(',', array_fill(0, count(\$r), '?'));
+           \$s = \$new->prepare(\"INSERT INTO \\\"\$t\\\" VALUES (\$vals)\");
+           foreach (array_values(\$r) as \$i => \$v) \$s->bindValue(\$i + 1, \$v);
+           \$s->execute();
+       }
+   }
+   \$old->close(); \$new->close();
+   "
+   ```
+3. Swap files and create auxiliary tables:
+   ```bash
+   mv database/database.sqlite database/database-corrupted.sqlite
+   mv database/database-recovered.sqlite database/database.sqlite
+   php artisan tinker --execute="
+   \$db = new SQLite3('database/database.sqlite');
+   foreach ([
+     'cache' => 'CREATE TABLE \"cache\" (\"key\" varchar not null, \"value\" text not null, \"expiration\" integer not null, primary key (\"key\"))',
+     'cache_locks' => 'CREATE TABLE \"cache_locks\" (\"key\" varchar not null, \"owner\" varchar not null, \"expiration\" integer not null, primary key (\"key\"))',
+     'sessions' => 'CREATE TABLE \"sessions\" (\"id\" varchar not null, \"user_id\" integer, \"ip_address\" varchar, \"user_agent\" text, \"payload\" text not null, \"last_activity\" integer not null, primary key (\"id\"))',
+     'failed_jobs' => 'CREATE TABLE \"failed_jobs\" (\"id\" integer primary key autoincrement not null, \"uuid\" varchar not null, \"connection\" varchar not null, \"queue\" varchar not null, \"payload\" text not null, \"exception\" text not null, \"failed_at\" datetime not null default CURRENT_TIMESTAMP)',
+     'jobs' => 'CREATE TABLE \"jobs\" (\"id\" integer primary key autoincrement not null, \"queue\" varchar not null, \"payload\" text not null, \"attempts\" integer not null, \"reserved_at\" integer, \"available_at\" integer not null, \"created_at\" integer not null)',
+     'job_batches' => 'CREATE TABLE \"job_batches\" (\"id\" varchar not null, \"name\" varchar not null, \"total_jobs\" integer not null, \"pending_jobs\" integer not null, \"failed_jobs\" integer not null, \"failed_job_ids\" text not null, \"options\" text, \"cancelled_at\" integer, \"created_at\" integer not null, \"finished_at\" integer, primary key (\"id\"))',
+     'password_reset_tokens' => 'CREATE TABLE \"password_reset_tokens\" (\"email\" varchar not null, \"token\" varchar not null, \"created_at\" datetime, primary key (\"email\"))',
+     'favorite_restaurant_user' => 'CREATE TABLE \"favorite_restaurant_user\" (\"id\" integer primary key autoincrement not null, \"user_id\" integer not null, \"restaurant_id\" integer not null, \"created_at\" datetime, \"updated_at\" datetime, foreign key(\"user_id\") references \"users\"(\"id\") on delete cascade, foreign key(\"restaurant_id\") references \"restaurants\"(\"id\") on delete cascade)',
+     'pulse_aggregates' => 'CREATE TABLE \"pulse_aggregates\" (\"id\" integer primary key autoincrement not null, \"bucket\" integer not null, \"period\" integer not null, \"type\" varchar not null, \"key\" text not null, \"key_hash\" varchar not null, \"aggregate\" varchar not null, \"value\" numeric not null, \"count\" integer)',
+     'pulse_entries' => 'CREATE TABLE \"pulse_entries\" (\"id\" integer primary key autoincrement not null, \"timestamp\" integer not null, \"type\" varchar not null, \"key\" text not null, \"key_hash\" varchar not null, \"value\" integer)',
+     'pulse_values' => 'CREATE TABLE \"pulse_values\" (\"id\" integer primary key autoincrement not null, \"timestamp\" integer not null, \"type\" varchar not null, \"key\" text not null, \"key_hash\" varchar not null, \"value\" text not null)',
+   ] as \$t => \$sql) { if (!\$db->querySingle(\"SELECT name FROM sqlite_master WHERE type='table' AND name='\$t'\")) \$db->exec(\$sql); }
+   \$db->close();
+   "
+   ```
+4. Verify with `php artisan tinker --execute="echo DB::table('restaurants')->count();"` — should show 4636 rows.
+5. Restart the dev server: `composer dev`
+
+## PR workflow (binding)
+- Never push directly to master. Always PR.
+- Before opening a PR: `composer test` → `vendor/bin/pint --test` → `npm run build` — all must pass.
+- After merge + deploy, verify the change is live on the droplet by testing in browser.
+
+## Architecture
+- **4 live-search sources**: BizData (free, no key), SerpApi (~50/mo quota), Overpass/OSM (free), Socrata (free)
+- **Processing pipeline** (LiveSearchService::search): garbage name filter → cuisine relevance filter → non-restaurant filter → cross-source dedup (fuzzy name + distance + phone) → distance filter → bound to 60 → cuisine match stamp → score → sort → snapshot for pagination
+- **Scoring** (PopularityScoreService): Bayesian quality (60%) + proximity (20%) + data completeness (5%) + has award (15%) + cuisine match (15%) — weights renormalize over each row's active signal set
+- **Single JSON shape**: `app/Http/Resources/RestaurantResource.php` for all persisted restaurant responses
+- **Shared venue pipeline**: `app/Services/VenuePipeline.php` — dedup, merge, sort, haversine, name matching
+
+## Testing
+- Backend: PHPUnit — `tests/Unit/` + `tests/Feature/` (SQLite :memory:, array cache, sync queue)
+- Frontend: vitest — `resources/js/**/*.spec.ts` (jsdom, no globals, `@/` and `ziggy-js` aliases in vitest.config.ts)
+- Tests are excluded from `vue-tsc` typecheck (see tsconfig.json exclude) — vitest runs them via esbuild
+- `php artisan config:cache` must succeed before any cached config reads in prod
+
+## Deploy
+- Push to master → GitHub Actions → rsync to DO droplet → migrate → cache → verify
+- Supervisor-managed: queue worker (2 procs, auto-restart hourly), Inertia SSR server (node, falls back to CSR), scheduler (cron-driven)
+- Live site: https://ipop360.com
+- Post-deploy: restart supervisor programs, verify behaviorally in browser (not just "deploy finished")
+
+## Key constraints
+- **SerpApi is the only paid source** (~250/mo quota, 80% circuit breaker, 30d cache). All other sources are free/unlimited.
+- App works without any API keys (free sources only, no ratings without SerpApi).
+- **Config keys read in service constructors** — `Config::set()` must happen before `app()->make(...)`.
+
+## Scheduler (cron: every minute → php artisan schedule:run)
+Daily: 00:30 engagement aggregation → 02:00 score → 03:00 cache GC → 04:00 throttled enrichment → 05:00 website backfill → 05:30 social scrape. Weekly: Sat 06:30 full social re-scrape, Sun 06:00 dead-link check. Every 15min: uptime canary.
+
+## Outdated references
+- `.specify/` directory does not exist in this repo. CLAUDE.md references to it are stale.
+- SHARED_TASK_NOTES.md, PROMPT_build.md, PROMPT_plan.md, TOOL_AUDIT.md, specs/ are historical/loop artifacts.

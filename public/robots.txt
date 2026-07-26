@@ -1,4 +1,4 @@
 User-agent: *
 Disallow:
 
-Sitemap: https://ipop360.vp-associates.com/sitemap.xml
+Sitemap: https://ipop360.com/sitemap.xml
