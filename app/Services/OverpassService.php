@@ -159,7 +159,7 @@ class OverpassService
             return ['cached' => true, 'data' => $cached];
         }
 
-        $pattern = implode('|', array_map(fn ($k) => preg_quote($k, '/'), $keywords));
+        $pattern = implode('|', array_map(fn ($k) => str_replace('\\.', '.', preg_quote($k, '/')), $keywords));
 
         $clientTimeout = $readPath
             ? (float) config('restaurant-finder.live_search.overpass_timeout', 10.0)
@@ -275,7 +275,7 @@ class OverpassService
 
     private function executeSearchByName(float $lat, float $lng, array $keywords, int $radius, int $limit): array
     {
-        $pattern = implode('|', array_map(fn ($k) => preg_quote($k, '/'), $keywords));
+        $pattern = implode('|', array_map(fn ($k) => str_replace('\\.', '.', preg_quote($k, '/')), $keywords));
 
         foreach (static::RADII as $r) {
             if ($r < $radius) {
@@ -413,11 +413,25 @@ class OverpassService
                 }
             }
 
+            $parts = array_values(array_unique($parts));
+            foreach ($parts as $p) {
+                if (str_contains($p, '-')) {
+                    $parts[] = str_replace('-', '_', $p);
+                }
+            }
+
             return implode('|', array_values(array_unique($parts)));
         }
 
         if (isset($cuisines[$key])) {
-            return implode('|', array_values(array_unique(array_merge([$key], $cuisines[$key]))));
+            $parts = array_values(array_unique(array_merge([$key], $cuisines[$key])));
+            foreach ($parts as $p) {
+                if (str_contains($p, '-')) {
+                    $parts[] = str_replace('-', '_', $p);
+                }
+            }
+
+            return implode('|', array_values(array_unique($parts)));
         }
 
         return $key;

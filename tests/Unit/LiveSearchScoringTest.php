@@ -823,20 +823,27 @@ class LiveSearchScoringTest extends TestCase
         // 70 venues (spaced >0.2km apart so dedup doesn't collapse them, all
         // within 50km of the center) must be capped to max_results (default 60
         // since spec-067; was 30).
-        $venues = [];
-        for ($i = 0; $i < 70; $i++) {
-            $venues[] = [
-                'name' => "Venue {$i}",
-                'source' => 'serpapi',
-                'lat' => 30.65 + ($i * 0.005), // ~0.55km spacing, all within ~42km
-                'lng' => -88.20,
-            ];
+        $original = config('restaurant-finder.live_search.max_results');
+        Config::set('restaurant-finder.live_search.max_results', 60);
+
+        try {
+            $venues = [];
+            for ($i = 0; $i < 70; $i++) {
+                $venues[] = [
+                    'name' => "Venue {$i}",
+                    'source' => 'serpapi',
+                    'lat' => 30.65 + ($i * 0.005), // ~0.55km spacing, all within ~42km
+                    'lng' => -88.20,
+                ];
+            }
+            $service = $this->makeServiceWithVenues(['serpapi' => $venues]);
+
+            $results = $service->search(30.6199783, -88.1967496, null);
+
+            $this->assertCount(60, $results);
+        } finally {
+            Config::set('restaurant-finder.live_search.max_results', $original);
         }
-        $service = $this->makeServiceWithVenues(['serpapi' => $venues]);
-
-        $results = $service->search(30.6199783, -88.1967496, null);
-
-        $this->assertCount(60, $results);
     }
 
     public function test_result_list_drops_below_min_score_floor(): void
@@ -1515,10 +1522,14 @@ class LiveSearchScoringTest extends TestCase
         $results = $service->search(30.67, -88.12, 'italian');
         $names = array_column($results, 'name');
 
-        $this->assertCount(3, $results, 'Only 1 confident match < 2 threshold → padding mode keeps all.');
+        // Noja (description: "Mediterranean-Asian menu") is dropped by the rival
+        // cuisine check because "mediterranean" is now a keyword for Greek and
+        // Middle Eastern cuisines — it correctly becomes a rival keyword for
+        // Italian searches.
+        $this->assertCount(2, $results, 'Only 1 confident match < 2 threshold → padding mode keeps all. Noja dropped as rival cuisine.');
         $this->assertContains("T Marie's Ristorante Italiano", $names);
-        $this->assertContains('Noja', $names);
         $this->assertContains('Debris Po-Boys & Drinks', $names);
+        $this->assertNotContains('Noja', $names);
     }
 
     public function test_cuisine_confidence_noop_on_unscoped_search(): void
