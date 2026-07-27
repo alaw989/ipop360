@@ -390,7 +390,7 @@ jobs:
           # Unset → 5. 0 → skip the count check (the 200 + data-key checks still run).
           DEPLOY_VERIFY_MIN_RESULTS: ${{ vars.DEPLOY_VERIFY_MIN_RESULTS }}
         run: |
-          curl -s --connect-timeout 10 --max-time 30 -o /dev/null -w "%{http_code}" https://ipop360.vp-associates.com | grep -q 200 && echo 'DEPLOY OK' || exit 1
+          curl -s --connect-timeout 10 --max-time 30 -o /dev/null -w "%{http_code}" https://ipop360.com | grep -q 200 && echo 'DEPLOY OK' || exit 1
           # spec-086: assert HTTP 200 AND non-empty data on the API. A valid 200
           # with {"data":[]} is the app's load-bearing failure mode (a cache-nuking
           # migration or an over-filtering ranking change); the old check only
@@ -398,7 +398,7 @@ jobs:
           # Mobile/chinese historically returns ~13-30, so min=5 is recall-safe vs
           # a transient SerpApi quota dip. DEPLOY_VERIFY_MIN_RESULTS=0 skips the
           # COUNT check (kill-switch); the 200 + data-key checks always run.
-          code=$(curl -s --connect-timeout 10 --max-time 30 -o /tmp/api.json -w '%{http_code}' 'https://ipop360.vp-associates.com/api/restaurants?cuisine=chinese&lat=30.6199783&lng=-88.1967496')
+          code=$(curl -s --connect-timeout 10 --max-time 30 -o /tmp/api.json -w '%{http_code}' 'https://ipop360.com/api/restaurants?cuisine=chinese&lat=30.6199783&lng=-88.1967496')
           if [ "$code" != "200" ]; then echo "API VERIFY FAILED: HTTP $code (expected 200)"; exit 1; fi
           python3 -c "
           import json, os, sys
