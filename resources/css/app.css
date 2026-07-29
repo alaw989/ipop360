@@ -108,7 +108,6 @@
     --font-heading: var(--font-sans);
 }
 
-
 @layer base {
   * {
     @apply border-border outline-ring/50;

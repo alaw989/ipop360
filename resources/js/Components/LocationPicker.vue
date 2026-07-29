@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { useIsMobile } from '@/composables/useIsMobile'
 
 interface Location {
     city: string | null
@@ -30,11 +32,14 @@ const emit = defineEmits<{
     detect: []
 }>()
 
+const { isMobile } = useIsMobile()
+
 const open = ref(false)
 const query = ref('')
 const results = ref<CityResult[]>([])
 const searching = ref(false)
 const selectedIndex = ref(-1)
+const searchInput = ref<HTMLInputElement | null>(null)
 
 const displayText = computed(() => {
     if (props.detecting) return 'Detecting...'
@@ -49,6 +54,13 @@ function useMyLocation() {
     open.value = false
     emit('detect')
 }
+
+watch(open, async (val) => {
+    if (val && isMobile.value) {
+        await nextTick()
+        searchInput.value?.focus()
+    }
+})
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -96,20 +108,21 @@ function onKeydown(e: KeyboardEvent) {
         open.value = false
     }
 }
+
+const triggerClasses = computed(() => [
+    'inline-flex items-center gap-1 border-b-2 px-1 font-semibold transition-all focus:outline-none',
+    props.inverted
+        ? 'border-white/30 text-white/80 hover:border-white hover:text-white'
+        : 'border-foreground/30 text-foreground hover:border-foreground',
+    props.detecting ? 'animate-pulse' : '',
+])
 </script>
 
 <template>
-    <Popover v-model:open="open">
-        <PopoverTrigger as-child>
-            <button
-                class="inline-flex items-center gap-1 border-b-2 px-1 font-semibold transition-all focus:outline-none"
-                :class="[
-                    inverted
-                        ? 'border-white/30 text-white/80 hover:border-white hover:text-white'
-                        : 'border-foreground/30 text-foreground hover:border-foreground',
-                    detecting ? 'animate-pulse' : '',
-                ]"
-            >
+    <!-- Mobile: bottom sheet -->
+    <Sheet v-if="isMobile" v-model:open="open">
+        <SheetTrigger as-child>
+            <button :class="triggerClasses">
                 <svg v-if="detecting" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 animate-spin text-primary" viewBox="0 0 24 24" fill="none">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -119,10 +132,21 @@ function onKeydown(e: KeyboardEvent) {
                     <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
                 </svg>
             </button>
-        </PopoverTrigger>
-        <PopoverContent class="w-80 p-0" align="start">
+        </SheetTrigger>
+        <SheetContent side="bottom" class="max-h-[85vh] p-0" :show-close-button="false">
+            <div class="flex items-center justify-between border-b border-border px-4 py-3">
+                <div class="mx-auto h-1 w-10 rounded-full bg-muted-foreground/30" />
+                <button
+                    class="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    @click="open = false"
+                    aria-label="Close"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
             <div class="flex flex-col">
-                <!-- Search input -->
                 <div class="relative border-b border-border">
                     <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="11" cy="11" r="8"/>
@@ -141,8 +165,76 @@ function onKeydown(e: KeyboardEvent) {
                         <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent"/>
                     </span>
                 </div>
+                <div class="max-h-[60vh] overflow-y-auto">
+                    <div v-if="query.length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
+                        <p class="text-xs text-muted-foreground">Type to search cities</p>
+                        <button @click="useMyLocation" class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+                                <path d="M2 12h20"/>
+                            </svg>
+                            Use my current location
+                        </button>
+                    </div>
+                    <div v-else-if="results.length === 0 && !searching" class="px-4 py-6 text-center text-xs text-muted-foreground">
+                        No cities found
+                    </div>
+                    <button
+                        v-for="(result, i) in results"
+                        :key="i"
+                        @click="selectResult(result)"
+                        @mouseenter="selectedIndex = i"
+                        class="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-accent"
+                        :class="selectedIndex === i ? 'bg-accent' : ''"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate font-medium">{{ result.city }}{{ result.state ? ', ' + result.state : '' }}</p>
+                            <p v-if="result.display" class="truncate text-xs text-muted-foreground">{{ result.display }}</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </SheetContent>
+    </Sheet>
 
-                <!-- Results -->
+    <!-- Desktop: floating popover -->
+    <Popover v-else v-model:open="open">
+        <PopoverTrigger as-child>
+            <button :class="triggerClasses">
+                <svg v-if="detecting" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 animate-spin text-primary" viewBox="0 0 24 24" fill="none">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                {{ displayText }}
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </PopoverTrigger>
+        <PopoverContent class="w-80 p-0 max-md:w-[calc(100vw-1rem)]" align="center">
+            <div class="flex flex-col">
+                <div class="relative border-b border-border">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.3-4.3"/>
+                    </svg>
+                    <input
+                        v-model="query"
+                        @keydown="onKeydown"
+                        type="text"
+                        placeholder="Type your city..."
+                        class="w-full bg-transparent py-3 pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground"
+                        autocomplete="off"
+                    />
+                    <span v-if="searching" class="absolute right-3 top-1/2 -translate-y-1/2">
+                        <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent"/>
+                    </span>
+                </div>
                 <div class="max-h-64 overflow-y-auto">
                     <div v-if="query.length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
                         <p class="text-xs text-muted-foreground">Type to search cities</p>
