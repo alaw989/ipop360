@@ -108,7 +108,7 @@ class SearchController extends Controller
         $enriching = false;
 
         if ($restaurants->isEmpty() && $coords !== null) {
-            $enrichKey = 'enriching:' . md5(implode(':', [
+            $enrichKey = 'enriching:'.md5(implode(':', [
                 $coords['lat'], $coords['lng'], $cuisineSlug ?? '', $categorySlug ?? '', $distanceKm,
             ]));
 

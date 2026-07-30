@@ -19,6 +19,7 @@ class EnrichSearchResults implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 2;
+
     public int $timeout = 60;
 
     public function __construct(
@@ -52,6 +53,7 @@ class EnrichSearchResults implements ShouldQueue
                 'cuisine' => $this->cuisineSlug,
                 'category' => $this->categorySlug,
             ]);
+
             return;
         }
 
