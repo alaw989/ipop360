@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useIsMobile } from '@/composables/useIsMobile'
+import { useKeyboardOffset } from '@/composables/useKeyboardOffset'
 
 interface Location {
     city: string | null
@@ -33,6 +34,7 @@ const emit = defineEmits<{
 }>()
 
 const { isMobile } = useIsMobile()
+const { keyboardHeight } = useKeyboardOffset()
 
 const open = ref(false)
 const query = ref('')
@@ -133,7 +135,7 @@ const triggerClasses = computed(() => [
                 </svg>
             </button>
         </SheetTrigger>
-        <SheetContent side="bottom" class="max-h-[85vh] p-0" :show-close-button="false">
+        <SheetContent side="bottom" class="max-h-[85vh] p-0" :show-close-button="false" :style="{ maxHeight: `calc(85vh - ${keyboardHeight}px)`, paddingBottom: `${keyboardHeight}px` }">
             <div class="flex items-center justify-between border-b border-border px-4 py-3">
                 <div class="mx-auto h-1 w-10 rounded-full bg-muted-foreground/30" />
                 <button
@@ -165,7 +167,7 @@ const triggerClasses = computed(() => [
                         <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent"/>
                     </span>
                 </div>
-                <div class="max-h-[60vh] overflow-y-auto">
+                <div class="max-h-[60vh] overflow-y-auto" :style="{ paddingBottom: `${keyboardHeight}px` }">
                     <div v-if="query.length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
                         <p class="text-xs text-muted-foreground">Type to search cities</p>
                         <button @click="useMyLocation" class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">

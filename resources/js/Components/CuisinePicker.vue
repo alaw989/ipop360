@@ -101,7 +101,7 @@ const triggerClasses = computed(() => [
                 </svg>
             </button>
         </SheetTrigger>
-        <SheetContent side="bottom" class="h-[85vh] p-0" :show-close-button="false">
+        <SheetContent side="bottom" class="h-[85vh] p-0" :show-close-button="false" @open-auto-focus.prevent>
             <div class="flex items-center justify-between border-b border-border px-4 py-3">
                 <div class="mx-auto h-1 w-10 rounded-full bg-muted-foreground/30" />
                 <button
@@ -115,7 +115,7 @@ const triggerClasses = computed(() => [
                 </button>
             </div>
             <Command v-if="!drillCategory" class="flex flex-1 flex-col">
-                <CommandInput placeholder="Search cuisines..." />
+                <CommandInput placeholder="Search cuisines..." :autoFocus="false" />
                 <CommandList>
                     <CommandEmpty>No categories found.</CommandEmpty>
                     <CommandGroup heading="Categories">
@@ -137,8 +137,8 @@ const triggerClasses = computed(() => [
                     </CommandGroup>
                 </CommandList>
             </Command>
-            <Command v-else class="flex flex-1 flex-col">
-                <CommandInput :placeholder="`Search ${drillCategory.name} cuisines...`" />
+            <Command class="flex flex-1 flex-col" v-else>
+                <CommandInput :placeholder="`Search ${drillCategory.name} cuisines...`" :autoFocus="false" />
                 <CommandList>
                     <CommandEmpty>No cuisines found.</CommandEmpty>
                     <CommandGroup>
@@ -179,7 +179,7 @@ const triggerClasses = computed(() => [
         </PopoverTrigger>
         <PopoverContent class="w-72 p-0 max-md:w-[calc(100vw-1rem)]" align="center">
             <Command v-if="!drillCategory">
-                <CommandInput placeholder="Search cuisines..." />
+                <CommandInput placeholder="Search cuisines..." :autoFocus="false" />
                 <CommandList>
                     <CommandEmpty>No categories found.</CommandEmpty>
                     <CommandGroup heading="Categories">
@@ -202,7 +202,7 @@ const triggerClasses = computed(() => [
                 </CommandList>
             </Command>
             <Command v-else>
-                <CommandInput :placeholder="`Search ${drillCategory.name} cuisines...`" />
+                <CommandInput :placeholder="`Search ${drillCategory.name} cuisines...`" :autoFocus="false" />
                 <CommandList>
                     <CommandEmpty>No cuisines found.</CommandEmpty>
                     <CommandGroup>
