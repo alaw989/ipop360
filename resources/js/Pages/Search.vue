@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchFilters from '@/Components/SearchFilters.vue';
 import SearchResultCard from '@/Components/SearchResultCard.vue';
@@ -30,6 +30,7 @@ const props = defineProps<{
         distanceOptions: number[];
     };
     hasCoords: boolean;
+    enriching: boolean;
 }>();
 
 const isLoading = ref(false);
@@ -80,6 +81,55 @@ function clearAll() {
     router.get('/search', {}, { replace: true });
 }
 
+const enrichedRestaurants = ref<Restaurant[]>([])
+const enrichmentRetries = ref(0)
+const enrichmentMaxRetries = 8
+let enrichmentTimer: ReturnType<typeof setInterval> | null = null
+
+if (props.enriching && props.restaurants.data.length === 0) {
+    onMounted(() => {
+        enrichmentTimer = setInterval(async () => {
+            enrichmentRetries.value++
+            if (enrichmentRetries.value > enrichmentMaxRetries) {
+                if (enrichmentTimer) clearInterval(enrichmentTimer)
+                return
+            }
+
+            try {
+                const params = new URLSearchParams()
+                if (props.filters.cuisine) params.set('cuisine', String(props.filters.cuisine))
+                if (props.filters.category) params.set('category', String(props.filters.category))
+                if (props.filters.lat) params.set('lat', String(props.filters.lat))
+                if (props.filters.lng) params.set('lng', String(props.filters.lng))
+                if (props.filters.distance) params.set('distance', String(props.filters.distance))
+                if (props.filters.sort) params.set('sort', String(props.filters.sort))
+
+                const res = await fetch(`/api/restaurants?${params}`)
+                const data = await res.json()
+
+                if (data?.data?.length > 0) {
+                    enrichedRestaurants.value = data.data
+                    if (enrichmentTimer) clearInterval(enrichmentTimer)
+                }
+            } catch {
+                // Network error, will retry on next interval
+            }
+        }, 4000)
+    })
+
+    onUnmounted(() => {
+        if (enrichmentTimer) clearInterval(enrichmentTimer)
+    })
+}
+
+function retrySearch() {
+    router.reload()
+}
+
+const displayRestaurants = computed(() =>
+    enrichedRestaurants.value.length > 0 ? enrichedRestaurants.value : props.restaurants.data
+)
+
 // SEO
 const baseUrl = useBaseUrl();
 
@@ -100,9 +150,9 @@ const seoData = computed(() => {
 });
 
 const structuredData = computed(() => {
-    if (props.restaurants.data.length === 0) return null;
+    if (displayRestaurants.value.length === 0) return null;
 
-    const items = props.restaurants.data
+    const items = displayRestaurants.value
         .filter((_, index) => index < 10)
         .map((restaurant, index) => ({
             name: restaurant.name,
@@ -141,8 +191,8 @@ const structuredData = computed(() => {
                             {{ cuisineName || 'All Restaurants' }}
                         </h1>
                         <p class="text-sm text-muted-foreground">
-                            <span v-if="restaurants.data.length > 0">
-                                {{ (restaurants.current_page - 1) * restaurants.data.length + 1 }}–{{ restaurants.current_page * restaurants.data.length }} results
+                            <span v-if="displayRestaurants.length > 0">
+                                {{ (restaurants.current_page - 1) * displayRestaurants.length + 1 }}–{{ restaurants.current_page * displayRestaurants.length }} results
                             </span>
                             <span v-else>0 results</span>
                         </p>
@@ -189,8 +239,36 @@ const structuredData = computed(() => {
                     </button>
                 </div>
 
+                <!-- Enriching state (first-time search, job running in background) -->
+                <div v-else-if="enriching && displayRestaurants.length === 0 && enrichmentRetries < enrichmentMaxRetries" class="space-y-6">
+                    <div class="rounded-xl border bg-card p-8 text-center">
+                        <div class="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        <p class="text-lg font-medium text-foreground">Searching nearby restaurants...</p>
+                        <p class="mt-1 text-sm text-muted-foreground">Pulling results from multiple sources for your first search in this area.</p>
+                    </div>
+                    <div v-for="i in 3" :key="'skel-' + i" class="flex animate-pulse rounded-xl border bg-card">
+                        <div class="h-44 w-44 shrink-0 rounded-l-xl bg-muted" />
+                        <div class="flex-1 space-y-3 p-5">
+                            <div class="h-5 w-3/4 rounded bg-muted" />
+                            <div class="h-4 w-1/2 rounded bg-muted" />
+                            <div class="h-4 w-1/3 rounded bg-muted" />
+                            <div class="h-4 w-full rounded bg-muted" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enrichment timeout -->
+                <div v-else-if="enriching && displayRestaurants.length === 0" class="rounded-xl border bg-card p-12 text-center">
+                    <p class="text-lg font-medium text-foreground">Taking longer than expected...</p>
+                    <p class="mt-2 text-sm text-muted-foreground">Results should appear soon. Try refreshing or adjust your filters.</p>
+                    <div class="mt-4 flex justify-center gap-3">
+                        <Button variant="outline" @click="retrySearch">Refresh</Button>
+                        <Button variant="outline" @click="clearAll">Clear filters</Button>
+                    </div>
+                </div>
+
                 <!-- Empty state -->
-                <div v-else-if="restaurants.data.length === 0" class="rounded-xl border bg-card p-12 text-center">
+                <div v-else-if="displayRestaurants.length === 0" class="rounded-xl border bg-card p-12 text-center">
                     <p class="text-lg text-muted-foreground">No restaurants found.</p>
                     <p class="mt-2 text-sm text-muted-foreground">Try adjusting your filters or search for a different cuisine.</p>
                     <Button variant="outline" class="mt-4" @click="clearAll">Clear all filters</Button>
@@ -199,7 +277,7 @@ const structuredData = computed(() => {
                 <!-- Results list -->
                 <div v-else class="space-y-4">
                     <SearchResultCard
-                        v-for="(restaurant, index) in restaurants.data"
+                        v-for="(restaurant, index) in displayRestaurants"
                         :key="restaurant.id"
                         :restaurant="restaurant"
                         :rank="(restaurants.current_page - 1) * 20 + index + 1"
@@ -234,7 +312,7 @@ const structuredData = computed(() => {
             <aside class="hidden w-96 shrink-0 xl:block">
                 <div class="sticky top-24">
                     <SearchMap
-                        :restaurants="restaurants.data"
+                        :restaurants="displayRestaurants"
                         :lat="filters.lat as string"
                         :lng="filters.lng as string"
                     />

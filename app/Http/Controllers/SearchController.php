@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Resources\RestaurantResource;
+use App\Jobs\EnrichSearchResults;
 use App\Models\Cuisine;
 use App\Models\CuisineCategory;
 use App\Models\Restaurant;
@@ -12,6 +13,7 @@ use App\Services\PopularityScoreService;
 use App\Services\RestaurantValidationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
@@ -103,36 +105,27 @@ class SearchController extends Controller
 
         $restaurants = $query->paginate(20)->withQueryString();
 
+        $enriching = false;
+
         if ($restaurants->isEmpty() && $coords !== null) {
-            $liveResults = $this->liveSearchService->search(
-                $coords['lat'],
-                $coords['lng'],
-                $cuisineSlug,
-                $categorySlug,
-                false,
-                $sort,
-                $distanceKm,
-            );
+            $enrichKey = 'enriching:' . md5(implode(':', [
+                $coords['lat'], $coords['lng'], $cuisineSlug ?? '', $categorySlug ?? '', $distanceKm,
+            ]));
 
-            if (! empty($liveResults)) {
-                $persistCuisineIds = [];
-                if ($cuisineSlug) {
-                    $persistCuisineIds = Cuisine::where('slug', $cuisineSlug)->pluck('id')->all();
-                } elseif ($categorySlug) {
-                    $persistCuisineIds = Cuisine::whereHas(
-                        'category',
-                        fn ($q) => $q->where('slug', $categorySlug)
-                    )->pluck('id')->all();
-                }
+            if (! Cache::has($enrichKey)) {
+                Cache::put($enrichKey, true, 60);
 
-                $defaultLocation = $coords !== null
-                    ? $this->geolocationService->reverseGeocode($coords['lat'], $coords['lng'])
-                    : null;
-
-                $this->persistLiveResults($liveResults, $persistCuisineIds, $defaultLocation);
-
-                $restaurants = $query->paginate(20)->withQueryString();
+                EnrichSearchResults::dispatch(
+                    $coords['lat'],
+                    $coords['lng'],
+                    $cuisineSlug,
+                    $categorySlug,
+                    $sort,
+                    (float) $distanceKm,
+                );
             }
+
+            $enriching = true;
         }
 
         $items = $restaurants->getCollection();
@@ -173,6 +166,7 @@ class SearchController extends Controller
             'categorySlug' => $categorySlug,
             'filterOptions' => $filterOptions,
             'hasCoords' => $coords !== null,
+            'enriching' => $enriching,
         ]);
     }
 
