@@ -156,3 +156,12 @@ php artisan db:verify-mysql --expected-rows-from=/tmp/ipop360-mysql/summary.json
    deleted. It is read-only after the dump; never in the live path. Protects the SerpApi cache
    against a MySQL-side data disaster for 30 days.
 
+## Provisioning (Phase 1, done 2026-08-03)
+
+- Ubuntu 24.04, MySQL **8.0.46** installed, enabled, running, bound to `127.0.0.1:3306` only.
+- `pdo_mysql` loaded in droplet CLI + PHP-FPM 8.4.
+- DB `ipop360` (utf8mb4_unicode_ci) + user `ipop360@localhost` with scoped password.
+- Creds injected via the spec-090 deploy pattern (GitHub secret → runner env → SSH stdin → `.env`)
+  at flip time, same as SERPAPI_API_KEY / AI_API_KEY. The droplet `.env` currently has
+  `DB_CONNECTION=sqlite`; MySQL creds are added at Phase 5.
+
