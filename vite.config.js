@@ -44,6 +44,11 @@ export default defineConfig({
         // on @inertiajs/vue3 and the supervisor process crash-loops. Inertia
         // falls back to CSR meanwhile, so a broken/stale bundle can never take
         // the site down. (spec-063)
-        noExternal: ['@inertiajs/vue3', '@inertiajs/vue3/server', '@vue/server-renderer', 'vue'],
+        // @inertiajs/vue3 v2 pulls in @inertiajs/core which transitively imports
+        // lodash-es; listing packages one-by-one leaks more each upgrade. Bundle
+        // EVERYTHING into bootstrap/ssr/ssr.js so it runs without node_modules on
+        // the droplet (deploy rsync excludes node_modules). Inertia falls back to
+        // CSR if a broken/stale bundle ever appears, so the site can't go down.
+        noExternal: true,
     },
 });
