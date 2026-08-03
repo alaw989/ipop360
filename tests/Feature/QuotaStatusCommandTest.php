@@ -190,11 +190,12 @@ class QuotaStatusCommandTest extends TestCase
     public function test_quota_status_is_read_only_no_db_writes(): void
     {
         // Create initial data
+        $fetchedAt = Carbon::now()->subDays(5);
         ExternalApiCache::create([
             'source' => 'serpapi',
             'external_id' => 'test',
             'data' => ['test' => 'data'],
-            'fetched_at' => Carbon::now()->subDays(5),
+            'fetched_at' => $fetchedAt,
             'expires_at' => Carbon::now()->addDays(30),
         ]);
 
@@ -208,9 +209,11 @@ class QuotaStatusCommandTest extends TestCase
         $this->assertSame($initialCount, ExternalApiCache::count());
 
         // Verify no rows were modified by checking fetched_at hasn't changed
+        // (assert against the stored value, not a re-derived now(), to avoid
+        // a second-boundary flake when the command takes >1s to run)
         $entry = ExternalApiCache::where('external_id', 'test')->first();
         $this->assertNotNull($entry);
-        $this->assertEquals(Carbon::now()->subDays(5)->toDateTimeString(), $entry->fetched_at->toDateTimeString());
+        $this->assertEquals($fetchedAt->toDateTimeString(), $entry->fetched_at->toDateTimeString());
     }
 
     public function test_quota_status_handles_negative_remaining_gracefully(): void
