@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('source');
             $table->string('external_id');
-            $table->jsonb('data');
+            $table->text('data');
             $table->timestamp('fetched_at');
             $table->timestamp('expires_at');
             $table->timestamps();

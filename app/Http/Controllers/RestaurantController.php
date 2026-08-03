@@ -73,39 +73,39 @@ class RestaurantController extends Controller
                 ? $query->orderBy('distance')
                 : $query->orderByRaw("{$decayedScore} DESC"),
             'rating' => $query
-                ->orderByRaw('COALESCE(google_rating, yelp_rating) DESC NULLS LAST')
+                ->orderByRaw('COALESCE(google_rating, yelp_rating) DESC')
                 ->orderByRaw("{$decayedScore} DESC"),
             'reviews' => $query
-                ->orderByRaw('COALESCE(google_review_count, yelp_review_count) DESC NULLS LAST')
+                ->orderByRaw('COALESCE(google_review_count, yelp_review_count) DESC')
                 ->orderByRaw("{$decayedScore} DESC"),
             'price' => $query
-                ->orderByRaw('
+                ->orderByRaw("
                     CASE
                         WHEN price_range IS NULL THEN 999
-                        WHEN price_range = "$" THEN 1
-                        WHEN price_range = "$$" THEN 2
-                        WHEN price_range = "$$$" THEN 3
-                        WHEN price_range = "$$$$" THEN 4
-                        WHEN price_range = "€" THEN 1
-                        WHEN price_range = "€€" THEN 2
-                        WHEN price_range = "€€€" THEN 3
-                        WHEN price_range = "€€€€" THEN 4
-                        WHEN price_range = "£" THEN 1
-                        WHEN price_range = "££" THEN 2
-                        WHEN price_range = "£££" THEN 3
-                        WHEN price_range = "££££" THEN 4
-                        WHEN price_range = "¥" THEN 1
-                        WHEN price_range = "¥¥" THEN 2
-                        WHEN price_range = "¥¥¥" THEN 3
-                        WHEN price_range = "¥¥¥¥" THEN 4
-                        WHEN price_range = "₩" THEN 1
-                        WHEN price_range = "₩₩" THEN 2
-                        WHEN price_range = "₩₩₩" THEN 3
-                        WHEN price_range = "₩₩₩₩" THEN 4
-                        WHEN price_range GLOB "$*" OR price_range GLOB "€*" OR price_range GLOB "£*" OR price_range GLOB "¥*" OR price_range GLOB "₩*" THEN 2
+                        WHEN price_range = '\$' THEN 1
+                        WHEN price_range = '\$\$' THEN 2
+                        WHEN price_range = '\$\$\$' THEN 3
+                        WHEN price_range = '\$\$\$\$' THEN 4
+                        WHEN price_range = '€' THEN 1
+                        WHEN price_range = '€€' THEN 2
+                        WHEN price_range = '€€€' THEN 3
+                        WHEN price_range = '€€€€' THEN 4
+                        WHEN price_range = '£' THEN 1
+                        WHEN price_range = '££' THEN 2
+                        WHEN price_range = '£££' THEN 3
+                        WHEN price_range = '££££' THEN 4
+                        WHEN price_range = '¥' THEN 1
+                        WHEN price_range = '¥¥' THEN 2
+                        WHEN price_range = '¥¥¥' THEN 3
+                        WHEN price_range = '¥¥¥¥' THEN 4
+                        WHEN price_range = '₩' THEN 1
+                        WHEN price_range = '₩₩' THEN 2
+                        WHEN price_range = '₩₩₩' THEN 3
+                        WHEN price_range = '₩₩₩₩' THEN 4
+                        WHEN price_range LIKE '\$%' OR price_range LIKE '€%' OR price_range LIKE '£%' OR price_range LIKE '¥%' OR price_range LIKE '₩%' THEN 2
                         ELSE 2
                     END ASC
-                ')
+                ")
                 ->orderByRaw("{$decayedScore} DESC"),
             default => $query->orderByRaw("{$decayedScore} DESC"),
         };

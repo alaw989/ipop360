@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SqlDialect;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -127,11 +128,11 @@ class Restaurant extends Model
 
         $haversine = '(
             6371 * acos(
-                MIN(1.0, MAX(-1.0, cos(radians(?))
+                '.SqlDialect::clampToOne('cos(radians(?))
                 * cos(radians(latitude))
                 * cos(radians(longitude) - radians(?))
                 + sin(radians(?))
-                * sin(radians(latitude))))
+                * sin(radians(latitude))').'
             )
         )';
 
@@ -152,7 +153,7 @@ class Restaurant extends Model
             ->whereNotNull('longitude')
             ->whereBetween('latitude', [$minLat, $maxLat])
             ->whereBetween('longitude', [$minLng, $maxLng])
-            ->whereRaw("{$haversine} <= CAST(? AS REAL)", [$lat, $lng, $lat, $radiusKm]);
+            ->whereRaw("{$haversine} <= ".SqlDialect::castToFloat('?'), [$lat, $lng, $lat, $radiusKm]);
     }
 
     public function scopeByPopularity(Builder $query): Builder
@@ -171,8 +172,9 @@ class Restaurant extends Model
         $decayFloor = (float) config('restaurant-finder.ranking.score_decay_floor', 0.5);
 
         return sprintf(
-            "popularity_score * MAX(%F, 1.0 - (julianday('now') - julianday(updated_at)) / %d)",
+            'popularity_score * '.SqlDialect::scalarMax('%F', '1.0 - (%s / %d)'),
             $decayFloor,
+            SqlDialect::daysSinceUpdated(),
             $decayDays
         );
     }
