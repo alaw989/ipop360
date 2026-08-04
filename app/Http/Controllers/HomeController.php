@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BlogPost;
 use App\Models\Cuisine;
 use App\Models\CuisineCategory;
 use App\Models\Restaurant;
@@ -86,10 +87,16 @@ class HomeController extends Controller
             ->filter(fn ($c) => $c->restaurants_count > 0)
             ->values();
 
+        $latestPosts = BlogPost::published()
+            ->latest('published_at')
+            ->limit(3)
+            ->get(['id', 'title', 'slug', 'excerpt', 'featured_image', 'published_at']);
+
         return [
             'categories' => $categories,
             'popularCuisines' => $popularCuisines,
             'popularRestaurants' => $popularRestaurants,
+            'latestPosts' => $latestPosts,
             'location' => $effectiveLocation,
         ];
     }
