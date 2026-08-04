@@ -223,6 +223,23 @@ class RestaurantController extends Controller
             abort(404, 'This restaurant preview is no longer available.');
         }
 
+        // Snapshots written by older code can carry a synthetic negative id
+        // (crc32 of the venue) with no row in the restaurants table. Every
+        // engagement event from this page would then 422 and vanish. Upsert the
+        // venue now to mint a real DB id and refresh the snapshot so the page
+        // renders a persisted row. (spec-104 engagement audit)
+        $snapshotId = $restaurant['id'] ?? null;
+        if (! is_int($snapshotId) || $snapshotId <= 0) {
+            $result = $this->venuePersister->persist($restaurant);
+            $restaurant = $result['venue'];
+
+            ExternalApiCache::storeByKey(
+                "preview:{$slug}",
+                $restaurant,
+                now()->addDays((int) config('restaurant-finder.cache.preview_snapshot_days', 7))
+            );
+        }
+
         return Inertia::render('Restaurants/Show', [
             'restaurant' => (new LiveRestaurantResource($restaurant))->resolve(),
             'categorySlug' => null,

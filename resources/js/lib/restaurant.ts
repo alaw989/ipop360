@@ -1,6 +1,13 @@
 type Action = 'website' | 'directions' | 'call' | 'pageview' | 'social_link_click' | 'menu';
 
 function trackEngagement(restaurantId: number, action: Action): void {
+    // Live/preview venues can carry a synthetic negative id that has no row in
+    // the restaurants table. POSTing it is always a 422 (silently dropped), so
+    // skip it entirely. Real persisted ids are positive. (spec-104 engagement audit)
+    if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
+        return;
+    }
+
     const payload = JSON.stringify({ restaurant_id: restaurantId, action });
 
     fetch('/api/engage', {
@@ -8,7 +15,27 @@ function trackEngagement(restaurantId: number, action: Action): void {
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: payload,
         keepalive: true,
-    }).catch(() => {});
+    })
+        .then((res) => {
+            if (res.ok) {
+                return;
+            }
+            // Retry once on rate-limit (429); other 4xx/5xx are real failures
+            // that would otherwise vanish silently — surface them in the console.
+            if (res.status === 429) {
+                setTimeout(() => {
+                    fetch('/api/engage', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: payload,
+                        keepalive: true,
+                    }).catch(() => {});
+                }, 1000);
+                return;
+            }
+            console.warn(`[engagement] ${action} for restaurant ${restaurantId} failed: ${res.status}`);
+        })
+        .catch(() => {});
 }
 
 export function trackPageview(restaurantId: number): void {
