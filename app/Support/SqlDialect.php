@@ -12,11 +12,36 @@ use Illuminate\Support\Facades\DB;
 class SqlDialect
 {
     /**
+     * Drivers with dedicated SQL variants below. Anything else means the raw
+     * SQL fragments would silently take a wrong dialect, so fail loudly
+     * instead of producing corrupt queries.
+     */
+    private const SUPPORTED_DRIVERS = ['mysql', 'sqlite'];
+
+    private static function driver(): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        if (! in_array($driver, self::SUPPORTED_DRIVERS, true)) {
+            throw new \RuntimeException(
+                "SqlDialect has no SQL variant for driver '{$driver}'"
+            );
+        }
+
+        return $driver;
+    }
+
+    private static function isMysql(): bool
+    {
+        return self::driver() === 'mysql';
+    }
+
+    /**
      * Clamp a scalar to [-1, 1]: SQLite uses MIN/MAX scalars, MySQL LEAST/GREATEST.
      */
     public static function clampToOne(string $expr): string
     {
-        if (DB::connection()->getDriverName() === 'mysql') {
+        if (self::isMysql()) {
             return "LEAST(1.0, GREATEST(-1.0, {$expr}))";
         }
 
@@ -34,7 +59,7 @@ class SqlDialect
      */
     public static function daysSinceUpdated(): string
     {
-        if (DB::connection()->getDriverName() === 'mysql') {
+        if (self::isMysql()) {
             return '(TIMESTAMPDIFF(SECOND, updated_at, NOW()) / 86400.0)';
         }
 
@@ -46,7 +71,7 @@ class SqlDialect
      */
     public static function scalarMax(string $left, string $right): string
     {
-        if (DB::connection()->getDriverName() === 'mysql') {
+        if (self::isMysql()) {
             return "GREATEST({$left}, {$right})";
         }
 
@@ -58,7 +83,7 @@ class SqlDialect
      */
     public static function castToFloat(string $expr): string
     {
-        if (DB::connection()->getDriverName() === 'mysql') {
+        if (self::isMysql()) {
             return "CAST({$expr} AS DOUBLE)";
         }
 
