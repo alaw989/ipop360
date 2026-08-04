@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle2, Clock, Globe, Image, Loader2, Share2, Utensils } from '@lucide/vue';
+import { AlertCircle, CheckCircle2, Clock, Globe, Image, Loader2, Newspaper, Share2, Utensils } from '@lucide/vue';
 
 defineProps<{
     serpapiQuota: {
@@ -69,7 +70,15 @@ function gapBadgeVariant(gap: string): 'default' | 'secondary' | 'destructive' |
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800">Admin Dashboard</h2>
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-semibold leading-tight text-gray-800">Admin Dashboard</h2>
+                <Button as-child size="sm">
+                    <Link :href="route('admin.blog.index')">
+                        <Newspaper class="mr-1 h-4 w-4" />
+                        Manage Blog
+                    </Link>
+                </Button>
+            </div>
         </template>
 
         <div class="py-12">

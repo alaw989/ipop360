@@ -45,7 +45,7 @@ class BlogAdminTest extends TestCase
             'excerpt' => 'A short excerpt.',
             'body' => '<p>Hello world</p>',
             'status' => 'published',
-        ])->assertRedirect();
+        ])->assertRedirect(route('admin.blog.index'));
 
         $this->assertDatabaseHas('blog_posts', [
             'title' => 'My First Post',
@@ -56,6 +56,7 @@ class BlogAdminTest extends TestCase
         $post = BlogPost::where('title', 'My First Post')->first();
         $this->assertNotNull($post->published_at);
         $this->assertSame('my-first-post', $post->slug);
+        $this->assertSame('Blog post created.', session('success'));
     }
 
     public function test_admin_can_create_draft(): void
@@ -65,11 +66,12 @@ class BlogAdminTest extends TestCase
             'excerpt' => 'In progress.',
             'body' => '<p>Draft body</p>',
             'status' => 'draft',
-        ])->assertRedirect();
+        ])->assertRedirect(route('admin.blog.index'));
 
         $post = BlogPost::where('title', 'Draft Post')->first();
         $this->assertSame('draft', $post->status);
         $this->assertNull($post->published_at);
+        $this->assertSame('Blog post created.', session('success'));
     }
 
     public function test_validation_requires_fields(): void
