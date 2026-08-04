@@ -156,6 +156,17 @@ php artisan db:verify-mysql --expected-rows-from=/tmp/ipop360-mysql/summary.json
    deleted. It is read-only after the dump; never in the live path. Protects the SerpApi cache
    against a MySQL-side data disaster for 30 days.
 
+## Flip (Phase 5, done 2026-08-03 23:14 UTC)
+
+- Droplet `.env` switched `DB_CONNECTION=sqlite` → `mysql` (backup at `.env.sqlite-backup`).
+- `config:cache` rebuilt; cached config confirms `default: mysql, host: 127.0.0.1, db: ipop360`.
+- All 5 supervisor processes (worker ×2, enrich-loop, scheduler, SSR) restarted on MySQL, all RUNNING.
+- Live verified: home 200, API returns restaurants, sort modes 200, SSR renders 186KB HTML.
+- Zero app errors since the flip; the only `Connection: mysql` error in logs was the pre-fix copy
+  attempt at 23:12 (config-cache issue), not the live app.
+- Live SQLite archived to `storage/backups/database.sqlite.pre-mysql-20260803.sqlite` (854MB).
+- Rollback: `.env.sqlite-backup` + the archived SQLite restore the old path in minutes.
+
 ## Provisioning (Phase 1, done 2026-08-03)
 
 - Ubuntu 24.04, MySQL **8.0.46** installed, enabled, running, bound to `127.0.0.1:3306` only.

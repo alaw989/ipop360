@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\SortsRestaurantQueries;
 use App\Http\Resources\RestaurantResource;
 use App\Jobs\EnrichSearchResults;
 use App\Models\Cuisine;
@@ -9,20 +10,23 @@ use App\Models\CuisineCategory;
 use App\Models\Restaurant;
 use App\Services\GeolocationService;
 use App\Services\LiveSearchService;
+use App\Services\LiveVenuePersister;
 use App\Services\PopularityScoreService;
 use App\Services\RestaurantValidationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class SearchController extends Controller
 {
+    use SortsRestaurantQueries;
+
     public function __construct(
         private GeolocationService $geolocationService,
         private LiveSearchService $liveSearchService,
         private RestaurantValidationService $restaurantValidation,
+        private LiveVenuePersister $venuePersister,
     ) {}
 
     public function __invoke(Request $request)
@@ -174,116 +178,25 @@ class SearchController extends Controller
     {
         $decayedScore = Restaurant::decayedPopularityScoreExpression();
 
-        return match ($sort) {
-            'best_match' => $query->orderByRaw("{$decayedScore} DESC"),
-            'nearest' => $hasCoords
-                ? $query->orderBy('distance')
-                : $query->orderByRaw("{$decayedScore} DESC"),
-            'rating' => $query
-                ->orderByRaw('COALESCE(google_rating, yelp_rating) DESC')
-                ->orderByRaw("{$decayedScore} DESC"),
-            'reviews' => $query
-                ->orderByRaw('COALESCE(google_review_count, yelp_review_count) DESC')
-                ->orderByRaw("{$decayedScore} DESC"),
-            'price' => $query
-                ->orderByRaw("
-                    CASE
-                        WHEN price_range IS NULL THEN 999
-                        WHEN price_range = '\$' THEN 1
-                        WHEN price_range = '\$\$' THEN 2
-                        WHEN price_range = '\$\$\$' THEN 3
-                        WHEN price_range = '\$\$\$\$' THEN 4
-                        WHEN price_range = '€' THEN 1
-                        WHEN price_range = '€€' THEN 2
-                        WHEN price_range = '€€€' THEN 3
-                        WHEN price_range = '€€€€' THEN 4
-                        WHEN price_range = '£' THEN 1
-                        WHEN price_range = '££' THEN 2
-                        WHEN price_range = '£££' THEN 3
-                        WHEN price_range = '££££' THEN 4
-                        WHEN price_range = '¥' THEN 1
-                        WHEN price_range = '¥¥' THEN 2
-                        WHEN price_range = '¥¥¥' THEN 3
-                        WHEN price_range = '¥¥¥¥' THEN 4
-                        WHEN price_range = '₩' THEN 1
-                        WHEN price_range = '₩₩' THEN 2
-                        WHEN price_range = '₩₩₩' THEN 3
-                        WHEN price_range = '₩₩₩₩' THEN 4
-                        WHEN price_range LIKE '\$%' OR price_range LIKE '€%' OR price_range LIKE '£%' OR price_range LIKE '¥%' OR price_range LIKE '₩%' THEN 2
-                        ELSE 2
-                    END ASC
-                ")
-                ->orderByRaw("{$decayedScore} DESC"),
-            'social_presence' => $query
-                ->orderByRaw('CASE WHEN social_links_count > 0 THEN 1 ELSE 0 END DESC')
-                ->orderByRaw("{$decayedScore} DESC"),
-            'website_traffic' => $query
-                ->orderByDesc('website_clicks_count')
-                ->orderByRaw("{$decayedScore} DESC"),
-            default => $query->orderByRaw("{$decayedScore} DESC"),
-        };
+        // Search-only sort modes (not exposed by the persisted-db endpoint).
+        if (in_array($sort, ['social_presence', 'website_traffic'], true)) {
+            return match ($sort) {
+                'social_presence' => $query
+                    ->orderByRaw('CASE WHEN social_links_count > 0 THEN 1 ELSE 0 END DESC')
+                    ->orderByRaw("{$decayedScore} DESC"),
+                'website_traffic' => $query
+                    ->orderByDesc('website_clicks_count')
+                    ->orderByRaw("{$decayedScore} DESC"),
+            };
+        }
+
+        return $this->applyRestaurantSort($query, $sort, $hasCoords);
     }
 
     private function persistLiveResults(array $results, array $cuisineIds = [], ?array $defaultLocation = null): void
     {
         foreach ($results as $venue) {
-            $city = $venue['city'] ?? ($defaultLocation['city'] ?? null);
-            $state = $venue['state'] ?? ($defaultLocation['state'] ?? null);
-
-            $attributes = [
-                'name' => $venue['name'] ?? 'Unknown',
-                'slug' => $venue['slug'] ?? null,
-                'description' => $venue['description'] ?? null,
-                'address' => $venue['address'] ?? null,
-                'city' => $city,
-                'state' => $state,
-                'postal_code' => $venue['postal_code'] ?? null,
-                'latitude' => $venue['lat'] ?? null,
-                'longitude' => $venue['lng'] ?? null,
-                'phone' => $venue['phone'] ?? null,
-                'website_url' => $venue['website_url'] ?? null,
-                'price_range' => $venue['price_range'] ?? null,
-                'photo_url' => $venue['photo_url'] ?? null,
-                'photos' => $venue['photos'] ?? [],
-                'google_place_id' => $venue['google_place_id'] ?? null,
-                'google_rating' => $venue['google_rating'] ?? null,
-                'google_review_count' => (int) ($venue['google_review_count'] ?? 0),
-                'yelp_rating' => $venue['yelp_rating'] ?? null,
-                'yelp_review_count' => (int) ($venue['yelp_review_count'] ?? 0),
-                'has_award' => $venue['has_award'] ?? false,
-                'popularity_score' => $venue['popularity_score'] ?? null,
-                'features' => $venue['features'] ?? [],
-                'is_active' => true,
-            ];
-
-            $attributes = $this->restaurantValidation->normalize($attributes);
-
-            $restaurant = null;
-            if (! empty($attributes['google_place_id'])) {
-                $restaurant = Restaurant::where('google_place_id', $attributes['google_place_id'])->first();
-            }
-            if (! $restaurant && ! empty($attributes['slug'])) {
-                $restaurant = Restaurant::where('slug', $attributes['slug'])->first();
-            }
-
-            if ($restaurant) {
-                $restaurant->update($attributes);
-            } else {
-                $restaurant = Restaurant::create($attributes);
-
-                Log::channel('enrichment')->info('Venue created via search', [
-                    'restaurant_id' => $restaurant->id,
-                    'restaurant_name' => $restaurant->name,
-                    'city' => $restaurant->city,
-                    'state' => $restaurant->state,
-                    'source' => $venue['source'] ?? 'api',
-                    'google_place_id' => $restaurant->google_place_id,
-                ]);
-            }
-
-            if (! empty($cuisineIds)) {
-                $restaurant->cuisines()->syncWithoutDetaching($cuisineIds);
-            }
+            $this->venuePersister->persist($venue, $cuisineIds, $defaultLocation);
         }
     }
 }
