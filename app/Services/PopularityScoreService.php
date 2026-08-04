@@ -22,16 +22,16 @@ class PopularityScoreService
         'quality' => 0.35,
         'proximity' => 0.15,
         'data_completeness' => 0.05,
-        'has_award' => 0.10,
+        'has_award' => 0.05,
         // spec-071: on a cuisine-scoped search, boost venues matching the
         // searched cuisine. Inactive (null) unless stamped by
         // LiveSearchService::stampCuisineMatchStrength; stamped 0.0 for
         // scoped-but-no-match rows so the active set is uniform across rows.
-        'cuisine_match' => 0.15,
+        'cuisine_match' => 0.50,
         'google_rating' => 0.0,
         'google_review_count' => 0.0,
         'popular_times_avg_busyness' => 0.0,
-        'social_links_count' => 0.10,
+        'social_links_count' => 0.20,
         'website_clicks_count' => 0.20,
         'pageviews_count' => 0.10,
         'social_link_clicks_count' => 0.05,

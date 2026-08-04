@@ -237,23 +237,32 @@ return [
     | always renormalized per restaurant.
     |
     | Active-set renormalization:
-    |  - With quality data: quality 0.60 + proximity 0.20 + award 0.15 +
-    |    completeness 0.05 = 1.00.
-    |  - Cuisine-scoped search ALSO adds cuisine_match 0.15 → active set 1.15,
-    |    renormalized per row. cuisine_match is stamped 0.0 for non-matches (NOT
-    |    absent) so every row shares the same active set — a genuine cuisine match
-    |    outranks a borderline-nearby venue without dropping anything (recall-safe
-    |    re-rank, spec-046). Unscoped searches get no stamp → signal inactive.
-    |  - Pure-free (no key): proximity + completeness + award = 0.40, split
-    |    equally after renorm — an honest proximity-leaning sort with no quality
-    |    signal available.
+    |  - The weights below are the RAW set. A row's score is a weighted sum over
+    |    its ACTIVE signals only, renormalized so active weights sum to 1.0
+    |    (PopularityScoreService::calculateBreakdownWithAggregates). Signals whose
+    |    data is absent (no rating, 0 engagement clicks, 0 social links) drop out
+    |    and their weight is redistributed.
+    |  - Always active: data_completeness + has_award.
+    |  - quality (SerpApi rating, Bayesian-shrunk) renormalizes to ~0.70 for a
+    |    rated venue with no engagement/social — it leads the ranking by design.
+    |  - cuisine_match 0.50 is stamped ONLY by live scoped searches
+    |    (LiveSearchService::stampCuisineMatchStrength); the persisted daily score
+    |    never has it active. 0.0 (not absent) for scoped non-matches so every row
+    |    shares the same active set (recall-safe re-rank, spec-071).
+    |  - Engagement signals (website_clicks, pageviews, social_link_clicks, menu)
+    |    total 0.40 and only activate once clicks exist; engagement was fixed in
+    |    spec-104 to actually fire (previously only 5 rows had any).
+    |  - has_award (Wikidata Michelin) reads 0 for the current population; the
+    |    weekly restaurants:refresh-awards backfill keeps it populated.
+    |  - In the persisted (no-coords) score proximity is NEVER active — it applies
+    |    only to geolocated live search, where scopeNearby supplies `distance`.
     */
     'ranking' => [
         'weights' => [
             'quality' => env('RANK_WEIGHT_QUALITY', 0.35),
             'proximity' => env('RANK_WEIGHT_PROXIMITY', 0.15),
             'data_completeness' => env('RANK_WEIGHT_DATA_COMPLETENESS', 0.05),
-            'has_award' => env('RANK_WEIGHT_HAS_AWARD', 0.10),
+            'has_award' => env('RANK_WEIGHT_HAS_AWARD', 0.05),
             // spec-071: on a cuisine-scoped search, boost venues matching the
             // searched cuisine so a genuine match outranks a borderline-nearby
             // one. Recall-safe (re-rank only, drops nothing); 0.0 unless stamped
@@ -262,7 +271,14 @@ return [
             'google_rating' => env('RANK_WEIGHT_GOOGLE_RATING', 0.0),
             'google_review_count' => env('RANK_WEIGHT_GOOGLE_REVIEW_COUNT', 0.0),
             'popular_times_avg_busyness' => env('RANK_WEIGHT_POPULAR_TIMES', 0.0),
-            'social_links_count' => env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.10),
+            // spec-104 rebalance (data-driven, see docs/ranking-metrics.md):
+            // social is the one non-quality signal firing on ~47% of rows, so it
+            // was raised 0.10->0.20 to differentiate the 76% unrated cohort
+            // (previously clumped at 0.10-0.30, sd 0.036). has_award trimmed
+            // 0.10->0.05 because it reads 0 for the whole population (dead weight
+            // that taxes every score). Verified: keeps rated>unrated (gap 0.13,
+            // no overlap), widens unrated spread to sd 0.046.
+            'social_links_count' => env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.20),
             'website_clicks_count' => env('RANK_WEIGHT_WEBSITE_CLICKS', 0.20),
             'pageviews_count' => env('RANK_WEIGHT_PAGEVIEWS', 0.10),
             'social_link_clicks_count' => env('RANK_WEIGHT_SOCIAL_LINK_CLICKS', 0.05),

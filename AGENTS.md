@@ -17,7 +17,84 @@
 | `vendor/bin/pint --test` | Laravel Pint lint check |
 | `./vendor/bin/phpstan analyse` | PHPStan level 5 (baseline in phpstan-baseline.neon) |
 
-## Local DB setup
+## Get running locally
+
+To stand up the full local environment (server + queue + scheduler + vite):
+
+```bash
+# Stop anything already on the ports
+fuser -k 8090/tcp 2>/dev/null; fuser -k 5173/tcp 2>/dev/null
+
+# Run all four services in the background
+nohup php artisan serve --port=8090 > storage/logs/serve.log 2>&1 &
+nohup php artisan queue:listen --tries=1 --timeout=0 > storage/logs/queue.log 2>&1 &
+nohup php artisan schedule:work > storage/logs/schedule.log 2>&1 &
+nohup npm run dev > storage/logs/vite.log 2>&1 &
+```
+
+This gives you the same footprint as production: HTTP server on :8090, queue worker processing `EnrichRestaurantWithAi` jobs, scheduler triggering all 11 scheduled tasks on their natural cadence, and Vite HMR on :5173.
+
+Verify: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8090/` should return 200.
+
+## Copy live DB to local
+
+The live droplet is at `167.71.107.253` (SSH key `~/.ssh/droplet-vp-nuxt`). **Never copy the SQLite file directly** while live services are writing to it — the copy will corrupt.
+
+Instead, use PHP on the server to export via PDO, then SCP the clean copy:
+
+```bash
+# 1. Write a PHP export script to the droplet
+ssh -i ~/.ssh/droplet-vp-nuxt root@167.71.107.253 'cat > /tmp/backup.php << '\''PHPEOF'\''
+<?php
+$src = new PDO("sqlite:/var/www/ipop360/database/database.sqlite");
+$src->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$dst = new PDO("sqlite:/tmp/ipop360-clean.sqlite");
+$dst->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+$tables = $src->query("SELECT name, sql FROM sqlite_master WHERE type=\"table\" AND name NOT LIKE \"sqlite_%\"")->fetchAll(PDO::FETCH_ASSOC);
+foreach ($tables as $t) {
+    echo "Creating " . $t["name"] . "...\n";
+    $dst->exec($t["sql"]);
+}
+
+$tablesList = $src->query("SELECT name FROM sqlite_master WHERE type=\"table\" AND name NOT LIKE \"sqlite_%\"")->fetchAll(PDO::FETCH_COLUMN);
+foreach ($tablesList as $table) {
+    $count = $src->query("SELECT COUNT(*) FROM \"$table\"")->fetchColumn();
+    echo "Copying $table ($count rows)...\n";
+    $rows = $src->query("SELECT * FROM \"$table\"")->fetchAll(PDO::FETCH_NUM);
+    if (empty($rows)) continue;
+    $colCount = count($rows[0]);
+    $placeholders = implode(",", array_fill(0, $colCount, "?"));
+    $stmt = $dst->prepare("INSERT INTO \"$table\" VALUES ($placeholders)");
+    foreach ($rows as $row) { $stmt->execute($row); }
+}
+echo "Done!\n";
+PHPEOF'
+
+# 2. Run the export on the droplet (takes ~8 min for a full DB)
+ssh -i ~/.ssh/droplet-vp-nuxt root@167.71.107.253 "php /tmp/backup.php"
+
+# 3. Download the clean copy
+scp -i ~/.ssh/droplet-vp-nuxt root@167.71.107.253:/tmp/ipop360-clean.sqlite /tmp/ipop360-clean.sqlite
+
+# 4. Verify integrity and vacuum
+sqlite3 /tmp/ipop360-clean.sqlite "PRAGMA integrity_check;"
+# Should print "ok"
+
+# 5. Replace local DB and restart services
+cp database/database.sqlite database/database.sqlite.backup
+cp /tmp/ipop360-clean.sqlite database/database.sqlite
+```
+
+The `failed_jobs` table (90k+ rows with large exception payloads) will likely cause the export to time out at 10 min. That's fine — all core data tables (restaurants, cuisines, social links, api cache, etc.) copy first. If `failed_jobs` is corrupt or missing, drop and recreate it:
+
+```bash
+sqlite3 database/database.sqlite "DROP TABLE failed_jobs; CREATE TABLE failed_jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT NOT NULL UNIQUE, connection BLOB NOT NULL, queue BLOB NOT NULL, payload BLOB NOT NULL, exception BLOB NOT NULL, failed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);"
+```
+
+Also verify row counts: `sqlite3 database/database.sqlite "SELECT COUNT(*) FROM restaurants;"` — should return ~5500+.
+
+## Local DB recovery
 
 The dev database is `database/database.sqlite` (SQLite). If it becomes corrupted (e.g. from abrupt shutdown), you'll see `database disk image is malformed` errors on every request.
 
@@ -75,7 +152,7 @@ To recover:
 ## Architecture
 - **4 live-search sources**: BizData (free, no key), SerpApi (~50/mo quota), Overpass/OSM (free), Socrata (free)
 - **Processing pipeline** (LiveSearchService::search): garbage name filter → cuisine relevance filter → non-restaurant filter → cross-source dedup (fuzzy name + distance + phone) → distance filter → bound to 60 → cuisine match stamp → score → sort → snapshot for pagination
-- **Scoring** (PopularityScoreService): Bayesian quality (60%) + proximity (20%) + data completeness (5%) + has award (15%) + cuisine match (15%) — weights renormalize over each row's active signal set
+- **Scoring** (PopularityScoreService): 10 weighted signals — quality 0.35 (Bayesian), website_clicks 0.20, social_links 0.20, proximity 0.15 (live search only), pageviews 0.10, has_award 0.05, cuisine_match 0.50 (live scoped search only), completeness 0.05, social/menu clicks 0.05 each — weights renormalize over each row's active signal set
 - **Single JSON shape**: `app/Http/Resources/RestaurantResource.php` for all persisted restaurant responses
 - **Shared venue pipeline**: `app/Services/VenuePipeline.php` — dedup, merge, sort, haversine, name matching
 

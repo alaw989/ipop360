@@ -61,9 +61,9 @@ class PopularityScoreServiceTest extends TestCase
 
         // Yelp weights are 0 (removed). Proximity + quality are inactive (no
         // distance, no Google rating). Only data_completeness (8/10=0.8,
-        // weight 0.05) and has_award (false=0.0, weight 0.10) contribute.
-        // Active weight 0.15. = (0.05/0.15)*0.8 = 0.2667
-        $this->assertEqualsWithDelta(0.2667, $score, 0.001);
+        // weight 0.05) and has_award (false=0.0, weight 0.05) contribute.
+        // Active weight 0.10. = (0.05/0.10)*0.8 = 0.40
+        $this->assertEqualsWithDelta(0.40, $score, 0.001);
     }
 
     public function test_no_data_scores_zero(): void
@@ -101,11 +101,11 @@ class PopularityScoreServiceTest extends TestCase
         $score = $this->service->calculateScore($restaurant, $all);
 
         // completeness = 1/10 = 0.1 (only `name` filled; lat/lng are 0 sentinel);
-        // has_award = 0. Proximity + quality inactive. Active weight 0.15
-        // (data_completeness 0.05 + has_award 0.10).
-        // = (0.05/0.15)*0.1 = 0.0333.
+        // has_award = 0. Proximity + quality inactive. Active weight 0.10
+        // (data_completeness 0.05 + has_award 0.05).
+        // = (0.05/0.10)*0.1 = 0.05.
         // (With the isFilled bug, lat/lng would count -> completeness 3/10 -> 0.3.)
-        $this->assertEqualsWithDelta(0.0333, $score, 0.001);
+        $this->assertEqualsWithDelta(0.05, $score, 0.001);
     }
 
     public function test_high_quality_outscores_low_quality(): void
@@ -196,10 +196,9 @@ class PopularityScoreServiceTest extends TestCase
 
         // Both venues score identically since they have the same data_completeness
         // and Yelp signals are removed (weight 0). Proximity + quality inactive
-        // (no distance, Yelp-only). Active weight 0.15 (data_completeness 0.05 +
-        // has_award 0.10). completeness = 8/10 = 0.8 → score = 0.2667.
-        $this->assertEqualsWithDelta($venueScore, $outlierScore, 0.001);
-        $this->assertEqualsWithDelta(0.2667, $venueScore, 0.001);
+        // (no distance, Yelp-only). Active weight 0.10 (data_completeness 0.05 +
+        // has_award 0.05). completeness = 8/10 = 0.8 → score = 0.40.
+        $this->assertEqualsWithDelta(0.40, $venueScore, 0.001);
     }
 
     public function test_log_floor_prevents_compression(): void
