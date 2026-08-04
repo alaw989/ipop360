@@ -84,6 +84,19 @@ Schedule::command('restaurants:scrape-social --force')
         Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:scrape-social --force']);
     });
 
+// Sunday at 07:00 — backfill Michelin award status for all restaurants from
+// Wikidata (free, cached 30d per city box). Previously awards only ran as a
+// side-effect of the 15-combo/day throttled enrichment, so most rows were
+// never checked and has_award read 0 everywhere. (spec-104 award audit)
+Schedule::command('restaurants:refresh-awards')
+    ->weeklyOn(0, '07:00')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Backfill Michelin award status for all restaurants from Wikidata')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:refresh-awards']);
+    });
+
 // Aggregate engagement data into restaurant counters (runs at 00:30 UTC,
 // before the 02:00 scoring run, so scores reflect the freshest engagement data)
 Schedule::command('restaurants:update-engagement')

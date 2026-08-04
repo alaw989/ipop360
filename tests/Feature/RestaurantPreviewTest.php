@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ExternalApiCache;
+use App\Models\Restaurant;
 use App\Services\LiveSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -108,5 +109,34 @@ class RestaurantPreviewTest extends TestCase
         $response = $this->get('/restaurants/preview/lickin-good-donuts-4e33d8');
 
         $response->assertStatus(404);
+    }
+
+    public function test_preview_persists_synthetic_id_snapshot_before_rendering(): void
+    {
+        // A snapshot carrying a synthetic negative id (crc32 of the venue, from
+        // older code) must be upserted to a real row before render — otherwise
+        // every engagement event from this page 422s and vanishes. (spec-104)
+        ExternalApiCache::storeByKey('preview:lickin-good-donuts-4e33d8', $this->liveVenue(), now()->addDays(7));
+
+        $response = $this->get('/restaurants/preview/lickin-good-donuts-4e33d8');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Restaurants/Show')
+            ->where('restaurant.name', 'Lickin Good Donuts')
+            ->where('restaurant.id', fn ($id) => is_int($id) && $id > 0)
+        );
+
+        $this->assertSame(
+            1,
+            Restaurant::where('slug', 'lickin-good-donuts-4e33d8')->count(),
+            'the preview venue must be persisted as a real restaurant row'
+        );
+
+        $restaurant = Restaurant::where('slug', 'lickin-good-donuts-4e33d8')->first();
+        $this->assertNotNull($restaurant);
+
+        $snapshot = ExternalApiCache::findByKey('preview:lickin-good-donuts-4e33d8');
+        $this->assertSame($restaurant->id, $snapshot['id'] ?? null, 'snapshot must be refreshed with the real id');
     }
 }

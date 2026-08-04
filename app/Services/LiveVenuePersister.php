@@ -72,6 +72,10 @@ class LiveVenuePersister
         $created = false;
 
         if ($restaurant) {
+            // Update: exclude has_award so a live-search source (which hardcodes
+            // has_award => false) can never clobber a true award set by
+            // RestaurantEnrichmentService::enrichAwards. (spec-104 award audit)
+            unset($attributes['has_award']);
             $restaurant->update($attributes);
         } else {
             $restaurant = Restaurant::create($attributes);
