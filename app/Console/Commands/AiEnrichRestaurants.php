@@ -56,17 +56,28 @@ class AiEnrichRestaurants extends Command
             $query->whereIn('id', $specificIds);
             $this->info('Processing specific restaurant IDs: '.implode(', ', $specificIds));
         } elseif (! $processAll) {
-            // Only process restaurants needing enrichment
-            $query->where(function ($q) {
-                $q->whereNull('ai_metadata')
-                    ->orWhereJsonDoesntContain('ai_metadata->enriched_at', now()->subDays(7)->toIso8601String());
-            });
+            // Only process restaurants needing enrichment (null ai_metadata or
+            // enriched more than 7 days ago). Filter in PHP because the previous
+            // SQL approach (whereJsonDoesntContain) matched an exact microsecond
+            // timestamp and was true for virtually every row.
             $this->info('Processing restaurants not enriched in the last 7 days...');
         } else {
             $this->info('Processing all active restaurants...');
         }
 
         $restaurants = $query->get();
+
+        if (! $processAll && empty($specificIds)) {
+            $restaurants = $restaurants->filter(function ($restaurant) {
+                if (empty($restaurant->ai_metadata['enriched_at'])) {
+                    return true;
+                }
+
+                $enrichedAt = now()->parse($restaurant->ai_metadata['enriched_at']);
+
+                return $enrichedAt->lt(now()->subDays(7));
+            });
+        }
 
         if ($restaurants->isEmpty()) {
             $this->warn('No restaurants found matching the criteria.');
@@ -88,7 +99,7 @@ class AiEnrichRestaurants extends Command
                 $this->line("  Would dispatch: Restaurant #{$restaurant->id} - {$restaurant->name}");
             } else {
                 EnrichRestaurantWithAi::dispatch($restaurant->id)
-                    ->delay(now()->addSeconds($i * 5));
+                    ->delay(now()->addSeconds(min($i * 5, 3600)));
                 $dispatched++;
             }
 

@@ -87,7 +87,7 @@ class ScoreRestaurants extends Command
                         foreach ($updates as $update) {
                             Restaurant::where('id', $update['id'])->update([
                                 'popularity_score' => $update['popularity_score'],
-                                'score_breakdown' => $update['score_breakdown'],
+                                'score_breakdown' => json_encode($update['score_breakdown']),
                             ]);
                         }
                     });

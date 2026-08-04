@@ -558,7 +558,9 @@ class RestaurantEnrichmentService
      */
     private function enrichWebsiteData(Collection $restaurants): void
     {
-        $scraped = 0;
+        $scrapedHours = 0;
+        $photosFound = 0;
+        $imageFallbacks = 0;
         $alreadyHave = 0;
         $noWebsite = 0;
         $failed = 0;
@@ -576,7 +578,7 @@ class RestaurantEnrichmentService
                         );
                         if ($photoUrl !== null) {
                             $restaurant->update(['photo_url' => $photoUrl]);
-                            $scraped++;
+                            $photosFound++;
                             Log::channel('enrichment')->info('Image enrichment found photo for restaurant without website', [
                                 'restaurant_id' => $restaurant->id,
                                 'restaurant_name' => $restaurant->name,
@@ -610,7 +612,7 @@ class RestaurantEnrichmentService
                     if (! empty($updates)) {
                         $restaurant->update($updates);
                     }
-                    $scraped++;
+                    $scrapedHours++;
 
                     Log::channel('enrichment')->info('Website scrape found data', [
                         'restaurant_id' => $restaurant->id,
@@ -631,7 +633,7 @@ class RestaurantEnrichmentService
                         );
                         if ($photoUrl !== null) {
                             $restaurant->update(['photo_url' => $photoUrl]);
-                            $scraped++;
+                            $imageFallbacks++;
                             Log::channel('enrichment')->info('Image enrichment found photo via fallback', [
                                 'restaurant_id' => $restaurant->id,
                                 'restaurant_name' => $restaurant->name,
@@ -661,7 +663,9 @@ class RestaurantEnrichmentService
             'total_processed' => $restaurants->count(),
             'already_have_opening_hours' => $alreadyHave,
             'no_website_url' => $noWebsite,
-            'scraped_new_hours' => $scraped,
+            'hours_scraped' => $scrapedHours,
+            'photos_found' => $photosFound,
+            'image_fallbacks' => $imageFallbacks,
             'scrape_failed_or_empty' => $failed,
         ]);
     }
@@ -759,7 +763,7 @@ class RestaurantEnrichmentService
     public function enrichAllCitiesThrottled(): array
     {
         $cities = config('restaurant-finder.cities', []);
-        $cuisines = Cuisine::all();
+        $cuisines = $this->getConfiguredCuisines();
 
         if (empty($cities) || $cuisines->isEmpty()) {
             return [
@@ -767,10 +771,11 @@ class RestaurantEnrichmentService
                 'real_calls_made' => 0,
                 'cache_hits_skipped' => 0,
                 'quota_exhausted' => false,
+                'per_run_cap_reached' => false,
             ];
         }
 
-        $perRunCap = config('restaurant-finder.enrich.per_run_cap', 5);
+        $perRunCap = config('restaurant-finder.enrich.per_run_cap', 40);
         $monthlyBudget = config('restaurant-finder.enrich.monthly_budget', 40);
 
         $realCallsThisMonth = $this->countRealSerpApiCallsLast30Days();
@@ -778,6 +783,7 @@ class RestaurantEnrichmentService
         $cacheHitsSkipped = 0;
         $totalProcessed = 0;
         $quotaExhausted = false;
+        $perRunCapReached = false;
 
         Log::channel('enrichment')->info('Starting throttled enrichment', [
             'per_run_cap' => $perRunCap,
@@ -788,25 +794,51 @@ class RestaurantEnrichmentService
         $combos = $this->buildCityCuisineGrid($cities, $cuisines);
 
         foreach ($combos as $combo) {
-            if (! $this->withinBudget($realCallsThisMonth, $realCallsThisRun, $monthlyBudget, $perRunCap)) {
-                $quotaExhausted = true;
-                break;
-            }
-
             $cityName = $combo['city'];
             $lat = $combo['lat'];
             $lng = $combo['lng'];
             $cuisine = $combo['cuisine'];
 
-            if ($this->shouldSkipCombo($lat, $lng, $cuisine, $cityName)) {
+            $serpApiFresh = $this->isSerpApiCacheFresh($lat, $lng, $this->cuisineMatcher->humanize($cuisine->slug));
+
+            if ($serpApiFresh) {
                 $cacheHitsSkipped++;
+
+                // M4: SerpApi cache is fresh, but free sources (BizData, Overpass,
+                // Socrata) have 24h TTLs — still run them to discover new venues.
+                try {
+                    $stateCode = config('restaurant-finder.city_states.'.$cityName);
+                    $this->enrichByCuisine($lat, $lng, $cuisine, true, $cityName, $stateCode);
+                    Log::channel('enrichment')->debug('Ran free sources for cache-fresh combo', [
+                        'city' => $cityName,
+                        'cuisine' => $cuisine->name,
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::channel('enrichment')->error('Failed to enrich combo (free only)', [
+                        'city' => $cityName,
+                        'cuisine' => $cuisine->name,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
 
                 continue;
             }
 
-            // Check if we have budget for this call (pre-increment check)
-            if ($realCallsThisMonth + 1 > $monthlyBudget || $realCallsThisRun + 1 > $perRunCap) {
+            if ($realCallsThisMonth >= $monthlyBudget) {
                 $quotaExhausted = true;
+                Log::channel('enrichment')->info('Monthly budget exhausted, stopping enrichment', [
+                    'real_calls_this_month' => $realCallsThisMonth,
+                    'monthly_budget' => $monthlyBudget,
+                ]);
+                break;
+            }
+
+            if ($realCallsThisRun >= $perRunCap) {
+                $perRunCapReached = true;
+                Log::channel('enrichment')->info('Per-run cap reached, stopping enrichment', [
+                    'real_calls_this_run' => $realCallsThisRun,
+                    'per_run_cap' => $perRunCap,
+                ]);
                 break;
             }
 
@@ -837,6 +869,7 @@ class RestaurantEnrichmentService
             'real_calls_made' => $realCallsThisRun,
             'cache_hits_skipped' => $cacheHitsSkipped,
             'quota_exhausted' => $quotaExhausted,
+            'per_run_cap_reached' => $perRunCapReached,
         ]);
 
         return [
@@ -844,6 +877,7 @@ class RestaurantEnrichmentService
             'real_calls_made' => $realCallsThisRun,
             'cache_hits_skipped' => $cacheHitsSkipped,
             'quota_exhausted' => $quotaExhausted,
+            'per_run_cap_reached' => $perRunCapReached,
         ];
     }
 
@@ -872,45 +906,19 @@ class RestaurantEnrichmentService
     }
 
     /**
-     * Check if we're within budget (both monthly and per-run caps).
+     * Get cuisines filtered to the configured set, falling back to all
+     * when no config is defined (preserves test behavior).
      */
-    private function withinBudget(int $realCallsThisMonth, int $realCallsThisRun, int $monthlyBudget, int $perRunCap): bool
+    private function getConfiguredCuisines(): Collection
     {
-        if ($realCallsThisMonth >= $monthlyBudget) {
-            Log::channel('enrichment')->info('Monthly budget exhausted, stopping enrichment', [
-                'real_calls_this_month' => $realCallsThisMonth,
-                'monthly_budget' => $monthlyBudget,
-            ]);
+        $configuredCuisines = config('restaurant-finder.cuisines', []);
 
-            return false;
+        if (empty($configuredCuisines)) {
+            return Cuisine::all();
         }
 
-        if ($realCallsThisRun >= $perRunCap) {
-            Log::channel('enrichment')->info('Per-run cap reached, stopping enrichment', [
-                'real_calls_this_run' => $realCallsThisRun,
-                'per_run_cap' => $perRunCap,
-            ]);
+        $slugs = array_map(fn (string $name) => str()->slug($name), $configuredCuisines);
 
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Check if a combo should be skipped (cache is fresh).
-     */
-    private function shouldSkipCombo(float $lat, float $lng, Cuisine $cuisine, string $cityName): bool
-    {
-        if ($this->isSerpApiCacheFresh($lat, $lng, $this->cuisineMatcher->humanize($cuisine->slug))) {
-            Log::channel('enrichment')->debug('Skipping cache-fresh combo', [
-                'city' => $cityName,
-                'cuisine' => $cuisine->name,
-            ]);
-
-            return true;
-        }
-
-        return false;
+        return Cuisine::whereIn('slug', $slugs)->get();
     }
 }

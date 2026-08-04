@@ -58,21 +58,20 @@ class VerifyRestaurantWebsites extends Command
 
                     if ($response->successful()) {
                         $this->verified++;
-                    } else {
+                    } elseif (in_array($response->status(), [404, 410], true)) {
                         $this->dead++;
                         $this->warn("  Dead link: {$restaurant->website_url} ({$restaurant->name}) — HTTP {$response->status()}");
 
                         if (! $dryRun) {
                             $restaurant->update(['website_url' => null]);
                         }
+                    } else {
+                        $this->skipped++;
+                        $this->warn("  Transient error: {$restaurant->website_url} ({$restaurant->name}) — HTTP {$response->status()}, keeping URL");
                     }
                 } catch (\Throwable $e) {
-                    $this->dead++;
-                    $this->warn("  Dead link: {$restaurant->website_url} ({$restaurant->name}) — {$e->getMessage()}");
-
-                    if (! $dryRun) {
-                        $restaurant->update(['website_url' => null]);
-                    }
+                    $this->skipped++;
+                    $this->warn("  Request failed: {$restaurant->website_url} ({$restaurant->name}) — {$e->getMessage()}, keeping URL");
                 }
 
                 $bar->advance();
@@ -86,12 +85,13 @@ class VerifyRestaurantWebsites extends Command
 
         $bar->finish();
         $this->newLine();
-        $this->info("Done. {$this->verified} alive, {$this->dead} dead.");
+        $this->info("Done. {$this->verified} alive, {$this->dead} dead, {$this->skipped} skipped (transient).");
 
         Log::info('Website URL verification complete', [
             'total' => $total,
             'verified' => $this->verified,
             'dead' => $this->dead,
+            'skipped' => $this->skipped,
             'dry_run' => $dryRun,
         ]);
 
