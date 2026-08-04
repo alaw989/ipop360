@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3'
+import { ref } from 'vue'
+import { Head, Link, router, usePage } from '@inertiajs/vue3'
+import type { PageProps } from '@/types'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, Eye, FileText, Pencil, Plus, Trash2 } from '@lucide/vue'
+import { Calendar, Eye, FileText, Pencil, Plus, Trash2, X } from '@lucide/vue'
 
 interface BlogPost {
     id: number
@@ -16,7 +18,7 @@ interface BlogPost {
     author: { name: string } | null
 }
 
-defineProps<{
+const props = defineProps<{
     posts: {
         data: BlogPost[]
         links: { url: string | null; label: string; active: boolean }[]
@@ -24,6 +26,9 @@ defineProps<{
     }
     filter: string | null
 }>()
+
+const page = usePage<PageProps<{ flash?: { success?: string } }>>()
+const successFlash = ref<string | null>(page.props.flash?.success ?? null)
 
 function formatDate(value: string | null): string {
     if (!value) return '—'
@@ -84,6 +89,18 @@ function destroy(post: BlogPost): void {
                     >
                         Drafts
                     </Button>
+                </div>
+
+                <div v-if="successFlash" class="mb-4 flex items-center justify-between rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+                    <span>{{ successFlash }}</span>
+                    <button
+                        type="button"
+                        class="text-emerald-600 hover:text-emerald-800"
+                        aria-label="Dismiss"
+                        @click="successFlash = null"
+                    >
+                        <X class="h-4 w-4" />
+                    </button>
                 </div>
 
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">

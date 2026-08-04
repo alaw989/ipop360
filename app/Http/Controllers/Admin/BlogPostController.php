@@ -44,7 +44,7 @@ class BlogPostController extends Controller
             $post->publish();
         }
 
-        return redirect()->route('admin.blog.edit', $post)->with('success', 'Blog post created.');
+        return redirect()->route('admin.blog.index')->with('success', 'Blog post created.');
     }
 
     public function edit(BlogPost $post): Response

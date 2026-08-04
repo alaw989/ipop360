@@ -49,6 +49,13 @@ const isAdmin = computed(() => usePage().props.auth?.user?.is_admin === true);
                                 >
                                     Admin
                                 </NavLink>
+                                <NavLink
+                                    v-if="isAdmin"
+                                    :href="route('admin.blog.index')"
+                                    :active="route().current('admin.blog.*')"
+                                >
+                                    Blog
+                                </NavLink>
                             </div>
                         </div>
 
@@ -162,6 +169,13 @@ const isAdmin = computed(() => usePage().props.auth?.user?.is_admin === true);
                             :active="route().current('admin.dashboard')"
                         >
                             Admin
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            v-if="isAdmin"
+                            :href="route('admin.blog.index')"
+                            :active="route().current('admin.blog.*')"
+                        >
+                            Blog
                         </ResponsiveNavLink>
                     </div>
 

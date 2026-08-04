@@ -46,6 +46,9 @@ class HandleInertiaRequests extends Middleware
                     ? $request->user()->favorites()->pluck('restaurants.id')->all()
                     : [],
             ],
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+            ],
             'userCoords' => $request->session()->get('user_coords'),
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
