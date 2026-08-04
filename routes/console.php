@@ -124,6 +124,16 @@ Schedule::command('restaurants:ai-enrich')
         Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:ai-enrich']);
     });
 
+// Weekly field-coverage report (Mondays at 6:30 AM UTC, after weekend jobs)
+Schedule::command('restaurants:coverage')
+    ->weeklyOn(1, '06:30')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Report field coverage across the restaurant corpus')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:coverage']);
+    });
+
 // Weekly website URL dead-link verification (Sundays at 6 AM UTC)
 Schedule::command('restaurants:verify-websites --limit=200')
     ->weeklyOn(0, '06:00')
