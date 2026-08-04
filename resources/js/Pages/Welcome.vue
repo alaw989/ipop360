@@ -12,6 +12,7 @@ import StickySearchBar from '@/Components/StickySearchBar.vue'
 import CategoryGrid from '@/Components/CategoryGrid.vue'
 import PopularCuisines from '@/Components/PopularCuisines.vue'
 import PopularRestaurants from '@/Components/PopularRestaurants.vue'
+import BlogPreview from '@/Components/BlogPreview.vue'
 // Lazy-load the results tree (ResultsGrid + RestaurantCard + CardGallery + …) so
 // it isn't on the idle homepage entry chunk — it renders only in the results
 // phase (spec-061 bundle diet).
@@ -66,6 +67,15 @@ interface Restaurant {
     cuisines: Array<{ id: number; name: string; slug: string }>
 }
 
+interface BlogPost {
+    id: number
+    title: string
+    slug: string
+    excerpt: string
+    featured_image: string | null
+    published_at: string | null
+}
+
 interface HomepageData {
     categories: Category[]
     popularCuisines: Array<{
@@ -76,6 +86,7 @@ interface HomepageData {
         restaurants_count: number
     }>
     popularRestaurants: Restaurant[]
+    latestPosts: BlogPost[]
     location: Location | null
 }
 
@@ -89,6 +100,7 @@ const props = defineProps<{
         restaurants_count: number
     }>
     popularRestaurants: Restaurant[]
+    latestPosts: BlogPost[]
     location: Location | null
     fallbackCoords: { lat: number; lng: number } | null
 }>()
@@ -372,6 +384,8 @@ function dismissLoadMoreError() {
                     :city="effectiveLocation?.city ?? null"
                     :loading="dataLoading"
                 />
+
+                <BlogPreview :posts="props.latestPosts" />
             </template>
 
             <!-- Results area (all non-idle phases) -->

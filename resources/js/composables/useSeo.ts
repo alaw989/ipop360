@@ -81,6 +81,33 @@ export function generateOrganizationJsonLd(url: string, name: string) {
     };
 }
 
+export function generateArticleJsonLd(article: {
+    title: string;
+    url: string;
+    image?: string | null;
+    publishedAt?: string | null;
+    author?: string;
+    excerpt?: string;
+}) {
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: article.title,
+        url: article.url,
+        ...(article.image ? { image: article.image } : {}),
+        ...(article.publishedAt ? { datePublished: article.publishedAt } : {}),
+        ...(article.author
+            ? { author: { '@type': 'Person', name: article.author } }
+            : { author: { '@type': 'Organization', name: 'iPop360' } }),
+        ...(article.excerpt ? { description: article.excerpt } : {}),
+        publisher: {
+            '@type': 'Organization',
+            name: 'iPop360',
+            url: `${article.url}`,
+        },
+    };
+}
+
 export function generateItemListJsonLd(items: Array<{ name: string; url: string; position: number }>) {
     return {
         '@context': 'https://schema.org',

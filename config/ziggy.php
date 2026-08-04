@@ -21,6 +21,13 @@ return [
 
     'only' => [
         'dashboard',
+        'admin.dashboard',
+        'admin.blog.index',
+        'admin.blog.create',
+        'admin.blog.store',
+        'admin.blog.edit',
+        'admin.blog.update',
+        'admin.blog.destroy',
         'login',
         'logout',
         'password.confirm',

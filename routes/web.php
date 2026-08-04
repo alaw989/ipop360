@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Admin\BlogPostController as AdminBlogPostController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\BlogController;
 use App\Http\Controllers\CuisineController;
 use App\Http\Controllers\EngagementController;
 use App\Http\Controllers\FavoriteController;
@@ -26,6 +28,9 @@ Route::middleware(['throttle:60,1', 'log.api'])->group(function () {
 
 Route::get('/cuisine/{category:slug}', [CuisineController::class, 'show']);
 
+Route::get('/blog', [BlogController::class, 'index']);
+Route::get('/blog/{post:slug}', [BlogController::class, 'show']);
+
 Route::get('/restaurants', [RestaurantController::class, 'index']);
 Route::get('/restaurants/preview/{slug}', [RestaurantController::class, 'preview'])->name('restaurants.preview');
 Route::get('/restaurants/{restaurant:slug}', [RestaurantController::class, 'show']);
@@ -36,9 +41,12 @@ Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::get('/admin', AdminDashboardController::class)
-    ->middleware(['auth', 'verified'])
-    ->name('admin.dashboard');
+Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', AdminDashboardController::class)->name('dashboard');
+    Route::resource('blog', AdminBlogPostController::class)
+        ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+        ->parameters(['blog' => 'post']);
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
