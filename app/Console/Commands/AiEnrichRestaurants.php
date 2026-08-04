@@ -11,7 +11,9 @@ use Illuminate\Console\Command;
  *
  * With no AI key configured, this command exits cleanly (no-op).
  * With a key, it dispatches jobs for restaurants that haven't been enriched
- * or were enriched more than 7 days ago.
+ * or were enriched more than the freshness window ago. Rows missing core
+ * fields (price_range, description, phone, website_url) re-enter eligibility
+ * after 1 day; complete rows after 7. Neediest rows dispatch first.
  */
 class AiEnrichRestaurants extends Command
 {
@@ -69,14 +71,22 @@ class AiEnrichRestaurants extends Command
 
         if (! $processAll && empty($specificIds)) {
             $restaurants = $restaurants->filter(function ($restaurant) {
+                $missingCount = $this->missingFieldCount($restaurant);
+                $windowDays = $missingCount > 0 ? 1 : 7;
+
                 if (empty($restaurant->ai_metadata['enriched_at'])) {
                     return true;
                 }
 
                 $enrichedAt = now()->parse($restaurant->ai_metadata['enriched_at']);
 
-                return $enrichedAt->lt(now()->subDays(7));
+                return $enrichedAt->lt(now()->subDays($windowDays));
             });
+
+            // Neediest first: rows missing the most AI-fillable fields get
+            // dispatched before rows that are already mostly complete, so the
+            // free AI quota closes the deepest gaps first.
+            $restaurants = $restaurants->sortByDesc(fn ($restaurant) => $this->missingFieldCount($restaurant))->values();
         }
 
         if ($restaurants->isEmpty()) {
@@ -119,5 +129,21 @@ class AiEnrichRestaurants extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Count AI-fillable fields that are missing on a restaurant.
+     * Higher = more urgent; used to dispatch neediest rows first.
+     */
+    private function missingFieldCount(Restaurant $restaurant): int
+    {
+        $count = 0;
+        foreach (['price_range', 'description', 'phone', 'website_url'] as $field) {
+            if (empty($restaurant->{$field})) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 }

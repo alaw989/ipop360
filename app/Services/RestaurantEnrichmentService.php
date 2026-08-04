@@ -882,25 +882,64 @@ class RestaurantEnrichmentService
     }
 
     /**
-     * Build all city×cuisine combos and shuffle for fair rotation.
+     * Build all city×cuisine combos ordered to maximize rating coverage.
+     *
+     * Cities with the most unrated restaurants come first so each real SerpApi
+     * call (the only rating source) targets the neediest rows. Brand-new cities
+     * (no rows yet) sort ahead of low-need populated ones so they still get
+     * seeded. Cuisines are shuffled within each city so a run doesn't always
+     * hammer the same cuisine. Replaces the previous blind shuffle, which spent
+     * quota on a coin-flip of combo need.
      *
      * @return array<array{city:string, lat:float, lng:float, cuisine:Cuisine}>
      */
     private function buildCityCuisineGrid(array $cities, Collection $cuisines): array
     {
+        $needByCity = Restaurant::query()
+            ->selectRaw('city, COUNT(*) as count')
+            ->where(function ($q) {
+                $q->whereNull('google_rating')
+                    ->orWhere('google_rating', '<=', 0);
+            })
+            ->groupBy('city')
+            ->pluck('count', 'city')
+            ->toArray();
+
+        $totalByCity = Restaurant::query()
+            ->selectRaw('city, COUNT(*) as count')
+            ->groupBy('city')
+            ->pluck('count', 'city')
+            ->toArray();
+
+        $orderedCities = collect($cities)
+            ->map(function ($coords, $name) use ($needByCity, $totalByCity) {
+                $need = (int) ($needByCity[$name] ?? 0);
+                $total = (int) ($totalByCity[$name] ?? 0);
+
+                return [
+                    'name' => $name,
+                    'lat' => $coords[0],
+                    'lng' => $coords[1],
+                    // Existing gaps rank by size; a brand-new city (no rows yet)
+                    // counts as need 1 so it still gets seeded ahead of fully-rated
+                    // cities but behind cities that actually have unrated rows.
+                    'need' => $need > 0 ? $need : ($total === 0 ? 1 : 0),
+                ];
+            })
+            ->sortByDesc('need')
+            ->values();
+
         $combos = [];
-        foreach ($cities as $cityName => [$lat, $lng]) {
-            foreach ($cuisines as $cuisine) {
+        foreach ($orderedCities as $city) {
+            foreach ($cuisines->shuffle() as $cuisine) {
                 $combos[] = [
-                    'city' => $cityName,
-                    'lat' => $lat,
-                    'lng' => $lng,
+                    'city' => $city['name'],
+                    'lat' => $city['lat'],
+                    'lng' => $city['lng'],
                     'cuisine' => $cuisine,
                 ];
             }
         }
-
-        shuffle($combos);
 
         return $combos;
     }
