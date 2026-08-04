@@ -165,6 +165,12 @@ class Restaurant extends Model
      * SQL expression that applies a linear freshness decay to popularity_score
      * based on how long ago the restaurant's data was last updated.
      * See spec-104.
+     *
+     * NOTE: MySQL GREATEST(a, NULL) yields NULL while SQLite MAX(a, NULL)
+     * ignores the NULL — if a row ever has NULL updated_at its decayed score
+     * becomes NULL (sorts to the bottom on MySQL). Every persisted row gets
+     * timestamps, so this is latent, not live. Guard with COALESCE(updated_at,
+     * created_at, NOW()) if NULL timestamps ever become possible.
      */
     public static function decayedPopularityScoreExpression(): string
     {

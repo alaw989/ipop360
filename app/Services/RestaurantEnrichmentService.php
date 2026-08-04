@@ -137,7 +137,11 @@ class RestaurantEnrichmentService
                         }
                         $chunkIds[] = $id;
                         $escapedScore = (float) $data['popularity_score'];
-                        $escapedBreakdown = addslashes($data['score_breakdown']);
+                        // Quote-doubling is the only escape both SQLite and
+                        // MySQL honour inside single-quoted literals. addslashes
+                        // (backslash) is NOT an escape in SQLite, so a quote in
+                        // the JSON would break the statement there. (spec-104)
+                        $escapedBreakdown = str_replace("'", "''", $data['score_breakdown']);
                         $caseScore .= " WHEN {$id} THEN {$escapedScore}";
                         $caseBreakdown .= " WHEN {$id} THEN '{$escapedBreakdown}'";
                     }
