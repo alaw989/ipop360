@@ -215,7 +215,7 @@ class SearchController extends Controller
                 ")
                 ->orderByRaw("{$decayedScore} DESC"),
             'social_presence' => $query
-                ->orderByRaw('CASE WHEN social_links IS NOT NULL THEN 1 ELSE 0 END DESC')
+                ->orderByRaw('CASE WHEN social_links_count > 0 THEN 1 ELSE 0 END DESC')
                 ->orderByRaw("{$decayedScore} DESC"),
             'website_traffic' => $query
                 ->orderByDesc('website_clicks_count')
