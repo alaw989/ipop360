@@ -34,7 +34,10 @@ Schedule::command('uptime:canary')
     ->everyFifteenMinutes()
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('Check application health and uptime');
+    ->description('Check application health and uptime')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'uptime:canary']);
+    });
 
 // Schedule throttled DB enrichment (runs daily at 4 AM UTC)
 // Uses --throttled flag for quota protection, rotates through city×cuisine combos
@@ -54,9 +57,10 @@ Schedule::command('seo:sitemap')
     ->onOneServer()
     ->description('Generate sitemap.xml for SEO');
 
-// Schedule website backfill (runs at 5 AM UTC, before social scrape at 5:30)
+// Schedule website backfill (runs at 6 AM UTC, after enrichment 04:00–05:05
+// and social scrape 05:30 complete, avoiding SQLite lock contention)
 Schedule::command('restaurants:backfill-websites')
-    ->dailyAt('05:00')
+    ->dailyAt('06:00')
     ->withoutOverlapping()
     ->onOneServer()
     ->description('Backfill missing website URLs from cache, web search, and domain guessing')
@@ -125,4 +129,7 @@ Schedule::command('restaurants:verify-websites --limit=200')
     ->weeklyOn(0, '06:00')
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('HEAD-check existing website URLs, clear dead links');
+    ->description('HEAD-check existing website URLs, clear dead links')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:verify-websites']);
+    });

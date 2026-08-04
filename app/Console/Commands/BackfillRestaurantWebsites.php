@@ -473,7 +473,11 @@ class BackfillRestaurantWebsites extends Command
                         $restaurant->update(['social_links_count' => count($links)]);
                     }
                 } catch (\Throwable $e) {
-                    // Individual failure — skip
+                    Log::channel('enrichment')->warning('Social scrape failed during website backfill', [
+                        'restaurant_id' => $restaurant->id,
+                        'website_url' => $restaurant->website_url ?? null,
+                        'message' => $e->getMessage(),
+                    ]);
                 }
 
                 $bar->advance();

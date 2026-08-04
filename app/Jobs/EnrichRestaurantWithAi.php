@@ -4,7 +4,6 @@ namespace App\Jobs;
 
 use App\Models\Restaurant;
 use App\Services\AiEnrichmentService;
-use App\Services\PopularityScoreService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -57,7 +56,6 @@ class EnrichRestaurantWithAi implements ShouldQueue
      */
     public function handle(
         AiEnrichmentService $aiEnrichment,
-        PopularityScoreService $popularityScore
     ): void {
         $restaurant = Restaurant::find($this->restaurantId);
 
@@ -135,17 +133,8 @@ class EnrichRestaurantWithAi implements ShouldQueue
 
             // Update the restaurant
             if (! empty($updates)) {
-                DB::transaction(function () use ($restaurant, $updates, $popularityScore, $aiMetadata) {
+                DB::transaction(function () use ($restaurant, $updates, $aiMetadata) {
                     $restaurant->update($updates);
-
-                    // Re-score the restaurant with enriched data
-                    $allRestaurants = Restaurant::active()->get();
-                    $breakdown = $popularityScore->calculateBreakdown($restaurant, $allRestaurants);
-
-                    $restaurant->update([
-                        'popularity_score' => $breakdown['total'],
-                        'score_breakdown' => $breakdown,
-                    ]);
 
                     $changes = [];
                     foreach ($aiMetadata['fields_updated'] as $field) {
@@ -162,7 +151,6 @@ class EnrichRestaurantWithAi implements ShouldQueue
                         'model' => $aiMetadata['model'],
                         'changes' => $changes,
                         'score_before' => $restaurant->getOriginal('popularity_score'),
-                        'score_after' => $breakdown['total'],
                     ]);
                 });
             } else {

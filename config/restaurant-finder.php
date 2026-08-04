@@ -542,7 +542,7 @@ return [
     'enrich' => [
         // Max real SerpApi calls per enrich run (cache hits don't count).
         // Bumped from 5 to 15 to make more progress per night.
-        'per_run_cap' => (int) env('ENRICH_PER_RUN_CAP', 15),
+        'per_run_cap' => (int) env('ENRICH_PER_RUN_CAP', 40),
 
         // Max real SerpApi calls per 30-day rolling window. Bumped from 40 to
         // 150 — leaves 100 of the 250 quota for live search, which is already
