@@ -25,14 +25,20 @@ class SqlDialect
 
     /**
      * Days elapsed since the row's updated_at, as a fractional number.
+     *
+     * Parenthesised so the caller's `1.0 - (%s / %d)` groups correctly:
+     * `/` binds tighter than `-`, so without wrapping parens SQLite computes
+     * `julianday('now') - (julianday(updated_at) / days)` and the decay factor
+     * collapses to the floor. MySQL's TIMESTAMPDIFF form is a single division
+     * already, but the parens keep both branches identical in shape.
      */
     public static function daysSinceUpdated(): string
     {
         if (DB::connection()->getDriverName() === 'mysql') {
-            return 'TIMESTAMPDIFF(SECOND, updated_at, NOW()) / 86400.0';
+            return '(TIMESTAMPDIFF(SECOND, updated_at, NOW()) / 86400.0)';
         }
 
-        return "julianday('now') - julianday(updated_at)";
+        return "(julianday('now') - julianday(updated_at))";
     }
 
     /**
