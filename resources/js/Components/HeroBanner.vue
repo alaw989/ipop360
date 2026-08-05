@@ -134,6 +134,12 @@ function onDetect() {
             <nav class="flex items-center justify-end px-4 py-3 sm:px-6">
                 <div class="flex items-center gap-3">
                     <Link
+                        href="/blog"
+                        class="text-sm text-white/80 hover:text-white transition-colors"
+                    >
+                        Blog
+                    </Link>
+                    <Link
                         v-if="$page.props.auth?.user"
                         href="/favorites"
                         class="text-sm text-white/80 hover:text-white transition-colors"

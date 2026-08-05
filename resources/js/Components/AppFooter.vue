@@ -20,6 +20,9 @@ import { Link } from '@inertiajs/vue3';
                     <Link href="/leaderboard" class="text-muted-foreground hover:text-foreground transition-colors">
                         Leaderboard
                     </Link>
+                    <Link href="/blog" class="text-muted-foreground hover:text-foreground transition-colors">
+                        Blog
+                    </Link>
                     <Link
                         v-if="$page.props.auth?.user"
                         href="/favorites"
