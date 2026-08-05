@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BlogPost;
+use App\Services\HtmlSanitizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -32,9 +33,11 @@ class BlogPostController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, HtmlSanitizer $sanitizer): RedirectResponse
     {
         $data = $this->validated($request);
+
+        $data['body'] = $sanitizer->sanitize($data['body']);
 
         $post = new BlogPost($data);
         $post->author_id = $request->user()->id;
@@ -54,13 +57,17 @@ class BlogPostController extends Controller
         ]);
     }
 
-    public function update(Request $request, BlogPost $post): RedirectResponse
+    public function update(Request $request, BlogPost $post, HtmlSanitizer $sanitizer): RedirectResponse
     {
         $data = $this->validated($request);
 
+        $data['body'] = $sanitizer->sanitize($data['body']);
+
+        $wasPublished = $post->status === 'published';
+
         $post->update($data);
 
-        if (($data['status'] ?? null) === 'published' && $post->status !== 'published') {
+        if (! $wasPublished && ($data['status'] ?? null) === 'published') {
             $post->publish();
         }
 

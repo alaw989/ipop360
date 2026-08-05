@@ -23,6 +23,12 @@ import { Badge } from '@/components/ui/badge';
                             Leaderboard
                         </Link>
                         <Link
+                            href="/blog"
+                            class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                        >
+                            Blog
+                        </Link>
+                        <Link
                             v-if="$page.props.auth?.user"
                             href="/favorites"
                             class="text-sm text-muted-foreground hover:text-primary transition-colors"

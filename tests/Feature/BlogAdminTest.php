@@ -87,7 +87,7 @@ class BlogAdminTest extends TestCase
     public function test_admin_can_update_post(): void
     {
         $admin = $this->admin();
-        $post = BlogPost::factory()->create(['author_id' => $admin->id, 'status' => 'draft']);
+        $post = BlogPost::factory()->draft()->create(['author_id' => $admin->id]);
 
         $this->actingAs($admin)->put("/admin/blog/{$post->id}", [
             'title' => 'Updated Title',
@@ -100,6 +100,44 @@ class BlogAdminTest extends TestCase
         $this->assertSame('Updated Title', $post->title);
         $this->assertSame('published', $post->status);
         $this->assertNotNull($post->published_at);
+    }
+
+    public function test_editing_published_post_preserves_publish_date(): void
+    {
+        $admin = $this->admin();
+        $post = BlogPost::factory()->create([
+            'author_id' => $admin->id,
+            'status' => 'published',
+            'published_at' => now()->subWeek(),
+        ]);
+
+        $this->actingAs($admin)->put("/admin/blog/{$post->id}", [
+            'title' => 'Edited After Publish',
+            'excerpt' => 'Still excerpted.',
+            'body' => '<p>Still body</p>',
+            'status' => 'published',
+        ])->assertRedirect();
+
+        $post->refresh();
+        $this->assertSame('published', $post->status);
+        $this->assertTrue($post->published_at->isLastWeek());
+    }
+
+    public function test_body_is_sanitized_on_save(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post('/admin/blog', [
+            'title' => 'Sanitized Post',
+            'excerpt' => 'An excerpt.',
+            'body' => '<p>Hello <script>alert(1)</script><img src="https://evil.test/x.png" onerror="alert(2)"></p>',
+            'status' => 'draft',
+        ])->assertRedirect(route('admin.blog.index'));
+
+        $post = BlogPost::where('title', 'Sanitized Post')->first();
+        $this->assertStringNotContainsString('<script>', $post->body);
+        $this->assertStringNotContainsString('onerror', $post->body);
+        $this->assertStringContainsString('<p>Hello', $post->body);
     }
 
     public function test_admin_can_delete_post(): void
