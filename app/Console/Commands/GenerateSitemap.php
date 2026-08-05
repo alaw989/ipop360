@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\BlogPost;
 use App\Models\Cuisine;
 use App\Models\Restaurant;
 use Illuminate\Console\Command;
@@ -42,6 +43,7 @@ class GenerateSitemap extends Command
             ['url' => '/login', 'changefreq' => 'monthly', 'priority' => '0.3'],
             ['url' => '/register', 'changefreq' => 'monthly', 'priority' => '0.3'],
             ['url' => '/favorites', 'changefreq' => 'weekly', 'priority' => '0.6'],
+            ['url' => '/blog', 'changefreq' => 'weekly', 'priority' => '0.7'],
         ];
 
         foreach ($staticPages as $page) {
@@ -67,6 +69,14 @@ class GenerateSitemap extends Command
             $changefreq = 'weekly';
             $priority = '0.7';
             $xml .= $this->urlNode($url, $changefreq, $priority, $restaurant->updated_at);
+        }
+
+        // Blog posts
+        $posts = BlogPost::published()->select('slug', 'updated_at')->get();
+
+        foreach ($posts as $post) {
+            $url = $baseUrl.'/blog/'.$post->slug;
+            $xml .= $this->urlNode($url, 'monthly', '0.6', $post->updated_at);
         }
 
         $xml .= '</urlset>';
