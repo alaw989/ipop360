@@ -40,10 +40,6 @@ class HtmlSanitizer
         $elements = iterator_to_array($nodes);
 
         foreach ($elements as $node) {
-            if (! $node instanceof DOMElement) {
-                continue;
-            }
-
             $tag = strtolower($node->nodeName ?? '');
 
             if (! in_array($tag, self::ALLOWED_TAGS, true)) {
