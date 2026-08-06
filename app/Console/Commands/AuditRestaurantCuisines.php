@@ -170,6 +170,97 @@ class AuditRestaurantCuisines extends Command
     }
 
     /**
+     * Count how many distinct on-cuisine keywords appear in $text. Used to
+     * break category-collapse ties: "Turkish Flame Mediterranean Restaurant"
+     * hits 2 turkish keywords (turkish + mediterranean) vs 1 lebanese keyword
+     * (mediterranean), so turkish wins even though both share "mediterranean".
+     */
+    private function countKeywordHits(string $text, string $slug, CuisineMatcher $matcher): int
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return 0;
+        }
+
+        $pattern = '/'.implode('|', $matcher->keywordsFor([$slug])).'/i';
+        if (preg_match_all($pattern, $text, $m) === false) {
+            return 0;
+        }
+
+        return count(array_unique($m[0]));
+    }
+
+    /**
+     * When 3+ kept tags belong to the same category, collapse them to the single
+     * member with the strongest evidence. Fixes the old enrichment artifact that
+     * stamped every member of a searched CATEGORY onto each venue (a Mediterranean
+     * spot tagged egyptian|israeli|lebanese|moroccan|turkish). Real cross-category
+     * fusion is untouched because it spans distinct categories.
+     *
+     * @param  array<string, bool>  $keep  slug => true
+     * @param  string[]  $aiSlugs
+     * @return array<string, bool>
+     */
+    private function collapseSameCategoryTags(array $keep, array $aiSlugs, string $name, string $description, CuisineMatcher $matcher): array
+    {
+        $categories = config('cuisine-keywords.categories', []);
+
+        // Build slug => category membership from the config taxonomy.
+        $slugCategory = [];
+        foreach ($categories as $category => $members) {
+            foreach ($members as $member) {
+                $slugCategory[$member] = $category;
+            }
+        }
+
+        // Group kept slugs by category.
+        $byCategory = [];
+        foreach (array_keys($keep) as $slug) {
+            $byCategory[$slugCategory[$slug] ?? ''] ??= [];
+            $byCategory[$slugCategory[$slug] ?? ''][] = $slug;
+        }
+
+        foreach ($byCategory as $category => $slugs) {
+            if ($category === '' || count($slugs) < 3) {
+                continue;
+            }
+
+            // Pick the member with the strongest evidence: distinct name/desc
+            // keyword hits (counted, so "turkish" beats shared "mediterranean"),
+            // then AI backing as a tiebreak, then the first (deterministic).
+            $winner = null;
+            $winnerScore = 0;
+
+            foreach ($slugs as $slug) {
+                $score = $this->countKeywordHits($name, $slug, $matcher);
+                if ($description !== '') {
+                    $score += 0.5 * $this->countKeywordHits($description, $slug, $matcher);
+                }
+                if (in_array($slug, $aiSlugs, true)) {
+                    $score += 0.5;
+                }
+
+                if ($score > $winnerScore) {
+                    $winner = $slug;
+                    $winnerScore = $score;
+                }
+            }
+
+            if ($winner === null) {
+                $winner = $slugs[0];
+            }
+
+            foreach ($slugs as $slug) {
+                if ($slug !== $winner) {
+                    unset($keep[$slug]);
+                }
+            }
+        }
+
+        return $keep;
+    }
+
+    /**
      * Decide which of a restaurant's current tags to keep, drop, and add.
      *
      * @return array{0: string[], 1: string[], 2: string[]} [keep, drop, add] slugs
@@ -191,20 +282,36 @@ class AuditRestaurantCuisines extends Command
 
         $keep = [];
         foreach ($currentSlugs as $slug) {
-            if (in_array($slug, $aiSlugs, true)) {
+            $hasEvidence = in_array($slug, $aiSlugs, true)
+                || $matcher->matchesEvidence($name, $slug)
+                || ($description !== '' && $matcher->matchesEvidence($description, $slug));
+
+            // Positive evidence keeps the tag. Without evidence, keep it UNLESS
+            // the venue visibly signals a different cuisine (positive rival
+            // contradiction, e.g. "Oishi Ramen" tagged chinese). A neutral name
+            // ("Mr. Dumpling") is kept — absence of a lexicon keyword is not
+            // proof the tag is wrong (the lexicon is precision-tight by design).
+            if ($hasEvidence) {
                 $keep[$slug] = true;
 
                 continue;
             }
-            if ($matcher->matchesEvidence($name, $slug)) {
-                $keep[$slug] = true;
 
-                continue;
+            $nameText = $name;
+            if ($description !== '') {
+                $nameText .= ' '.$description;
             }
-            if ($description !== '' && $matcher->matchesEvidence($description, $slug)) {
+            if (! $matcher->matchesRivalEvidence($nameText, $slug)) {
                 $keep[$slug] = true;
             }
         }
+
+        // Category collapse: the old enrichment stamped every member of a
+        // searched CATEGORY onto each venue (e.g. a Mediterranean spot tagged
+        // egyptian|israeli|lebanese|moroccan|turkish). When 3+ kept tags share
+        // a category, keep only the member with the strongest evidence. Real
+        // cross-category fusion (chinese|vietnamese, japanese|thai) is untouched.
+        $keep = $this->collapseSameCategoryTags($keep, $aiSlugs, $name, $description, $matcher);
 
         $drop = array_values(array_diff($currentSlugs, array_keys($keep)));
         $add = array_values(array_diff($aiSlugs, array_keys($keep)));
