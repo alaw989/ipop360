@@ -118,6 +118,39 @@ class EnrichCuisineTaggingTest extends TestCase
         );
     }
 
+    public function test_tags_osm_venue_from_keyword_level_cuisine_tag(): void
+    {
+        Http::fake([
+            'bizdata-web.vercel.app/*' => Http::response(['total' => 0, 'businesses' => []], 200),
+            'overpass-api.de/*' => Http::response([
+                'elements' => [
+                    // Name carries no Lebanese keyword; the OSM `cuisine`
+                    // tag is keyword-level (mediterranean is in the Lebanese
+                    // lexicon), so it must be credited as evidence.
+                    $this->osmNode(12346, 'Cedars House', ['cuisine' => 'mediterranean']),
+                ],
+            ], 200),
+            'query.wikidata.org/*' => Http::response(['results' => ['bindings' => []]], 200),
+        ]);
+
+        $category = CuisineCategory::create(['name' => 'Middle Eastern', 'slug' => 'middle-eastern']);
+        $cuisine = Cuisine::create([
+            'category_id' => $category->id,
+            'name' => 'Lebanese',
+            'slug' => 'lebanese',
+        ]);
+
+        $service = app(RestaurantEnrichmentService::class);
+        $service->enrichByCuisine(37.7749, -122.4194, $cuisine);
+
+        $restaurant = Restaurant::where('name', 'Cedars House')->first();
+        $this->assertNotNull($restaurant);
+        $this->assertTrue(
+            $restaurant->cuisines->pluck('slug')->contains('lebanese'),
+            'An OSM venue tagged cuisine=mediterranean must be tagged lebanese'
+        );
+    }
+
     public function test_re_enriching_does_not_add_an_unmatched_cuisine_to_existing_row(): void
     {
         Http::fake([

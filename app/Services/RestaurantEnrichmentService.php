@@ -453,7 +453,18 @@ class RestaurantEnrichmentService
 
         if (! $hasEvidence) {
             foreach (($venue['cuisines'] ?? []) as $venueCuisine) {
-                if (strtolower((string) ($venueCuisine['slug'] ?? '')) === $cuisine->slug) {
+                $slug = strtolower((string) ($venueCuisine['slug'] ?? ''));
+                // Exact seeded-slug match (cuisine=vietnamese for vietnamese).
+                if ($slug !== '' && $slug === $cuisine->slug) {
+                    $hasEvidence = true;
+
+                    break;
+                }
+                // Keyword-level OSM tag (cuisine=mediterranean / arab / kebab for
+                // a Lebanese/Middle-Eastern tag): credit it against the searched
+                // cuisine's own lexicon. Mirrors the live-search stamp, so a venue
+                // tagged with a sibling keyword is tagged, not silently dropped.
+                if ($slug !== '' && $this->cuisineMatcher->matchesEvidence($slug, $cuisine->slug)) {
                     $hasEvidence = true;
 
                     break;

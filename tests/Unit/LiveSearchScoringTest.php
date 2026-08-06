@@ -562,10 +562,10 @@ class LiveSearchScoringTest extends TestCase
     public function test_live_search_drops_bizdata_venue_without_cuisine_keyword(): void
     {
         // The reported bug: a Chinese search surfaced El Comal / Asian Garden from
-        // BizData (BizData ignores its cuisine `query` param). Previously off-keyword
-        // BizData rows were hard-dropped, but now they are kept with cuisine_match=0.0
-        // so results appear even when Overpass/SerpApi are unavailable. The confidence
-        // filter drops them when 2+ confident matches exist.
+        // BizData (BizData ignores its cuisine `query` param). BizData rows with
+        // no on-cuisine evidence are pure noise, so the confidence filter drops
+        // them — both when 2+ confident matches exist and in padding mode (they
+        // come from an unfiltered source, unlike trusted-source ambiguous rows).
         $this->seedCuisine('Chinese', 'chinese');
 
         $service = $this->makeServiceWithVenues([
@@ -580,18 +580,16 @@ class LiveSearchScoringTest extends TestCase
         $names = array_column($results, 'name');
 
         $this->assertContains('China Wok', $names);
-        // BizData rows without on-keywords are now kept as ambiguous (cuisine_match=0.0)
-        // rather than hard-dropped, so they appear when no confident matches exist.
-        $this->assertContains('El Comal | Tacos y Cantina', $names);
-        $this->assertContains('Asian Garden', $names);
+        $this->assertNotContains('El Comal | Tacos y Cantina', $names);
+        $this->assertNotContains('Asian Garden', $names);
     }
 
     public function test_live_search_keeps_trusted_source_venue_by_name_keyword(): void
     {
         // "Panda Express" contains "panda" (a Chinese ON keyword), so it
         // survives the cuisine filter even without place_types/description.
-        // Cracker Barrel (bizdata) has no Chinese keyword but is now kept
-        // as ambiguous (cuisine_match=0.0) rather than hard-dropped.
+        // Cracker Barrel (bizdata) has no Chinese keyword and no on-cuisine
+        // evidence, so the confidence filter drops it even in padding mode.
         $this->seedCuisine('Chinese', 'chinese');
 
         $service = $this->makeServiceWithVenues([
@@ -607,7 +605,7 @@ class LiveSearchScoringTest extends TestCase
         $names = array_column($results, 'name');
 
         $this->assertContains('Panda Express', $names);
-        $this->assertContains('Cracker Barrel', $names);
+        $this->assertNotContains('Cracker Barrel', $names);
     }
 
     public function test_live_search_drops_serpapi_off_cuisine_venue_with_rival_type(): void
@@ -750,8 +748,9 @@ class LiveSearchScoringTest extends TestCase
     public function test_cuisine_filter_unmapped_cuisine_falls_back_to_bare_word(): void
     {
         // Filipino is now fully mapped in config/cuisine-keywords.php (it was
-        // previously unmapped). An on-cuisine venue survives; an off-cuisine one
-        // is kept as ambiguous (cuisine_match=0.0) rather than hard-dropped.
+        // previously unmapped). An on-cuisine venue survives; an off-cuisine
+        // BizData row has no evidence, so the confidence filter drops it even
+        // in padding mode (unfiltered-source noise, not a recall gap).
         $this->seedCuisine('Filipino', 'filipino');
 
         $service = $this->makeServiceWithVenues([
@@ -765,9 +764,9 @@ class LiveSearchScoringTest extends TestCase
         $names = array_column($results, 'name');
 
         $this->assertContains('Filipino Kitchen', $names);
-        // Buddy Seafood has no Filipino keyword but is kept as ambiguous
-        // (cuisine_match=0.0) — the confidence filter handles the rest.
-        $this->assertContains('Buddy Seafood', $names);
+        // Buddy Seafood has no Filipino keyword and comes from the unfiltered
+        // source — dropped as noise rather than padded into the result list.
+        $this->assertNotContains('Buddy Seafood', $names);
     }
 
     public function test_category_search_filters_to_member_cuisines(): void
@@ -1670,6 +1669,47 @@ class LiveSearchScoringTest extends TestCase
 
         $this->assertContains('Sông Huong', $names);
         $this->assertContains('Pho 813', $names);
+    }
+
+    /**
+     * The El Paso "Middle Eastern" regression: OSM tags are keyword-level
+     * (cuisine=mediterranean / arab / kebab), not seeded slugs, so the stamp
+     * must credit them as confident on a category search. BizData's unrelated
+     * noise (Applebee's etc., tagged cuisine=restaurant by no one anymore) is
+     * then dropped by the confidence filter instead of flooding the list.
+     */
+    public function test_middle_eastern_category_keeps_keyword_tagged_osm_and_drops_bizdata_noise(): void
+    {
+        $service = $this->makeServiceWithVenues([
+            'overpass' => [
+                [
+                    'name' => 'Lamezze',
+                    'source' => 'overpass',
+                    'lat' => 31.759, 'lng' => -106.486,
+                    'cuisines' => [['id' => 1, 'name' => 'Mediterranean', 'slug' => 'mediterranean']],
+                ],
+                [
+                    'name' => 'Jerusalem Grill',
+                    'source' => 'overpass',
+                    'lat' => 31.760, 'lng' => -106.487,
+                    'cuisines' => [['id' => 2, 'name' => 'Arabic', 'slug' => 'arab']],
+                ],
+            ],
+            'bizdata' => [
+                ['name' => 'Applebee\'s', 'source' => 'bizdata', 'lat' => 31.793, 'lng' => -106.395],
+                ['name' => 'Buffalo Wild Wings', 'source' => 'bizdata', 'lat' => 31.794, 'lng' => -106.396],
+                ['name' => 'Barrigas', 'source' => 'bizdata', 'lat' => 31.795, 'lng' => -106.397],
+            ],
+        ]);
+
+        $results = $service->search(31.7587, -106.4499, null, 'middle-eastern');
+        $names = array_column($results, 'name');
+
+        $this->assertContains('Lamezze', $names);
+        $this->assertContains('Jerusalem Grill', $names);
+        $this->assertNotContains('Applebee\'s', $names);
+        $this->assertNotContains('Buffalo Wild Wings', $names);
+        $this->assertNotContains('Barrigas', $names);
     }
 
     /**

@@ -220,11 +220,9 @@ class FavoriteController extends Controller
         }
 
         // Resolve cuisines ONCE, up-front: keep only ids that actually exist in
-        // the cuisines table. Live-source results embed a synthetic placeholder
-        // cuisine id (abs(crc32('restaurant')), see SerpApiService /
-        // SocrataOpenDataService / BizDataApiService) whose 'restaurant' slug is
-        // decorative — it must never reach the cuisine_restaurant pivot or its FK
-        // rejects it. Real ids pass through unchanged. (spec-085)
+        // the cuisines table. This guards the cuisine_restaurant pivot FK against
+        // any synthetic/unknown cuisine id a client sends (spec-085). Real ids
+        // pass through unchanged.
         $cuisineIds = $this->resolveCuisineIds($data['cuisines'] ?? null);
 
         // Quarantine + create + attach in a transaction. A concurrent create
@@ -278,9 +276,8 @@ class FavoriteController extends Controller
     /**
      * Extract cuisine ids from the client payload and keep only those that
      * actually exist in the cuisines table. Dropping unknown ids here is what
-     * stops a live result's synthetic placeholder cuisine
-     * (abs(crc32('restaurant'))) from ever reaching the cuisine_restaurant
-     * pivot FK. (spec-085)
+     * stops a synthetic/unknown cuisine id (e.g. a placeholder a client echoes
+     * back) from ever reaching the cuisine_restaurant pivot FK. (spec-085)
      */
     private function resolveCuisineIds(mixed $cuisines): array
     {

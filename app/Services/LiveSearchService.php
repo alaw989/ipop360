@@ -531,6 +531,9 @@ class LiveSearchService
         $threshold = (float) config('restaurant-finder.ranking.cuisine_confidence.confidence_threshold', 0.3);
         $minResults = (int) config('restaurant-finder.ranking.cuisine_confidence.min_confident_results', 2);
 
+        $unfiltered = config('restaurant-finder.filters.cuisine_unfiltered_sources', ['bizdata']);
+        $unfilteredSet = array_flip(array_map('strtolower', $unfiltered));
+
         $confident = [];
         foreach ($results as $result) {
             $cuisineMatch = (float) ($result['cuisine_match'] ?? 0.0);
@@ -543,7 +546,23 @@ class LiveSearchService
             return $confident;
         }
 
-        return $results;
+        // Padding mode (fewer confident matches than min_results): keep the
+        // confident rows plus ambiguous rows from trusted sources (a real venue
+        // with no name keyword — e.g. "Olive Garden" for Italian — still shows,
+        // ranked below matches). Drop zero-evidence rows from UNFILTERED sources
+        // (BizData returns EVERY nearby restaurant regardless of the cuisine
+        // query): they are pure noise, and without this a low-coverage city
+        // floods its scoped results with unrelated venues like Applebee's.
+        return array_values(array_filter($results, function ($r) use ($threshold, $unfilteredSet) {
+            $cuisineMatch = (float) ($r['cuisine_match'] ?? 0.0);
+            if ($cuisineMatch >= $threshold) {
+                return true;
+            }
+
+            $source = strtolower((string) ($r['source'] ?? ''));
+
+            return ! isset($unfilteredSet[$source]);
+        }));
     }
 
     /**
@@ -892,9 +911,20 @@ class LiveSearchService
             // keyword, yet it is unambiguously on-cuisine. Without this, the
             // cuisine-confidence filter drops it (name-ambiguous → 0.0), so a
             // city's real venues get hidden whenever ≥2 keyword-named ones exist.
+            // OSM tags are often keyword-level, not seeded slugs (e.g.
+            // cuisine=mediterranean / arab / kebab for a Middle Eastern search),
+            // so a tag counts when its slug is a target slug OR its slug/name
+            // carries an on-cuisine keyword.
             foreach (($r['cuisines'] ?? []) as $venueCuisine) {
                 $slug = strtolower((string) ($venueCuisine['slug'] ?? ''));
                 if ($slug !== '' && isset($targetSlugs[$slug])) {
+                    $r['cuisine_match'] = 1.0;
+
+                    continue 2;
+                }
+
+                $tagText = trim($slug.' '.($venueCuisine['name'] ?? ''));
+                if ($tagText !== '' && preg_match($onPattern, $tagText) === 1) {
                     $r['cuisine_match'] = 1.0;
 
                     continue 2;
