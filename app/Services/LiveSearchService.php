@@ -880,11 +880,26 @@ class LiveSearchService
         }
 
         $onPattern = '/'.implode('|', $scope->onKeywords).'/i';
+        $targetSlugs = array_flip($scope->targetSlugs);
 
         foreach ($results as &$r) {
             $name = (string) ($r['name'] ?? '');
             $placeTypes = is_array($r['place_types'] ?? null) ? implode(' ', $r['place_types']) : '';
             $description = (string) ($r['description'] ?? '');
+
+            // A venue's OWN cuisine tags are the strongest signal: an OSM row
+            // tagged cuisine=vietnamese but named "Sông Huong" carries no name
+            // keyword, yet it is unambiguously on-cuisine. Without this, the
+            // cuisine-confidence filter drops it (name-ambiguous → 0.0), so a
+            // city's real venues get hidden whenever ≥2 keyword-named ones exist.
+            foreach (($r['cuisines'] ?? []) as $venueCuisine) {
+                $slug = strtolower((string) ($venueCuisine['slug'] ?? ''));
+                if ($slug !== '' && isset($targetSlugs[$slug])) {
+                    $r['cuisine_match'] = 1.0;
+
+                    continue 2;
+                }
+            }
 
             if ($name !== '' && preg_match($onPattern, $name) === 1) {
                 $r['cuisine_match'] = 1.0;
