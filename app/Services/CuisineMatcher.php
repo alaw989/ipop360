@@ -152,6 +152,43 @@ class CuisineMatcher
     }
 
     /**
+     * Does arbitrary text carry positive evidence for a cuisine? Same keyword
+     * lexicon + regex approach as the live-search on-cuisine pattern, so a
+     * venue is only ever tagged with a cuisine its name/description actually
+     * support. Unknown slugs return false.
+     */
+    public function matchesEvidence(string $text, string $cuisineSlug): bool
+    {
+        $cuisines = $this->cuisines();
+        if (! isset($cuisines[$cuisineSlug])) {
+            return false;
+        }
+
+        $text = trim($text);
+        if ($text === '') {
+            return false;
+        }
+
+        $pattern = '/'.implode('|', $this->keywordsFor([$cuisineSlug])).'/i';
+
+        return preg_match($pattern, $text) === 1;
+    }
+
+    /**
+     * Does a normalized venue array carry positive evidence for a cuisine?
+     * Checks name + place_types + description (the same fields the live-search
+     * relevance filter and cuisine_match stamp use).
+     */
+    public function venueMatchesCuisine(array $venue, string $cuisineSlug): bool
+    {
+        $name = (string) ($venue['name'] ?? '');
+        $placeTypes = is_array($venue['place_types'] ?? null) ? implode(' ', $venue['place_types']) : '';
+        $description = (string) ($venue['description'] ?? '');
+
+        return $this->matchesEvidence(trim($name.' '.$placeTypes.' '.$description), $cuisineSlug);
+    }
+
+    /**
      * Build a SCOPE: requested=true, resolved=true, with computed keyword sets.
      *
      * @param  string[]  $targetSlugs

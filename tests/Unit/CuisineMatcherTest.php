@@ -178,4 +178,52 @@ class CuisineMatcherTest extends TestCase
         $this->assertSame('South African', $this->matcher->humanize('south-african'));
         $this->assertSame('Tex Mex', $this->matcher->humanize('tex-mex'));
     }
+
+    public function test_matches_evidence_true_for_on_cuisine_keywords(): void
+    {
+        $this->assertTrue($this->matcher->matchesEvidence("Tony's Pizza", 'italian'));
+        $this->assertTrue($this->matcher->matchesEvidence('Pho 24 Saigon', 'vietnamese'));
+        $this->assertTrue($this->matcher->matchesEvidence('Taco Bell', 'mexican'));
+    }
+
+    public function test_matches_evidence_false_for_unrelated_names(): void
+    {
+        $this->assertFalse($this->matcher->matchesEvidence('Arco Iris', 'vietnamese'));
+        $this->assertFalse($this->matcher->matchesEvidence("Jimmy's Grill", 'italian'));
+        $this->assertFalse($this->matcher->matchesEvidence('Applebee\'s', 'vietnamese'));
+    }
+
+    public function test_matches_evidence_false_for_unknown_or_empty_input(): void
+    {
+        $this->assertFalse($this->matcher->matchesEvidence('anything', 'not-a-cuisine'));
+        $this->assertFalse($this->matcher->matchesEvidence('', 'italian'));
+        $this->assertFalse($this->matcher->matchesEvidence('   ', 'italian'));
+    }
+
+    public function test_venue_matches_cuisine_checks_name_types_and_description(): void
+    {
+        // name evidence
+        $this->assertTrue($this->matcher->venueMatchesCuisine(
+            ['name' => 'Pho Saigon', 'place_types' => [], 'description' => null],
+            'vietnamese',
+        ));
+
+        // place_types evidence (Google structured types, e.g. "vietnamese_restaurant")
+        $this->assertTrue($this->matcher->venueMatchesCuisine(
+            ['name' => "Jimmy's", 'place_types' => ['restaurant', 'vietnamese_restaurant'], 'description' => null],
+            'vietnamese',
+        ));
+
+        // description evidence
+        $this->assertTrue($this->matcher->venueMatchesCuisine(
+            ['name' => "Jimmy's", 'place_types' => [], 'description' => 'Authentic banh mi and pho'],
+            'vietnamese',
+        ));
+
+        // no evidence anywhere
+        $this->assertFalse($this->matcher->venueMatchesCuisine(
+            ['name' => 'Arco Iris', 'place_types' => [], 'description' => null],
+            'vietnamese',
+        ));
+    }
 }

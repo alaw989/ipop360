@@ -442,7 +442,28 @@ class RestaurantEnrichmentService
             $restaurant = Restaurant::create($attributes);
         }
 
-        $restaurant->cuisines()->syncWithoutDetaching([$cuisine->id]);
+        // Only attach the searched cuisine when the venue actually carries
+        // evidence for it. The offline enrichment grid runs every city x
+        // cuisine, and unfiltered sources (BizData ignores its query param)
+        // return ALL nearby restaurants — so tagging every venue would stamp
+        // wrong cuisines onto the pivot. The venue is persisted either way;
+        // the tag just isn't attached. Evidence = name / place_types /
+        // description match, or the venue's own OSM `cuisine` tag.
+        $hasEvidence = $this->cuisineMatcher->venueMatchesCuisine($venue, $cuisine->slug);
+
+        if (! $hasEvidence) {
+            foreach (($venue['cuisines'] ?? []) as $venueCuisine) {
+                if (strtolower((string) ($venueCuisine['slug'] ?? '')) === $cuisine->slug) {
+                    $hasEvidence = true;
+
+                    break;
+                }
+            }
+        }
+
+        if ($hasEvidence) {
+            $restaurant->cuisines()->syncWithoutDetaching([$cuisine->id]);
+        }
 
         // Post-creation backfill: if still no website_url, check cache by phone
         if (empty($restaurant->website_url) && ! empty($venue['phone'])) {

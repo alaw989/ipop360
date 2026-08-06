@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Cuisine;
+use App\Services\CuisineMatcher;
 use App\Services\GeolocationService;
 use App\Services\LiveSearchService;
 use App\Services\LiveVenuePersister;
@@ -34,6 +35,7 @@ class EnrichSearchResults implements ShouldQueue
         LiveSearchService $liveSearchService,
         GeolocationService $geolocationService,
         LiveVenuePersister $venuePersister,
+        CuisineMatcher $cuisineMatcher,
     ): void {
         $results = $liveSearchService->search(
             $this->lat,
@@ -56,15 +58,24 @@ class EnrichSearchResults implements ShouldQueue
             return;
         }
 
-        $persistCuisineIds = [];
+        // Candidate tags for a venue: the searched cuisine, or (for a category
+        // search) every member cuisine. The live search is recall-protective
+        // (ambiguous venues are kept, ranked low), so we must NOT blanket-tag
+        // every result — only venues that carry evidence for a candidate are
+        // tagged. A category search no longer stamps all member cuisines.
+        $candidateSlugs = [];
         if ($this->cuisineSlug) {
-            $persistCuisineIds = Cuisine::where('slug', $this->cuisineSlug)->pluck('id')->all();
+            $candidateSlugs = [$this->cuisineSlug];
         } elseif ($this->categorySlug) {
-            $persistCuisineIds = Cuisine::whereHas(
+            $candidateSlugs = Cuisine::whereHas(
                 'category',
                 fn ($q) => $q->where('slug', $this->categorySlug)
-            )->pluck('id')->all();
+            )->pluck('slug')->all();
         }
+
+        // slug => real DB id for any cuisine we may attach (candidates and
+        // OSM tags carried on the venue row).
+        $slugToId = Cuisine::pluck('id', 'slug')->all();
 
         $defaultLocation = $geolocationService->reverseGeocode($this->lat, $this->lng);
 
@@ -72,7 +83,24 @@ class EnrichSearchResults implements ShouldQueue
         $updated = 0;
 
         foreach ($results as $venue) {
-            $result = $venuePersister->persist($venue, $persistCuisineIds, $defaultLocation);
+            $ids = [];
+            foreach ($candidateSlugs as $slug) {
+                if ($cuisineMatcher->venueMatchesCuisine($venue, $slug)) {
+                    $ids[] = $slugToId[$slug] ?? null;
+                }
+            }
+
+            // OSM-sourced tags already carried by the venue resolve to real ids.
+            foreach (($venue['cuisines'] ?? []) as $venueCuisine) {
+                $slug = strtolower((string) ($venueCuisine['slug'] ?? ''));
+                if ($slug !== '' && isset($slugToId[$slug])) {
+                    $ids[] = $slugToId[$slug];
+                }
+            }
+
+            $ids = array_values(array_unique(array_filter($ids)));
+
+            $result = $venuePersister->persist($venue, $ids, $defaultLocation);
 
             if ($result['created']) {
                 $created++;

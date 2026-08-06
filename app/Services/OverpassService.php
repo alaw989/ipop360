@@ -699,6 +699,7 @@ class OverpassService
             'yelp_rating' => null,
             'yelp_review_count' => 0,
             'features' => $r['features'] ?? [],
+            'cuisines' => $r['cuisines'] ?? [],
             'source' => 'overpass',
         ];
     }
