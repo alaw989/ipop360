@@ -24,6 +24,10 @@ class EnrichFreeOnlyTest extends TestCase
         // live (un-faked) HTTP calls and inflate the persisted row counts. The
         // Google Places key is controlled per-test as before.
         Config::set('services.serpapi.api_key', null);
+
+        // Pin the Overpass mirror list to the single host these tests fake, so
+        // the 2-mirror pool can't leak stray requests to a real mirror.
+        Config::set('restaurant-finder.sources.overpass.mirrors', ['https://overpass-api.de/api/interpreter']);
     }
 
     private function makeCuisine(): Cuisine

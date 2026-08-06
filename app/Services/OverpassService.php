@@ -20,11 +20,23 @@ class OverpassService
         'vegan', 'vegetarian', 'gluten_free',
     ];
 
-    private array $mirrors = [
-        'https://overpass-api.de/api/interpreter',
-        'https://lz4.overpass-api.de/api/interpreter',
-        'https://overpass.kumi.systems/api/interpreter',
-    ];
+    private array $mirrors;
+
+    public function __construct()
+    {
+        // Env-overridable mirror list (comma-separated URLs in OVERPASS_MIRRORS).
+        // The canonical overpass-api.de aggressively IP-bans abusers, and some
+        // public mirrors are unreliable, so prod needs a working fallback. Verified
+        // reachable from the prod droplet (2026-08): overpass-api.de refuses the
+        // droplet's IP while maps.mail.ru's mirror serves OSM fine.
+        $configured = config('restaurant-finder.sources.overpass.mirrors', []);
+        $this->mirrors = $configured ?: [
+            'https://overpass-api.de/api/interpreter',
+            'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+            'https://lz4.overpass-api.de/api/interpreter',
+            'https://overpass.kumi.systems/api/interpreter',
+        ];
+    }
 
     /**
      * Search for restaurants near coordinates using OpenStreetMap data.
@@ -166,7 +178,9 @@ class OverpassService
             : 30.0;
         $serverTimeout = $readPath ? max(1, (int) ceil($clientTimeout)) : 25;
         $radii = $readPath ? [static::RADII[0]] : static::RADII;
-        $mirrors = $readPath ? [$this->mirrors[0]] : $this->mirrors;
+        // Live path: try the first two mirrors serially (the canonical mirror
+        // IP-bans the prod droplet, so the fallback mirror must be reachable).
+        $mirrors = $readPath ? array_slice($this->mirrors, 0, 2) : $this->mirrors;
 
         foreach ($radii as $r) {
             if ($r < $radius) {
@@ -606,14 +620,13 @@ class OverpassService
         $limit = (int) config('restaurant-finder.sources.overpass.live_limit', 80);
         $query = $this->buildQuery($lat, $lng, $resolved, 25000, $limit);
 
-        // Live path: use 1 mirror (the first, typically overpass-api.de).
-        // Overpass rate-limits to 2 concurrent slots per IP — firing 2 mirrors
-        // simultaneously consumes both slots and forces the serial name-regex
-        // fallback (which runs after the pool resolves) to queue behind them,
-        // causing persistent 30s+ timeouts. The name-regex fallback also uses
-        // the first mirror only, so both paths stay in sync.
+        // Live path: try the first two mirrors. The canonical overpass-api.de
+        // IP-bans the prod droplet (connection refused), so a single-mirror live
+        // fetch would contribute nothing; the pool consumes the first success.
+        // Both mirrors are independent servers, so this does NOT double up on
+        // overpass-api.de's 2-slot-per-IP limit.
         $specs = [];
-        $mirrorCount = ($context['read_path'] ?? false) ? 1 : min(2, count($this->mirrors));
+        $mirrorCount = ($context['read_path'] ?? false) ? 2 : min(2, count($this->mirrors));
         for ($i = 0; $i < $mirrorCount; $i++) {
             $specs[] = new RequestSpec(
                 method: 'POST',
