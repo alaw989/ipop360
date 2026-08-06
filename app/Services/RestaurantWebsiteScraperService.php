@@ -1061,7 +1061,7 @@ class RestaurantWebsiteScraperService
                     continue;
                 }
                 $url = $this->normalizePhotoUrl($content, $baseUrl);
-                if ($url !== null && ! in_array($url, $photos, true)) {
+                if (! in_array($url, $photos, true)) {
                     $photos[] = $url;
                     if (count($photos) >= $max) {
                         return $photos;
@@ -1080,7 +1080,7 @@ class RestaurantWebsiteScraperService
                     continue;
                 }
                 $url = $this->normalizePhotoUrl($src, $baseUrl);
-                if ($url === null || in_array($url, $photos, true)) {
+                if (in_array($url, $photos, true)) {
                     continue;
                 }
                 // Skip tracking/icon/sprite images (tiny or clearly non-photo).
@@ -1094,13 +1094,13 @@ class RestaurantWebsiteScraperService
             }
         }
 
-        return array_values(array_slice($photos, 0, $max));
+        return array_slice($photos, 0, $max);
     }
 
     /**
-     * Resolve a photo URL to an absolute https URL, or null if unusable.
+     * Resolve a photo URL to an absolute https URL.
      */
-    private function normalizePhotoUrl(string $content, string $baseUrl): ?string
+    private function normalizePhotoUrl(string $content, string $baseUrl): string
     {
         if (str_starts_with($content, 'http://') || str_starts_with($content, 'https://')) {
             return $content;
