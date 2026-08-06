@@ -200,6 +200,48 @@ class CuisineMatcherTest extends TestCase
         $this->assertFalse($this->matcher->matchesEvidence('   ', 'italian'));
     }
 
+    public function test_matches_rival_evidence_true_when_name_signals_another_cuisine(): void
+    {
+        // "Oishi Ramen" tagged chinese: the name signals Japanese, a rival.
+        $this->assertTrue($this->matcher->matchesRivalEvidence('Oishi Ramen', 'chinese'));
+        // "Pho 9" tagged korean: the name signals Vietnamese, a rival.
+        $this->assertTrue($this->matcher->matchesRivalEvidence('Pho 9', 'korean'));
+        // "Doner Kebab Express" tagged greek: kebab signals Turkish, a rival.
+        $this->assertTrue($this->matcher->matchesRivalEvidence('Doner Kebab Express', 'greek'));
+    }
+
+    public function test_matches_rival_evidence_false_for_neutral_names(): void
+    {
+        // A neutral name is not contradicted by any other cuisine.
+        $this->assertFalse($this->matcher->matchesRivalEvidence('Arco Iris', 'mexican'));
+        $this->assertFalse($this->matcher->matchesRivalEvidence('Mr. Dumpling', 'chinese'));
+    }
+
+    public function test_matches_rival_evidence_ignores_shared_keywords(): void
+    {
+        // "mediterranean" is a keyword of lebanese AND other ME cuisines — a
+        // shared keyword must not count as a rival contradiction.
+        $this->assertFalse($this->matcher->matchesRivalEvidence('Mediterranean Sandwich Co.', 'lebanese'));
+        $this->assertFalse($this->matcher->matchesRivalEvidence('Halal Grill', 'lebanese'));
+    }
+
+    public function test_matches_rival_evidence_false_for_unknown_cuisine(): void
+    {
+        $this->assertFalse($this->matcher->matchesRivalEvidence('anything', 'not-a-cuisine'));
+        $this->assertFalse($this->matcher->matchesRivalEvidence('', 'italian'));
+    }
+
+    public function test_lexicon_additions_recognize_real_venue_names(): void
+    {
+        // Data-backed additions: names that carry a cuisine word the search
+        // lexicon was too tight to include (verified single-cuisine in prod).
+        $this->assertTrue($this->matcher->matchesEvidence('Great Wall', 'chinese'));
+        $this->assertTrue($this->matcher->matchesEvidence('Hong Kong Teahouse', 'chinese'));
+        $this->assertTrue($this->matcher->matchesEvidence('Taste Of India', 'indian'));
+        $this->assertTrue($this->matcher->matchesEvidence('Bombay Palace', 'indian'));
+        $this->assertTrue($this->matcher->matchesEvidence('Texas de Brazil', 'brazilian'));
+    }
+
     public function test_venue_matches_cuisine_checks_name_types_and_description(): void
     {
         // name evidence

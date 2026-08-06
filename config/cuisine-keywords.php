@@ -41,13 +41,13 @@ return [
 
     'cuisines' => [
         // ── Asian ──────────────────────────────────────────────────────────
-        'chinese' => ['chinese', 'china', 'szechuan', 'sichuan', 'peking', 'beijing', 'cantonese', 'mandarin', 'dim.sum', 'wok', 'dragon', 'shanghai', 'hunan', 'mongolian', 'panda'],
+        'chinese' => ['chinese', 'china', 'szechuan', 'sichuan', 'peking', 'beijing', 'cantonese', 'mandarin', 'dim.sum', 'wok', 'dragon', 'shanghai', 'hunan', 'mongolian', 'panda', 'dumpling', 'hong.kong', 'great.wall', 'chengdu', 'yunnan', 'oriental'],
         'japanese' => ['japanese', 'sushi', 'ramen', 'teriyaki', 'bento', 'teppan', 'izakaya', 'hibachi', 'sashimi', 'tempura', 'udon', 'yakitori', 'tonkatsu'],
         'korean' => ['korean', 'seoul', 'kimchi', 'bulgogi', 'bibimbap', 'gochujang', 'galbi'],
         'thai' => ['thai', 'thailand', 'bangkok', 'pad.thai', 'tom.yum', 'lemongrass', 'som.tum', 'massaman'],
         'vietnamese' => ['vietnamese', 'pho', 'saigon', 'hanoi', 'banh.mi', 'bun.cha', 'goi.cuon'],
         'filipino' => ['filipino', 'pinoy', 'adobo', 'lumpia', 'sinigang', 'lechon', 'pancit', 'halo.halo', 'sisig', 'kare.kare'],
-        'indian' => ['indian', 'tandoor', 'curry', 'biryani', 'masala', 'korma', 'naan', 'dosa', 'samosa', 'paneer', 'chaat', 'butter.chicken', 'halal', 'kabob'],
+        'indian' => ['indian', 'india', 'tandoor', 'curry', 'biryani', 'masala', 'korma', 'naan', 'dosa', 'samosa', 'paneer', 'chaat', 'butter.chicken', 'halal', 'kabob', 'bombay', 'mumbai'],
         'malaysian' => ['malaysian', 'laksa', 'satay', 'nasi.lemak', 'roti.canai', 'char.kway.teow', 'rendang'],
         'indonesian' => ['indonesian', 'nasi.goreng', 'rendang', 'sate', 'sambal', 'gado.gado', 'mie.goreng', 'rijsttafel'],
         'taiwanese' => ['taiwanese', 'bubble.tea', 'boba', 'beef.noodle', 'lu.rou.fan', 'gua.bao', 'scallion.pancake'],
@@ -72,7 +72,7 @@ return [
 
         // ── Latin American ─────────────────────────────────────────────────
         'mexican' => ['mexican', 'taqueria', 'taco', 'burrito', 'jalapeno', 'fajita', 'quesadilla', 'enchilada', 'mole', 'tortilla', 'carnitas'],
-        'brazilian' => ['brazilian', 'churrasco', 'feijoada', 'pao.de.queijo', 'moqueca', 'caipirinha', 'acai', 'coxinha', 'picanha'],
+        'brazilian' => ['brazilian', 'brazil', 'churrasco', 'feijoada', 'pao.de.queijo', 'moqueca', 'caipirinha', 'acai', 'coxinha', 'picanha'],
         'peruvian' => ['peruvian', 'ceviche', 'lomo.saltado', 'anticucho', 'causa', 'pollo.a.la.brasa', 'rocoto'],
         'argentine' => ['argentine', 'argentinian', 'asado', 'empanada', 'chimichurri', 'milanesa', 'alfajor', 'choripan', 'matambre'],
         'colombian' => ['colombian', 'arepa', 'bandeja.paisa', 'sancocho', 'ajiaco', 'aguapanela', 'chicharron', 'buñuelo'],

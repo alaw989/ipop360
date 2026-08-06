@@ -175,6 +175,52 @@ class CuisineMatcher
     }
 
     /**
+     * Does text carry positive evidence for ANY cuisine OTHER than the given
+     * slug? Used by the tag audit: a tag should be dropped when the venue's
+     * name/description visibly signals a DIFFERENT cuisine (a positive
+     * contradiction), not merely when it lacks support. Shared on-cuisine
+     * keywords are excluded so a "Mediterranean Sandwich Co." row tagged
+     * lebanese isn't contradicted by "mediterranean" (which is also a lebanese
+     * keyword).
+     */
+    public function matchesRivalEvidence(string $text, string $cuisineSlug): bool
+    {
+        $cuisines = $this->cuisines();
+        if (! isset($cuisines[$cuisineSlug])) {
+            return false;
+        }
+
+        $text = trim($text);
+        if ($text === '') {
+            return false;
+        }
+
+        $onSet = array_flip($this->keywordsFor([$cuisineSlug]));
+
+        $rivals = [];
+        foreach ($cuisines as $slug => $keywords) {
+            if ($slug === $cuisineSlug) {
+                continue;
+            }
+            foreach ($keywords as $keyword) {
+                // A keyword shared with the tagged cuisine is never a rival
+                // signal (e.g. "mediterranean"/"halal" span many cuisines).
+                if (isset($onSet[$keyword])) {
+                    continue;
+                }
+                $rivals[] = $keyword;
+            }
+        }
+
+        $rivals = array_values(array_unique($rivals));
+        if ($rivals === []) {
+            return false;
+        }
+
+        return preg_match('/'.implode('|', $rivals).'/i', $text) === 1;
+    }
+
+    /**
      * Does a normalized venue array carry positive evidence for a cuisine?
      * Checks name + place_types + description (the same fields the live-search
      * relevance filter and cuisine_match stamp use).
