@@ -642,10 +642,11 @@ class RestaurantWebsiteScraperService
                     'opening_hours' => $this->extractOpeningHours($dom, $xpath, $url),
                     'menu_url' => $this->extractMenuUrl($dom, $xpath, $url),
                     'photo_url' => $this->extractPhotoUrl($dom, $xpath, $url),
+                    'photos' => $this->extractPhotos($dom, $xpath, $url),
                 ];
 
                 // Only return result if we found something useful
-                if ($result['opening_hours'] !== null || $result['menu_url'] !== null || $result['photo_url'] !== null) {
+                if ($result['opening_hours'] !== null || $result['menu_url'] !== null || $result['photo_url'] !== null || ! empty($result['photos'])) {
                     return $result;
                 }
 
@@ -1028,6 +1029,87 @@ class RestaurantWebsiteScraperService
         }
 
         return null;
+    }
+
+    /**
+     * Collect MULTIPLE photo URLs for the card gallery: og:image /
+     * og:image:secure_url / twitter:image meta tags, plus a bounded set of
+     * <img> srcs from the page (deduped, absolute, capped at MAX_GALLERY_PHOTOS).
+     * Free — purely the venue's own website, no third-party image service.
+     *
+     * @return string[] Absolute, deduplicated photo URLs (0..MAX_GALLERY_PHOTOS)
+     */
+    public function extractPhotos(DOMDocument $dom, DOMXPath $xpath, string $baseUrl): array
+    {
+        $max = (int) config('restaurant-finder.live_search.gallery_photos_max', 6);
+
+        $photos = [];
+
+        // 1) Meta-tag photos (og:image + twitter:image), in priority order.
+        foreach ([
+            "//meta[@property='og:image']",
+            "//meta[@property='og:image:secure_url']",
+            "//meta[@name='twitter:image']",
+        ] as $pattern) {
+            $nodes = $xpath->query($pattern);
+            if ($nodes === false || $nodes->length === 0) {
+                continue;
+            }
+            foreach ($nodes as $node) {
+                $content = $node->getAttribute('content');
+                if (empty($content)) {
+                    continue;
+                }
+                $url = $this->normalizePhotoUrl($content, $baseUrl);
+                if ($url !== null && ! in_array($url, $photos, true)) {
+                    $photos[] = $url;
+                    if (count($photos) >= $max) {
+                        return $photos;
+                    }
+                }
+            }
+        }
+
+        // 2) Fall back to page <img> elements (e.g. hero/gallery markup without
+        // og:image). Skipped once the meta photos already fill the gallery.
+        $imgNodes = $xpath->query('//img[@src]');
+        if ($imgNodes !== false) {
+            foreach ($imgNodes as $img) {
+                $src = $img->getAttribute('src');
+                if (empty($src) || str_contains($src, 'data:image')) {
+                    continue;
+                }
+                $url = $this->normalizePhotoUrl($src, $baseUrl);
+                if ($url === null || in_array($url, $photos, true)) {
+                    continue;
+                }
+                // Skip tracking/icon/sprite images (tiny or clearly non-photo).
+                if (preg_match('/\.(svg|gif|ico|png)(\?|$)/i', $url) === 1) {
+                    continue;
+                }
+                $photos[] = $url;
+                if (count($photos) >= $max) {
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_slice($photos, 0, $max));
+    }
+
+    /**
+     * Resolve a photo URL to an absolute https URL, or null if unusable.
+     */
+    private function normalizePhotoUrl(string $content, string $baseUrl): ?string
+    {
+        if (str_starts_with($content, 'http://') || str_starts_with($content, 'https://')) {
+            return $content;
+        }
+        if (str_starts_with($content, '//')) {
+            return 'https:'.$content;
+        }
+
+        return $this->resolveUrl($content, $baseUrl);
     }
 
     /**
