@@ -418,13 +418,16 @@ class LiveSearchService
      */
     private function applyOverpassNameFallback(array $merged, float $lat, float $lng, array $keywords): array
     {
-        // Use generic restaurant keywords for the name-regex search so Overpass
-        // can find untagged restaurants regardless of cuisine scope. The
-        // downstream cuisine-relevance and confidence filters handle classifying
-        // the returned rows. The $keywords parameter is ignored for scoped
-        // searches since it contains narrow dish-level terms that miss
-        // restaurants with generic names (e.g. "Cafe Soriah" for Middle Eastern).
-        $keywords = ['restaurant', 'cafe', 'grill', 'pizza', 'kitchen', 'bar', 'diner', 'bistro', 'sushi', 'taco', 'burger', 'thai', 'italian', 'mexican', 'chinese', 'japanese', 'indian', 'breakfast', 'lunch', 'dinner'];
+        // Generic restaurant keywords keep broad recall (untagged restaurants
+        // are classified downstream). On a SCOPED search, union in the scope's
+        // own on-cuisine keywords (e.g. pho/saigon/vietnamese) so named-but-
+        // untagged OSM places like "Pho 813" are actually found — the generic
+        // list alone misses every cuisine-named venue. The downstream cuisine-
+        // relevance and confidence filters still classify what comes back.
+        $keywords = array_values(array_unique(array_merge(
+            ['restaurant', 'cafe', 'grill', 'pizza', 'kitchen', 'bar', 'diner', 'bistro', 'sushi', 'taco', 'burger', 'thai', 'italian', 'mexican', 'chinese', 'japanese', 'indian', 'breakfast', 'lunch', 'dinner'],
+            $keywords
+        )));
 
         foreach ($merged as $r) {
             if (($r['source'] ?? null) === 'overpass') {

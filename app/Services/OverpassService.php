@@ -345,6 +345,13 @@ class OverpassService
 
     /**
      * Build a cuisine filter regex that handles semicolons and OSM tag variants.
+     *
+     * Overpass's regex engine is POSIX-ERE-ish: it REJECTS non-capturing
+     * `(?:...)` groups with "static error: Invalid regular expression". The
+     * `(^|;)...($|;)` capturing form is valid and matches the token at the
+     * start of the tag, after a `;`, at the end, or before a `;` — so
+     * `vietnamese` matches `vietnamese` and `french;vietnamese` but not
+     * `nonvietnamese`.
      */
     private function buildCuisineFilter(string $cuisine): string
     {
@@ -352,7 +359,7 @@ class OverpassService
             ? explode('|', $cuisine)
             : [$cuisine];
 
-        $parts = array_map(fn ($p) => '(?:^|;)'.preg_quote($p, '/').'(?:$|;)', $parts);
+        $parts = array_map(fn ($p) => '(^|;)'.preg_quote($p, '/').'($|;)', $parts);
 
         return implode('|', $parts);
     }
