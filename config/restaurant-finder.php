@@ -404,6 +404,11 @@ return [
         // visible (and pagination in spec-068 has rows to slice).
         'max_results' => (int) env('LIVE_SEARCH_MAX_RESULTS', 60),
 
+        // Card gallery depth: max photo URLs stored per venue (photos column)
+        // and served by the frontend gallery. Collected free from the venue's
+        // own website og:image/<img> tags. The RestaurantCard shows up to 6.
+        'gallery_photos_max' => (int) env('LIVE_SEARCH_GALLERY_PHOTOS_MAX', 6),
+
         // Quality floor: drop scored rows below this popularity_score before the
         // max_results cap. Scores are normalized per active set, so a fixed floor
         // is unreliable across result sets — it defaults to 0 (off). The

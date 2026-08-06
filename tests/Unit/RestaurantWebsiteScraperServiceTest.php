@@ -168,6 +168,47 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
         $this->assertEquals('https://example.com/menu', $result['menu_url']);
     }
 
+    public function test_scrape_extracts_photo_gallery_and_og_image(): void
+    {
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><head>'
+                .'<meta property="og:image" content="https://cdn.example.com/og.jpg">'
+                .'<meta property="og:image:secure_url" content="https://cdn.example.com/og-secure.jpg">'
+                .'<meta name="twitter:image" content="https://cdn.example.com/tw.jpg">'
+                .'</head><body>'
+                .'<img src="https://cdn.example.com/photo1.jpg">'
+                .'<img src="/photo2.jpg">'
+                .'<img src="https://cdn.example.com/logo.png">'
+                .'<img src="data:image/png;base64,xxxx">'
+                .'<img src="https://cdn.example.com/banner.svg">'
+                .'</body></html>',
+                200
+            ),
+        ]);
+
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertIsArray($result);
+        $this->assertEquals('https://cdn.example.com/og.jpg', $result['photo_url']);
+        $this->assertArrayHasKey('photos', $result);
+
+        $photos = $result['photos'];
+        $this->assertContains('https://cdn.example.com/og.jpg', $photos);
+        $this->assertContains('https://cdn.example.com/tw.jpg', $photos);
+        // Relative <img> resolved to absolute.
+        $this->assertContains('https://example.com/photo2.jpg', $photos);
+        // Data-URIs, .svg/.png logos are excluded.
+        $this->assertNotContains('data:image/png;base64,xxxx', $photos);
+        $this->assertNotContains('https://cdn.example.com/logo.png', $photos);
+        $this->assertNotContains('https://cdn.example.com/banner.svg', $photos);
+        // Deduped: og.jpg appears once.
+        $this->assertSame(1, count(array_filter($photos, fn ($p) => $p === 'https://cdn.example.com/og.jpg')));
+        // Capped at the gallery max (6 default).
+        $this->assertLessThanOrEqual(6, count($photos));
+    }
+
     public function test_scrape_returns_null_when_no_useful_data_found(): void
     {
         Http::fake([

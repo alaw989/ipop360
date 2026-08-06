@@ -622,15 +622,16 @@ class RestaurantEnrichmentService
                     continue;
                 }
 
+                // Note: photo backfill runs even when opening_hours already exist
+                // (previously the early-continue below skipped the photo fallback
+                // for hours-complete rows, leaving them permanently photo-less).
+                $scrapedData = empty($restaurant->opening_hours)
+                    ? $this->websiteScraper->scrape($restaurant->website_url)
+                    : null;
+
                 if (! empty($restaurant->opening_hours)) {
                     $alreadyHave++;
-
-                    continue;
-                }
-
-                $scrapedData = $this->websiteScraper->scrape($restaurant->website_url);
-
-                if ($scrapedData !== null && (! empty($scrapedData['opening_hours']) || ! empty($scrapedData['menu_url']) || ! empty($scrapedData['photo_url']))) {
+                } elseif ($scrapedData !== null && (! empty($scrapedData['opening_hours']) || ! empty($scrapedData['menu_url']) || ! empty($scrapedData['photo_url']))) {
                     $updates = [];
                     if (! empty($scrapedData['opening_hours'])) {
                         $updates['opening_hours'] = $scrapedData['opening_hours'];
@@ -655,23 +656,8 @@ class RestaurantEnrichmentService
                         'photo_url' => $scrapedData['photo_url'] ?? null,
                     ]);
                 } else {
-                    $failed++;
-
-                    if (empty($restaurant->photo_url)) {
-                        $photoUrl = $this->websiteScraper->searchAnyImage(
-                            $restaurant->name,
-                            $restaurant->city,
-                            $restaurant->state,
-                        );
-                        if ($photoUrl !== null) {
-                            $restaurant->update(['photo_url' => $photoUrl]);
-                            $imageFallbacks++;
-                            Log::channel('enrichment')->info('Image enrichment found photo via fallback', [
-                                'restaurant_id' => $restaurant->id,
-                                'restaurant_name' => $restaurant->name,
-                                'photo_url' => $photoUrl,
-                            ]);
-                        }
+                    if (empty($restaurant->opening_hours)) {
+                        $failed++;
                     }
 
                     Log::channel('enrichment')->info('Website scrape returned no opening hours', [
@@ -680,6 +666,26 @@ class RestaurantEnrichmentService
                         'website_url' => $restaurant->website_url,
                         'scraped_data_null' => $scrapedData === null,
                     ]);
+                }
+
+                // Photo fallback: scrape og:image (or search free sources) for any
+                // row that still lacks a photo, regardless of hours/menu state.
+                if (empty($restaurant->photo_url)) {
+                    $photoUrl = $this->websiteScraper->searchAnyImage(
+                        $restaurant->name,
+                        $restaurant->city,
+                        $restaurant->state,
+                        $restaurant->website_url,
+                    );
+                    if ($photoUrl !== null) {
+                        $restaurant->update(['photo_url' => $photoUrl]);
+                        $imageFallbacks++;
+                        Log::channel('enrichment')->info('Image enrichment found photo via fallback', [
+                            'restaurant_id' => $restaurant->id,
+                            'restaurant_name' => $restaurant->name,
+                            'photo_url' => $photoUrl,
+                        ]);
+                    }
                 }
             } catch (\Throwable $e) {
                 $failed++;
