@@ -493,6 +493,17 @@ return [
             // spec-067: raise the live read-path `out` cap (50→80) for more free
             // coverage. Enrichment keeps its own fan-out.
             'live_limit' => (int) env('OVERPASS_LIVE_LIMIT', 80),
+
+            // Overpass API mirrors, tried in order. The canonical overpass-api.de
+            // IP-bans heavy/abusive clients, so a working independent fallback
+            // (maps.mail.ru) keeps OSM recall alive when the primary refuses the
+            // deployment's IP. Comma-separated URLs, env-overridable.
+            'mirrors' => array_values(array_filter(array_map('trim', explode(',', env('OVERPASS_MIRRORS', implode(',', [
+                'https://overpass-api.de/api/interpreter',
+                'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+                'https://lz4.overpass-api.de/api/interpreter',
+                'https://overpass.kumi.systems/api/interpreter',
+            ])))))),
         ],
     ],
 

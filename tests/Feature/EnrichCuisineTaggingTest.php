@@ -26,6 +26,9 @@ class EnrichCuisineTaggingTest extends TestCase
         parent::setUp();
 
         Config::set('services.serpapi.api_key', null);
+
+        // Pin the Overpass mirror list to the single host these tests fake.
+        Config::set('restaurant-finder.sources.overpass.mirrors', ['https://overpass-api.de/api/interpreter']);
     }
 
     private function makeCuisine(): Cuisine

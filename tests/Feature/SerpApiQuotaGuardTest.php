@@ -32,6 +32,9 @@ class SerpApiQuotaGuardTest extends TestCase
         // Default: keep the circuit breaker well out of the way unless a test
         // explicitly tightens it.
         Config::set('restaurant-finder.serpapi.free_quota', 1000);
+
+        // Pin the Overpass mirror list to the single host these tests fake.
+        Config::set('restaurant-finder.sources.overpass.mirrors', ['https://overpass-api.de/api/interpreter']);
     }
 
     /** Fake every source; SerpApi returns one venue near the search area. */

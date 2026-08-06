@@ -395,9 +395,12 @@ jobs:
           # with {"data":[]} is the app's load-bearing failure mode (a cache-nuking
           # migration or an over-filtering ranking change); the old check only
           # confirmed a `data` key existed, so it shipped empty deploys green.
-          # Mobile/chinese historically returns ~13-30, so min=5 is recall-safe vs
-          # a transient SerpApi quota dip. DEPLOY_VERIFY_MIN_RESULTS=0 skips the
-          # COUNT check (kill-switch); the 200 + data-key checks always run.
+          # Mobile/chinese used to return ~13-30 (mostly ambiguous padding); since
+          # the cuisine-confidence filter drops padding when real matches exist,
+          # it honestly returns ~4-8. min=3 still catches catastrophically broken
+          # deploys (0 results) without being tripped by honest recall.
+          # DEPLOY_VERIFY_MIN_RESULTS=0 skips the COUNT check; the 200 + data-key
+          # checks always run.
           code=$(curl -s --connect-timeout 10 --max-time 30 -o /tmp/api.json -w '%{http_code}' 'https://ipop360.com/api/restaurants?cuisine=chinese&lat=30.6199783&lng=-88.1967496')
           if [ "$code" != "200" ]; then echo "API VERIFY FAILED: HTTP $code (expected 200)"; exit 1; fi
           python3 -c "
@@ -405,7 +408,7 @@ jobs:
           d = json.load(open('/tmp/api.json'))
           if 'data' not in d:
               print('API VERIFY FAILED: response has no data key'); sys.exit(1)
-          raw = os.environ.get('DEPLOY_VERIFY_MIN_RESULTS') or '5'
+          raw = os.environ.get('DEPLOY_VERIFY_MIN_RESULTS') or '3'
           mn = int(raw) if raw.isdigit() else 5
           n = len(d.get('data') or [])
           if mn > 0 and n < mn:
