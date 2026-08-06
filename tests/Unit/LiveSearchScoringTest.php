@@ -1639,6 +1639,40 @@ class LiveSearchScoringTest extends TestCase
     }
 
     /**
+     * A venue's OWN cuisine tags (OSM `cuisine=vietnamese`) are the strongest
+     * on-cuisine signal, even when the name carries no keyword (e.g. "Sông
+     * Huong"). Without this the cuisine-confidence filter would drop such
+     * venues whenever ≥2 keyword-named matches exist, hiding real restaurants.
+     */
+    public function test_cuisine_match_stamp_honors_osm_cuisine_tags(): void
+    {
+        $service = $this->makeServiceWithVenues([
+            'overpass' => [
+                [
+                    'name' => 'Sông Huong',
+                    'source' => 'overpass',
+                    'lat' => 30.65,
+                    'lng' => -88.20,
+                    'cuisines' => [['id' => 1, 'name' => 'Vietnamese', 'slug' => 'vietnamese']],
+                ],
+                [
+                    'name' => 'Pho 813',
+                    'source' => 'overpass',
+                    'lat' => 30.66,
+                    'lng' => -88.21,
+                    'cuisines' => [['id' => 1, 'name' => 'Vietnamese', 'slug' => 'vietnamese']],
+                ],
+            ],
+        ]);
+
+        $results = $service->search(30.6199783, -88.1967496, 'vietnamese');
+        $names = array_column($results, 'name');
+
+        $this->assertContains('Sông Huong', $names);
+        $this->assertContains('Pho 813', $names);
+    }
+
+    /**
      * Create a cuisine (with the category row its FK requires). Cuisine
      * resolution now reads config/cuisine-keywords.php via CuisineMatcher, so a
      * DB row is no longer required for search() to resolve a slug — kept for
