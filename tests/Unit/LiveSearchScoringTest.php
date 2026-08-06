@@ -1562,6 +1562,83 @@ class LiveSearchScoringTest extends TestCase
     }
 
     /**
+     * The OSM name-regex fallback must union the scope's on-cuisine keywords
+     * (pho/saigon/vietnamese) with the generic restaurant words, otherwise
+     * named-but-untagged OSM places like "Pho 813" are never surfaced. This is
+     * the second half of the OSM recall fix (the first being the POSIX-valid
+     * cuisine filter).
+     */
+    public function test_overpass_name_fallback_includes_scope_cuisine_keywords(): void
+    {
+        Http::fake(fn (Request $request) => Http::response([]));
+
+        $overpass = Mockery::mock(OverpassService::class);
+        $overpass->shouldReceive('cacheKeyFor')->andReturn('key:overpass');
+        $overpass->shouldReceive('poolRequestsFor')->andReturn([]); // cuisine query yields nothing
+        $overpass->shouldReceive('consumePoolResponses')->andReturn([]);
+
+        $overpass->shouldReceive('fetchByNameRaw')
+            ->once()
+            ->withArgs(function ($lat, $lng, array $keywords, ...$rest) {
+                $this->assertContains(
+                    'pho',
+                    $keywords,
+                    'the searched cuisine\'s dish keywords must reach the OSM name fallback'
+                );
+                $this->assertContains(
+                    'restaurant',
+                    $keywords,
+                    'generic restaurant keywords must remain in the fallback'
+                );
+
+                return true;
+            })
+            ->andReturn(['cached' => false, 'data' => []]);
+
+        $overpass->shouldReceive('normalizeRaw')->andReturn([
+            [
+                'name' => 'Pho 813',
+                'source' => 'overpass',
+                'lat' => 30.65,
+                'lng' => -88.20,
+                'cuisines' => [['id' => 1, 'name' => 'Vietnamese', 'slug' => 'vietnamese']],
+                'place_types' => [],
+                'description' => null,
+            ],
+        ]);
+
+        $bizdata = Mockery::mock(BizDataApiService::class);
+        $bizdata->shouldReceive('cacheKeyFor')->andReturn('key:bizdata');
+        $bizdata->shouldReceive('poolRequestsFor')->andReturn([]);
+        $bizdata->shouldReceive('consumePoolResponses')->andReturn([]);
+
+        $serpapi = Mockery::mock(SerpApiService::class);
+        $serpapi->shouldReceive('cacheKeyFor')->andReturn('key:serpapi');
+        $serpapi->shouldReceive('poolRequestsFor')->andReturn([]);
+        $serpapi->shouldReceive('consumePoolResponses')->andReturn([]);
+
+        $socrata = Mockery::mock(SocrataOpenDataService::class);
+        $socrata->shouldReceive('cacheKeyFor')->andReturn('key:socrata');
+        $socrata->shouldReceive('poolRequestsFor')->andReturn([]);
+        $socrata->shouldReceive('consumePoolResponses')->andReturn([]);
+
+        $service = new LiveSearchService(
+            $overpass,
+            $bizdata,
+            $serpapi,
+            $socrata,
+            $this->scoreService,
+            $this->app->make(CuisineMatcher::class),
+            $this->app->make(VenuePipeline::class),
+        );
+
+        $results = $service->search(30.6199783, -88.1967496, 'vietnamese');
+        $names = array_column($results, 'name');
+
+        $this->assertContains('Pho 813', $names);
+    }
+
+    /**
      * Create a cuisine (with the category row its FK requires). Cuisine
      * resolution now reads config/cuisine-keywords.php via CuisineMatcher, so a
      * DB row is no longer required for search() to resolve a slug — kept for

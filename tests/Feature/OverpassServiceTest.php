@@ -209,6 +209,35 @@ class OverpassServiceTest extends TestCase
         $this->assertSame(1, $callCount);
     }
 
+    /**
+     * The regression that killed OSM recall: buildCuisineFilter emitted
+     * `(?:^|;)...` non-capturing groups, which the Overpass regex engine rejects
+     * ("static error: Invalid regular expression") — so every cuisine-tagged
+     * OSM query 400'd and Overpass contributed nothing anywhere. The filter
+     * must be POSIX-ERE-valid: capturing groups only.
+     */
+    public function test_cuisine_filter_is_posix_valid(): void
+    {
+        $elements = [];
+        for ($i = 0; $i < 6; $i++) {
+            $elements[] = $this->makeNode('Place', 37.7749, -122.4194, $i + 1);
+        }
+
+        Http::fake([
+            'overpass-api.de/*' => Http::response(['elements' => $elements], 200),
+        ]);
+
+        $service = new OverpassService;
+        $service->search(37.7749, -122.4194, 'vietnamese');
+
+        $recorded = Http::recorded();
+        $body = urldecode($recorded[0][0]->body());
+
+        $this->assertStringContainsString('["cuisine"~', $body);
+        $this->assertStringNotContainsString('(?:', $body, 'Overpass rejects non-capturing (?:...) groups');
+        $this->assertStringContainsString('(^|;)vietnamese($|;)', $body);
+    }
+
     public function test_resolves_cuisine_synonyms(): void
     {
         Http::fake([

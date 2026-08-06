@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\ExternalApiCache;
+use App\Services\SerpApiService;
 use Illuminate\Console\Command;
 
 /**
@@ -34,6 +35,8 @@ class QuotaStatusCommand extends Command
         $remainingFromQuota = max(0, $freeQuota - $burned);
         $remainingFromBudget = max(0, $monthlyBudget - $burned);
 
+        $providerExhausted = app(SerpApiService::class)->isProviderExhausted();
+
         // Print quota status
         $this->newLine();
         $this->line('<options=bold>SerpApi Quota Status (last 30 days)</>');
@@ -51,6 +54,14 @@ class QuotaStatusCommand extends Command
             $remainingFromBudget,
             $monthlyBudget > 0 ? ($remainingFromBudget / $monthlyBudget) * 100 : 0,
         ));
+
+        if ($providerExhausted) {
+            $this->warn('  Provider status: EXHAUSTED — the SerpApi account reports "out of searches".');
+            $this->warn('  Live fetches are paused; free sources (BizData/Overpass/Socrata) still serve.');
+            $this->warn('  The cache-store tracker undercounts actual usage; re-enable once the account is topped up.');
+        } else {
+            $this->line('  Provider status: available (no exhaustion flag set).');
+        }
 
         // Print cache inventory
         $this->newLine();

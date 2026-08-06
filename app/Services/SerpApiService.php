@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ExternalApiCache;
 use App\Services\Http\RequestSpec;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -12,6 +13,16 @@ use Illuminate\Support\Str;
 class SerpApiService
 {
     private ?string $apiKey;
+
+    /**
+     * Cache key for the provider-level exhaustion flag. When SerpApi returns a
+     * 429 "out of searches", the account itself is spent regardless of what the
+     * app's cache-store tracker says — flag it so live search + enrichment stop
+     * hammering a dead account for the retry window.
+     */
+    private const EXHAUSTED_CACHE_KEY = 'serpapi_provider_exhausted';
+
+    private const EXHAUSTED_RETRY_HOURS = 24;
 
     /**
      * Zoom level for the google_maps `ll` parameter (`@lat,lng,<zoom>z`).
@@ -24,6 +35,52 @@ class SerpApiService
     public function __construct()
     {
         $this->apiKey = config('services.serpapi.api_key');
+    }
+
+    /**
+     * Is the SerpApi account flagged as exhausted (provider 429 "out of
+     * searches")? When true, live search and enrichment skip SerpApi entirely
+     * for the retry window instead of firing calls that just 429.
+     */
+    public function isProviderExhausted(): bool
+    {
+        return Cache::has(self::EXHAUSTED_CACHE_KEY);
+    }
+
+    /**
+     * Flag the account as exhausted for a bounded window so the free sources
+     * (BizData/Overpass/Socrata) keep serving while SerpApi is dead.
+     */
+    public function markProviderExhausted(): void
+    {
+        Cache::put(
+            self::EXHAUSTED_CACHE_KEY,
+            now()->toDateTimeString(),
+            now()->addHours(self::EXHAUSTED_RETRY_HOURS),
+        );
+    }
+
+    /**
+     * Detect a provider-level exhaustion response (429 whose body says the
+     * searches are spent). Called on every failure path so the flag self-heals.
+     */
+    public function detectProviderExhaustion(?Response $response): void
+    {
+        if ($response === null) {
+            return;
+        }
+
+        if ($response->status() !== 429) {
+            return;
+        }
+
+        $error = (string) ($response->json()['error'] ?? $response->body());
+        if (str_contains(strtolower($error), 'out of searches')) {
+            $this->markProviderExhausted();
+            Log::warning('SerpApi provider exhausted (out of searches); pausing live fetches', [
+                'retry_hours' => self::EXHAUSTED_RETRY_HOURS,
+            ]);
+        }
     }
 
     /**
@@ -54,6 +111,7 @@ class SerpApiService
                 ]);
 
             if ($response->failed()) {
+                $this->detectProviderExhaustion($response);
                 Log::warning('SerpApi request failed', [
                     'status' => $response->status(),
                     'lat' => $lat,
@@ -170,7 +228,7 @@ class SerpApiService
      */
     public function poolRequestsFor(float $lat, float $lng, ?string $query = null, array $context = []): array
     {
-        if (empty($this->apiKey)) {
+        if (empty($this->apiKey) || $this->isProviderExhausted()) {
             return [];
         }
 
@@ -201,6 +259,8 @@ class SerpApiService
     public function parsePoolResponse(Response $response, float $lat, float $lng): ?array
     {
         if ($response->failed()) {
+            $this->detectProviderExhaustion($response);
+
             return null;
         }
 
