@@ -480,7 +480,7 @@ class SocrataOpenDataService
             'has_award' => false,
             'popularity_score' => 0,
             'distance' => $distance !== null ? round($distance, 1) : null,
-            'cuisines' => [['id' => abs(crc32('restaurant')), 'name' => 'Restaurant', 'slug' => 'restaurant']],
+            'cuisines' => [],
             'source' => 'socrata',
         ];
     }

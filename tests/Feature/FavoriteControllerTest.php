@@ -353,12 +353,12 @@ class FavoriteControllerTest extends TestCase
 
     // ---------------------------------------------------------------------
     // spec-085: favoriting a LIVE (is_live:true) result must not 500 / leak an
-    // orphan row. The 3 read-path source services (SerpApi/Socrata/BizData) embed
-    // a synthetic placeholder cuisine id — abs(crc32('restaurant')) — with a
-    // decorative 'restaurant' slug that does NOT exist in the cuisines table.
-    // ensurePersisted() previously ran sync() on it with no existence check and
-    // no transaction → the cuisine_restaurant FK rejected it as an uncaught 500,
-    // and the already-committed Restaurant::create() was left behind as an orphan.
+    // orphan row. A client may send any cuisine id with a live venue — including
+    // a synthetic placeholder id (abs(crc32('restaurant'))) whose 'restaurant'
+    // slug does NOT exist in the cuisines table. ensurePersisted() previously
+    // ran sync() on it with no existence check and no transaction → the
+    // cuisine_restaurant FK rejected it as an uncaught 500, and the
+    // already-committed Restaurant::create() was left behind as an orphan.
     // ---------------------------------------------------------------------
 
     public function test_toggle_live_result_with_synthetic_cuisine_returns_200_without_throwing(): void

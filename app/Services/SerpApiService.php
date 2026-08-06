@@ -408,7 +408,7 @@ class SerpApiService
                 'popularity_score' => 0,
                 'distance' => $distance !== null ? round($distance, 1) : null,
                 'place_types' => $placeTypes,
-                'cuisines' => [['id' => abs(crc32('restaurant')), 'name' => 'Restaurant', 'slug' => 'restaurant']],
+                'cuisines' => [],
                 'features' => [],
                 'source' => 'serpapi',
             ];
