@@ -16,7 +16,9 @@ class EngagementApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->restaurant = Restaurant::factory()->create();
+        /** @var Restaurant $restaurant */
+        $restaurant = Restaurant::factory()->create();
+        $this->restaurant = $restaurant;
     }
 
     public function test_tracks_website_click(): void

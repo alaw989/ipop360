@@ -37,12 +37,6 @@ parameters:
 			path: tests/Feature/BatchedScoringTest.php
 
 		-
-			message: '#^Property Tests\\Feature\\EngagementApiTest\:\:\$restaurant \(App\\Models\\Restaurant\) does not accept Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: tests/Feature/EngagementApiTest.php
-
-		-
 			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:once\(\)\.$#'
 			identifier: method.notFound
 			count: 6

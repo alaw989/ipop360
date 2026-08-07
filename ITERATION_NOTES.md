@@ -16,12 +16,12 @@ Fixed remaining 13 `missingType.iterableValue` entries across 11 test files (Biz
 
 Fixed all 10 `argument.templateType` entries on `collect()` calls in `AiEnrichRestaurantsTest.php` (2) and `LiveSearchScoringTest.php` (8). In AiEnrichRestaurantsTest, the fix extracts `Queue::pushed()` to a `@var array<int, EnrichRestaurantWithAi>` variable before passing to `collect()`. In LiveSearchScoringTest, `$scored` from `ReflectionMethod::invoke()` was annotated with `@var array<int, array<string, mixed>>`. For the inner `collect($mystery['score_breakdown']['signals'])` calls (lines 143/170), the chained mixed array access prevented template resolution — fixed by extracting `$signals` to a variable with a full array-shape `@var` annotation (`array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}>`) matching the `@return` PHPDoc of `PopularityScoreService::calculateBreakdownForArray()`.
 
-Baseline: 410 → 386 lines (68 → 64 entries, 117 → 113 errors).
+Baseline: 410 → 386 → 382 lines (68 → 64 → 63 entries, 117 → 113 → 112 errors).
 
 ### What is next
 - `argument.type` for Mockery mocks passed to service constructors (LiveSearchScoringTest, RestaurantEnrichment*Test). A PHPStan stub file was attempted but did not override Mockery's existing `@return` annotations. Likely requires a `DynamicMethodReturnTypeExtension` or `@phpstan-` comments.
 - `method.notFound` on `Mockery\ExpectationInterface::andReturn()` etc. (RefreshAwardsTest, LiveSearchScoringTest, BackfillRestaurantPhotosTest, EnrichSearchResultsTest — Mockery `shouldReceive()` returns `ExpectationInterface|HigherOrderMessage`, where `HigherOrderMessage` lacks `andReturn`/`once`/`andReturnNull`). Same stub/extension challenge.
-- Individual issues: SerpApiQueryConstructionTest (return.type, argument.type for parse_str), EngagementApiTest (assign.propertyType), RestaurantResourceAggregatesTest (argument.type ×2), WebsiteScraperSsrfGuardTest (arguments.count), EnrichSearchResultsTest (argument.type for handle()), AiEnrichmentServiceTest (argument.type ×4).
+- Individual issues: SerpApiQueryConstructionTest (return.type, argument.type for parse_str), RestaurantResourceAggregatesTest (argument.type ×2), WebsiteScraperSsrfGuardTest (arguments.count), EnrichSearchResultsTest (argument.type for handle()), AiEnrichmentServiceTest (argument.type ×4).
 
 ### Gotchas
 - `assertSuccessful()` on `PendingCommand` is an expectation-setter, not a runner. After extracting `$this->artisan(...)` to a `@var PendingCommand` variable, you must call `$command->run()` explicitly — otherwise the command never executes and side effects (like file creation) won't happen before your assertions.
@@ -31,6 +31,7 @@ Baseline: 410 → 386 lines (68 → 64 entries, 117 → 113 errors).
 - `array<K, V>` generics syntax is NOT valid in PHP native type declarations — it only works inside `/** @param */` / `/** @return */` PHPDoc annotations. Using it inline (e.g., `function foo(array<string, mixed> $x)`) will cause a parse error. Use docblock annotations instead.
 - PHPStan reads only the LAST consecutive `/** */` docblock before a function/method. Multiple separate docblocks (a common pattern in this codebase) cause earlier `@param` annotations to be invisible to PHPStan. Always merge into a single combined docblock.
 - PHPStan stub files cannot override existing `@return` annotations from vendor code — they are additive, not replacement. Mockery's `shouldReceive()` returning `ExpectationInterface|HigherOrderMessage` cannot be narrowed via a stub file.
+- `Model::factory()->create()` returns `Illuminate\Database\Eloquent\Model` per PHPStan (not the specific subclass). When assigning to a typed property, extract to a local variable first with `/** @var SpecificModel $var */` annotation, then assign to the property. Inline `@var` on `$this->property` triggers `varTag.variableNotFound`.
 
 ## Log
 1. Fixed all 5 PHPStan baseline entries for `AuditRestaurantCuisinesTest.php`
@@ -47,5 +48,6 @@ Baseline: 410 → 386 lines (68 → 64 entries, 117 → 113 errors).
 13. Fixed all 42 `missingType.iterableValue` entries across 18 test files — added `@param`/`@return` PHPDoc annotations with array value types, baseline 644→488
 14. Fixed remaining 13 `missingType.iterableValue` entries across 11 test files — merged multiple separate `/** */` docblocks into single combined docblocks so PHPStan reads all annotations, baseline 488→410 (81→69→68 entries)
 15. Fixed all 10 `argument.templateType` entries on `collect()` calls in AiEnrichRestaurantsTest.php (2) and LiveSearchScoringTest.php (8) — added `@var` annotations on input variables so PHPStan can resolve `collect()` template types. For nested collect() calls on chained array access (e.g., `collect($mystery['score_breakdown']['signals'])`), extracting to a variable with a full array-shape `@var` was needed because intermediate `mixed` from array access on `array<string, mixed>` still blocked template resolution. Baseline 410→386 (68→64 entries, 117→113 errors).
+16. Fixed 1 baseline entry `assign.propertyType` in EngagementApiTest.php — Restaurant::factory()->create() returns `Model` per PHPStan, not `Restaurant`. Extracted to local variable with `/** @var Restaurant $restaurant */` annotation before assigning to typed property. Baseline 386→382 (64→63 entries, 113→112 errors).
 
 (End of file - total 53 lines)
