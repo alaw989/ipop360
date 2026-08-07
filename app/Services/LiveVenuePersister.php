@@ -23,10 +23,10 @@ class LiveVenuePersister
      * Persist one venue. Returns the restaurant, whether it was created (vs
      * updated), and the venue array annotated with its real DB id.
      *
-     * @param  array  $venue  normalized live-search venue array
-     * @param  array  $cuisineIds  cuisine ids to attach (when provided)
-     * @param  array|null  $defaultLocation  reverse-geocoded [city, state] fallback
-     * @return array{restaurant: Restaurant, created: bool, venue: array}
+     * @param  array<string, mixed>  $venue  normalized live-search venue array
+     * @param  int[]  $cuisineIds  cuisine ids to attach (when provided)
+     * @param  array<string, mixed>|null  $defaultLocation  reverse-geocoded [city, state] fallback
+     * @return array{restaurant: Restaurant, created: bool, venue: array<string, mixed>}
      */
     public function persist(array $venue, array $cuisineIds = [], ?array $defaultLocation = null): array
     {
@@ -107,6 +107,7 @@ class LiveVenuePersister
     /**
      * Filter venue cuisine ids to those that exist in the cuisines table.
      *
+     * @param  array<string, mixed>  $venue
      * @return int[]
      */
     public function knownCuisineIds(array $venue): array

@@ -138,36 +138,6 @@ parameters:
 			count: 1
 			path: app/Services/LiveSearchService.php
 
-		-
-			message: '#^Method App\\Services\\LiveVenuePersister\:\:knownCuisineIds\(\) has parameter \$venue with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/LiveVenuePersister.php
-
-		-
-			message: '#^Method App\\Services\\LiveVenuePersister\:\:persist\(\) has parameter \$cuisineIds with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/LiveVenuePersister.php
-
-		-
-			message: '#^Method App\\Services\\LiveVenuePersister\:\:persist\(\) has parameter \$defaultLocation with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/LiveVenuePersister.php
-
-		-
-			message: '#^Method App\\Services\\LiveVenuePersister\:\:persist\(\) has parameter \$venue with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/LiveVenuePersister.php
-
-		-
-			message: '#^Method App\\Services\\LiveVenuePersister\:\:persist\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/LiveVenuePersister.php
-
 
 
 		-

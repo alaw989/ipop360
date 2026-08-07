@@ -4,11 +4,21 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 32 (down from 39)
-- Remaining: missingType.iterableValue (31) + missingType.return (1)
-- Top files by iterableValue count: LiveVenuePersister.php (5), RestaurantResource.php (4)
+- Baseline entries: 27 (down from 32)
+- Remaining: missingType.iterableValue (26) + missingType.return (1)
+- Top files by iterableValue count: RestaurantResource.php (4), AuditRestaurantCuisines.php (3), SearchController.php (3)
 
 ## Log
+### Iteration 28 — Fixed all 5 LiveVenuePersister iterableValue entries (total: 32→27)
+- `app/Services/LiveVenuePersister.php`: Added value type annotations to all 3 params + return type in `persist()`:
+  - `$venue` → `@param array<string, mixed>`
+  - `$cuisineIds` → `@param int[]`
+  - `$defaultLocation` → `@param array<string, mixed>|null`
+  - Return → `@return array{restaurant: Restaurant, created: bool, venue: array<string, mixed>}`
+- Added `@param array<string, mixed> $venue` to `knownCuisineIds()`
+- 5 baseline entries removed; 0 LiveVenuePersister entries remain
+- All 563 tests pass; `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 27 — Fixed all 7 AiEnrichmentService iterableValue entries (total: 39→32)
 - `app/Services/AiEnrichmentService.php`: Added value type annotations to all 4 methods:
   - `enrichRestaurant()` → `@param array<string, mixed> $restaurantData` + `@return array<string, mixed>|null`
