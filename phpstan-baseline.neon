@@ -8,12 +8,6 @@ parameters:
 
 
 		-
-			message: '#^Property App\\Console\\Commands\\ValidateRestaurantData\:\:\$changes type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Console/Commands/ValidateRestaurantData.php
-
-		-
 			message: '#^Method App\\Http\\Controllers\\Admin\\BlogPostController\:\:validated\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1

@@ -18,6 +18,7 @@ class ValidateRestaurantData extends Command
 
     private int $skipped = 0;
 
+    /** @var array<int, array<string, mixed>> */
     private array $changes = [];
 
     public function handle(RestaurantValidationService $validator): int

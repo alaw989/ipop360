@@ -4,11 +4,16 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 6 (down from 7)
-- Remaining: missingType.iterableValue (6) — `missingType.return` fully eliminated
-- Top files by iterableValue count: all singles — BackfillRestaurantLocation, ValidateRestaurantData, BlogPostController, LiveRestaurantResource, RestaurantEnrichmentService, WikidataService
+- Baseline entries: 5 (down from 6)
+- Remaining: missingType.iterableValue (5) — `missingType.return` fully eliminated
+- Top files by iterableValue count: all singles — BackfillRestaurantLocation, BlogPostController, LiveRestaurantResource, RestaurantEnrichmentService, WikidataService
 
 ## Log
+### Iteration 39 — Fixed ValidateRestaurantData::$changes iterableValue entry (total: 6→5)
+- `app/Console/Commands/ValidateRestaurantData.php`: Added `@var array<int, array<string, mixed>>` to `$changes` property
+- 1 baseline entry removed; 0 ValidateRestaurantData entries remain
+- `./vendor/bin/phpstan analyse` passes cleanly; all tests pass
+
 ### Iteration 38 — Fixed UptimeCanary::notifyIfDegraded iterableValue entry (total: 7→6)
 - `app/Console/Commands/UptimeCanary.php`: Added `@param array<string, string>` to `notifyIfDegraded()` `$checks` param
 - 1 baseline entry removed; 0 UptimeCanary entries remain
