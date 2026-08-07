@@ -14,13 +14,14 @@ class SocrataOpenDataService
 {
     private ?string $appToken;
 
-    private array $endpoints;
-
     /** Maximum retry attempts for transient HTTP failures. */
     private const MAX_RETRIES = 3;
 
     /** Base delay for exponential backoff (milliseconds). */
     private const RETRY_BASE_DELAY_MS = 100;
+
+    /** @var array<string, array<string, mixed>> */
+    private array $endpoints;
 
     public function __construct()
     {
@@ -30,7 +31,8 @@ class SocrataOpenDataService
 
     /**
      * Search Socrata endpoints for restaurants near coordinates.
-     * Returns normalized restaurant data.
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function search(float $lat, float $lng, ?string $query = null, int $radius = 5000): array
     {
@@ -66,7 +68,8 @@ class SocrataOpenDataService
 
     /**
      * Fetch raw data from Socrata endpoints without normalization for parallel pooling.
-     * Returns the raw API response data.
+     *
+     * @return array{cached: bool, data: array<int, array<string, mixed>>}|null
      */
     public function fetchRaw(float $lat, float $lng, ?string $query = null, int $radius = 5000): ?array
     {
@@ -103,6 +106,9 @@ class SocrataOpenDataService
     /**
      * Normalize raw Socrata data to the shared venue shape.
      * Public method for use after parallel fetch.
+     *
+     * @param  array<int, array<string, mixed>>  $data
+     * @return array<int, array<string, mixed>>
      */
     public function normalizeRaw(array $data, float $searchLat, float $searchLng): array
     {
@@ -125,6 +131,9 @@ class SocrataOpenDataService
      * parallel. Returns [] (disabled) when no endpoints are configured. The
      * live path drops the 3x exponential-backoff retry (handled as a single
      * one-shot pooled request per endpoint).
+     *
+     * @param  array<string, mixed>  $context
+     * @return array<int, RequestSpec>
      */
     public function poolRequestsFor(float $lat, float $lng, ?string $query = null, array $context = []): array
     {
@@ -158,6 +167,8 @@ class SocrataOpenDataService
      * Parse a single pooled endpoint response into normalized venues. Socrata
      * normalizes during parse (unlike the other sources). Returns null on
      * HTTP failure or a non-array body.
+     *
+     * @return array<int, array<string, mixed>>|null
      */
     public function parsePoolResponse(Response $response, float $lat, float $lng): ?array
     {
@@ -177,6 +188,9 @@ class SocrataOpenDataService
      * Consume pooled responses (one per endpoint) for the live read path:
      * parse each, merge across endpoints, dedup, and cache once under the
      * shared Socrata key (24h). Results are already normalized.
+     *
+     * @param  array<int, Response|\Throwable>  $responses
+     * @return array<int, array<string, mixed>>
      */
     public function consumePoolResponses(array $responses, float $lat, float $lng, ?string $cuisine, string $cacheKey): array
     {
@@ -211,6 +225,8 @@ class SocrataOpenDataService
 
     /**
      * Fetch from all configured endpoints.
+     *
+     * @return array<int, array<string, mixed>>
      */
     private function fetchAllEndpoints(float $lat, float $lng, ?string $query): array
     {
@@ -238,6 +254,9 @@ class SocrataOpenDataService
 
     /**
      * Fetch from a single Socrata endpoint.
+     *
+     * @param  array<int, string>  $fields
+     * @return array<int, array<string, mixed>>
      */
     private function fetchEndpoint(
         string $domain,
@@ -327,6 +346,9 @@ class SocrataOpenDataService
 
     /**
      * Build SoQL query parameters for Socrata API.
+     *
+     * @param  array<int, string>  $fields
+     * @return array<string, mixed>
      */
     private function buildSoqlQuery(float $lat, float $lng, ?string $query, array $fields): array
     {
@@ -379,6 +401,8 @@ class SocrataOpenDataService
 
     /**
      * Build HTTP headers including optional app token.
+     *
+     * @return array<string, string>
      */
     private function buildHeaders(): array
     {
@@ -395,6 +419,9 @@ class SocrataOpenDataService
 
     /**
      * Normalize endpoint-specific results to shared venue shape.
+     *
+     * @param  array<int, array<string, mixed>>  $data
+     * @return array<int, array<string, mixed>>
      */
     private function normalizeEndpointResults(array $data, float $searchLat, float $searchLng): array
     {
@@ -413,6 +440,9 @@ class SocrataOpenDataService
     /**
      * Normalize a single Socrata row to the shared venue shape.
      * Handles variations between different city datasets.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>|null
      */
     private function normalizeRow(array $row, float $searchLat, float $searchLng): ?array
     {
@@ -497,6 +527,9 @@ class SocrataOpenDataService
      * identity (true same-location inspection records still collapse; same-name
      * different-location venues don't), and no-coords rows are kept without
      * deduping (recall-protective — crossSourceDedup handles further merging).
+     *
+     * @param  array<int, array<string, mixed>>  $results
+     * @return array<int, array<string, mixed>>
      */
     private function deduplicateByName(array $results): array
     {
@@ -546,6 +579,9 @@ class SocrataOpenDataService
      * Normalize a Socrata venue result to the enrichment venue shape.
      * This converts the rich live-search format to the simpler DB-persistence format
      * used by RestaurantEnrichmentService.
+     *
+     * @param  array<string, mixed>  $r
+     * @return array<string, mixed>
      */
     public function normalizeForEnrichment(array $r): array
     {
