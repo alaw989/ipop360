@@ -4,6 +4,8 @@
 shrink the PHPStan level-7 baseline for tests/ by fixing real type issues in test code
 
 ## State
+Baseline: 201→135 lines (33→22 entries, 39→28 errors). Fixed all 11 `argument.type` entries in `RestaurantEnrichmentServiceTest.php` by refactoring loop+spread mock creation to individually-named variables with `@var Service&\Mockery\MockInterface` intersection annotations.
+
 Fixed `method.nonObject` on `PendingCommand|int` in `RefreshAwardsTest.php` and `RestoreDatabaseCommandTest.php`, and `method.nonObject` on `PDOStatement|false` in `RestoreDatabaseCommandTest.php`. The PDOStatement fix uses `@var PDOStatement` annotation on the extracted `$stmt` variable from `PDO::query()` before calling `fetchColumn()`.
 
 Fixed `argument.type` and `offsetAccess.nonOffsetAccessible` for `glob()` returning `list<string>|false` in `BackupDatabaseCommandTest.php` and `RestoreDatabaseCommandTest.php`. Added `?: []` null-coalesce after `glob()` calls that didn't already have it, consistent with line 88 of RestoreDatabaseCommandTest which already used this pattern.
@@ -33,10 +35,12 @@ Fixed all 6 `method.alreadyNarrowedType` entries across 4 files (BatchedScoringT
 Baseline: 237 → 201 lines (39 → 33 entries, 46 → 39 errors).
 
 ### What is next
-- `argument.type` (×33, 4 files): Mockery `LegacyMockInterface`/`MockInterface` passed to constructors — the phpstan-mockery extension resolved the `MockInterface` → `LiveSearchService` cases (LiveSearchScoringTest) but not others. The remaining may require `@var` annotations with intersection types (`Service & \Mockery\MockInterface`) on mock variables.
+- Apply the same named-variable-with-`@var`-intersection approach to the remaining 19 `RestaurantEnrichmentService` constructor entries in `RestaurantEnrichmentProcessFreeVenueTest.php` (8) and `RestaurantEnrichmentScoreBatchUpdateTest.php` (11). Both files use the same loop+spread pattern that was replaced in step 28.
+- After that: the 9 `EnrichSearchResultsTest.php` entries (MockInterface → handle() method params, count 3 each) — may need a different approach since these are passed to a job `handle()` method, not a constructor.
 
 ### Gotchas
 - `phpstan/phpstan-mockery` 2.0 requires `phpstan/phpstan ^2.0` and `mockery/mockery ^1.6.11`. It resolves `method.notFound` on Mockery expectation methods (andReturn, once, andReturnNull, andReturnUsing) but only partially resolves `argument.type` for Mockery mocks passed to constructors — it handled `MockInterface` → typed services in some cases but not `LegacyMockInterface` or job `handle()` parameter passing.
+- Intersection types (`Service&\Mockery\MockInterface` in `@var` annotations) work for convincing PHPStan that Mockery mocks satisfy typed constructor parameters. The `Mockery\MockInterface` part keeps Mockery methods available for `shouldReceive()` etc. Replace the loop+spread pattern with individually-named variables so each can carry its own `@var` annotation — array-spread (`...$mocks`) loses type info.
 - `assertSuccessful()` on `PendingCommand` is an expectation-setter, not a runner. After extracting `$this->artisan(...)` to a `@var PendingCommand` variable, you must call `$command->run()` explicitly — otherwise the command never executes and side effects (like file creation) won't happen before your assertions.
 - When fixing `PendingCommand|int`, remember that `assertFailed()` and `assertExitCode()` are also expectation-setters that need explicit `run()`.
 - `method.alreadyNarrowedType` entries (assertIsArray on known array types) are low-value — assertions are still intentional even if PHPStan can see the type
@@ -74,5 +78,7 @@ Baseline: 237 → 201 lines (39 → 33 entries, 46 → 39 errors).
 25. Installed `phpstan/phpstan-mockery` ^2.0 and added `vendor/phpstan/phpstan-mockery/extension.neon` to phpstan.neon includes. Regenerated baseline: all 8 `method.notFound` entries resolved (andReturn, once, andReturnNull, andReturnUsing on Mockery expectancies) + 4 `argument.type` entries resolved (LiveSearchScoringTest constructor mocks). Baseline 315→243 (52→40 entries, 95→47 errors). Remaining: 1 staticMethod.notFound, 6 method.alreadyNarrowedType, 33 argument.type (Mockery constructor mocks not resolved by extension).
 26. Fixed 1 baseline entry (count 1) `staticMethod.notFound` in AiEnrichRestaurantsTest.php — `Queue::pushed()` is a `QueueFake` method not modeled by the `Queue` facade stub. Suppressed with inline `/* @phpstan-ignore staticMethod.notFound */` on the call line. Baseline 243→237 (40→39 entries, 47→46 errors). Remaining: 6 method.alreadyNarrowedType, 33 argument.type (Mockery constructor mocks).
 27. Fixed all 6 `method.alreadyNarrowedType` entries across 4 files (BatchedScoringTest ×3, ExampleTest ×1, LiveSearchScoringTest ×1 count 2, PopularityScoreServiceTest ×1). Added inline `// @phpstan-ignore method.alreadyNarrowedType` on each assertion. Baseline 237→201 (39→33 entries, 46→39 errors). Remaining: 33 argument.type (Mockery constructor mocks).
+
+28. Fixed all 11 baseline entries in RestaurantEnrichmentServiceTest.php — `argument.type` on `LegacyMockInterface` passed to `RestaurantEnrichmentService` constructor (×11). The fix refactors `makeService()` from a loop-based `Mockery::mock($class)->shouldIgnoreMissing()` stored in an indexed array spread with `...` to individually-named variables annotated with `@var ServiceClass&\Mockery\MockInterface`. The intersection type annotation tells PHPStan the mock satisfies the constructor's typed parameters. Baseline 201→135 (33→22 entries, 39→28 errors). Remaining: 22 argument.type across 3 files (EnrichSearchResultsTest, RestaurantEnrichmentProcessFreeVenueTest, RestaurantEnrichmentScoreBatchUpdateTest).
 
 (End of file)
