@@ -4,11 +4,15 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 7 (down from 8)
-- Remaining: missingType.iterableValue (7) — `missingType.return` fully eliminated
-- Top files by iterableValue count: all singles — BackfillRestaurantLocation, UptimeCanary, ValidateRestaurantData, BlogPostController, LiveRestaurantResource, RestaurantEnrichmentService, WikidataService
+- Baseline entries: 6 (down from 7)
+- Remaining: missingType.iterableValue (6) — `missingType.return` fully eliminated
+- Top files by iterableValue count: all singles — BackfillRestaurantLocation, ValidateRestaurantData, BlogPostController, LiveRestaurantResource, RestaurantEnrichmentService, WikidataService
 
 ## Log
+### Iteration 38 — Fixed UptimeCanary::notifyIfDegraded iterableValue entry (total: 7→6)
+- `app/Console/Commands/UptimeCanary.php`: Added `@param array<string, string>` to `notifyIfDegraded()` `$checks` param
+- 1 baseline entry removed; 0 UptimeCanary entries remain
+- `./vendor/bin/phpstan analyse` passes cleanly; all 563 tests pass
 ### Iteration 37 — Fixed LiveSearchService::buildPoolRequest missingType.return entry (total: 8→7)
 - `app/Services/LiveSearchService.php`: Added `@return \Illuminate\Http\Client\Response|\GuzzleHttp\Promise\PromiseInterface` docblock to `buildPoolRequest()`
 - Native return type cannot be used because the pool context returns `LazyPromise` while `Http::fake()` returns `Response`; the `@return` PHPDoc satisfies `missingType.return` at level 6

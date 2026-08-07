@@ -160,6 +160,9 @@ class UptimeCanary extends Command
     /**
      * Track consecutive degraded/critical runs and fire webhook when threshold is reached.
      */
+    /**
+     * @param  array<string, string>  $checks
+     */
     private function notifyIfDegraded(string $status, array $checks): void
     {
         $webhookUrl = config('services.alerting.webhook_url');
