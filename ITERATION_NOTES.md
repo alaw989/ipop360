@@ -6,14 +6,16 @@ increase frontend test coverage with vitest
 ## State
 
 ### Changed this iteration
-- Added `resources/js/Components/__tests__/SearchFilters.spec.ts` (21 tests) covering: filters heading render, price buttons rendered from `priceOptions`, active class on selected price, emit on price click, toggle-off emit when clicking active price, category links with names and counts, active class on selected category, distance radio buttons for all options plus Auto, checked state matching current distance, default distance of "25", emit on distance change, Auto emitting `distance: undefined`, distance label formatting (1 km, 5 km, 50+ km), Auto label, "Clear all" visibility when price/distance/cuisine/category active, "Clear all" hidden when no filters or only default distance, and clear emit on button click.
-  - Mocked `@inertiajs/vue3` at module level with `Link: { template: '<a><slot /></a>' }` — needed because `Link` is imported in `<script setup>`.
-  - Stubbed `Button` via `global.stubs` as `{ template: '<button><slot /></button>' }` — the "Clear all" button only needs to render and emit on click, no prop forwarding needed.
+- Added `resources/js/Components/__tests__/ResultsGrid.spec.ts` (23 tests) covering all 5 phase states: searching (spinner + message), error (error badge + message + Start Over/Try Again emits), empty (utensils icon + message + Start Over emit), results (result count singular/plural, sort dropdown options, select value from prop, sort change emits both `update:sort` and `resort`, RestaurantCard per-restaurant render with rank, load-more button visibility/emit, isResorting opacity classes), and load-more error (error card + message + Retry emit + dismiss button emit).
+  - Mocked `@lucide/vue` at module level for `Utensils`, `X`, `Search` — these are named imports in `<script setup>`.
+  - Stubbed `Badge`, `Button`, `Card`, `CardContent` (shadcn) — Badge and Button forward their variant/ariaLabel props; Card/CardContent are slot-pass-through wrappers.
+  - Deep-stubbed `RestaurantCard` with a simple `<div>` forwarding the name and data-rank: avoids pulling in `useFavorites`, `useCompare`, etc.
+  - Helper `makeRestaurant()` builds minimal Restaurant-shaped objects; `mountGrid()` provides defaults for all 14 props so each test only overrides what it needs.
 
-Verification: `npx vitest run resources/js/Components/__tests__/SearchFilters.spec.ts` → 1 file / 21 tests pass. Full suite: 221 tests / 28 files pass.
+Verification: `npx vitest run resources/js/Components/__tests__/ResultsGrid.spec.ts` → 1 file / 23 tests pass.
 
 ### Next
-Continue adding tests for remaining untested Components: `ResultsGrid`, `SearchResultCard`, `RestaurantCard`. `ResultsGrid` is medium complexity (185 lines, 5 phase states, can deep-stub `RestaurantCard` to avoid its heavy dependency graph). `SearchResultCard` and `RestaurantCard` require mocking `useFavorites`, `useCompare`, `useRestaurantDisplay`, and `@/lib/restaurant`.
+Continue adding tests for remaining untested Components: `SearchResultCard` and `RestaurantCard`. `SearchResultCard` (medium complexity, 5 states: stale, loading, error, no-data, loaded) — needs `useFavorites` mocked. `RestaurantCard` is the heaviest dependency graph (uses `useRestaurantDisplay`, `useCompare`, `@/lib/restaurant`) and will need the most stubbing.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
