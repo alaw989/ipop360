@@ -4,16 +4,20 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 218 (down from 222)
-- Remaining by category: missingType.iterableValue (198), missingType.generics (15), argument.templateType (4), method.unresolvableReturnType (1)
+- Baseline entries: 215 (down from 218)
+- Remaining by category: missingType.iterableValue (196), missingType.generics (14), argument.templateType (4), method.unresolvableReturnType (1)
 - missingType.parameter category fully eliminated (4→0)
 - missingType.return category fully eliminated (1→0)
-- missingType.generics down to 15 (−1 from EnrichRestaurants getCuisines())
-- argument.templateType down to 4 (−2 from EnrichRestaurants collect() calls)
-- Next: remaining 15 generics (BackfillRestaurantWebsites, RestaurantResource, PopularityScoreService, RestaurantEnrichmentService)
+- missingType.generics down to 14 (−1 from BackfillRestaurantWebsites missingRestaurants())
+- Next: remaining 14 generics (RestaurantResource, PopularityScoreService, RestaurantEnrichmentService)
 
 ## Log
-### Iteration 12 — Fixed EnrichRestaurants generics + iterableValue + argument.templateType (total: 222→218)
+### Iteration 13 — Fixed BackfillRestaurantWebsites generics + iterableValue (total: 218→215)
+- `app/Console/Commands/BackfillRestaurantWebsites.php`: Added `@return Builder<Restaurant>` to `missingRestaurants()` (1 generics)
+- Added `@return array<string>` to `candidateDomains()` (1 iterableValue)
+- Added `@param array<string, mixed>` to `parseExtractedPrice()` (1 iterableValue)
+- Removed the 3 corresponding entries from `phpstan-baseline.neon`
+- `./vendor/bin/phpstan analyse` passes cleanly
 - `app/Console/Commands/EnrichRestaurants.php`: Added `@return Collection<int, Cuisine>` to `getCuisines()` (1 generics)
 - Added `@return array<int, float>|null` to `resolveCityCoordinates()` (1 iterableValue)
 - Added `/** @var array<string, array{float, float}> $cities */` before `config()` call in `enrichAllCities()` and `/** @var array<string, int> $cityResults */` in both `enrichAllCities()` and `enrichDiscoveredCities()` (2 argument.templateType from `collect()`)

@@ -24,23 +24,6 @@ parameters:
 			count: 1
 			path: app/Console/Commands/BackfillRestaurantLocation.php
 
-		-
-			message: '#^Method App\\Console\\Commands\\BackfillRestaurantWebsites\:\:candidateDomains\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Console/Commands/BackfillRestaurantWebsites.php
-
-		-
-			message: '#^Method App\\Console\\Commands\\BackfillRestaurantWebsites\:\:missingRestaurants\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Console/Commands/BackfillRestaurantWebsites.php
-
-		-
-			message: '#^Method App\\Console\\Commands\\BackfillRestaurantWebsites\:\:parseExtractedPrice\(\) has parameter \$venue with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Console/Commands/BackfillRestaurantWebsites.php
 
 
 

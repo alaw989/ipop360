@@ -159,6 +159,7 @@ class BackfillRestaurantWebsites extends Command
         $this->line("  Cache matched {$hits} restaurant(s).");
     }
 
+    /** @param array<string, mixed> $venue */
     private function parseExtractedPrice(array $venue): ?string
     {
         $raw = $venue['extracted_price'] ?? null;
@@ -425,6 +426,7 @@ class BackfillRestaurantWebsites extends Command
             ->count();
     }
 
+    /** @return Builder<Restaurant> */
     private function missingRestaurants(int $limit): Builder
     {
         $q = Restaurant::query()
@@ -549,6 +551,7 @@ class BackfillRestaurantWebsites extends Command
         $this->line("  Domain guessing found {$found} website(s).");
     }
 
+    /** @return array<string> */
     private function candidateDomains(string $name, ?string $city): array
     {
         $slug = $this->toSlug($name);
