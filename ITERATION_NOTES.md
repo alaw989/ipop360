@@ -6,14 +6,14 @@ increase frontend test coverage with vitest
 ## State
 
 ### Changed this iteration
-- Added `resources/js/Components/__tests__/SeoMeta.spec.ts` (10 tests) covering: title rendering, meta description, canonical link, all 7 og meta tags (og:title, og:description, og:type, og:url, og:site_name, og:image, og:image:alt), all 4 twitter meta tags (twitter:card, twitter:title, twitter:description, twitter:image), noindex meta when `noindex: true`, absence of robots meta when noindex is false/absent, ComputedRef prop input, and plain object prop input.
-  - Mocked `@inertiajs/vue3` at module level with `vi.mock()` providing `Head: { template: '<div><slot /></div>' }` — needed because `Head` internals reference Inertia's plugin context (`createProvider`) at setup time, and a `global.stubs` approach resolves too late.
-  - The `ComputedRef` test passes an actual `computed(() => seoData)` as the prop, exercising the component's unwrap logic.
+- Added `resources/js/Components/__tests__/SearchFilters.spec.ts` (21 tests) covering: filters heading render, price buttons rendered from `priceOptions`, active class on selected price, emit on price click, toggle-off emit when clicking active price, category links with names and counts, active class on selected category, distance radio buttons for all options plus Auto, checked state matching current distance, default distance of "25", emit on distance change, Auto emitting `distance: undefined`, distance label formatting (1 km, 5 km, 50+ km), Auto label, "Clear all" visibility when price/distance/cuisine/category active, "Clear all" hidden when no filters or only default distance, and clear emit on button click.
+  - Mocked `@inertiajs/vue3` at module level with `Link: { template: '<a><slot /></a>' }` — needed because `Link` is imported in `<script setup>`.
+  - Stubbed `Button` via `global.stubs` as `{ template: '<button><slot /></button>' }` — the "Clear all" button only needs to render and emit on click, no prop forwarding needed.
 
-Verification: `npx vitest run resources/js/Components/__tests__/SeoMeta.spec.ts` → 1 file / 10 tests pass. Full suite: 200 tests / 27 files pass.
+Verification: `npx vitest run resources/js/Components/__tests__/SearchFilters.spec.ts` → 1 file / 21 tests pass. Full suite: 221 tests / 28 files pass.
 
 ### Next
-Continue adding tests for remaining untested Components: `RestaurantCard`, `ResultsGrid`, `SearchResultCard`, `SearchFilters`. `SearchResultCard` and `RestaurantCard` require mocking `@inertiajs/vue3` (`usePage`/`router`), `useFavorites`, `useCompare`, and `CardGallery`.
+Continue adding tests for remaining untested Components: `ResultsGrid`, `SearchResultCard`, `RestaurantCard`. `ResultsGrid` is medium complexity (185 lines, 5 phase states, can deep-stub `RestaurantCard` to avoid its heavy dependency graph). `SearchResultCard` and `RestaurantCard` require mocking `useFavorites`, `useCompare`, `useRestaurantDisplay`, and `@/lib/restaurant`.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
