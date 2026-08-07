@@ -6,22 +6,22 @@ increase frontend test coverage with vitest
 ## State
 
 ### Changed this iteration
-- Added `resources/js/composables/__tests__/useRestaurantDisplay.spec.ts` (26 tests) covering all 6 exported pure functions:
-  - `getDetailUrl` (3): persisted URL (id>0), preview URL (id<=0 + slug), maps fallback (id<=0 + no slug)
-  - `getRankStyle` (5): gold/silver/bronze/default/#0
-  - `isTopRank` (5): ranks 1-3 true, 0/4 false
-  - `getDisplayRating` (3): Yelp preferred, Google fallback, null when neither present
-  - `getRestaurantGradient` (2): cuisine-specific, fallback for empty cuisines
-  - `getRestaurantPhotos` (4): dedup combines photo_url + photos, caps at 6, photo_url only, empty when both null
-  - `getMapCoords` (4): present, null lat, null lng, both null
+- Added `resources/js/composables/__tests__/useKeyboardOffset.spec.ts` (7 tests) covering:
+  - Returns keyboardHeight ref initialized to 0
+  - Falls back to 0 when `window.visualViewport` is missing
+  - Reports 0 when viewport fills the window (no keyboard)
+  - Computes positive offset when viewport is partially overlapped by keyboard
+  - Clamps to 0 when viewport is taller than window (edge case)
+  - Registers resize + scroll listeners on visualViewport on mount
+  - Removes listeners on unmount
 
-Verification: `npx vitest run resources/js/composables/__tests__/useRestaurantDisplay.spec.ts` → 1 file / 26 tests pass. Full suite: 34 files / 392 tests pass.
+Verification: `npx vitest run resources/js/composables/__tests__/useKeyboardOffset.spec.ts` → 1 file / 7 tests pass. Full suite: 35 files / 399 tests pass.
 
 ### Previous iteration
-- Added `resources/js/composables/__tests__/useBaseUrl.spec.ts` (3 tests) covering the client-side branch of `useBaseUrl`.
+- Added `resources/js/composables/__tests__/useRestaurantDisplay.spec.ts` (26 tests) covering all 6 exported pure functions.
 
 ### Next
-Still need: `useGeolocation.spec.ts`, `useCardGallery.spec.ts`, `useIsMobile.spec.ts`, `useKeyboardOffset.spec.ts` among composables. Among components: `CardGallery`, `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `Dropdown`, `RestaurantCardSkeleton`.
+Still need: `useGeolocation.spec.ts`, `useCardGallery.spec.ts`, `useIsMobile.spec.ts` among composables. Among components: `CardGallery`, `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `Dropdown`, `RestaurantCardSkeleton`.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
