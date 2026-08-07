@@ -183,7 +183,7 @@ class Restaurant extends Model
     {
         $query->getQuery()->orders[] = [
             'type' => 'raw',
-            'sql' => self::decayedPopularityScoreExpression() . ' ' . strtoupper($direction),
+            'sql' => self::decayedPopularityScoreExpression().' '.strtoupper($direction),
         ];
 
         return $query;
