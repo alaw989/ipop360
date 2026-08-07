@@ -57,23 +57,21 @@ trait SortsRestaurantQueries
      */
     private function applyRestaurantSort(Builder $query, string $sort, bool $hasCoords): Builder
     {
-        $decayedScore = Restaurant::decayedPopularityScoreExpression();
-
         return match ($sort) {
-            'best_match' => $query->orderByRaw("{$decayedScore} DESC"),
+            'best_match' => $query->orderByDecayedScore(),
             'nearest' => $hasCoords
                 ? $query->orderBy('distance')
-                : $query->orderByRaw("{$decayedScore} DESC"),
+                : $query->orderByDecayedScore(),
             'rating' => $query
                 ->orderByRaw('COALESCE(google_rating, yelp_rating) DESC')
-                ->orderByRaw("{$decayedScore} DESC"),
+                ->orderByDecayedScore(),
             'reviews' => $query
                 ->orderByRaw('COALESCE(google_review_count, yelp_review_count) DESC')
-                ->orderByRaw("{$decayedScore} DESC"),
+                ->orderByDecayedScore(),
             'price' => $query
                 ->orderByRaw(self::PRICE_SORT_EXPRESSION.' ASC')
-                ->orderByRaw("{$decayedScore} DESC"),
-            default => $query->orderByRaw("{$decayedScore} DESC"),
+                ->orderByDecayedScore(),
+            default => $query->orderByDecayedScore(),
         };
     }
 }

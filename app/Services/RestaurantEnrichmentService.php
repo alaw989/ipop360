@@ -112,7 +112,7 @@ class RestaurantEnrichmentService
                 $breakdown = $this->popularityScore->calculateBreakdownWithAggregatesFromEloquent($restaurant, $aggregates);
                 $scoresByRestaurant[$restaurant->id] = [
                     'popularity_score' => $breakdown['total'],
-                    'score_breakdown' => json_encode($breakdown),
+                    'score_breakdown' => (string) json_encode($breakdown),
                 ];
             } catch (\Throwable $e) {
                 Log::channel('enrichment')->error('Failed to compute popularity score', [

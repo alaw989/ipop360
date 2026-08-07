@@ -727,7 +727,12 @@ class RestaurantWebsiteScraperService
         // Find script tags with type="application/ld+json"
         $scripts = $xpath->query("//script[@type='application/ld+json']");
 
+        if ($scripts === false) {
+            return null;
+        }
+
         foreach ($scripts as $script) {
+            assert($script instanceof \DOMNode);
             $json = trim($script->textContent);
             if (empty($json)) {
                 continue;
@@ -773,9 +778,10 @@ class RestaurantWebsiteScraperService
         // Look for elements with itemprop="openingHours"
         $elements = $xpath->query("//*[@itemprop='openingHours']");
 
-        if ($elements->length > 0) {
+        if ($elements !== false && $elements->length > 0) {
             $hours = [];
             foreach ($elements as $element) {
+                assert($element instanceof \DOMNode);
                 $content = trim($element->textContent);
                 if (! empty($content)) {
                     $hours[] = $content;
@@ -789,7 +795,7 @@ class RestaurantWebsiteScraperService
 
         // Also check for time elements with datetime attribute
         $timeElements = $xpath->query('//time[@datetime]');
-        if ($timeElements->length > 0) {
+        if ($timeElements !== false && $timeElements->length > 0) {
             $hours = [];
             foreach ($timeElements as $element) {
                 $datetime = $element->getAttribute('datetime');
@@ -827,7 +833,11 @@ class RestaurantWebsiteScraperService
         foreach ($selectors as $selector) {
             try {
                 $elements = $xpath->query($selector);
+                if ($elements === false) {
+                    continue;
+                }
                 foreach ($elements as $element) {
+                    assert($element instanceof \DOMNode);
                     $text = trim($element->textContent);
                     if ($this->looksLikeHoursText($text)) {
                         return $this->parseHoursText($text);
@@ -841,9 +851,14 @@ class RestaurantWebsiteScraperService
         // Fallback: scan all visible text blocks for hour patterns
         try {
             $body = $xpath->query('//body');
-            if ($body->length > 0) {
-                $bodyText = $body->item(0)->textContent;
-                $blocks = preg_split('/\n\s*\n/', $bodyText);
+            if ($body === false || $body->length === 0) {
+                return null;
+            }
+            $bodyNode = $body->item(0);
+            assert($bodyNode instanceof \DOMNode);
+            $bodyText = $bodyNode->textContent;
+            $blocks = preg_split('/\n\s*\n/', $bodyText);
+            if ($blocks !== false) {
                 foreach ($blocks as $block) {
                     $block = trim($block);
                     if (strlen($block) > 20 && strlen($block) < 500 && $this->looksLikeHoursText($block)) {
@@ -990,23 +1005,26 @@ class RestaurantWebsiteScraperService
         // Look for links with text containing "menu"
         $links = $xpath->query('//a');
 
-        foreach ($links as $link) {
-            $text = strtolower(trim($link->textContent));
-            $href = $link->getAttribute('href');
+        if ($links !== false) {
+            foreach ($links as $link) {
+                assert($link instanceof \DOMElement);
+                $text = strtolower(trim($link->textContent));
+                $href = $link->getAttribute('href');
 
-            if (empty($href)) {
-                continue;
-            }
-
-            // Check if link text indicates it's a menu
-            if (str_contains($text, 'menu') || str_contains($text, 'food') || str_contains($text, 'order')) {
-                // Convert relative URL to absolute
-                if (! str_starts_with($href, 'http')) {
-                    $href = $this->resolveUrl($href, $baseUrl);
+                if (empty($href)) {
+                    continue;
                 }
 
-                if (! empty($href)) {
-                    return $href;
+                // Check if link text indicates it's a menu
+                if (str_contains($text, 'menu') || str_contains($text, 'food') || str_contains($text, 'order')) {
+                    // Convert relative URL to absolute
+                    if (! str_starts_with($href, 'http')) {
+                        $href = $this->resolveUrl($href, $baseUrl);
+                    }
+
+                    if (! empty($href)) {
+                        return $href;
+                    }
                 }
             }
         }

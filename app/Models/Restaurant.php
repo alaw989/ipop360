@@ -175,12 +175,18 @@ class Restaurant extends Model
     }
 
     /**
-     * @param  Builder<Restaurant>  $query
-     * @return Builder<Restaurant>
+     * @param  Builder<self>  $query
+     * @param  'asc'|'desc'  $direction
+     * @return Builder<self>
      */
-    public function scopeByPopularity(Builder $query): Builder
+    public function scopeOrderByDecayedScore(Builder $query, string $direction = 'desc'): Builder
     {
-        return $query->orderByRaw(self::decayedPopularityScoreExpression().' DESC');
+        $query->getQuery()->orders[] = [
+            'type' => 'raw',
+            'sql' => self::decayedPopularityScoreExpression().' '.strtoupper($direction),
+        ];
+
+        return $query;
     }
 
     /**

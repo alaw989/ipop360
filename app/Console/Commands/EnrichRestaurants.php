@@ -205,7 +205,7 @@ class EnrichRestaurants extends Command
     protected function enrichDiscoveredCities(RestaurantEnrichmentService $enrichmentService, bool $freeOnly = false): int
     {
         $configured = config('restaurant-finder.cities', []);
-        $configuredLower = array_map('strtolower', array_keys($configured));
+        $configuredLower = array_map(fn ($k) => strtolower((string) $k), array_keys($configured));
 
         // Find distinct city/state pairs from the DB that may not be configured
         $discovered = DB::table('restaurants')

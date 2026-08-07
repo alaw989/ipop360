@@ -29,7 +29,7 @@ class HtmlSanitizer
 
         $html = $dom->saveHTML();
 
-        return $this->decodeNonAscii($html);
+        return $this->decodeNonAscii($html !== false ? $html : '');
     }
 
     private function purgeNodes(DOMDocument $dom): void

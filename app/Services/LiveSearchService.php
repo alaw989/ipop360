@@ -193,6 +193,7 @@ class LiveSearchService
         if (isset($toFetch['serpapi'])) {
             $serpApiSpecs = $toFetch['serpapi'];
             unset($toFetch['serpapi']);
+            assert(isset($keys['serpapi']));
             $merged = array_merge(
                 $merged,
                 $this->fetchSerpApiUnderLock($lat, $lng, $queryCuisine, $keys['serpapi'], $serpApiSpecs)
@@ -210,6 +211,7 @@ class LiveSearchService
                 if (isset($hits[$label])) {
                     $merged = array_merge($merged, $this->normalizeCachedHit($label, $hits[$label], $lat, $lng, $sourceCuisine));
                 } elseif (isset($poolResults[$label])) {
+                    assert(isset($keys[$label]));
                     $merged = array_merge($merged, $service->consumePoolResponses($poolResults[$label], $lat, $lng, $sourceCuisine, $keys[$label]));
                 }
             } catch (\Throwable $e) {

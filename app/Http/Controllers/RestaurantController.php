@@ -433,7 +433,7 @@ class RestaurantController extends Controller
                 $coords !== null,
                 fn ($query) => $query->nearby($coords['lat'], $coords['lng'])
             )
-            ->orderByRaw(Restaurant::decayedPopularityScoreExpression().' DESC')
+            ->orderByDecayedScore()
             ->orderBy('id', 'asc');
 
         $restaurants = $query->paginate(50)->withQueryString();
