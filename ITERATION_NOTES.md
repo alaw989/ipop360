@@ -6,15 +6,17 @@ increase frontend test coverage with vitest
 ## State
 
 ### Changed this iteration
-- Added `resources/js/Components/__tests__/CuisinePicker.spec.ts` (12 tests) covering: default "any cuisine" trigger text, category name/count rendering, "Categories" group heading, drill-down into a category shows its cuisines + "All [cat]" + back button, selecting a cuisine emits `{ category, cuisine, label }`, selecting "All [cat]" emits `{ category, label }` without cuisine, back button returns to categories view, trigger text updates after confirming a category, clear-selection option appears when a selection is active, clear emits `{ category: '', label: 'any cuisine' }`, inverted prop applies border/text color classes.
-  - Mocked `useIsMobile` → `ref(false)` for desktop Popover path
-  - Stubbed Popover/PopoverContent/Sheet/etc. as slot-passing wrappers; CommandItem stub emits `select` on click to trigger the component's `@select` handlers
-  - `confirmCategory` flow requires two clicks (drill in → "All [cat]"), and after confirm the categories view re-renders with the clear group visible since `selectedLabel === true`
+- Added `resources/js/Components/__tests__/LocationPicker.spec.ts` (13 tests) covering: default "your city" trigger text, city-only display, "city, state" display, "Detecting..." with spinner, "Type to search cities" / "Use my current location" prompt, detect emit on "Use my location" click, "No cities found" empty state, debounced API search renders result buttons with city/state/display, selecting a result emits `update` and `coords`, null display field renders cleanly, spinner visible while search is in-flight, inverted prop applies border/text color classes, detecting prop adds animate-pulse class.
+  - Mocked `useIsMobile` → `ref(false)` for desktop Popover path; mocked `useKeyboardOffset` → `keyboardHeight: ref(0)`
+  - Mocked `@/lib/api` `get` function to return fixture results; dynamic `import('@/lib/api')` resolves to same mock
+  - Stubbed Popover/PopoverTrigger/PopoverContent/Sheet/SheetTrigger/SheetContent as slot-passing wrappers
+  - Used `vi.useFakeTimers()` + `vi.advanceTimersByTimeAsync(300)` to test debounced search; `setValue` on raw `<input>` triggers `v-model` via native input event
+  - `Input` and `Button` imports in LocationPicker are unused (raw `<input>` / `<button>` elements in template), so no stubs needed
 
-Verification: `npx vitest run resources/js/Components/__tests__/CuisinePicker.spec.ts` → 1 file / 12 tests pass. Full suite: 177 tests / 25 files pass.
+Verification: `npx vitest run resources/js/Components/__tests__/LocationPicker.spec.ts` → 1 file / 13 tests pass. Full suite: 190 tests / 26 files pass.
 
 ### Next
-Continue adding tests for the other untested Components: `RestaurantCard`, `ResultsGrid`, `SearchResultCard`, `SearchFilters`, `SeoMeta`, `LocationPicker`. `LocationPicker` is the next easiest standalone (uses popover + geolocation composable — needs `useGeolocation` mock + `usePersistedLocation` mock). `SearchResultCard` and `RestaurantCard` are hardest (need mocking of `@inertiajs/vue3` `usePage`/`router`, `useFavorites`, `useCompare`, `CardGallery`).
+Continue adding tests for remaining untested Components: `RestaurantCard`, `ResultsGrid`, `SearchResultCard`, `SearchFilters`, `SeoMeta`. `SeoMeta` is likely the easiest (pure presentational, just props + slot rendering). `SearchResultCard` and `RestaurantCard` require mocking `@inertiajs/vue3` `usePage`/`router`, `useFavorites`, `useCompare`, `CardGallery`.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
@@ -22,8 +24,9 @@ Continue adding tests for the other untested Components: `RestaurantCard`, `Resu
 - `$page.props.auth` is injected dynamically: `global.$page = { props: { auth: { user } } }`. Set `user` to an object to render the Favorites link, `null` for guests.
 - Stub complex children in presentational parents: for `HeroSearch` stub `Button`, `CuisinePicker`, `LocationPicker`, `BrandLogo` so assertions stay focused on the wrapper's own renders/emits.
 - The stub `Button` must forward `disabled` (`<button :disabled="disabled"><slot /></button>`) for the detecting-state test to assert the disabled attribute.
-- The component shows city via `location.city || location.state || 'Everywhere'`.
 - `vi.mock('@/composables/useIsMobile')` with `ref(false)` → desktop Popover path; shadcn `Popover: true` does NOT render default slots — use `{ template: '<div><slot /></div>' }` for slot-passing stubs.
 - CommandItem stub must emit `select` on click (`@click="$emit('select')"`) for `@select="handler(cat)"` bindings to fire.
+- Debounced async searches need `vi.useFakeTimers()` + `vi.advanceTimersByTimeAsync(300)` (not `advanceTimersByTime` — the async variant flushes microtasks that the resolved API promise schedules).
+- Dynamic `import('@/lib/api')` inside a component method resolves from the same `vi.mock('@/lib/api', ...)` as static imports.
 
 ## Log
