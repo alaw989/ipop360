@@ -4,12 +4,23 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 150 (down from 180)
-- Remaining: missingType.iterableValue (150)
-- Top files by iterableValue count: SocrataOpenDataService.php (24), LiveSearchService.php (24), PopularityScoreService.php (19), BizDataApiService.php (13), RestaurantWebsiteScraperService.php (9), RestaurantEnrichmentService.php (8), VenuePipeline.php (8)
+- Baseline entries: 137 (down from 150)
+- Remaining: missingType.iterableValue (137)
+- Top files by iterableValue count: SocrataOpenDataService.php (24), LiveSearchService.php (24), PopularityScoreService.php (19), RestaurantWebsiteScraperService.php (9), RestaurantEnrichmentService.php (8), VenuePipeline.php (8)
 
 ## Log
-### Iteration 18 — Fixed all 30 OverpassService iterableValue entries (total: 180→150)
+### Iteration 19 — Fixed all 13 BizDataApiService iterableValue entries (total: 150→137)
+- `app/Services/BizDataApiService.php`: Added value types to every array param/return:
+  - `search()` → `@return array<int, array<string, mixed>>`
+  - `normalizeResults()` → `@param array<int, array<string, mixed>>` + `@return` same shape
+  - `fetchRaw()` → `@return array{cached: bool, data: array<int, mixed>}|null`
+  - `normalizeRaw()` → `@param array<int, mixed>` + `@return array<int, array<string, mixed>>`
+  - `poolRequestsFor()` → `@param array<string, mixed> $context` + `@return array<int, RequestSpec>`
+  - `parsePoolResponse()` → `@return array<int, mixed>|null`
+  - `consumePoolResponses()` → `@param array<int, Response|\Throwable>` + `@return array<int, array<string, mixed>>`
+  - `normalizeForEnrichment()` → `@param array<string, mixed>` + `@return array<string, mixed>`
+- 13 baseline entries removed; 0 BizDataApiService entries remain
+- `./vendor/bin/phpstan analyse` passes cleanly
 - `app/Services/OverpassService.php`: Added value types to every array param/return across the class:
   - Property: `$mirrors` → `array<int, string>`
   - `search()` → `@return array<int, array<string, mixed>>`
