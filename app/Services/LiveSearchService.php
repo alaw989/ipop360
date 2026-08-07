@@ -6,6 +6,7 @@ use App\Models\ExternalApiCache;
 use App\Services\Http\RequestSpec;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -380,6 +381,8 @@ class LiveSearchService
     /**
      * Register one request on the pool under $key. Http::pool keys its results
      * by the ->as($key) name.
+     *
+     * @return \Illuminate\Http\Client\Response|\GuzzleHttp\Promise\PromiseInterface
      */
     private function buildPoolRequest(Pool $pool, string $key, RequestSpec $spec)
     {
