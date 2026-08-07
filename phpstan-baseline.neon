@@ -1,21 +1,4 @@
 parameters:
-	ignoreErrors:
-		-
-			message: '#^Parameter \#1 \$liveSearchService of method App\\Jobs\\EnrichSearchResults\:\:handle\(\) expects App\\Services\\LiveSearchService, Mockery\\MockInterface given\.$#'
-			identifier: argument.type
-			count: 3
-			path: tests/Feature/EnrichSearchResultsTest.php
-
-		-
-			message: '#^Parameter \#2 \$geolocationService of method App\\Jobs\\EnrichSearchResults\:\:handle\(\) expects App\\Services\\GeolocationService, Mockery\\MockInterface given\.$#'
-			identifier: argument.type
-			count: 3
-			path: tests/Feature/EnrichSearchResultsTest.php
-
-		-
-			message: '#^Parameter \#3 \$venuePersister of method App\\Jobs\\EnrichSearchResults\:\:handle\(\) expects App\\Services\\LiveVenuePersister, Mockery\\MockInterface given\.$#'
-			identifier: argument.type
-			count: 3
-			path: tests/Feature/EnrichSearchResultsTest.php
+	ignoreErrors: []
 
 

@@ -70,6 +70,10 @@ class EnrichSearchResultsTest extends TestCase
             $this->venue('Arco Iris'),
         ]);
 
+        /** @var LiveSearchService&\Mockery\MockInterface $liveSearch */
+        /** @var GeolocationService&\Mockery\MockInterface $geo */
+        /** @var LiveVenuePersister&\Mockery\MockInterface $persister */
+
         $persister->shouldReceive('persist')
             ->once()
             ->with(
@@ -100,6 +104,10 @@ class EnrichSearchResultsTest extends TestCase
             $this->venue('Taco Bell'),
         ]);
 
+        /** @var LiveSearchService&\Mockery\MockInterface $liveSearch */
+        /** @var GeolocationService&\Mockery\MockInterface $geo */
+        /** @var LiveVenuePersister&\Mockery\MockInterface $persister */
+
         // Pre-fix this would have been ALL latin-american members. Now only
         // the matched member cuisine (mexican, via 'taco') is attached.
         $persister->shouldReceive('persist')
@@ -126,6 +134,10 @@ class EnrichSearchResultsTest extends TestCase
                 ['id' => abs(crc32('italian')), 'name' => 'Italian', 'slug' => 'italian'],
             ]),
         ]);
+
+        /** @var LiveSearchService&\Mockery\MockInterface $liveSearch */
+        /** @var GeolocationService&\Mockery\MockInterface $geo */
+        /** @var LiveVenuePersister&\Mockery\MockInterface $persister */
 
         $persister->shouldReceive('persist')
             ->once()

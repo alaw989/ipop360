@@ -4,7 +4,7 @@
 shrink the PHPStan level-7 baseline for tests/ by fixing real type issues in test code
 
 ## State
-Baseline: 201→135→21 lines (33→22→3 entries, 39→28→9 errors). Fixed all 11 `argument.type` entries in `RestaurantEnrichmentServiceTest.php` by refactoring loop+spread mock creation to individually-named variables with `@var Service&\Mockery\MockInterface` intersection annotations. Applied the same pattern to `RestaurantEnrichmentProcessFreeVenueTest.php` (8 entries) and `RestaurantEnrichmentScoreBatchUpdateTest.php` (11 entries) — all 19 Mockery constructor `argument.type` entries resolved.
+Baseline: 0 lines, 0 entries, 0 errors. **GOAL ACHIEVED.** The PHPStan level-7 baseline for tests/ is completely empty. All 30 fix iterations resolved real type issues across the test suite.
 
 Fixed `method.nonObject` on `PendingCommand|int` in `RefreshAwardsTest.php` and `RestoreDatabaseCommandTest.php`, and `method.nonObject` on `PDOStatement|false` in `RestoreDatabaseCommandTest.php`. The PDOStatement fix uses `@var PDOStatement` annotation on the extracted `$stmt` variable from `PDO::query()` before calling `fetchColumn()`.
 
@@ -39,7 +39,7 @@ Fixed all 11 `argument.type` entries in `RestaurantEnrichmentScoreBatchUpdateTes
 Baseline: 135 → 21 lines (22 → 3 entries, 28 → 9 errors).
 
 ### What is next
-- The 3 remaining `EnrichSearchResultsTest.php` entries (MockInterface → `handle()` method params, count 3 each, 9 errors total). These are passed to a job's `handle()` method as positional parameters, not a constructor. The named-variable-with-`@var`-intersection pattern doesn't directly apply because the call site is `$job->handle(...$mocks)` using `ReflectionMethod::invoke()`. May need to try the same `@var` approach on individual variables passed to `handle()`, or fall back to inline suppression.
+- Nothing — the goal is fully achieved. Baseline is empty (0 errors).
 
 ### Gotchas
 - `phpstan/phpstan-mockery` 2.0 requires `phpstan/phpstan ^2.0` and `mockery/mockery ^1.6.11`. It resolves `method.notFound` on Mockery expectation methods (andReturn, once, andReturnNull, andReturnUsing) but only partially resolves `argument.type` for Mockery mocks passed to constructors — it handled `MockInterface` → typed services in some cases but not `LegacyMockInterface` or job `handle()` parameter passing.
@@ -97,6 +97,8 @@ Baseline: 135 → 21 lines (22 → 3 entries, 28 → 9 errors).
 
 28. Fixed all 11 baseline entries in RestaurantEnrichmentServiceTest.php — `argument.type` on `LegacyMockInterface` passed to `RestaurantEnrichmentService` constructor (×11). The fix refactors `makeService()` from a loop-based `Mockery::mock($class)->shouldIgnoreMissing()` stored in an indexed array spread with `...` to individually-named variables annotated with `@var ServiceClass&\Mockery\MockInterface`. The intersection type annotation tells PHPStan the mock satisfies the constructor's typed parameters. Baseline 201→135 (33→22 entries, 39→28 errors).
 
-29. Fixed all 19 baseline entries in RestaurantEnrichmentProcessFreeVenueTest.php (8) and RestaurantEnrichmentScoreBatchUpdateTest.php (11) — same `argument.type` on `LegacyMockInterface` passed to `RestaurantEnrichmentService` constructor. Applied the identical named-variable-with-`@var`-intersection pattern from step 28 to `makeService()` and `applyBatch()`. In RestaurantEnrichmentScoreBatchUpdateTest.php, also removed the now-unused `SOURCES` constant. Baseline 135→21 (22→3 entries, 28→9 errors). Remaining: 3 argument.type entries in EnrichSearchResultsTest.php — these are `handle()` params on the `EnrichSearchResults` job, not constructor params, and each has count 3.
+29. Fixed all 19 baseline entries in RestaurantEnrichmentProcessFreeVenueTest.php (8) and RestaurantEnrichmentScoreBatchUpdateTest.php (11) — same `argument.type` on `LegacyMockInterface` passed to `RestaurantEnrichmentService` constructor. Applied the identical named-variable-with-`@var`-intersection pattern from step 28 to `makeService()` and `applyBatch()`. In RestaurantEnrichmentScoreBatchUpdateTest.php, also removed the now-unused `SOURCES` constant. Baseline 135→21 (22→3 entries, 28→9 errors).
+
+30. Fixed all 3 baseline entries (count 9) `argument.type` on `MockInterface` → `handle()` method params in EnrichSearchResultsTest.php. Applied the `@var Service&\Mockery\MockInterface` intersection annotation pattern to the 3 destructured mock variables ($liveSearch, $geo, $persister) after each `[$liveSearch, $geo, $persister] = $this->mocks(...)` destructuring in all 3 test methods. Baseline 21→0 (3→0 entries, 9→0 errors). **ALL DONE — zero baseline errors.**
 
 (End of file)
