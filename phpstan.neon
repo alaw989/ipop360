@@ -6,8 +6,6 @@ parameters:
     level: 7
     paths:
         - app/
-    # Exclude tests for now - we'll add them in a later spec
-    excludePaths:
         - tests/
     # Baseline to absorb pre-existing findings - will be regenerated
     ignoreErrors:

@@ -1,3 +1,848 @@
 parameters:
-	ignoreErrors: []
+	ignoreErrors:
+		-
+			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Queue\:\:pushed\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: tests/Feature/AiEnrichRestaurantsTest.php
+
+		-
+			message: '#^Cannot call method assertExitCode\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: tests/Feature/AiEnrichRestaurantsTest.php
+
+		-
+			message: '#^Parameter \#1 \$expected of method PHPUnit\\Framework\\Assert\:\:assertSame\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: tests/Feature/AiEnrichRestaurantsTest.php
+
+		-
+			message: '#^Unable to resolve the template type TKey in call to function collect$#'
+			identifier: argument.templateType
+			count: 1
+			path: tests/Feature/AiEnrichRestaurantsTest.php
+
+		-
+			message: '#^Unable to resolve the template type TValue in call to function collect$#'
+			identifier: argument.templateType
+			count: 1
+			path: tests/Feature/AiEnrichRestaurantsTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:cuisines\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Feature/AuditRestaurantCuisinesTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\AuditRestaurantCuisinesTest\:\:restaurant\(\) has parameter \$cuisineSlugs with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/AuditRestaurantCuisinesTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\AuditRestaurantCuisinesTest\:\:restaurant\(\) has parameter \$extra with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/AuditRestaurantCuisinesTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\AuditRestaurantCuisinesTest\:\:restaurant\(\) should return App\\Models\\Restaurant but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Feature/AuditRestaurantCuisinesTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\AuditRestaurantCuisinesTest\:\:tags\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/AuditRestaurantCuisinesTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:once\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: tests/Feature/BackfillRestaurantPhotosTest.php
+
+		-
+			message: '#^Cannot call method assertExitCode\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: tests/Feature/BackfillRestaurantPhotosTest.php
+
+		-
+			message: '#^Cannot call method expectsOutputToContain\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: tests/Feature/BackfillRestaurantPhotosTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\BackfillRestaurantPhotosTest\:\:restaurant\(\) has parameter \$overrides with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/BackfillRestaurantPhotosTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\BackfillRestaurantPhotosTest\:\:restaurant\(\) should return App\\Models\\Restaurant but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Feature/BackfillRestaurantPhotosTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\BackfillRestaurantWebsitesSearchTest\:\:fakeHttp\(\) has parameter \$patterns with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/BackfillRestaurantWebsitesSearchTest.php
+
+		-
+			message: '#^Cannot access offset 0 on list\<string\>\|false\.$#'
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 1
+			path: tests/Feature/BackupDatabaseCommandTest.php
+
+		-
+			message: '#^Cannot call method assertSuccessful\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: tests/Feature/BackupDatabaseCommandTest.php
+
+		-
+			message: '#^Cannot call method fetchColumn\(\) on PDOStatement\|false\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: tests/Feature/BackupDatabaseCommandTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of function array_map expects array, list\<string\>\|false given\.$#'
+			identifier: argument.type
+			count: 2
+			path: tests/Feature/BackupDatabaseCommandTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of method PHPUnit\\Framework\\Assert\:\:assertCount\(\) expects Countable\|iterable, list\<string\>\|false given\.$#'
+			identifier: argument.type
+			count: 2
+			path: tests/Feature/BackupDatabaseCommandTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:cuisines\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: tests/Feature/BatchedScoringTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\> will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Feature/BatchedScoringTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\{signals\: array\<int, array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\>, total\: float\} will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Feature/BatchedScoringTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsNumeric\(\) with float will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Feature/BatchedScoringTest.php
+
+		-
+			message: '#^Parameter \#1 \$restaurant of method App\\Services\\PopularityScoreService\:\:calculateBreakdown\(\) expects App\\Models\\Restaurant, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 3
+			path: tests/Feature/BatchedScoringTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\BizDataApiServiceTest\:\:fakeBizDataResponse\(\) has parameter \$businesses with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/BizDataApiServiceTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\BizDataApiServiceTest\:\:fakeBizDataResponse\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/BizDataApiServiceTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\BizDataApiServiceTest\:\:makeBusiness\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/BizDataApiServiceTest.php
+
+		-
+			message: '#^Cannot call method expectsOutputToContain\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: tests/Feature/DeduplicateRestaurantsTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\DeduplicateRestaurantsTest\:\:restaurant\(\) has parameter \$extra with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/DeduplicateRestaurantsTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\DeduplicateRestaurantsTest\:\:restaurant\(\) should return App\\Models\\Restaurant but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Feature/DeduplicateRestaurantsTest.php
+
+		-
+			message: '#^Property Tests\\Feature\\EngagementApiTest\:\:\$restaurant \(App\\Models\\Restaurant\) does not accept Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: tests/Feature/EngagementApiTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\EnrichCuisineTaggingTest\:\:bizDataVenue\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/EnrichCuisineTaggingTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\EnrichCuisineTaggingTest\:\:osmNode\(\) has parameter \$tags with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/EnrichCuisineTaggingTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\EnrichCuisineTaggingTest\:\:osmNode\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/EnrichCuisineTaggingTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\EnrichFreeOnlyTest\:\:bizDataVenue\(\) has parameter \$coords with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/EnrichFreeOnlyTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\EnrichFreeOnlyTest\:\:bizDataVenue\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/EnrichFreeOnlyTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\EnrichFreeOnlyTest\:\:osmNode\(\) has parameter \$tags with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/EnrichFreeOnlyTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\EnrichFreeOnlyTest\:\:osmNode\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/EnrichFreeOnlyTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:once\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Feature/EnrichSearchResultsTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\EnrichSearchResultsTest\:\:mocks\(\) has parameter \$venues with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/EnrichSearchResultsTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\EnrichSearchResultsTest\:\:mocks\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/EnrichSearchResultsTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\EnrichSearchResultsTest\:\:venue\(\) has parameter \$cuisines with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/EnrichSearchResultsTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\EnrichSearchResultsTest\:\:venue\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/EnrichSearchResultsTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:cuisines\(\)\.$#'
+			identifier: method.notFound
+			count: 5
+			path: tests/Feature/HomeControllerTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\LiveVenuePersisterAwardTest\:\:venue\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/LiveVenuePersisterAwardTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\OverpassServiceTest\:\:makeNode\(\) has parameter \$extra with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/OverpassServiceTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\OverpassServiceTest\:\:makeNode\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/OverpassServiceTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\OverpassServiceTest\:\:makeRelation\(\) has parameter \$extra with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/OverpassServiceTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\OverpassServiceTest\:\:makeRelation\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/OverpassServiceTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\OverpassServiceTest\:\:makeWay\(\) has parameter \$extra with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/OverpassServiceTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\OverpassServiceTest\:\:makeWay\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/OverpassServiceTest.php
+
+		-
+			message: '#^Cannot call method assertExitCode\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
+			identifier: method.nonObject
+			count: 10
+			path: tests/Feature/QuotaStatusCommandTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\RatingFirstComboOrderingTest\:\:buildGrid\(\) has parameter \$cities with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/RatingFirstComboOrderingTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\RatingFirstComboOrderingTest\:\:buildGrid\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/RatingFirstComboOrderingTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:andReturn\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: tests/Feature/RefreshAwardsTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:andReturnUsing\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Feature/RefreshAwardsTest.php
+
+		-
+			message: '#^Cannot call method assertExitCode\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: tests/Feature/RefreshAwardsTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:cuisines\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: tests/Feature/RestaurantControllerTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\RestaurantControllerTest\:\:bindLiveSearchResults\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/RestaurantControllerTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\RestaurantControllerTest\:\:liveRow\(\) has parameter \$overrides with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/RestaurantControllerTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\RestaurantControllerTest\:\:liveRow\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/RestaurantControllerTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\RestaurantPreviewTest\:\:liveVenue\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Feature/RestaurantPreviewTest.php
+
+		-
+			message: '#^Cannot call method assertFailed\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: tests/Feature/RestoreDatabaseCommandTest.php
+
+		-
+			message: '#^Cannot call method assertSuccessful\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: tests/Feature/RestoreDatabaseCommandTest.php
+
+		-
+			message: '#^Cannot call method fetchColumn\(\) on PDOStatement\|false\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: tests/Feature/RestoreDatabaseCommandTest.php
+
+		-
+			message: '#^Parameter \#2 \$array of function array_map expects array, list\<string\>\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Feature/RestoreDatabaseCommandTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of method PHPUnit\\Framework\\Assert\:\:assertCount\(\) expects Countable\|iterable, list\<string\>\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Feature/RestoreDatabaseCommandTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:cuisines\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Feature/SearchControllerTest.php
+
+		-
+			message: '#^Cannot call method assertExitCode\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: tests/Feature/SerpApiExhaustionTest.php
+
+		-
+			message: '#^Method Tests\\Feature\\SerpApiQueryConstructionTest\:\:captureQuery\(\) should return string but returns array\<mixed\>\|string\.$#'
+			identifier: return.type
+			count: 1
+			path: tests/Feature/SerpApiQueryConstructionTest.php
+
+		-
+			message: '#^Parameter \#1 \$string of function parse_str expects string, string\|false\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Feature/SerpApiQueryConstructionTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\AiEnrichmentServiceTest\:\:chatResponse\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/AiEnrichmentServiceTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\AiEnrichmentServiceTest\:\:providerConfig\(\) has parameter \$fallback with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/AiEnrichmentServiceTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\AiEnrichmentServiceTest\:\:providerConfig\(\) has parameter \$primary with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/AiEnrichmentServiceTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\AiEnrichmentServiceTest\:\:providerConfig\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/AiEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#1 \$content of method Tests\\Unit\\AiEnrichmentServiceTest\:\:chatResponse\(\) expects string, string\|false given\.$#'
+			identifier: argument.type
+			count: 3
+			path: tests/Unit/AiEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#1 \$response of class Illuminate\\Http\\Client\\RequestException constructor expects Illuminate\\Http\\Client\\Response, GuzzleHttp\\Promise\\PromiseInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/AiEnrichmentServiceTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\CuisineScopeTest\:\:scope\(\) has parameter \$onKeywords with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/CuisineScopeTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\CuisineScopeTest\:\:scope\(\) has parameter \$rivalKeywords with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/CuisineScopeTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\CuisineScopeTest\:\:scope\(\) has parameter \$targetSlugs with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/CuisineScopeTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertTrue\(\) with true will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Unit/ExampleTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:andReturn\(\)\.$#'
+			identifier: method.notFound
+			count: 19
+			path: tests/Unit/LiveSearchScoringTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:andReturnNull\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/LiveSearchScoringTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:once\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/LiveSearchScoringTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\> will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 2
+			path: tests/Unit/LiveSearchScoringTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\LiveSearchScoringTest\:\:makeServiceWithVenues\(\) has parameter \$venuesBySource with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/LiveSearchScoringTest.php
+
+		-
+			message: '#^Parameter \#1 \$overpassService of class App\\Services\\LiveSearchService constructor expects App\\Services\\OverpassService, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 3
+			path: tests/Unit/LiveSearchScoringTest.php
+
+		-
+			message: '#^Parameter \#2 \$bizDataService of class App\\Services\\LiveSearchService constructor expects App\\Services\\BizDataApiService, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 3
+			path: tests/Unit/LiveSearchScoringTest.php
+
+		-
+			message: '#^Parameter \#3 \$serpApiService of class App\\Services\\LiveSearchService constructor expects App\\Services\\SerpApiService, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 3
+			path: tests/Unit/LiveSearchScoringTest.php
+
+		-
+			message: '#^Parameter \#4 \$socrataService of class App\\Services\\LiveSearchService constructor expects App\\Services\\SocrataOpenDataService, Mockery\\MockInterface given\.$#'
+			identifier: argument.type
+			count: 3
+			path: tests/Unit/LiveSearchScoringTest.php
+
+		-
+			message: '#^Unable to resolve the template type TKey in call to function collect$#'
+			identifier: argument.templateType
+			count: 4
+			path: tests/Unit/LiveSearchScoringTest.php
+
+		-
+			message: '#^Unable to resolve the template type TValue in call to function collect$#'
+			identifier: argument.templateType
+			count: 4
+			path: tests/Unit/LiveSearchScoringTest.php
+
+		-
+			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsFloat\(\) with float will always evaluate to true\.$#'
+			identifier: method.alreadyNarrowedType
+			count: 1
+			path: tests/Unit/PopularityScoreServiceTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PopularityScoreServiceTest\:\:fullFreeFields\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/PopularityScoreServiceTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\PopularityScoreServiceTest\:\:makeRestaurant\(\) has parameter \$attributes with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/PopularityScoreServiceTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:restaurants\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\RestaurantEnrichmentProcessFreeVenueTest\:\:processFreeVenue\(\) has parameter \$venue with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
+
+		-
+			message: '#^Parameter \#1 \$overpass of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\OverpassService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
+
+		-
+			message: '#^Parameter \#2 \$bizData of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\BizDataApiService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
+
+		-
+			message: '#^Parameter \#2 \$cuisine of method Tests\\Unit\\RestaurantEnrichmentProcessFreeVenueTest\:\:processFreeVenue\(\) expects App\\Models\\Cuisine, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 5
+			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
+
+		-
+			message: '#^Parameter \#3 \$serpApiService of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\SerpApiService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
+
+		-
+			message: '#^Parameter \#4 \$socrataService of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\SocrataOpenDataService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
+
+		-
+			message: '#^Parameter \#5 \$wikidata of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\WikidataService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
+
+		-
+			message: '#^Parameter \#6 \$popularityScore of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\PopularityScoreService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
+
+		-
+			message: '#^Parameter \#7 \$websiteScraper of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\RestaurantWebsiteScraperService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
+
+		-
+			message: '#^Parameter \#8 \$aiEnrichment of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\AiEnrichmentService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\RestaurantEnrichmentScoreBatchUpdateTest\:\:applyBatch\(\) has parameter \$scores with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Parameter \#1 \$overpass of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\OverpassService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Parameter \#10 \$venuePipeline of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\VenuePipeline, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Parameter \#11 \$restaurantValidation of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\RestaurantValidationService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Parameter \#2 \$bizData of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\BizDataApiService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Parameter \#3 \$serpApiService of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\SerpApiService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Parameter \#4 \$socrataService of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\SocrataOpenDataService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Parameter \#5 \$wikidata of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\WikidataService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Parameter \#6 \$popularityScore of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\PopularityScoreService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Parameter \#7 \$websiteScraper of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\RestaurantWebsiteScraperService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Parameter \#8 \$aiEnrichment of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\AiEnrichmentService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Parameter \#9 \$cuisineMatcher of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\CuisineMatcher, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:andReturn\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#1 \$array \(array\{Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, \.\.\.\}\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#1 \$overpass of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\OverpassService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#10 \$venuePipeline of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\VenuePipeline, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#11 \$restaurantValidation of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\RestaurantValidationService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#2 \$bizData of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\BizDataApiService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#3 \$serpApiService of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\SerpApiService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#4 \$socrataService of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\SocrataOpenDataService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#5 \$wikidata of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\WikidataService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#6 \$popularityScore of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\PopularityScoreService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#7 \$websiteScraper of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\RestaurantWebsiteScraperService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#8 \$aiEnrichment of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\AiEnrichmentService, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#9 \$cuisineMatcher of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\CuisineMatcher, Mockery\\LegacyMockInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentServiceTest.php
+
+		-
+			message: '#^Parameter \#1 \$aggregates of method App\\Http\\Resources\\RestaurantResource\:\:withAggregates\(\) expects array\{log_denoms\: array\<string, float\>, minmax\: array\<string, array\{min\: float, max\: float\}\|null\>, quality\: array\{mean_rating\: float\}\}, array\{log_denoms\: array\{\}, minmax\: array\{\}, quality\: array\{\}\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantResourceAggregatesTest.php
+
+		-
+			message: '#^Parameter \#1 \$restaurant of method App\\Services\\PopularityScoreService\:\:calculateBreakdown\(\) expects App\\Models\\Restaurant, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/RestaurantResourceAggregatesTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\SocrataOpenDataServiceTest\:\:dedup\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/SocrataOpenDataServiceTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\SocrataOpenDataServiceTest\:\:dedup\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/SocrataOpenDataServiceTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\VenuePipelineMergeTest\:\:nameOnlyOverpassVenue\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/VenuePipelineMergeTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\VenuePipelineMergeTest\:\:richSerpApiVenue\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/VenuePipelineMergeTest.php
+
+		-
+			message: '#^Static method Illuminate\\Http\\Client\\Factory\:\:assertSentCount\(\) invoked with 2 parameters, 1 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: tests/Unit/WebsiteScraperSsrfGuardTest.php
+
+		-
+			message: '#^Method Tests\\Unit\\WikidataServiceTest\:\:atelierCrennResponse\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/WikidataServiceTest.php
 
