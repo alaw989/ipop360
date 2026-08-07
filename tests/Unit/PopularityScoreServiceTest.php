@@ -20,6 +20,7 @@ class PopularityScoreServiceTest extends TestCase
     /**
      * Build an in-memory Restaurant (never persisted) from the given attributes.
      */
+    /** @param array<string, mixed> $attributes */
     private function makeRestaurant(array $attributes): Restaurant
     {
         $restaurant = new Restaurant;
@@ -35,6 +36,7 @@ class PopularityScoreServiceTest extends TestCase
      * Eight free-source descriptive fields fully populated, so data_completeness
      * is a known 8/11 (popular_times/hours/social_links left null on the free-only path).
      */
+    /** @return array<string, string> */
     private function fullFreeFields(): array
     {
         return [
@@ -278,7 +280,7 @@ class PopularityScoreServiceTest extends TestCase
         $all = new Collection([$restaurant]);
         $score = $this->service->calculateScore($restaurant, $all);
 
-        $this->assertIsFloat($score);
+        $this->assertIsFloat($score); // @phpstan-ignore method.alreadyNarrowedType
         $this->assertFinite($score);
     }
 

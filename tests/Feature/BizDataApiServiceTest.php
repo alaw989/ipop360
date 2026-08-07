@@ -11,6 +11,10 @@ class BizDataApiServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * @param  array<int, array<string, mixed>>  $businesses
+     * @return array<string, mixed>
+     */
     private function fakeBizDataResponse(array $businesses): array
     {
         return [
@@ -20,6 +24,7 @@ class BizDataApiServiceTest extends TestCase
         ];
     }
 
+    /** @return array<string, mixed> */
     private function makeBusiness(string $name, float $lat, float $lng, ?string $phone = null, ?string $website = null, ?string $address = null, ?string $hours = null): array
     {
         return array_filter([

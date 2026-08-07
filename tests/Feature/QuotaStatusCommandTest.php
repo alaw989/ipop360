@@ -6,6 +6,7 @@ use App\Models\ExternalApiCache;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Testing\PendingCommand;
 use Tests\TestCase;
 
 /**
@@ -23,8 +24,10 @@ class QuotaStatusCommandTest extends TestCase
 
     public function test_quota_status_command_runs_on_empty_table(): void
     {
-        $this->artisan('quota:status')
-            ->assertExitCode(0);
+        /** @var PendingCommand $command */
+        $command = $this->artisan('quota:status');
+        $command->assertExitCode(0);
+        $command->run();
 
         // Verify no DB writes occurred (table is still empty)
         $this->assertSame(0, ExternalApiCache::count());
@@ -34,12 +37,14 @@ class QuotaStatusCommandTest extends TestCase
     {
         Config::set('restaurant-finder.enrich.monthly_budget', 250);
 
-        $this->artisan('quota:status')
-            ->assertExitCode(0)
+        /** @var PendingCommand $command */
+        $command = $this->artisan('quota:status');
+        $command->assertExitCode(0)
             ->expectsOutputToContain('Calls made: 0 / 250 (free tier) | 0 / 250 (enrich budget)')
             ->expectsOutputToContain('Remaining: 250 (100% of free) | 250 (100% of budget)')
             ->expectsOutputToContain('Total rows: 0')
             ->expectsOutputToContain('Expiring within 7 days: 0');
+        $command->run();
     }
 
     public function test_quota_status_shows_correct_burn_with_cache_entries(): void
@@ -77,13 +82,15 @@ class QuotaStatusCommandTest extends TestCase
 
         // 12 (test entries) + 1 (expiring-soon) = 13 serpapi calls in last 30 days
         // old-entry is outside 30 days, so not counted
-        $this->artisan('quota:status')
-            ->assertExitCode(0)
+        /** @var PendingCommand $command */
+        $command = $this->artisan('quota:status');
+        $command->assertExitCode(0)
             ->expectsOutputToContain('Calls made: 13 / 250 (free tier) | 13 / 250 (enrich budget)')
             ->expectsOutputToContain('Remaining: 237 (95% of free) | 237 (95% of budget)')
             ->expectsOutputToContain('Total rows: 14')
             ->expectsOutputToContain('Expiring within 7 days: 1')
             ->expectsOutputToContain('serpapi: 14');
+        $command->run();
     }
 
     public function test_quota_status_respects_custom_days_option(): void
@@ -98,14 +105,18 @@ class QuotaStatusCommandTest extends TestCase
         ]);
 
         // Default 7 days should not count this as expiring
-        $this->artisan('quota:status --days=7')
-            ->assertExitCode(0)
+        /** @var PendingCommand $command */
+        $command = $this->artisan('quota:status --days=7');
+        $command->assertExitCode(0)
             ->expectsOutputToContain('Expiring within 7 days: 0');
+        $command->run();
 
         // Custom 14 days should count this as expiring
-        $this->artisan('quota:status --days=14')
-            ->assertExitCode(0)
+        /** @var PendingCommand $command2 */
+        $command2 = $this->artisan('quota:status --days=14');
+        $command2->assertExitCode(0)
             ->expectsOutputToContain('Expiring within 14 days: 1');
+        $command2->run();
     }
 
     public function test_quota_status_respects_config_values(): void
@@ -123,10 +134,12 @@ class QuotaStatusCommandTest extends TestCase
             'expires_at' => Carbon::now()->addDays(30),
         ]);
 
-        $this->artisan('quota:status')
-            ->assertExitCode(0)
+        /** @var PendingCommand $command */
+        $command = $this->artisan('quota:status');
+        $command->assertExitCode(0)
             ->expectsOutputToContain('Calls made: 1 / 100 (free tier) | 1 / 80 (enrich budget)')
             ->expectsOutputToContain('Remaining: 99 (99% of free) | 79 (99% of budget)');
+        $command->run();
     }
 
     public function test_quota_status_shows_by_source_breakdown(): void
@@ -164,12 +177,14 @@ class QuotaStatusCommandTest extends TestCase
             'expires_at' => Carbon::now()->addDays(30),
         ]);
 
-        $this->artisan('quota:status')
-            ->assertExitCode(0)
+        /** @var PendingCommand $command */
+        $command = $this->artisan('quota:status');
+        $command->assertExitCode(0)
             ->expectsOutputToContain('Total rows: 4')
             ->expectsOutputToContain('- serpapi: 2')
             ->expectsOutputToContain('- overpass: 1')
             ->expectsOutputToContain('- wikidata: 1');
+        $command->run();
     }
 
     public function test_quota_status_handles_unknown_source(): void
@@ -182,9 +197,11 @@ class QuotaStatusCommandTest extends TestCase
             'expires_at' => Carbon::now()->addDays(30),
         ]);
 
-        $this->artisan('quota:status')
-            ->assertExitCode(0)
+        /** @var PendingCommand $command */
+        $command = $this->artisan('quota:status');
+        $command->assertExitCode(0)
             ->expectsOutputToContain('- unknown: 1');
+        $command->run();
     }
 
     public function test_quota_status_is_read_only_no_db_writes(): void
@@ -202,8 +219,10 @@ class QuotaStatusCommandTest extends TestCase
         $initialCount = ExternalApiCache::count();
 
         // Run the command
-        $this->artisan('quota:status')
-            ->assertExitCode(0);
+        /** @var PendingCommand $command */
+        $command = $this->artisan('quota:status');
+        $command->assertExitCode(0);
+        $command->run();
 
         // Verify no new rows were created
         $this->assertSame($initialCount, ExternalApiCache::count());
@@ -232,9 +251,11 @@ class QuotaStatusCommandTest extends TestCase
             ]);
         }
 
-        $this->artisan('quota:status')
-            ->assertExitCode(0)
+        /** @var PendingCommand $command */
+        $command = $this->artisan('quota:status');
+        $command->assertExitCode(0)
             ->expectsOutputToContain('Calls made: 10 / 250 (free tier) | 10 / 5 (enrich budget)')
             ->expectsOutputToContain('Remaining: 240 (96% of free) | 0 (0% of budget)');
+        $command->run();
     }
 }

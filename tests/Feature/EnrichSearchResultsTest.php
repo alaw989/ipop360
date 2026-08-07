@@ -11,6 +11,7 @@ use App\Services\LiveVenuePersister;
 use Database\Seeders\CuisineSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 /**
@@ -29,6 +30,10 @@ class EnrichSearchResultsTest extends TestCase
         $this->seed(CuisineSeeder::class);
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $cuisines
+     * @return array<string, mixed>
+     */
     private function venue(string $name, array $cuisines = []): array
     {
         return [
@@ -39,6 +44,10 @@ class EnrichSearchResultsTest extends TestCase
         ];
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $venues
+     * @return array<int, MockInterface>
+     */
     private function mocks(array $venues): array
     {
         $liveSearch = Mockery::mock(LiveSearchService::class);
@@ -61,6 +70,9 @@ class EnrichSearchResultsTest extends TestCase
             $this->venue('Arco Iris'),
         ]);
 
+        /** @var LiveSearchService&MockInterface $liveSearch */
+        /** @var GeolocationService&MockInterface $geo */
+        /** @var LiveVenuePersister&MockInterface $persister */
         $persister->shouldReceive('persist')
             ->once()
             ->with(
@@ -91,6 +103,10 @@ class EnrichSearchResultsTest extends TestCase
             $this->venue('Taco Bell'),
         ]);
 
+        /** @var LiveSearchService&MockInterface $liveSearch */
+        /** @var GeolocationService&MockInterface $geo */
+        /** @var LiveVenuePersister&MockInterface $persister */
+
         // Pre-fix this would have been ALL latin-american members. Now only
         // the matched member cuisine (mexican, via 'taco') is attached.
         $persister->shouldReceive('persist')
@@ -118,6 +134,9 @@ class EnrichSearchResultsTest extends TestCase
             ]),
         ]);
 
+        /** @var LiveSearchService&MockInterface $liveSearch */
+        /** @var GeolocationService&MockInterface $geo */
+        /** @var LiveVenuePersister&MockInterface $persister */
         $persister->shouldReceive('persist')
             ->once()
             ->with(

@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\AiEnrichmentService;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
@@ -29,6 +30,11 @@ class AiEnrichmentServiceTest extends TestCase
         Log::spy();
     }
 
+    /**
+     * @param  array<string, string>  $primary
+     * @param  array<string, string>|null  $fallback
+     * @return array<string, mixed>
+     */
     private function providerConfig(array $primary = [], ?array $fallback = null): array
     {
         return [
@@ -39,6 +45,7 @@ class AiEnrichmentServiceTest extends TestCase
         ];
     }
 
+    /** @return array<string, mixed> */
     private function chatResponse(string $content): array
     {
         return ['choices' => [['message' => ['content' => $content]]]];
@@ -58,7 +65,7 @@ class AiEnrichmentServiceTest extends TestCase
         config(['services.ai' => $this->providerConfig()]);
 
         Http::fake([
-            self::PRIMARY_URL => Http::response($this->chatResponse(json_encode([
+            self::PRIMARY_URL => Http::response($this->chatResponse((string) json_encode([
                 'normalized_address' => '123 Main St',
                 'phone' => '(415) 555-0100',
                 'price_range' => '$$',
@@ -133,7 +140,7 @@ class AiEnrichmentServiceTest extends TestCase
 
         Http::fake([
             self::PRIMARY_URL => Http::response('', 429),
-            self::FALLBACK_URL => Http::response($this->chatResponse(json_encode([
+            self::FALLBACK_URL => Http::response($this->chatResponse((string) json_encode([
                 'price_range' => '$',
                 'cuisines' => ['Italian'],
             ]))),
@@ -216,9 +223,12 @@ class AiEnrichmentServiceTest extends TestCase
             ['api_key' => 'pk-fallback', 'base_url' => 'https://models.inference.ai.azure.com', 'model' => 'gpt-4o-mini'],
         )]);
 
+        /** @var Response $rateLimitResponse */
+        $rateLimitResponse = Http::response('', 429);
+
         Http::fake([
-            self::PRIMARY_URL => fn () => throw new RequestException(Http::response('', 429)),
-            self::FALLBACK_URL => Http::response($this->chatResponse(json_encode([
+            self::PRIMARY_URL => fn () => throw new RequestException($rateLimitResponse),
+            self::FALLBACK_URL => Http::response($this->chatResponse((string) json_encode([
                 'normalized_address' => '42 Fallback St',
             ]))),
         ]);

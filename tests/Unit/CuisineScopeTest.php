@@ -7,6 +7,11 @@ use Tests\TestCase;
 
 class CuisineScopeTest extends TestCase
 {
+    /**
+     * @param  array<int, string>  $targetSlugs
+     * @param  array<int, string>  $onKeywords
+     * @param  array<int, string>  $rivalKeywords
+     */
     private function scope(
         bool $requested = true,
         bool $resolved = true,

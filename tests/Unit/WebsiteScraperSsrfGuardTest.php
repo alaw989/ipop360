@@ -34,7 +34,7 @@ class WebsiteScraperSsrfGuardTest extends TestCase
     {
         Http::fake(['*' => Http::response('SHOULD NOT BE FETCHED', 200)]);
         $scrape();
-        Http::assertSentCount(0, 'guard must reject before any HTTP fetch (incl. robots.txt)');
+        Http::assertSentCount(0);
     }
 
     public function test_rejects_loopback_address(): void

@@ -19,25 +19,12 @@ use App\Services\WikidataService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Mockery;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 class RestaurantEnrichmentServiceTest extends TestCase
 {
     use RefreshDatabase;
-
-    private const SOURCES = [
-        OverpassService::class,
-        BizDataApiService::class,
-        SerpApiService::class,
-        SocrataOpenDataService::class,
-        WikidataService::class,
-        PopularityScoreService::class,
-        RestaurantWebsiteScraperService::class,
-        AiEnrichmentService::class,
-        CuisineMatcher::class,
-        VenuePipeline::class,
-        RestaurantValidationService::class,
-    ];
 
     /**
      * Build a RestaurantEnrichmentService whose collaborators are no-op mocks.
@@ -46,18 +33,40 @@ class RestaurantEnrichmentServiceTest extends TestCase
      */
     private function makeService(): RestaurantEnrichmentService
     {
-        $mocks = [];
-        foreach (self::SOURCES as $i => $class) {
-            $mocks[$i] = Mockery::mock($class)->shouldIgnoreMissing();
-        }
+        /** @var OverpassService&MockInterface $overpass */
+        $overpass = Mockery::mock(OverpassService::class)->shouldIgnoreMissing();
+        /** @var BizDataApiService&MockInterface $bizData */
+        $bizData = Mockery::mock(BizDataApiService::class)->shouldIgnoreMissing();
+        /** @var SerpApiService&MockInterface $serpApiService */
+        $serpApiService = Mockery::mock(SerpApiService::class)->shouldIgnoreMissing();
+        /** @var SocrataOpenDataService&MockInterface $socrataService */
+        $socrataService = Mockery::mock(SocrataOpenDataService::class)->shouldIgnoreMissing();
+        /** @var WikidataService&MockInterface $wikidata */
+        $wikidata = Mockery::mock(WikidataService::class)->shouldIgnoreMissing();
+        /** @var PopularityScoreService&MockInterface $popularityScore */
+        $popularityScore = Mockery::mock(PopularityScoreService::class)->shouldIgnoreMissing();
+        /** @var RestaurantWebsiteScraperService&MockInterface $websiteScraper */
+        $websiteScraper = Mockery::mock(RestaurantWebsiteScraperService::class)->shouldIgnoreMissing();
+        /** @var AiEnrichmentService&MockInterface $aiEnrichment */
+        $aiEnrichment = Mockery::mock(AiEnrichmentService::class)->shouldIgnoreMissing();
+        /** @var CuisineMatcher&MockInterface $cuisineMatcher */
+        $cuisineMatcher = Mockery::mock(CuisineMatcher::class)->shouldIgnoreMissing();
+        /** @var VenuePipeline&MockInterface $venuePipeline */
+        $venuePipeline = Mockery::mock(VenuePipeline::class)->shouldIgnoreMissing();
+        /** @var RestaurantValidationService&MockInterface $restaurantValidation */
+        $restaurantValidation = Mockery::mock(RestaurantValidationService::class)->shouldIgnoreMissing();
 
         // cacheKeyFor drives the isSerpApiCacheFresh check — make it deterministic
         // and (by default) absent from the DB so the serpapi key is never "fresh".
-        $mocks[2]->shouldReceive('cacheKeyFor')->andReturn('unused:combo-key');
+        $serpApiService->shouldReceive('cacheKeyFor')->andReturn('unused:combo-key');
         // humanize drives the cache key; defer to a stable value.
-        $mocks[8]->shouldReceive('humanize')->andReturn('taco');
+        $cuisineMatcher->shouldReceive('humanize')->andReturn('taco');
 
-        return new RestaurantEnrichmentService(...array_values($mocks));
+        return new RestaurantEnrichmentService(
+            $overpass, $bizData, $serpApiService, $socrataService, $wikidata,
+            $popularityScore, $websiteScraper, $aiEnrichment, $cuisineMatcher,
+            $venuePipeline, $restaurantValidation
+        );
     }
 
     /**

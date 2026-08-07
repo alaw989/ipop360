@@ -29,7 +29,9 @@ class SearchControllerTest extends TestCase
             'slug' => 'tex-mex',
             'category_id' => $category->id,
         ]);
-        $restaurant = Restaurant::factory()->create(['is_active' => true]);
+        $restaurant = Restaurant::whereKey(
+            Restaurant::factory()->create(['is_active' => true])->id
+        )->firstOrFail();
         $restaurant->cuisines()->attach($cuisine);
 
         $response = $this->get('/search?cuisine=tex-mex');

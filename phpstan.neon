@@ -1,13 +1,12 @@
 includes:
     - vendor/larastan/larastan/extension.neon
+    - vendor/phpstan/phpstan-mockery/extension.neon
     - phpstan-baseline.neon
 
 parameters:
     level: 7
     paths:
         - app/
-    # Exclude tests for now - we'll add them in a later spec
-    excludePaths:
         - tests/
     # Baseline to absorb pre-existing findings - will be regenerated
     ignoreErrors:

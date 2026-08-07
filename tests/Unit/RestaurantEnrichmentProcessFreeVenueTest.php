@@ -19,6 +19,7 @@ use App\Services\VenuePipeline;
 use App\Services\WikidataService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
+use Mockery\MockInterface;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -36,23 +37,37 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
 
     private function makeService(): RestaurantEnrichmentService
     {
-        $mocks = [];
-        $mocks[] = Mockery::mock(OverpassService::class)->shouldIgnoreMissing();
-        $mocks[] = Mockery::mock(BizDataApiService::class)->shouldIgnoreMissing();
-        $mocks[] = Mockery::mock(SerpApiService::class)->shouldIgnoreMissing();
-        $mocks[] = Mockery::mock(SocrataOpenDataService::class)->shouldIgnoreMissing();
-        $mocks[] = Mockery::mock(WikidataService::class)->shouldIgnoreMissing();
-        $mocks[] = Mockery::mock(PopularityScoreService::class)->shouldIgnoreMissing();
-        $mocks[] = Mockery::mock(RestaurantWebsiteScraperService::class)->shouldIgnoreMissing();
-        $mocks[] = Mockery::mock(AiEnrichmentService::class)->shouldIgnoreMissing();
-        $mocks[] = new CuisineMatcher;
-        $mocks[] = new VenuePipeline(new PriceLevelNormalizer);
-        $mocks[] = new RestaurantValidationService;
+        /** @var OverpassService&MockInterface $overpass */
+        $overpass = Mockery::mock(OverpassService::class)->shouldIgnoreMissing();
+        /** @var BizDataApiService&MockInterface $bizData */
+        $bizData = Mockery::mock(BizDataApiService::class)->shouldIgnoreMissing();
+        /** @var SerpApiService&MockInterface $serpApiService */
+        $serpApiService = Mockery::mock(SerpApiService::class)->shouldIgnoreMissing();
+        /** @var SocrataOpenDataService&MockInterface $socrataService */
+        $socrataService = Mockery::mock(SocrataOpenDataService::class)->shouldIgnoreMissing();
+        /** @var WikidataService&MockInterface $wikidata */
+        $wikidata = Mockery::mock(WikidataService::class)->shouldIgnoreMissing();
+        /** @var PopularityScoreService&MockInterface $popularityScore */
+        $popularityScore = Mockery::mock(PopularityScoreService::class)->shouldIgnoreMissing();
+        /** @var RestaurantWebsiteScraperService&MockInterface $websiteScraper */
+        $websiteScraper = Mockery::mock(RestaurantWebsiteScraperService::class)->shouldIgnoreMissing();
+        /** @var AiEnrichmentService&MockInterface $aiEnrichment */
+        $aiEnrichment = Mockery::mock(AiEnrichmentService::class)->shouldIgnoreMissing();
+        $cuisineMatcher = new CuisineMatcher;
+        $venuePipeline = new VenuePipeline(new PriceLevelNormalizer);
+        $restaurantValidation = new RestaurantValidationService;
 
-        return new RestaurantEnrichmentService(...$mocks);
+        return new RestaurantEnrichmentService(
+            $overpass, $bizData, $serpApiService, $socrataService, $wikidata,
+            $popularityScore, $websiteScraper, $aiEnrichment, $cuisineMatcher,
+            $venuePipeline, $restaurantValidation
+        );
     }
 
-    /** Invoke the private, real-DB persisting path. */
+    /**
+     * @param  array<string, mixed>  $venue
+     *                                       Invoke the private, real-DB persisting path.
+     */
     private function processFreeVenue(array $venue, Cuisine $cuisine): ?Restaurant
     {
         $method = new ReflectionMethod(RestaurantEnrichmentService::class, 'processFreeVenue');
@@ -63,6 +78,7 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
 
     public function test_creates_new_venue_and_attaches_evidence_cuisine(): void
     {
+        /** @var Cuisine $cuisine */
         $cuisine = Cuisine::factory()->create(['slug' => 'japanese', 'name' => 'Japanese']);
 
         $restaurant = $this->processFreeVenue([
@@ -92,6 +108,7 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
 
     public function test_skips_venue_with_empty_name(): void
     {
+        /** @var Cuisine $cuisine */
         $cuisine = Cuisine::factory()->create(['slug' => 'japanese', 'name' => 'Japanese']);
 
         $restaurant = $this->processFreeVenue([
@@ -107,6 +124,7 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
 
     public function test_updates_existing_row_by_yelp_id_without_duplicate(): void
     {
+        /** @var Cuisine $cuisine */
         $cuisine = Cuisine::factory()->create(['slug' => 'japanese', 'name' => 'Japanese']);
         $existing = Restaurant::factory()->create([
             'yelp_business_id' => 'yelp-123',
@@ -128,6 +146,7 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
 
     public function test_persists_venue_without_coordinates(): void
     {
+        /** @var Cuisine $cuisine */
         $cuisine = Cuisine::factory()->create(['slug' => 'japanese', 'name' => 'Japanese']);
 
         $restaurant = $this->processFreeVenue([
@@ -143,6 +162,7 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
 
     public function test_does_not_attach_cuisine_without_evidence(): void
     {
+        /** @var Cuisine $cuisine */
         $cuisine = Cuisine::factory()->create(['slug' => 'japanese', 'name' => 'Japanese']);
 
         $restaurant = $this->processFreeVenue([

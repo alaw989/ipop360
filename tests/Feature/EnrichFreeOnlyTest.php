@@ -41,6 +41,10 @@ class EnrichFreeOnlyTest extends TestCase
         ]);
     }
 
+    /**
+     * @param  array<string, float>|null  $coords
+     * @return array<string, mixed>
+     */
     private function bizDataVenue(string $name, ?array $coords = null, ?string $phone = null): array
     {
         $coords = $coords ?? ['lat' => 37.7749, 'lon' => -122.4194];
@@ -56,6 +60,10 @@ class EnrichFreeOnlyTest extends TestCase
         ];
     }
 
+    /**
+     * @param  array<string, string>  $tags
+     * @return array<string, mixed>
+     */
     private function osmNode(int $id, string $name, float $lat = 37.78, float $lon = -122.41, array $tags = []): array
     {
         return [

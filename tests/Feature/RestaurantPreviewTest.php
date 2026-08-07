@@ -16,6 +16,7 @@ class RestaurantPreviewTest extends TestCase
      * A live-search venue snapshot (the shape apiIndex stores under preview:{slug}
      * after sort + boundResults, and formatLiveRestaurant consumes).
      */
+    /** @return array<string, mixed> */
     private function liveVenue(): array
     {
         return [

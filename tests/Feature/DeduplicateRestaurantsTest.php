@@ -8,21 +8,27 @@ use App\Models\Restaurant;
 use App\Models\RestaurantSocialLink;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\PendingCommand;
 use Tests\TestCase;
 
 class DeduplicateRestaurantsTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * @param  array<string, mixed>  $extra
+     */
     private function restaurant(string $name, string $city, float $lat, float $lng, array $extra = []): Restaurant
     {
-        return Restaurant::factory()->create(array_merge([
+        $model = Restaurant::factory()->create(array_merge([
             'name' => $name,
             'city' => $city,
             'latitude' => $lat,
             'longitude' => $lng,
             'photo_url' => null,
         ], $extra));
+
+        return Restaurant::whereKey($model->id)->firstOrFail();
     }
 
     public function test_dry_run_does_not_delete(): void
@@ -30,8 +36,9 @@ class DeduplicateRestaurantsTest extends TestCase
         $keep = $this->restaurant('Dupe Test', 'Austin', 30.26, -97.74);
         $dupe = $this->restaurant('Dupe Test', 'Austin', 30.26, -97.74);
 
-        $this->artisan('restaurants:dedupe')
-            ->expectsOutputToContain('DRY RUN');
+        /** @var PendingCommand $cmd */
+        $cmd = $this->artisan('restaurants:dedupe');
+        $cmd->expectsOutputToContain('DRY RUN');
 
         $this->assertDatabaseHas('restaurants', ['id' => $keep->id]);
         $this->assertDatabaseHas('restaurants', ['id' => $dupe->id]);

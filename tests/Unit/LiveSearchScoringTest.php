@@ -86,8 +86,8 @@ class LiveSearchScoringTest extends TestCase
         $farBreakdown = $this->scoreService->calculateBreakdownForArray($results[1], $all);
 
         // Both should have breakdowns
-        $this->assertIsArray($nearbyBreakdown['signals']);
-        $this->assertIsArray($farBreakdown['signals']);
+        $this->assertIsArray($nearbyBreakdown['signals']); // @phpstan-ignore method.alreadyNarrowedType
+        $this->assertIsArray($farBreakdown['signals']); // @phpstan-ignore method.alreadyNarrowedType
 
         // Nearby should have higher proximity score
         $nearbyProximity = collect($nearbyBreakdown['signals'])->first(fn ($s) => $s['label'] === 'Proximity');
@@ -135,10 +135,14 @@ class LiveSearchScoringTest extends TestCase
             ['name' => 'Mystery', 'google_rating' => 4.0, 'google_review_count' => 500], // no coords
         ];
 
+        /** @var array<int, array<string, mixed>> $scored */
         $scored = $method->invoke($this->liveSearchService, $results, 40.0, -74.0);
 
+        /** @var array<string, mixed> $mystery */
         $mystery = collect($scored)->first(fn ($r) => $r['name'] === 'Mystery');
-        $proximity = collect($mystery['score_breakdown']['signals'])->first(fn ($s) => $s['label'] === 'Proximity');
+        /** @var array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}> $signals */
+        $signals = $mystery['score_breakdown']['signals'];
+        $proximity = collect($signals)->first(fn ($s) => $s['label'] === 'Proximity');
 
         $this->assertNotNull($proximity, 'no-coords venue has an ACTIVE proximity (not inactive)');
         $this->assertEqualsWithDelta(0.5, $proximity['normalized'], 0.01, 'neutral midpoint');
@@ -160,10 +164,14 @@ class LiveSearchScoringTest extends TestCase
             ['name' => 'Phantom', 'google_rating' => 4.0, 'google_review_count' => 500, 'lat' => 0.0, 'lng' => 0.0, 'distance' => 5432.1],
         ];
 
+        /** @var array<int, array<string, mixed>> $scored */
         $scored = $method->invoke($this->liveSearchService, $results, 40.0, -74.0);
 
+        /** @var array<string, mixed> $phantom */
         $phantom = collect($scored)->first(fn ($r) => $r['name'] === 'Phantom');
-        $proximity = collect($phantom['score_breakdown']['signals'])->first(fn ($s) => $s['label'] === 'Proximity');
+        /** @var array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}> $signals */
+        $signals = $phantom['score_breakdown']['signals'];
+        $proximity = collect($signals)->first(fn ($s) => $s['label'] === 'Proximity');
 
         $this->assertNotNull($proximity);
         $this->assertEqualsWithDelta(0.5, $proximity['normalized'], 0.01, 'neutral, not "far" from the 5432km preset');
@@ -410,6 +418,7 @@ class LiveSearchScoringTest extends TestCase
      * source defaults to []), driving them through the real concurrent-pool +
      * dedup + distance-filter + scoring pipeline. Reused by the distance tests.
      */
+    /** @param array<string, array<int, mixed>> $venuesBySource */
     private function makeServiceWithVenues(array $venuesBySource): LiveSearchService
     {
         Http::fake(fn (Request $request) => Http::response([]));

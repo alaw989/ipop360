@@ -45,7 +45,9 @@ class RestaurantResourceAggregatesTest extends TestCase
 
         // Equivalence: the aggregates-once breakdown for the first row must equal
         // the per-row calculateBreakdown() result (same math, fewer passes).
-        $expected = $service->calculateBreakdown($restaurants[0], $restaurants);
+        /** @var Restaurant $first */
+        $first = $restaurants[0];
+        $expected = $service->calculateBreakdown($first, $restaurants);
         $this->assertSame(
             $expected,
             $resolved[0]['score_breakdown'],
@@ -61,7 +63,11 @@ class RestaurantResourceAggregatesTest extends TestCase
         ]);
 
         $row = (new RestaurantResource($restaurant))
-            ->withAggregates(['log_denoms' => [], 'minmax' => [], 'quality' => []])
+            ->withAggregates([
+                'log_denoms' => ['x' => 0.0],
+                'minmax' => ['x' => null],
+                'quality' => ['mean_rating' => 0.0],
+            ])
             ->resolve();
 
         $this->assertSame($stored, $row['score_breakdown'], 'stored value wins, no recompute');

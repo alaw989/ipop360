@@ -22,6 +22,7 @@ class VenuePipelineMergeTest extends TestCase
         $this->pipeline = $this->app->make(VenuePipeline::class);
     }
 
+    /** @return array<string, mixed> */
     private function nameOnlyOverpassVenue(): array
     {
         return [
@@ -35,6 +36,7 @@ class VenuePipelineMergeTest extends TestCase
         ];
     }
 
+    /** @return array<string, mixed> */
     private function richSerpApiVenue(): array
     {
         return [

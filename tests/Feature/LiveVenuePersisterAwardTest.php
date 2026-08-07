@@ -28,6 +28,7 @@ class LiveVenuePersisterAwardTest extends TestCase
         );
     }
 
+    /** @return array<string, mixed> */
     private function venue(string $googlePlaceId, string $name, bool $hasAward): array
     {
         return [

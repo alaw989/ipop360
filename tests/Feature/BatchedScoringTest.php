@@ -29,39 +29,43 @@ class BatchedScoringTest extends TestCase
         // Create restaurants with varying attributes
         $cuisine = $this->makeCuisine();
 
-        $restaurants = collect([
-            Restaurant::factory()->create([
-                'name' => 'High Rated Italian',
-                'slug' => 'high-rated-italian-abc123',
-                'google_rating' => 4.8,
-                'google_review_count' => 500,
-                'address' => '123 Main St',
-                'phone' => '555-0100',
-                'latitude' => 37.7749,
-                'longitude' => -122.4194,
-                'has_award' => true,
-            ]),
-            Restaurant::factory()->create([
-                'name' => 'Mid Rated Italian',
-                'slug' => 'mid-rated-italian-def456',
-                'google_rating' => 4.2,
-                'google_review_count' => 200,
-                'address' => '456 Oak Ave',
-                'phone' => '555-0200',
-                'latitude' => 37.78,
-                'longitude' => -122.41,
-            ]),
-            Restaurant::factory()->create([
-                'name' => 'Low Rated Italian',
-                'slug' => 'low-rated-italian-ghi789',
-                'google_rating' => 3.5,
-                'google_review_count' => 50,
-                'address' => '789 Pine Rd',
-                'phone' => '555-0300',
-                'latitude' => 37.775,
-                'longitude' => -122.418,
-            ]),
+        $ids = [];
+        $r = Restaurant::factory()->create([
+            'name' => 'High Rated Italian',
+            'slug' => 'high-rated-italian-abc123',
+            'google_rating' => 4.8,
+            'google_review_count' => 500,
+            'address' => '123 Main St',
+            'phone' => '555-0100',
+            'latitude' => 37.7749,
+            'longitude' => -122.4194,
+            'has_award' => true,
         ]);
+        $ids[] = $r->id;
+        $r = Restaurant::factory()->create([
+            'name' => 'Mid Rated Italian',
+            'slug' => 'mid-rated-italian-def456',
+            'google_rating' => 4.2,
+            'google_review_count' => 200,
+            'address' => '456 Oak Ave',
+            'phone' => '555-0200',
+            'latitude' => 37.78,
+            'longitude' => -122.41,
+        ]);
+        $ids[] = $r->id;
+        $r = Restaurant::factory()->create([
+            'name' => 'Low Rated Italian',
+            'slug' => 'low-rated-italian-ghi789',
+            'google_rating' => 3.5,
+            'google_review_count' => 50,
+            'address' => '789 Pine Rd',
+            'phone' => '555-0300',
+            'latitude' => 37.775,
+            'longitude' => -122.418,
+        ]);
+        $ids[] = $r->id;
+
+        $restaurants = Restaurant::whereKey($ids)->get();
 
         // Link to cuisine
         foreach ($restaurants as $restaurant) {
@@ -115,9 +119,9 @@ class BatchedScoringTest extends TestCase
         // Create 20 restaurants to simulate a realistic scoring batch
         $cuisine = $this->makeCuisine();
 
-        $restaurants = collect();
+        $ids = [];
         for ($i = 1; $i <= 20; $i++) {
-            $restaurant = Restaurant::factory()->create([
+            $r = Restaurant::factory()->create([
                 'name' => "Restaurant {$i}",
                 'slug' => "restaurant-{$i}-".strtolower(str()->random(6)),
                 'google_rating' => 3.5 + ($i % 15) * 0.1,
@@ -127,8 +131,12 @@ class BatchedScoringTest extends TestCase
                 'latitude' => 37.7749 + ($i * 0.001),
                 'longitude' => -122.4194 + ($i * 0.001),
             ]);
+            $ids[] = $r->id;
+        }
+        $restaurants = Restaurant::whereKey($ids)->get();
+
+        foreach ($restaurants as $restaurant) {
             $restaurant->cuisines()->attach($cuisine->id);
-            $restaurants->push($restaurant);
         }
 
         // Score them once
@@ -172,7 +180,7 @@ class BatchedScoringTest extends TestCase
         $cuisine = $this->makeCuisine();
         $scorer = app(PopularityScoreService::class);
 
-        $restaurant = Restaurant::factory()->create([
+        $r = Restaurant::factory()->create([
             'name' => 'Test Restaurant',
             'slug' => 'test-restaurant-xyz789',
             'google_rating' => 4.5,
@@ -184,17 +192,19 @@ class BatchedScoringTest extends TestCase
             'has_award' => true,
         ]);
 
+        $restaurant = Restaurant::whereKey($r->id)->firstOrFail();
+
         $restaurant->cuisines()->attach($cuisine->id);
 
         $restaurants = collect([$restaurant]);
         $breakdown = $scorer->calculateBreakdown($restaurant, $restaurants);
 
         // Verify breakdown structure
-        $this->assertIsArray($breakdown);
+        $this->assertIsArray($breakdown); // @phpstan-ignore method.alreadyNarrowedType
         $this->assertArrayHasKey('signals', $breakdown);
         $this->assertArrayHasKey('total', $breakdown);
-        $this->assertIsNumeric($breakdown['total']);
-        $this->assertIsArray($breakdown['signals']);
+        $this->assertIsNumeric($breakdown['total']); // @phpstan-ignore method.alreadyNarrowedType
+        $this->assertIsArray($breakdown['signals']); // @phpstan-ignore method.alreadyNarrowedType
 
         // Verify each signal has the expected structure
         foreach ($breakdown['signals'] as $signal) {

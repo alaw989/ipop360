@@ -7,6 +7,7 @@ use App\Models\Restaurant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Testing\PendingCommand;
 use Tests\TestCase;
 
 class AiEnrichRestaurantsTest extends TestCase
@@ -28,7 +29,10 @@ class AiEnrichRestaurantsTest extends TestCase
             'ai_metadata' => ['enriched_at' => now()->subDays(2)->toISOString()],
         ]);
 
-        $this->artisan('restaurants:ai-enrich')->assertExitCode(0);
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:ai-enrich');
+        $command->assertExitCode(0);
+        $command->run();
 
         Queue::assertNotPushed(EnrichRestaurantWithAi::class, fn ($job) => $job->restaurantId === $fresh->id);
     }
@@ -42,7 +46,10 @@ class AiEnrichRestaurantsTest extends TestCase
             'ai_metadata' => ['enriched_at' => now()->subDays(2)->toISOString()],
         ]);
 
-        $this->artisan('restaurants:ai-enrich')->assertExitCode(0);
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:ai-enrich');
+        $command->assertExitCode(0);
+        $command->run();
 
         Queue::assertPushed(EnrichRestaurantWithAi::class, fn ($job) => $job->restaurantId === $needy->id);
     }
@@ -71,18 +78,28 @@ class AiEnrichRestaurantsTest extends TestCase
             'ai_metadata' => ['enriched_at' => now()->subDays(20)->toISOString()],
         ]);
 
-        $this->artisan('restaurants:ai-enrich')->assertExitCode(0);
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:ai-enrich');
+        $command->assertExitCode(0);
+        $command->run();
 
-        $pushed = collect(Queue::pushed(EnrichRestaurantWithAi::class))->map->restaurantId->all();
+        /** @var array<int, EnrichRestaurantWithAi> $jobs */
+        $jobs = Queue::pushed(EnrichRestaurantWithAi::class); /* @phpstan-ignore staticMethod.notFound */
+        $pushed = collect($jobs)->map->restaurantId->all();
 
-        $this->assertSame([$sparse->id, $mid->id, $complete->id], $pushed);
+        /** @var array<int, int> $expectedIds */
+        $expectedIds = [$sparse->id, $mid->id, $complete->id];
+        $this->assertSame($expectedIds, $pushed);
     }
 
     public function test_dry_run_dispatches_nothing(): void
     {
         Restaurant::factory()->create();
 
-        $this->artisan('restaurants:ai-enrich', ['--dry-run' => true])->assertExitCode(0);
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:ai-enrich', ['--dry-run' => true]);
+        $command->assertExitCode(0);
+        $command->run();
 
         Queue::assertNothingPushed();
     }

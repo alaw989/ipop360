@@ -24,6 +24,7 @@ class WikidataServiceTest extends TestCase
     /**
      * Real-shape binding for Atelier Crenn, used across tests.
      */
+    /** @return array<string, mixed> */
     private function atelierCrennResponse(): array
     {
         return [

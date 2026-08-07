@@ -6,6 +6,7 @@ use App\Models\Restaurant;
 use App\Services\RestaurantWebsiteScraperService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Testing\PendingCommand;
 use Mockery;
 use Tests\TestCase;
 
@@ -19,15 +20,20 @@ class BackfillRestaurantPhotosTest extends TestCase
         Config::set('restaurant-finder.website_scraper.ssrf_guard', false);
     }
 
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
     private function restaurant(array $overrides = []): Restaurant
     {
-        return Restaurant::factory()->create(array_merge([
+        $r = Restaurant::factory()->create(array_merge([
             'name' => 'Test Eatery',
             'city' => 'Austin',
             'state' => 'TX',
             'photo_url' => null,
             'photos' => [],
         ], $overrides));
+
+        return Restaurant::query()->whereKey($r->getKey())->firstOrFail();
     }
 
     public function test_dry_run_finds_photo_without_persisting(): void
@@ -38,8 +44,9 @@ class BackfillRestaurantPhotosTest extends TestCase
         $scraper->shouldReceive('searchAnyImage')->once()->andReturn('https://cdn.example/photo.jpg');
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
-        $this->artisan('restaurants:backfill-photos')
-            ->expectsOutputToContain('DRY RUN');
+        /** @var PendingCommand $cmd */
+        $cmd = $this->artisan('restaurants:backfill-photos');
+        $cmd->expectsOutputToContain('DRY RUN');
 
         $this->assertNull($r->fresh()->photo_url, 'dry-run must not persist');
     }
@@ -67,8 +74,9 @@ class BackfillRestaurantPhotosTest extends TestCase
         $scraper->shouldNotReceive('searchAnyImage');
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
-        $this->artisan('restaurants:backfill-photos')
-            ->expectsOutputToContain('No restaurants need photos');
+        /** @var PendingCommand $cmd */
+        $cmd = $this->artisan('restaurants:backfill-photos');
+        $cmd->expectsOutputToContain('No restaurants need photos');
 
         $this->assertSame('https://cdn.example/existing.jpg', $r->fresh()->photo_url);
     }
@@ -81,7 +89,8 @@ class BackfillRestaurantPhotosTest extends TestCase
         $scraper->shouldReceive('searchAnyImage')->once()->andThrow(new \RuntimeException('boom'));
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
-        $this->artisan('restaurants:backfill-photos', ['--apply' => true])
-            ->assertExitCode(0);
+        /** @var PendingCommand $cmd */
+        $cmd = $this->artisan('restaurants:backfill-photos', ['--apply' => true]);
+        $cmd->assertExitCode(0);
     }
 }
