@@ -66,6 +66,7 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
 
     public function test_creates_new_venue_and_attaches_evidence_cuisine(): void
     {
+        /** @var Cuisine $cuisine */
         $cuisine = Cuisine::factory()->create(['slug' => 'japanese', 'name' => 'Japanese']);
 
         $restaurant = $this->processFreeVenue([
@@ -95,6 +96,7 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
 
     public function test_skips_venue_with_empty_name(): void
     {
+        /** @var Cuisine $cuisine */
         $cuisine = Cuisine::factory()->create(['slug' => 'japanese', 'name' => 'Japanese']);
 
         $restaurant = $this->processFreeVenue([
@@ -110,6 +112,7 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
 
     public function test_updates_existing_row_by_yelp_id_without_duplicate(): void
     {
+        /** @var Cuisine $cuisine */
         $cuisine = Cuisine::factory()->create(['slug' => 'japanese', 'name' => 'Japanese']);
         $existing = Restaurant::factory()->create([
             'yelp_business_id' => 'yelp-123',
@@ -131,6 +134,7 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
 
     public function test_persists_venue_without_coordinates(): void
     {
+        /** @var Cuisine $cuisine */
         $cuisine = Cuisine::factory()->create(['slug' => 'japanese', 'name' => 'Japanese']);
 
         $restaurant = $this->processFreeVenue([
@@ -146,6 +150,7 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
 
     public function test_does_not_attach_cuisine_without_evidence(): void
     {
+        /** @var Cuisine $cuisine */
         $cuisine = Cuisine::factory()->create(['slug' => 'japanese', 'name' => 'Japanese']);
 
         $restaurant = $this->processFreeVenue([

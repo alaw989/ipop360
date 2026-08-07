@@ -127,12 +127,6 @@ parameters:
 			path: tests/Unit/PopularityScoreServiceTest.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:restaurants\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
-
-		-
 			message: '#^Parameter \#1 \$overpass of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\OverpassService, Mockery\\LegacyMockInterface given\.$#'
 			identifier: argument.type
 			count: 1
@@ -142,12 +136,6 @@ parameters:
 			message: '#^Parameter \#2 \$bizData of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\BizDataApiService, Mockery\\LegacyMockInterface given\.$#'
 			identifier: argument.type
 			count: 1
-			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
-
-		-
-			message: '#^Parameter \#2 \$cuisine of method Tests\\Unit\\RestaurantEnrichmentProcessFreeVenueTest\:\:processFreeVenue\(\) expects App\\Models\\Cuisine, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 5
 			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
 
 		-
