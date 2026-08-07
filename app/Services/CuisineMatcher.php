@@ -128,6 +128,9 @@ class CuisineMatcher
      * Is $needle a proper substring of any of the on-cuisine keywords? (Used to
      * keep shared dish terms out of the rival set — spec-080.)
      */
+    /**
+     * @param  string[]  $onKeywords
+     */
     private function isSubstringOfAnyOnKeyword(string $needle, array $onKeywords): bool
     {
         if ($needle === '') {
@@ -224,6 +227,9 @@ class CuisineMatcher
      * Does a normalized venue array carry positive evidence for a cuisine?
      * Checks name + place_types + description (the same fields the live-search
      * relevance filter and cuisine_match stamp use).
+     */
+    /**
+     * @param  array<string, mixed>  $venue
      */
     public function venueMatchesCuisine(array $venue, string $cuisineSlug): bool
     {
