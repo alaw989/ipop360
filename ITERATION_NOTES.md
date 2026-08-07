@@ -6,16 +6,19 @@ increase frontend test coverage with vitest
 ## State
 
 ### Changed this iteration
-- Added `resources/js/Components/__tests__/ResultsGrid.spec.ts` (23 tests) covering all 5 phase states: searching (spinner + message), error (error badge + message + Start Over/Try Again emits), empty (utensils icon + message + Start Over emit), results (result count singular/plural, sort dropdown options, select value from prop, sort change emits both `update:sort` and `resort`, RestaurantCard per-restaurant render with rank, load-more button visibility/emit, isResorting opacity classes), and load-more error (error card + message + Retry emit + dismiss button emit).
-  - Mocked `@lucide/vue` at module level for `Utensils`, `X`, `Search` — these are named imports in `<script setup>`.
-  - Stubbed `Badge`, `Button`, `Card`, `CardContent` (shadcn) — Badge and Button forward their variant/ariaLabel props; Card/CardContent are slot-pass-through wrappers.
-  - Deep-stubbed `RestaurantCard` with a simple `<div>` forwarding the name and data-rank: avoids pulling in `useFavorites`, `useCompare`, etc.
-  - Helper `makeRestaurant()` builds minimal Restaurant-shaped objects; `mountGrid()` provides defaults for all 14 props so each test only overrides what it needs.
+- Added `resources/js/Components/__tests__/SearchResultCard.spec.ts` (49 tests) covering all rendering branches of the presentational card: basic rendering (name, address, city/state), rank badge (#1 fire emoji vs #N), photo (img vs gradient fallback), award badge, StarRating display, price range, distance formatting, review snippet (truncation at 120 chars + Read more link), cuisine badges with search link, action pills (Directions with mapCoords call tracking, Call with callPhone, Website with openWebsite), favorites heart toggle and aria-label, rank change indicator (ArrowUp/Down/Minus with title Up/Down/Steady), ScoreChip visibility, link targets (internal for id>0 vs external _blank for id<=0), and overlay link wrapping the name.
+  - Mocked `@inertiajs/vue3` at module level for `Link` (named import via `<script setup>`)
+  - Mocked `@lucide/vue` at module level: `Heart`, `Navigation`, `Phone`, `Globe`, `ArrowUp`, `ArrowDown`, `Minus`
+  - Mocked `@/composables/useFavorites` with `isFavorited` returning false and `toggle` as a vi.fn()
+  - Mocked `@/composables/useRestaurantDisplay` with `getDetailUrl`, `getDisplayRating`, `getMapCoords`, `getRankStyle`, `getRestaurantGradient` — uses actual logic equivalents to test real branching
+  - Mocked `@/lib/restaurant` with `callPhone`, `openWebsite`, `trackDirections` as vi.fn() singletons
+  - Stubbed child components: `StarRating` (passes rating as text for assertion), `ScoreChip` (passes total as data attr), `Badge` (passes variant as text)
+  - Helper `makeRestaurant()` provides sensible defaults; `mountCard()` merges restaurant data + extra props
 
-Verification: `npx vitest run resources/js/Components/__tests__/ResultsGrid.spec.ts` → 1 file / 23 tests pass.
+Verification: `npx vitest run resources/js/Components/__tests__/SearchResultCard.spec.ts` → 1 file / 49 tests pass.
 
 ### Next
-Continue adding tests for remaining untested Components: `SearchResultCard` and `RestaurantCard`. `SearchResultCard` (medium complexity, 5 states: stale, loading, error, no-data, loaded) — needs `useFavorites` mocked. `RestaurantCard` is the heaviest dependency graph (uses `useRestaurantDisplay`, `useCompare`, `@/lib/restaurant`) and will need the most stubbing.
+Add tests for `RestaurantCard` — the heaviest dependency graph (uses `useRestaurantDisplay`, `useCompare`, `@/lib/restaurant`, `StarRating`, `ScoreChip`, `useFavorites`). Will need the most stubbing.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
