@@ -38,6 +38,9 @@ class SqlDialect
 
     /**
      * Clamp a scalar to [-1, 1]: SQLite uses MIN/MAX scalars, MySQL LEAST/GREATEST.
+     *
+     * @param  literal-string  $expr
+     * @return literal-string
      */
     public static function clampToOne(string $expr): string
     {
@@ -56,6 +59,8 @@ class SqlDialect
      * `julianday('now') - (julianday(updated_at) / days)` and the decay factor
      * collapses to the floor. MySQL's TIMESTAMPDIFF form is a single division
      * already, but the parens keep both branches identical in shape.
+     *
+     * @return literal-string
      */
     public static function daysSinceUpdated(): string
     {
@@ -68,6 +73,10 @@ class SqlDialect
 
     /**
      * Scalar MAX(): SQLite MAX(a,b), MySQL GREATEST(a,b).
+     *
+     * @param  literal-string  $left
+     * @param  literal-string  $right
+     * @return literal-string
      */
     public static function scalarMax(string $left, string $right): string
     {
@@ -80,6 +89,9 @@ class SqlDialect
 
     /**
      * Cast a bound value to a float-comparable type.
+     *
+     * @param  literal-string  $expr
+     * @return literal-string
      */
     public static function castToFloat(string $expr): string
     {

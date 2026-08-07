@@ -18,22 +18,4 @@ parameters:
 			count: 8
 			path: app/Http/Controllers/SearchController.php
 
-		-
-			message: '#^Parameter \#1 \$expression of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Restaurant\>\:\:selectRaw\(\) expects literal\-string, non\-falsy\-string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Models/Restaurant.php
-
-		-
-			message: '#^Parameter \#1 \$sql of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Restaurant\>\:\:orderByRaw\(\) expects literal\-string, non\-falsy\-string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Models/Restaurant.php
-
-		-
-			message: '#^Parameter \#1 \$sql of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Restaurant\>\:\:whereRaw\(\) expects Illuminate\\Contracts\\Database\\Query\\Expression\|literal\-string, non\-falsy\-string given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Models/Restaurant.php
-
 
