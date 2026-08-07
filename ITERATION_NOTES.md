@@ -6,24 +6,25 @@ increase frontend test coverage with vitest
 ## State
 
 ### Previous iteration
-- Added `resources/js/Components/__tests__/Checkbox.spec.ts` (9 tests).
-
-### Changed this iteration
-- Added `resources/js/Components/__tests__/PrimaryButton.spec.ts` (4 tests) covering:
+- Added `resources/js/Components/__tests__/SecondaryButton.spec.ts` (6 tests) covering:
   - Renders a button element
   - Renders slot content
-  - Applies expected CSS classes (bg-gray-800, text-white, rounded-md, inline-flex, hover:bg-gray-700, focus:ring-indigo-500)
+  - Applies expected CSS classes (bg-white, text-gray-700, rounded-md, inline-flex, border, border-gray-300, hover:bg-gray-50, focus:ring-indigo-500)
   - Renders as a native HTML BUTTON tag
+  - Default type is "button"
+  - Can override type to "submit"
 
-Verification: `npx vitest run resources/js/Components/__tests__/PrimaryButton.spec.ts` → 1 file / 4 tests pass.
+Verification: `npx vitest run resources/js/Components/__tests__/SecondaryButton.spec.ts` → 1 file / 6 tests pass.
 
 ### Previous iteration
+- Added `resources/js/Components/__tests__/PrimaryButton.spec.ts` (4 tests).
+- Added `resources/js/Components/__tests__/Checkbox.spec.ts` (9 tests).
 - Added `resources/js/Components/__tests__/Dropdown.spec.ts` (16 tests).
 - Added `resources/js/composables/__tests__/useCardGallery.spec.ts` (21 tests).
 - Added `resources/js/composables/__tests__/useIsMobile.spec.ts` (3 tests).
 
 ### Next
-Components still untested: `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `RestaurantCardSkeleton`, `DropdownLink`, `NavLink`, `AppFooter` (copy not spec), `JsonLd`, `ResponsiveNavLink`, `SecondaryButton`, `DangerButton`, `InputError`, `InputLabel`, `TextInput`, `ApplicationLogo`, `BrandLogo`.
+Components still untested: `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `RestaurantCardSkeleton`, `DropdownLink`, `NavLink`, `JsonLd`, `ResponsiveNavLink`, `DangerButton`, `InputError`, `InputLabel`, `TextInput`, `ApplicationLogo`, `BrandLogo`.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
