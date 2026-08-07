@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\EnrichRestaurantWithAi;
 use App\Models\Restaurant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\PendingCommand;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -28,7 +29,10 @@ class AiEnrichRestaurantsTest extends TestCase
             'ai_metadata' => ['enriched_at' => now()->subDays(2)->toISOString()],
         ]);
 
-        $this->artisan('restaurants:ai-enrich')->assertExitCode(0);
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:ai-enrich');
+        $command->assertExitCode(0);
+        $command->run();
 
         Queue::assertNotPushed(EnrichRestaurantWithAi::class, fn ($job) => $job->restaurantId === $fresh->id);
     }
@@ -42,7 +46,10 @@ class AiEnrichRestaurantsTest extends TestCase
             'ai_metadata' => ['enriched_at' => now()->subDays(2)->toISOString()],
         ]);
 
-        $this->artisan('restaurants:ai-enrich')->assertExitCode(0);
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:ai-enrich');
+        $command->assertExitCode(0);
+        $command->run();
 
         Queue::assertPushed(EnrichRestaurantWithAi::class, fn ($job) => $job->restaurantId === $needy->id);
     }
@@ -71,7 +78,10 @@ class AiEnrichRestaurantsTest extends TestCase
             'ai_metadata' => ['enriched_at' => now()->subDays(20)->toISOString()],
         ]);
 
-        $this->artisan('restaurants:ai-enrich')->assertExitCode(0);
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:ai-enrich');
+        $command->assertExitCode(0);
+        $command->run();
 
         $pushed = collect(Queue::pushed(EnrichRestaurantWithAi::class))->map->restaurantId->all();
 
@@ -82,7 +92,10 @@ class AiEnrichRestaurantsTest extends TestCase
     {
         Restaurant::factory()->create();
 
-        $this->artisan('restaurants:ai-enrich', ['--dry-run' => true])->assertExitCode(0);
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:ai-enrich', ['--dry-run' => true]);
+        $command->assertExitCode(0);
+        $command->run();
 
         Queue::assertNothingPushed();
     }

@@ -7,12 +7,6 @@ parameters:
 			path: tests/Feature/AiEnrichRestaurantsTest.php
 
 		-
-			message: '#^Cannot call method assertExitCode\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
-			identifier: method.nonObject
-			count: 4
-			path: tests/Feature/AiEnrichRestaurantsTest.php
-
-		-
 			message: '#^Parameter \#1 \$expected of method PHPUnit\\Framework\\Assert\:\:assertSame\(\) contains unresolvable type\.$#'
 			identifier: argument.unresolvableType
 			count: 1
