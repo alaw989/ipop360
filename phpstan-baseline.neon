@@ -378,47 +378,6 @@ parameters:
 			count: 1
 			path: app/Models/CuisineCategory.php
 
-		-
-			message: '#^Method App\\Models\\ExternalApiCache\:\:findByKey\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Models/ExternalApiCache.php
-
-		-
-			message: '#^Method App\\Models\\ExternalApiCache\:\:put\(\) has parameter \$data with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Models/ExternalApiCache.php
-
-		-
-			message: '#^Method App\\Models\\ExternalApiCache\:\:scopeExpired\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/ExternalApiCache.php
-
-		-
-			message: '#^Method App\\Models\\ExternalApiCache\:\:scopeExpired\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/ExternalApiCache.php
-
-		-
-			message: '#^Method App\\Models\\ExternalApiCache\:\:scopeFresh\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/ExternalApiCache.php
-
-		-
-			message: '#^Method App\\Models\\ExternalApiCache\:\:scopeFresh\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/ExternalApiCache.php
-
-		-
-			message: '#^Method App\\Models\\ExternalApiCache\:\:storeByKey\(\) has parameter \$data with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Models/ExternalApiCache.php
 
 		-
 			message: '#^Class App\\Models\\Restaurant uses generic trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory but does not specify its types\: TFactory$#'

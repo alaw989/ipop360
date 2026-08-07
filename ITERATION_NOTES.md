@@ -4,13 +4,20 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 273 (down from 292)
-- Remaining by category: missingType.iterableValue (205), missingType.generics (53), missingType.return (7), argument.templateType (7), method.unresolvableReturnType (1)
+- Baseline entries: 266 (down from 292)
+- Remaining by category: missingType.iterableValue (202), missingType.generics (49), missingType.return (7), argument.templateType (7), method.unresolvableReturnType (1)
 - missingType.parameter category fully eliminated (4→0)
 - missingType.return down to 7 (all in RestaurantController + LiveSearchService)
-- Next: pick another file from missingType.iterableValue or missingType.generics — ExternalApiCache (7 entries) or RequestSpec already done
+- Next: pick another file from missingType.iterableValue or missingType.generics — for example CuisineCategory cuisines() generics, or Restaurant model generics entries
 
 ## Log
+### Iteration 4 — Fixed all 7 ExternalApiCache type issues (total: 273→266)
+- `app/Models/ExternalApiCache.php`: Added `@param Builder<ExternalApiCache>` / `@return Builder<ExternalApiCache>` PHPDoc to `scopeExpired()` and `scopeFresh()` (4 missingType.generics)
+- Added `@param array<mixed>` to `put()` and `storeByKey()` (2 missingType.iterableValue)
+- Added `@return array<mixed>|null` to `findByKey()` (1 missingType.iterableValue)
+- Removed the 7 corresponding entries from `phpstan-baseline.neon`
+- `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 3 — Added array value types to RequestSpec constructor (missingType.iterableValue: 208→205)
 - `app/Services/Http/RequestSpec.php`: Added `@param array<string, mixed>` for `$query` and `$body`, `@param array<string, string>` for `$headers`
 - Removed the 3 corresponding entries from `phpstan-baseline.neon`

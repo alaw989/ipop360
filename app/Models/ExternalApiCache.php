@@ -24,11 +24,19 @@ class ExternalApiCache extends Model
         'expires_at' => 'datetime',
     ];
 
+    /**
+     * @param  Builder<ExternalApiCache>  $query
+     * @return Builder<ExternalApiCache>
+     */
     public function scopeExpired(Builder $query): Builder
     {
         return $query->where('expires_at', '<', Carbon::now());
     }
 
+    /**
+     * @param  Builder<ExternalApiCache>  $query
+     * @return Builder<ExternalApiCache>
+     */
     public function scopeFresh(Builder $query): Builder
     {
         return $query->where('expires_at', '>=', Carbon::now());
@@ -42,6 +50,9 @@ class ExternalApiCache extends Model
             ->first();
     }
 
+    /**
+     * @param  array<mixed>  $data
+     */
     public static function put(string $source, string $externalId, array $data, int $ttlHours = 24): self
     {
         if (empty($data)) {
@@ -58,6 +69,9 @@ class ExternalApiCache extends Model
         );
     }
 
+    /**
+     * @return array<mixed>|null
+     */
     public static function findByKey(string $key): ?array
     {
         $record = static::where('external_id', $key)->fresh()->first();
@@ -65,6 +79,9 @@ class ExternalApiCache extends Model
         return $record?->data;
     }
 
+    /**
+     * @param  array<mixed>  $data
+     */
     public static function storeByKey(string $key, array $data, Carbon $expiresAt): self
     {
         [$source] = explode(':', $key, 2);
