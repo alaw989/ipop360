@@ -11,8 +11,10 @@ class BizDataApiServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @param array<int, array<string, mixed>> $businesses */
-    /** @return array<string, mixed> */
+    /**
+     * @param  array<int, array<string, mixed>> $businesses
+     * @return array<string, mixed>
+     */
     private function fakeBizDataResponse(array $businesses): array
     {
         return [

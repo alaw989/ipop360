@@ -12,19 +12,24 @@ Fixed `method.nonObject` on `PDOStatement|false` (`fetchColumn()`) in `BackupDat
 
 Fixed all 42 `missingType.iterableValue` entries across 18 test files. Added `@param` and `@return` PHPDoc annotations with value types (e.g., `array<string, mixed>`, `array<string, string>`, `array<int, string>`) to private test helper methods. Note: generics syntax (`array<K, V>`) is only valid in PHPDoc comments, NOT in PHP native type declarations.
 
-Baseline: 704 → 680 → 650 → 644 → 488 lines.
+Fixed remaining 13 `missingType.iterableValue` entries across 11 test files (BizDataApiServiceTest, EnrichCuisineTaggingTest, EnrichFreeOnlyTest, EnrichSearchResultsTest, OverpassServiceTest, RatingFirstComboOrderingTest, AiEnrichmentServiceTest, CuisineScopeTest, SocrataOpenDataServiceTest, RestaurantEnrichmentProcessFreeVenueTest). Root cause: multiple separate `/** @param */` and `/** @return */` docblocks before a method — PHPStan only reads the last one. Fix: merged into single combined docblocks.
+
+Baseline: 704 → 680 → 650 → 644 → 488 → 410 lines (81 → 69 → 68 entries).
 
 ### What is next
-- `argument.type` for Mockery mocks passed to service constructors (LiveSearchScoringTest, RestaurantEnrichment*Test — requires stub file work)
-- `method.notFound` on `Mockery\ExpectationInterface::andReturn()` etc. (RefreshAwardsTest — Mockery stub limitation, unresolvable in test code)
+- `argument.type` for Mockery mocks passed to service constructors (LiveSearchScoringTest, RestaurantEnrichment*Test). A PHPStan stub file was attempted but did not override Mockery's existing `@return` annotations. Likely requires a `DynamicMethodReturnTypeExtension` or `@phpstan-` comments.
+- `method.notFound` on `Mockery\ExpectationInterface::andReturn()` etc. (RefreshAwardsTest, LiveSearchScoringTest, BackfillRestaurantPhotosTest, EnrichSearchResultsTest — Mockery `shouldReceive()` returns `ExpectationInterface|HigherOrderMessage`, where `HigherOrderMessage` lacks `andReturn`/`once`/`andReturnNull`). Same stub/extension challenge.
+- `argument.templateType` for `collect()` without explicit generic type hints (LiveSearchScoringTest, AiEnrichRestaurantsTest) — fixable by adding explicit type annotations to `collect()` calls.
+- Individual issues: SerpApiQueryConstructionTest (return.type, argument.type for parse_str), EngagementApiTest (assign.propertyType), RestaurantResourceAggregatesTest (argument.type ×2), WebsiteScraperSsrfGuardTest (arguments.count), EnrichSearchResultsTest (argument.type for handle()), AiEnrichmentServiceTest (argument.type ×4).
 
 ### Gotchas
 - `assertSuccessful()` on `PendingCommand` is an expectation-setter, not a runner. After extracting `$this->artisan(...)` to a `@var PendingCommand` variable, you must call `$command->run()` explicitly — otherwise the command never executes and side effects (like file creation) won't happen before your assertions.
 - When fixing `PendingCommand|int`, remember that `assertFailed()` and `assertExitCode()` are also expectation-setters that need explicit `run()`.
-- The remaining `method.notFound` on `Mockery\ExpectationInterface::once()` in BackfillRestaurantPhotosTest is a Mockery stub file limitation that can't be fixed in test code
 - `method.alreadyNarrowedType` entries (assertIsArray on known array types) are low-value — assertions are still intentional even if PHPStan can see the type
 - `glob()` in PHP 8.3 returns `array<int, string>|false`. Adding `?: []` converts false to an empty array, eliminating the union type without hiding real errors — a false return from glob() would already cause a test failure downstream.
 - `array<K, V>` generics syntax is NOT valid in PHP native type declarations — it only works inside `/** @param */` / `/** @return */` PHPDoc annotations. Using it inline (e.g., `function foo(array<string, mixed> $x)`) will cause a parse error. Use docblock annotations instead.
+- PHPStan reads only the LAST consecutive `/** */` docblock before a function/method. Multiple separate docblocks (a common pattern in this codebase) cause earlier `@param` annotations to be invisible to PHPStan. Always merge into a single combined docblock.
+- PHPStan stub files cannot override existing `@return` annotations from vendor code — they are additive, not replacement. Mockery's `shouldReceive()` returning `ExpectationInterface|HigherOrderMessage` cannot be narrowed via a stub file.
 
 ## Log
 1. Fixed all 5 PHPStan baseline entries for `AuditRestaurantCuisinesTest.php`
@@ -39,5 +44,6 @@ Baseline: 704 → 680 → 650 → 644 → 488 lines.
 11. Fixed 5 baseline entries (count 7) `argument.type` and `offsetAccess.nonOffsetAccessible` on `glob()` return type in BackupDatabaseCommandTest.php and RestoreDatabaseCommandTest.php — added `?: []` after `glob()` calls, baseline 680→650
 12. Fixed 1 baseline entry (count 1) `method.nonObject` on `PDOStatement|false` (`fetchColumn()`) in BackupDatabaseCommandTest.php — extracted `$stmt` variable with `@var PDOStatement` annotation before calling `fetchColumn()`, baseline 650→644
 13. Fixed all 42 `missingType.iterableValue` entries across 18 test files — added `@param`/`@return` PHPDoc annotations with array value types, baseline 644→488
+14. Fixed remaining 13 `missingType.iterableValue` entries across 11 test files — merged multiple separate `/** */` docblocks into single combined docblocks so PHPStan reads all annotations, baseline 488→410 (81→69→68 entries)
 
 (End of file - total 53 lines)

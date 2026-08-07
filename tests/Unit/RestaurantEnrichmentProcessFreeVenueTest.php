@@ -52,8 +52,10 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
         return new RestaurantEnrichmentService(...$mocks);
     }
 
-    /** @param array<string, mixed> $venue */
-    /** Invoke the private, real-DB persisting path. */
+    /**
+     * @param  array<string, mixed> $venue
+     * Invoke the private, real-DB persisting path.
+     */
     private function processFreeVenue(array $venue, Cuisine $cuisine): ?Restaurant
     {
         $method = new ReflectionMethod(RestaurantEnrichmentService::class, 'processFreeVenue');
