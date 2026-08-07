@@ -193,17 +193,6 @@ parameters:
 			path: app/Jobs/EnrichRestaurantWithAi.php
 
 
-		-
-			message: '#^Method App\\Models\\RestaurantSocialLink\:\:restaurant\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/RestaurantSocialLink.php
-
-		-
-			message: '#^Method App\\Models\\User\:\:favorites\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany does not specify its types\: TRelatedModel, TDeclaringModel, TPivotModel, TAccessor \(2\-4 required\)$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/User.php
 
 		-
 			message: '#^Method App\\Services\\AiEnrichmentService\:\:buildPrompt\(\) has parameter \$restaurantData with no value type specified in iterable type array\.$#'

@@ -4,14 +4,20 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 224 (down from 245)
-- Remaining by category: missingType.iterableValue (199), missingType.generics (18), argument.templateType (6), method.unresolvableReturnType (1)
+- Baseline entries: 222 (down from 245)
+- Remaining by category: missingType.iterableValue (199), missingType.generics (16), argument.templateType (6), method.unresolvableReturnType (1)
 - missingType.parameter category fully eliminated (4→0)
 - missingType.return category fully eliminated (1→0)
-- missingType.generics down to 18 (−4 from SearchController)
-- Next: RestaurantSocialLink + User models (2 generics, similar to iteration 6-8 model fixes)
+- missingType.generics down to 16 (−2 from RestaurantSocialLink + User models)
+- Next: remaining 16 generics (EnrichRestaurantWithAi Job, Dashboard/EngagementController, etc.)
 
 ## Log
+### Iteration 11 — Fixed RestaurantSocialLink + User model generics (total: 224→222)
+- `app/Models/RestaurantSocialLink.php`: Added `@return BelongsTo<Restaurant, $this>` to `restaurant()` (1 generics)
+- `app/Models/User.php`: Added `@return BelongsToMany<Restaurant, $this>` to `favorites()` (1 generics)
+- Removed the 2 corresponding entries from `phpstan-baseline.neon`
+- `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 10 — Fixed SearchController generics + LiveSearchService return type (total: 229→224)
 - `app/Http/Controllers/SearchController.php`: Added `@param Builder<Restaurant> $query` / `@return Builder<Restaurant>` PHPDoc to `applySort()` (2 generics)
 - `app/Services/LiveSearchService.php`: Added `: \Illuminate\Http\Client\Response` return type to `buildPoolRequest()` (1 missingType.return)
