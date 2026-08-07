@@ -43,6 +43,9 @@ class HomeController extends Controller
         return response()->json($this->getHomepageData($city, $state));
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function getHomepageData(?string $city, ?string $state): array
     {
         $categories = $this->getScopedCategories($city, $state);
@@ -101,6 +104,9 @@ class HomeController extends Controller
         ];
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     private function getScopedCategories(?string $city, ?string $state): array
     {
         $categories = CuisineCategory::with(['cuisines' => fn ($q) => $q->orderBy('sort_order')])
