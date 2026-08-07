@@ -222,8 +222,11 @@ class AiEnrichmentServiceTest extends TestCase
             ['api_key' => 'pk-fallback', 'base_url' => 'https://models.inference.ai.azure.com', 'model' => 'gpt-4o-mini'],
         )]);
 
+        /** @var \Illuminate\Http\Client\Response $rateLimitResponse */
+        $rateLimitResponse = Http::response('', 429);
+
         Http::fake([
-            self::PRIMARY_URL => fn () => throw new RequestException(Http::response('', 429)),
+            self::PRIMARY_URL => fn () => throw new RequestException($rateLimitResponse),
             self::FALLBACK_URL => Http::response($this->chatResponse((string) json_encode([
                 'normalized_address' => '42 Fallback St',
             ]))),

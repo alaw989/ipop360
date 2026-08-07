@@ -16,14 +16,13 @@ Fixed remaining 13 `missingType.iterableValue` entries across 11 test files (Biz
 
 Fixed all 10 `argument.templateType` entries on `collect()` calls in `AiEnrichRestaurantsTest.php` (2) and `LiveSearchScoringTest.php` (8). In AiEnrichRestaurantsTest, the fix extracts `Queue::pushed()` to a `@var array<int, EnrichRestaurantWithAi>` variable before passing to `collect()`. In LiveSearchScoringTest, `$scored` from `ReflectionMethod::invoke()` was annotated with `@var array<int, array<string, mixed>>`. For the inner `collect($mystery['score_breakdown']['signals'])` calls (lines 143/170), the chained mixed array access prevented template resolution — fixed by extracting `$signals` to a variable with a full array-shape `@var` annotation (`array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}>`) matching the `@return` PHPDoc of `PopularityScoreService::calculateBreakdownForArray()`.
 
-Baseline: 410 → 386 → 382 → 374 → 369 → 356 → 350 lines (68 → 64 → 63 → 62 → 61 → 60 → 58 entries, 117 → 113 → 112 → 111 → 110 → 108 → 105 errors).
+Baseline: 410 → 386 → 382 → 374 → 369 → 356 → 350 → 344 lines (68 → 64 → 63 → 62 → 61 → 60 → 58 → 57 entries, 117 → 113 → 112 → 111 → 110 → 108 → 105 → 104 errors).
 
 Fixed `arguments.count` in `WebsiteScraperSsrfGuardTest.php` — `Http::assertSentCount()` only accepts 1 parameter (`int $count`). The second argument (a descriptive message) was removed.
 
 Fixed `return.type` and `argument.type` in `SerpApiQueryConstructionTest.php` — `parse_url()` returns `string|false|null` but `parse_str()` expects `string`, fixed with `(string)` cast. `captureQuery()` return type mismatch (`array<mixed>|string` vs `string`), fixed with `@var array<string, string>` annotation on `$params` after `parse_str()`.
 
 ### What is next
-- `argument.type` in AiEnrichmentServiceTest.php (×1): `RequestException` constructor expects `Response` but gets `PromiseInterface`. Fix by extracting response to variable with `@var Response`.
 - `argument.unresolvableType` in AiEnrichRestaurantsTest.php: factory-created model IDs in array literal. Fix with `@var array<int, int>` on extracted variable.
 - `method.notFound` and `argument.type` in RestaurantEnrichmentProcessFreeVenueTest.php (×6): `Cuisine::factory()->create()` returns `Model` not `Cuisine`. Fix with `@var Cuisine` annotation.
 - `argument.type` in RestaurantResourceAggregatesTest.php (×2): array shape types and factory return types. Fix with `@var` annotations.
@@ -40,6 +39,7 @@ Fixed `return.type` and `argument.type` in `SerpApiQueryConstructionTest.php` �
 - PHPStan reads only the LAST consecutive `/** */` docblock before a function/method. Multiple separate docblocks (a common pattern in this codebase) cause earlier `@param` annotations to be invisible to PHPStan. Always merge into a single combined docblock.
 - PHPStan stub files cannot override existing `@return` annotations from vendor code — they are additive, not replacement. Mockery's `shouldReceive()` returning `ExpectationInterface|HigherOrderMessage` cannot be narrowed via a stub file.
 - `Model::factory()->create()` returns `Illuminate\Database\Eloquent\Model` per PHPStan (not the specific subclass). When assigning to a typed property, extract to a local variable first with `/** @var SpecificModel $var */` annotation, then assign to the property. Inline `@var` on `$this->property` triggers `varTag.variableNotFound`.
+- Inside `Http::fake()` callbacks, PHPStan may infer `Http::response()` returns `PromiseInterface` instead of `Response`. When passing `Http::response()` to a constructor that expects `Response` (like `RequestException`), extract the response to a variable with `@var Response` annotation *outside* the `Http::fake()` call.
 
 ## Log
 1. Fixed all 5 PHPStan baseline entries for `AuditRestaurantCuisinesTest.php`
@@ -61,5 +61,6 @@ Fixed `return.type` and `argument.type` in `SerpApiQueryConstructionTest.php` �
 18. Fixed 1 baseline entry `arrayValues.list` in RestaurantEnrichmentServiceTest.php — `array_values($mocks)` was redundant because `$mocks` is built with sequential integer keys (0, 1, 2, ...) via foreach. Removed the `array_values()` wrapper. Baseline 374→369 (62→61 entries, 111→110 errors).
 19. Fixed 2 baseline entries `return.type` and `argument.type` in SerpApiQueryConstructionTest.php — `(string)` cast on `parse_url()` for `parse_str()` and `@var array<string, string>` annotation on `$params` so `captureQuery()` return resolves to `string`. Baseline 369→356 (61→60 entries, 110→108 errors).
 20. Fixed 1 baseline entry `argument.type` (count 3) in AiEnrichmentServiceTest.php — `json_encode()` returns `string|false` but `chatResponse()` expects `string`. Added `(string)` cast on all three `json_encode()` call sites. Baseline 356→350 (60→58 entries, 108→105 errors).
+21. Fixed 1 baseline entry `argument.type` (count 1) in AiEnrichmentServiceTest.php — `RequestException` constructor expects `Response` but PHPStan infers `PromiseInterface` from `Http::response()` inside a fake context. Extracted to `$rateLimitResponse` variable with `/** @var \Illuminate\Http\Client\Response */` annotation before the `Http::fake()` call so PHPStan resolves the correct type. Baseline 350→344 (58→57 entries, 105→104 errors).
 
 (End of file - total 53 lines)

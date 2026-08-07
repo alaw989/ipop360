@@ -73,12 +73,6 @@ parameters:
 			path: tests/Feature/RefreshAwardsTest.php
 
 		-
-			message: '#^Parameter \#1 \$response of class Illuminate\\Http\\Client\\RequestException constructor expects Illuminate\\Http\\Client\\Response, GuzzleHttp\\Promise\\PromiseInterface given\.$#'
-			identifier: argument.type
-			count: 1
-			path: tests/Unit/AiEnrichmentServiceTest.php
-
-		-
 			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertTrue\(\) with true will always evaluate to true\.$#'
 			identifier: method.alreadyNarrowedType
 			count: 1
