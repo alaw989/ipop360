@@ -372,9 +372,3 @@ parameters:
 			count: 1
 			path: tests/Unit/RestaurantResourceAggregatesTest.php
 
-		-
-			message: '#^Static method Illuminate\\Http\\Client\\Factory\:\:assertSentCount\(\) invoked with 2 parameters, 1 required\.$#'
-			identifier: arguments.count
-			count: 1
-			path: tests/Unit/WebsiteScraperSsrfGuardTest.php
-

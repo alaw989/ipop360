@@ -16,7 +16,9 @@ Fixed remaining 13 `missingType.iterableValue` entries across 11 test files (Biz
 
 Fixed all 10 `argument.templateType` entries on `collect()` calls in `AiEnrichRestaurantsTest.php` (2) and `LiveSearchScoringTest.php` (8). In AiEnrichRestaurantsTest, the fix extracts `Queue::pushed()` to a `@var array<int, EnrichRestaurantWithAi>` variable before passing to `collect()`. In LiveSearchScoringTest, `$scored` from `ReflectionMethod::invoke()` was annotated with `@var array<int, array<string, mixed>>`. For the inner `collect($mystery['score_breakdown']['signals'])` calls (lines 143/170), the chained mixed array access prevented template resolution — fixed by extracting `$signals` to a variable with a full array-shape `@var` annotation (`array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}>`) matching the `@return` PHPDoc of `PopularityScoreService::calculateBreakdownForArray()`.
 
-Baseline: 410 → 386 → 382 lines (68 → 64 → 63 entries, 117 → 113 → 112 errors).
+Baseline: 410 → 386 → 382 → 374 lines (68 → 64 → 63 → 62 entries, 117 → 113 → 112 → 111 errors).
+
+Fixed `arguments.count` in `WebsiteScraperSsrfGuardTest.php` — `Http::assertSentCount()` only accepts 1 parameter (`int $count`). The second argument (a descriptive message) was removed.
 
 ### What is next
 - `argument.type` for Mockery mocks passed to service constructors (LiveSearchScoringTest, RestaurantEnrichment*Test). A PHPStan stub file was attempted but did not override Mockery's existing `@return` annotations. Likely requires a `DynamicMethodReturnTypeExtension` or `@phpstan-` comments.
@@ -49,5 +51,6 @@ Baseline: 410 → 386 → 382 lines (68 → 64 → 63 entries, 117 → 113 → 1
 14. Fixed remaining 13 `missingType.iterableValue` entries across 11 test files — merged multiple separate `/** */` docblocks into single combined docblocks so PHPStan reads all annotations, baseline 488→410 (81→69→68 entries)
 15. Fixed all 10 `argument.templateType` entries on `collect()` calls in AiEnrichRestaurantsTest.php (2) and LiveSearchScoringTest.php (8) — added `@var` annotations on input variables so PHPStan can resolve `collect()` template types. For nested collect() calls on chained array access (e.g., `collect($mystery['score_breakdown']['signals'])`), extracting to a variable with a full array-shape `@var` was needed because intermediate `mixed` from array access on `array<string, mixed>` still blocked template resolution. Baseline 410→386 (68→64 entries, 117→113 errors).
 16. Fixed 1 baseline entry `assign.propertyType` in EngagementApiTest.php — Restaurant::factory()->create() returns `Model` per PHPStan, not `Restaurant`. Extracted to local variable with `/** @var Restaurant $restaurant */` annotation before assigning to typed property. Baseline 386→382 (64→63 entries, 113→112 errors).
+17. Fixed 1 baseline entry `arguments.count` in WebsiteScraperSsrfGuardTest.php — `Http::assertSentCount()` only accepts 1 parameter (`int $count`). Removed the invalid second argument (a descriptive message string). Baseline 382→374 (63→62 entries, 112→111 errors).
 
 (End of file - total 53 lines)
