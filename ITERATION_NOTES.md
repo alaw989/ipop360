@@ -6,25 +6,18 @@ increase frontend test coverage with vitest
 ## State
 
 ### Changed this iteration
-- Added `resources/js/composables/__tests__/useGeolocation.spec.ts` (15 tests) covering:
-  - Initial state: lat/lng null, location null, detectingLocation false, geolocationError null, detectLocation is function
-  - Early return when `navigator.geolocation` is undefined
-  - `detectingLocation` set to true while GPS is pending
-  - lat/lng set from GPS coordinates on success
-  - `detectingLocation` reset to false after GPS callback settles
-  - Reverse geocode via `@/lib/api` on success, sets location and calls `persistLocation`
-  - Handles reverse geocode API failure gracefully (coords kept, location stays null, persistLocation not called)
-  - Skips persistLocation when geocode returns empty `{}`
-  - Passes `{ timeout: 10000, enableHighAccuracy: false }` options to `getCurrentPosition`
-  - GPS error sets `geolocationError` message and clears `detectingLocation`
+- Added `resources/js/composables/__tests__/useIsMobile.spec.ts` (3 tests) covering:
+  - Returns an `isMobile` ref that proxies the `useMediaQuery` ref
+  - Reflects `true` when the media query matches (viewport <= 767px)
+  - Delegates to `useMediaQuery('(max-width: 767px)')` from `@vueuse/core`
 
-Verification: `npx vitest run resources/js/composables/__tests__/useGeolocation.spec.ts` → 1 file / 15 tests pass. Full suite: 36 files / 414 tests pass.
+Verification: `npx vitest run resources/js/composables/__tests__/useIsMobile.spec.ts` → 1 file / 3 tests pass. Full suite: 37 files / 417 tests pass.
 
 ### Previous iteration
-- Added `resources/js/composables/__tests__/useKeyboardOffset.spec.ts` (7 tests) and `resources/js/composables/__tests__/useRestaurantDisplay.spec.ts` (26 tests).
+- Added `resources/js/composables/__tests__/useGeolocation.spec.ts` (15 tests).
 
 ### Next
-Still need: `useCardGallery.spec.ts`, `useIsMobile.spec.ts` among composables. Among components: `CardGallery`, `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `Dropdown`, `RestaurantCardSkeleton`.
+Still need: `useCardGallery.spec.ts` among composables. Among components: `CardGallery`, `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `Dropdown`, `RestaurantCardSkeleton`.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
