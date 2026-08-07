@@ -1,24 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Method App\\Console\\Commands\\AuditRestaurantCuisines\:\:aiCuisineSlugs\(\) has parameter \$normalizedNameToSlug with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Console/Commands/AuditRestaurantCuisines.php
-
-		-
-			message: '#^Method App\\Console\\Commands\\AuditRestaurantCuisines\:\:recommendations\(\) has parameter \$normalizedNameToSlug with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Console/Commands/AuditRestaurantCuisines.php
-
-		-
-			message: '#^Method App\\Console\\Commands\\AuditRestaurantCuisines\:\:recommendations\(\) has parameter \$slugToId with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Console/Commands/AuditRestaurantCuisines.php
-
-		-
 			message: '#^Method App\\Console\\Commands\\BackfillRestaurantLocation\:\:extractCityState\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1

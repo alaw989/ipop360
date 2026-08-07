@@ -263,6 +263,8 @@ class AuditRestaurantCuisines extends Command
     /**
      * Decide which of a restaurant's current tags to keep, drop, and add.
      *
+     * @param  array<string, int>  $slugToId
+     * @param  array<string, string>  $normalizedNameToSlug
      * @return array{0: string[], 1: string[], 2: string[]} [keep, drop, add] slugs
      */
     private function recommendations(
@@ -322,6 +324,7 @@ class AuditRestaurantCuisines extends Command
     /**
      * Normalize ai_metadata.cuisines (free-text) to seeded cuisine slugs.
      *
+     * @param  array<string, string>  $normalizedNameToSlug
      * @return string[]
      */
     private function aiCuisineSlugs(Restaurant $restaurant, array $normalizedNameToSlug): array
