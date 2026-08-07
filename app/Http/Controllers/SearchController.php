@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class SearchController extends Controller
 {
@@ -29,7 +30,7 @@ class SearchController extends Controller
         private LiveVenuePersister $venuePersister,
     ) {}
 
-    public function __invoke(Request $request)
+    public function __invoke(Request $request): Response
     {
         $validated = $request->validate([
             'sort' => 'nullable|in:best_match,nearest,rating,reviews,price,social_presence,website_traffic',
@@ -174,6 +175,10 @@ class SearchController extends Controller
         ]);
     }
 
+    /**
+     * @param  Builder<Restaurant>  $query
+     * @return Builder<Restaurant>
+     */
     private function applySort(Builder $query, string $sort, bool $hasCoords): Builder
     {
         $decayedScore = Restaurant::decayedPopularityScoreExpression();
@@ -193,6 +198,11 @@ class SearchController extends Controller
         return $this->applyRestaurantSort($query, $sort, $hasCoords);
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $results
+     * @param  int[]  $cuisineIds
+     * @param  array<string, mixed>|null  $defaultLocation
+     */
     private function persistLiveResults(array $results, array $cuisineIds = [], ?array $defaultLocation = null): void
     {
         foreach ($results as $venue) {

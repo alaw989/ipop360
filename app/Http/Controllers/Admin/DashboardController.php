@@ -7,10 +7,11 @@ use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke()
+    public function __invoke(): Response
     {
         // SerpApi quota
         $stats = ExternalApiCache::stats();

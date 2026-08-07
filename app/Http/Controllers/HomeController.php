@@ -10,6 +10,7 @@ use App\Services\GeolocationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class HomeController extends Controller
 {
@@ -17,7 +18,7 @@ class HomeController extends Controller
         private GeolocationService $geolocationService,
     ) {}
 
-    public function __invoke(Request $request)
+    public function __invoke(Request $request): Response
     {
         $location = $this->geolocationService->resolveLocation($request);
         $city = $location['city'] ?? null;
@@ -43,6 +44,9 @@ class HomeController extends Controller
         return response()->json($this->getHomepageData($city, $state));
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function getHomepageData(?string $city, ?string $state): array
     {
         $categories = $this->getScopedCategories($city, $state);
@@ -101,6 +105,9 @@ class HomeController extends Controller
         ];
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     private function getScopedCategories(?string $city, ?string $state): array
     {
         $categories = CuisineCategory::with(['cuisines' => fn ($q) => $q->orderBy('sort_order')])

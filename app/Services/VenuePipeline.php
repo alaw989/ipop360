@@ -152,6 +152,9 @@ class VenuePipeline
 
     /**
      * Haversine proximity check with a null-island guard (0,0 coords = unknown).
+     *
+     * @param  array<string, mixed>  $a
+     * @param  array<string, mixed>  $b
      */
     private function withinRadius(array $a, array $b, float $radius): bool
     {
@@ -172,6 +175,9 @@ class VenuePipeline
      * 10 digits are equal (the unique-enough tail; the area/country prefix is
      * noisy across sources). Requires ≥10 digits so a shared short reservation
      * line can't false-merge. Gated by dedup.phone_match.
+     *
+     * @param  array<string, mixed>  $a
+     * @param  array<string, mixed>  $b
      */
     private function phonesMatch(array $a, array $b): bool
     {
@@ -294,6 +300,9 @@ class VenuePipeline
      * spec-069 4C: the `rating` mode is credibility-aware — venues with fewer
      * than rating_sort_min_reviews sink below credible ones so a 5.0/3-review
      * venue can't beat 4.8/5000. Kill-switch ranking.rating_sort_credibility.
+     *
+     * @param  array<int, array<string, mixed>>  $venues
+     * @return array<int, array<string, mixed>>
      */
     public function sortVenues(array $venues, string $sort, bool $hasCoords): array
     {
@@ -366,6 +375,9 @@ class VenuePipeline
     /**
      * Deterministic tiebreak for live rows whose primary sort key is equal:
      * popularity_score DESC, then name ASC.
+     *
+     * @param  array<string, mixed>  $a
+     * @param  array<string, mixed>  $b
      */
     private function sortTiebreak(array $a, array $b): int
     {

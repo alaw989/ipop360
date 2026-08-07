@@ -184,6 +184,7 @@ SPARQL;
      * Parse SPARQL JSON bindings into venue records. Coordinates are WKT
      * `Point(lng lat)` — longitude is captured first.
      *
+     * @param  array<int, array{itemLabel: array{value: ?string}, coord: array{value: ?string}}>  $bindings
      * @return array<int, array{name: string, lat: float, lng: float}>
      */
     private function parseBindings(array $bindings): array

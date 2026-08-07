@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
 
 class LogApiRequest
 {
@@ -14,7 +15,7 @@ class LogApiRequest
      * Logs API requests with an is_live tag indicating whether the request
      * used the live search path (external APIs) vs. the database path.
      */
-    public function handle(Request $request, Closure $next)
+    public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
 

@@ -114,7 +114,7 @@ class RestaurantWebsiteScraperService
      * Scrape a restaurant's own website for opening hours and optional data.
      *
      * @param  string  $websiteUrl  The restaurant's own website URL
-     * @return array|null Returns array with 'opening_hours' and optional 'menu_url'/'photo_url', or null if scrape failed/disallowed
+     * @return array{opening_hours: mixed, menu_url: string|null, photo_url: string|null, photos: string[]}|null
      */
     public function scrape(string $websiteUrl): ?array
     {
@@ -284,7 +284,7 @@ class RestaurantWebsiteScraperService
     /**
      * Fetch a single page URL and extract social platform links from its HTML.
      *
-     * @return array|null Array of platform keys found on this page, or null on failure
+     * @return array<string, string>|null
      */
     private function fetchPageForSocial(string $url): ?array
     {
@@ -592,6 +592,8 @@ class RestaurantWebsiteScraperService
 
     /**
      * Perform the actual scraping of the website.
+     *
+     * @return array{opening_hours: mixed, menu_url: string|null, photo_url: string|null, photos: string[]}|null
      */
     private function performScrape(string $url): ?array
     {
@@ -694,6 +696,8 @@ class RestaurantWebsiteScraperService
      * Extract opening hours from the page HTML.
      *
      * Looks for common patterns: JSON-LD, microdata, text patterns like "Mon-Fri 9am-5pm"
+     *
+     * @return array<string, mixed>|null
      */
     private function extractOpeningHours(DOMDocument $dom, DOMXPath $xpath, string $url): ?array
     {
@@ -715,6 +719,8 @@ class RestaurantWebsiteScraperService
 
     /**
      * Extract opening hours from JSON-LD structured data.
+     *
+     * @return array<string, mixed>|null
      */
     private function extractHoursFromJsonLd(DOMXPath $xpath): ?array
     {
@@ -759,6 +765,8 @@ class RestaurantWebsiteScraperService
 
     /**
      * Extract opening hours from microdata/schema.org.
+     *
+     * @return array<string, mixed>|null
      */
     private function extractHoursFromMicrodata(DOMXPath $xpath): ?array
     {
@@ -800,6 +808,8 @@ class RestaurantWebsiteScraperService
 
     /**
      * Extract opening hours from text patterns.
+     *
+     * @return array<string, mixed>|null
      */
     private function extractHoursFromText(DOMXPath $xpath): ?array
     {
@@ -875,6 +885,8 @@ class RestaurantWebsiteScraperService
 
     /**
      * Parse hours text into structured format.
+     *
+     * @return array{raw_text: string, structured: false}
      */
     private function parseHoursText(string $text): array
     {
@@ -888,8 +900,10 @@ class RestaurantWebsiteScraperService
 
     /**
      * Normalize opening hours to a consistent format.
+     *
+     * @return array<string, mixed>|null
      */
-    private function normalizeOpeningHours($hours): ?array
+    private function normalizeOpeningHours(mixed $hours): ?array
     {
         if ($hours === null) {
             return null;

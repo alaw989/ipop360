@@ -19,6 +19,9 @@ class GeolocationService
      * full explanation of the two-store architecture.
      */
 
+    /**
+     * @return array{lat: float, lng: float}|null
+     */
     public function resolveCoordinates(Request $request): ?array
     {
         // Explicit URL params take priority
@@ -38,6 +41,9 @@ class GeolocationService
         return $this->ipLookup($request->ip());
     }
 
+    /**
+     * @return array{lat: float, lng: float, city: string|null, state: string|null}|null
+     */
     public function resolveLocation(Request $request): ?array
     {
         $coords = $this->resolveCoordinates($request);
@@ -55,6 +61,9 @@ class GeolocationService
         ];
     }
 
+    /**
+     * @return array{lat: float, lng: float}|null
+     */
     public function ipLookup(string $ip): ?array
     {
         $full = $this->ipLookupFull($ip);
@@ -65,6 +74,9 @@ class GeolocationService
         return ['lat' => $full['lat'], 'lng' => $full['lng']];
     }
 
+    /**
+     * @return array<int, array{city: string|null, state: string|null, country: string|null, lat: float|null, lng: float|null, display: string}>
+     */
     public function searchCities(string $query): array
     {
         if (strlen($query) < 2) {
@@ -89,6 +101,7 @@ class GeolocationService
                 $data = $response->json();
                 $features = $data['features'] ?? [];
 
+                /** @var array<int, array<string, mixed>> $features */
                 return collect($features)
                     ->filter(fn ($f) => in_array(
                         $f['properties']['osm_value'] ?? '',
@@ -121,6 +134,9 @@ class GeolocationService
         });
     }
 
+    /**
+     * @return array{lat: float, lng: float}|null
+     */
     public function forwardGeocode(string $city, ?string $state): ?array
     {
         $query = $state ? "{$city}, {$state}" : $city;
@@ -155,6 +171,9 @@ class GeolocationService
         });
     }
 
+    /**
+     * @return array{city: string|null, state: string|null}|null
+     */
     public function reverseGeocode(float $lat, float $lng): ?array
     {
         $key = sprintf('revgeo:%.4f:%.4f', $lat, $lng);
@@ -194,6 +213,9 @@ class GeolocationService
         });
     }
 
+    /**
+     * @return array{lat: float, lng: float, city: string|null, region: string|null}|null
+     */
     public function ipLookupFull(string $ip): ?array
     {
         if ($ip === '127.0.0.1' || $ip === '::1') {

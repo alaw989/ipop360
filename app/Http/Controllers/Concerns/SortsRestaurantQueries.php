@@ -51,6 +51,10 @@ trait SortsRestaurantQueries
     /**
      * Apply the sort modes shared by both restaurant-facing endpoints.
      */
+    /**
+     * @param  Builder<Restaurant>  $query
+     * @return Builder<Restaurant>
+     */
     private function applyRestaurantSort(Builder $query, string $sort, bool $hasCoords): Builder
     {
         $decayedScore = Restaurant::decayedPopularityScoreExpression();

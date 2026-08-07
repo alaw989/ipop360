@@ -1,5 +1,8 @@
 # iPop360 — Agent Guide
 
+## Conventions
+- Development must always be test driven: write or update tests first, then implement to make them pass.
+
 ## Stack
 - **Backend**: Laravel 13 + PHP 8.3
 - **Frontend**: Inertia 2 + Vue 3 + TypeScript + Tailwind 4 + Vite 8

@@ -83,6 +83,8 @@ class BlogPostController extends Controller
 
     /**
      * Validate and normalize the blog post form input.
+     *
+     * @return array<string, mixed>
      */
     private function validated(Request $request): array
     {

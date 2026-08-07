@@ -13,6 +13,9 @@ class BizDataApiService
 {
     private string $baseUrl = 'https://bizdata-web.vercel.app';
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     public function search(float $lat, float $lng, ?string $cuisine = null, int $radius = 25, int $limit = 50): array
     {
         $cacheKey = $this->cacheKeyFor($lat, $lng, $cuisine, $radius, $limit);
@@ -63,6 +66,10 @@ class BizDataApiService
         }
     }
 
+    /**
+     * @param  array<int, array<string, mixed>>  $businesses
+     * @return array<int, array<string, mixed>>
+     */
     private function normalizeResults(array $businesses, float $searchLat, float $searchLng, ?string $cuisine = null): array
     {
         $results = [];
@@ -116,7 +123,8 @@ class BizDataApiService
 
     /**
      * Fetch raw data from the API without normalization for parallel pooling.
-     * Returns the raw API response data.
+    /**
+     * @return array{cached: bool, data: array<int, mixed>}|null
      */
     public function fetchRaw(float $lat, float $lng, ?string $cuisine = null, int $radius = 25, int $limit = 50): ?array
     {
@@ -170,6 +178,10 @@ class BizDataApiService
      * Normalize raw BizData businesses to the shared venue shape.
      * Public method for use after parallel fetch.
      */
+    /**
+     * @param  array<int, mixed>  $businesses
+     * @return array<int, array<string, mixed>>
+     */
     public function normalizeRaw(array $businesses, float $searchLat, float $searchLng, ?string $cuisine = null): array
     {
         return $this->normalizeResults($businesses, $searchLat, $searchLng, $cuisine);
@@ -187,6 +199,10 @@ class BizDataApiService
     /**
      * Build the concurrent-pool request(s) for the live read path.
      * BizData issues a single GET; returned as an array for a uniform interface.
+     */
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<int, RequestSpec>
      */
     public function poolRequestsFor(float $lat, float $lng, ?string $cuisine = null, array $context = []): array
     {
@@ -215,6 +231,9 @@ class BizDataApiService
      * stored in ExternalApiCache). Returns null on HTTP failure so the caller
      * can skip without caching a bad result.
      */
+    /**
+     * @return array<int, mixed>|null
+     */
     public function parsePoolResponse(Response $response, float $lat, float $lng): ?array
     {
         if ($response->failed()) {
@@ -230,6 +249,10 @@ class BizDataApiService
      * Consume pooled responses for the live read path: parse, cache the raw
      * payload (24h), and normalize to venues. Called after Http::pool() has
      * resolved, so the cache write stays off the concurrent I/O path.
+     */
+    /**
+     * @param  array<int, Response|\Throwable>  $responses
+     * @return array<int, array<string, mixed>>
      */
     public function consumePoolResponses(array $responses, float $lat, float $lng, ?string $cuisine, string $cacheKey): array
     {
@@ -268,6 +291,10 @@ class BizDataApiService
      * Normalize a BizData venue result to the enrichment venue shape.
      * This converts the rich live-search format to the simpler DB-persistence format
      * used by RestaurantEnrichmentService.
+     */
+    /**
+     * @param  array<string, mixed>  $r
+     * @return array<string, mixed>
      */
     public function normalizeForEnrichment(array $r): array
     {

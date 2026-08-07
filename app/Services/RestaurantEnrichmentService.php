@@ -7,6 +7,7 @@ use App\Models\Cuisine;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -186,6 +187,8 @@ class RestaurantEnrichmentService
     /**
      * Fetch and normalize all sources using real Http::pool() concurrency.
      * Wall time is max of sources, not sum. Isolates failures per source.
+     *
+     * @return array<int, array<string, mixed>>
      */
     private function fetchAndNormalizeAllSources(float $lat, float $lng, Cuisine $cuisine, bool $freeOnly = false): array
     {
@@ -268,6 +271,9 @@ class RestaurantEnrichmentService
      * Uses each service's consumePoolResponses to parse, cache, and normalize.
      * Then delegates to each service's normalizeForEnrichment for the enrichment format.
      * Handles failures (throwables) by skipping the source.
+     *
+     * @param  array<int, Response|\Throwable>  $responses
+     * @return array<int, array<string, mixed>>
      */
     private function normalizePoolResponses(string $label, array $responses, float $lat, float $lng, Cuisine $cuisine): array
     {
@@ -331,6 +337,9 @@ class RestaurantEnrichmentService
     /**
      * Consume Overpass responses with name-based fallback if no results.
      * Overpass needs special handling because of the fallback path.
+     *
+     * @param  array<int, Response|\Throwable>  $responses
+     * @return array<int, array<string, mixed>>
      */
     private function consumeOverpassResponses(array $responses, float $lat, float $lng, string $cuisine, string $cacheKey): array
     {
@@ -342,7 +351,7 @@ class RestaurantEnrichmentService
             if (! empty($keywords)) {
                 $nameRaw = $this->overpass->fetchByNameRaw($lat, $lng, $keywords);
                 if ($nameRaw !== null) {
-                    $elements = $nameRaw['data'] ?? [];
+                    $elements = $nameRaw['data'];
                     $normalized = $this->overpass->normalizeRaw($elements, $lat, $lng);
                 }
             }
@@ -353,6 +362,9 @@ class RestaurantEnrichmentService
 
     /**
      * Normalize Overpass results with name-based fallback if cuisine query yields nothing.
+     *
+     * @param  array<int, mixed>  $data
+     * @return array<int, array<string, mixed>>
      */
     private function normalizeOverpassWithFallback(array $data, float $lat, float $lng, string $cuisine): array
     {
@@ -373,7 +385,7 @@ class RestaurantEnrichmentService
             return [];
         }
 
-        $nameElements = $nameRaw['data'] ?? [];
+        $nameElements = $nameRaw['data'];
 
         return $this->overpass->normalizeRaw($nameElements, $lat, $lng);
     }
@@ -381,6 +393,8 @@ class RestaurantEnrichmentService
     /**
      * Process a single free venue: build attributes, upsert, attach cuisine.
      * Upserts by yelp_business_id when present, else by name + ≤200m proximity.
+     *
+     * @param  array<string, mixed>  $venue
      */
     private function processFreeVenue(array $venue, Cuisine $cuisine, ?string $cityName = null, ?string $stateCode = null): ?Restaurant
     {
@@ -560,6 +574,8 @@ class RestaurantEnrichmentService
     /**
      * Optional award enrichment (Wikidata, free): one SPARQL box query for the
      * search area, then match each persisted restaurant by name + proximity.
+     *
+     * @param  Collection<int, Restaurant>  $restaurants
      */
     private function enrichAwards(Collection $restaurants, float $lat, float $lng): void
     {
@@ -601,6 +617,8 @@ class RestaurantEnrichmentService
      * Optional website scraper enrichment (free): scrape restaurant's own website
      * for opening hours and menu data. Runs only for restaurants with a website_url.
      * Mutates the passed models in place.
+     *
+     * @param  Collection<int, Restaurant>  $restaurants
      */
     private function enrichWebsiteData(Collection $restaurants): void
     {
@@ -725,6 +743,8 @@ class RestaurantEnrichmentService
     /**
      * Optional AI enrichment (async): dispatch jobs to fill data gaps.
      * Never runs on the request path (queue only). No-op without AI key.
+     *
+     * @param  Collection<int, Restaurant>  $restaurants
      */
     private function enrichWithAi(Collection $restaurants): void
     {
@@ -805,12 +825,7 @@ class RestaurantEnrichmentService
      * Rotates through city×cuisine combos, skipping cache-fresh ones,
      * and stops when per-run cap or monthly budget is reached.
      *
-     * Returns [
-     *   'total_processed' => int,
-     *   'real_calls_made' => int,
-     *   'cache_hits_skipped' => int,
-     *   'quota_exhausted' => bool,
-     * ]
+     * @return array{total_processed: int, real_calls_made: int, cache_hits_skipped: int, quota_exhausted: bool, per_run_cap_reached: bool}
      */
     public function enrichAllCitiesThrottled(): array
     {
@@ -943,6 +958,8 @@ class RestaurantEnrichmentService
      * hammer the same cuisine. Replaces the previous blind shuffle, which spent
      * quota on a coin-flip of combo need.
      *
+     * @param  array<string, array{float, float}>  $cities
+     * @param  Collection<int, Cuisine>  $cuisines
      * @return array<array{city:string, lat:float, lng:float, cuisine:Cuisine}>
      */
     private function buildCityCuisineGrid(array $cities, Collection $cuisines): array
@@ -999,6 +1016,8 @@ class RestaurantEnrichmentService
     /**
      * Get cuisines filtered to the configured set, falling back to all
      * when no config is defined (preserves test behavior).
+     *
+     * @return Collection<int, Cuisine>
      */
     private function getConfiguredCuisines(): Collection
     {

@@ -86,6 +86,8 @@ class SerpApiService
     /**
      * Search Google Maps for restaurants via SerpApi.
      * Returns normalized restaurant data.
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function search(float $lat, float $lng, ?string $query = null): array
     {
@@ -143,6 +145,8 @@ class SerpApiService
     /**
      * Fetch raw data from SerpApi without normalization for parallel pooling.
      * Returns the raw API response data.
+     *
+     * @return array<string, mixed>|null
      */
     public function fetchRaw(float $lat, float $lng, ?string $query = null): ?array
     {
@@ -197,6 +201,9 @@ class SerpApiService
     /**
      * Normalize raw SerpApi local_results to the shared venue shape.
      * Public method for use after parallel fetch.
+     *
+     * @param  array<int, array<string, mixed>>  $localResults
+     * @return array<int, array<string, mixed>>
      */
     public function normalizeRaw(array $localResults, float $searchLat, float $searchLng): array
     {
@@ -225,6 +232,9 @@ class SerpApiService
      * (disabled) when no API key is configured, so the cache-pass can still
      * short-circuit a prior keyed result while a keyless deployment skips the
      * outbound call entirely.
+     *
+     * @param  array<string, mixed>  $context
+     * @return array<int, RequestSpec>
      */
     public function poolRequestsFor(float $lat, float $lng, ?string $query = null, array $context = []): array
     {
@@ -255,6 +265,8 @@ class SerpApiService
     /**
      * Parse a pooled SerpApi response into the raw local_results array (the
      * shape stored in ExternalApiCache). Returns null on HTTP failure.
+     *
+     * @return array<int, array<string, mixed>>|null
      */
     public function parsePoolResponse(Response $response, float $lat, float $lng): ?array
     {
@@ -273,6 +285,9 @@ class SerpApiService
      * Consume pooled responses for the live read path: parse, cache the raw
      * payload (30-day SerpApi TTL), and normalize. Quota-safe: the cache pass
      * runs before this, so a repeat search never reaches here.
+     *
+     * @param  array<int, Response|\Throwable>  $responses
+     * @return array<int, array<string, mixed>>
      */
     public function consumePoolResponses(array $responses, float $lat, float $lng, ?string $cuisine, string $cacheKey): array
     {
@@ -328,6 +343,9 @@ class SerpApiService
 
     /**
      * Normalize SerpApi results to the shared venue shape.
+     *
+     * @param  array<int, array<string, mixed>>  $localResults
+     * @return array<int, array<string, mixed>>
      */
     private function normalizeResults(array $localResults, float $searchLat, float $searchLng): array
     {
@@ -420,6 +438,8 @@ class SerpApiService
     /**
      * Parse SerpApi price_level to our price_range format.
      * SerpApi uses integers 1-4; we convert to $-$$$$.
+     *
+     * @param  array<string, mixed>  $venue
      */
     private function parsePriceRange(array $venue): ?string
     {
@@ -478,6 +498,8 @@ class SerpApiService
 
     /**
      * Parse address from SerpApi response.
+     *
+     * @param  array<string, mixed>  $result
      */
     private function parseAddress(array $result): ?string
     {
@@ -514,6 +536,9 @@ class SerpApiService
      * Normalize a SerpApi venue result to the enrichment venue shape.
      * This converts the rich live-search format to the simpler DB-persistence format
      * used by RestaurantEnrichmentService.
+     *
+     * @param  array<string, mixed>  $r
+     * @return array<string, mixed>
      */
     public function normalizeForEnrichment(array $r): array
     {

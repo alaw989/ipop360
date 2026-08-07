@@ -15,6 +15,8 @@ class PopularityScoreService
      * data_completeness is a minor tiebreaker. The yelp and google rating and
      * review signals are removed (weight 0.0 — their data feeds `quality`
      * instead); popular_times is opt-in (weight 0.0).
+     *
+     * @var array<string, float>
      */
     private const DEFAULT_WEIGHTS = [
         'yelp_rating' => 0.0,
@@ -84,6 +86,7 @@ class PopularityScoreService
         'social_links_count', // Bonus: website social link scraping
     ];
 
+    /** @var array<string, float> */
     private array $weights;
 
     private int $logReviewFloor;
@@ -94,6 +97,9 @@ class PopularityScoreService
 
     private float $qualityMeanFallback;
 
+    /**
+     * @param  array<string, float>|null  $weights
+     */
     public function __construct(?array $weights = null, ?int $logReviewFloor = null, ?int $logReviewDefault = null, ?float $qualityPrior = null, ?float $qualityMeanFallback = null)
     {
         $this->weights = $weights ?? $this->configValue('restaurant-finder.ranking.weights', self::DEFAULT_WEIGHTS);
@@ -107,6 +113,8 @@ class PopularityScoreService
      * Calculate a composite popularity score for a restaurant, normalized
      * against the provided collection of all restaurants in the same context.
      * Free signals alone are sufficient; paid Google signals add an optional bonus.
+     *
+     * @param  Collection<int, mixed>  $allRestaurants
      */
     public function calculateScore(Restaurant $restaurant, Collection $allRestaurants): float
     {
@@ -117,6 +125,9 @@ class PopularityScoreService
      * Calculate a detailed per-signal breakdown of the popularity score.
      * Returns an array with 'signals' (label, weight, normalized, contribution)
      * and 'total' (final rounded score).
+     *
+     * @param  Collection<int, mixed>  $allRestaurants
+     * @return array{signals: array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}>, total: float}
      */
     public function calculateBreakdown(Restaurant $restaurant, Collection $allRestaurants): array
     {
@@ -128,6 +139,9 @@ class PopularityScoreService
 
     /**
      * Calculate breakdown for an Eloquent model using precomputed aggregates.
+     *
+     * @param  array{log_denoms: array<string, float>, minmax: array<string, mixed>, quality: array{mean_rating: float}}  $aggregates
+     * @return array{signals: array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}>, total: float}
      */
     public function calculateBreakdownWithAggregatesFromEloquent(Restaurant $restaurant, array $aggregates): array
     {
@@ -140,6 +154,9 @@ class PopularityScoreService
     /**
      * Collection-level aggregates needed for normalization. Computed once for
      * the full dataset and reused across chunks or restaurants.
+     *
+     * @param  Collection<int, mixed>  $allRestaurants
+     * @return array{log_denoms: array<string, float>, minmax: array<string, array{min: float, max: float}|null>, quality: array{mean_rating: float}}
      */
     public function computeAggregates(Collection $allRestaurants): array
     {
@@ -166,6 +183,10 @@ class PopularityScoreService
      * Calculate a detailed per-signal breakdown for an array-based restaurant
      * (from live search). Shares normalization logic with the Eloquent path.
      * Returns the same breakdown structure.
+     *
+     * @param  array<string, mixed>  $restaurant
+     * @param  Collection<int, mixed>  $allRestaurants
+     * @return array{signals: array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}>, total: float}
      */
     public function calculateBreakdownForArray(array $restaurant, Collection $allRestaurants): array
     {
@@ -177,10 +198,14 @@ class PopularityScoreService
     /**
      * Calculate breakdown using precomputed aggregates. Used by chunked
      * scoring where collection-level stats are computed once upfront.
+     *
+     * @param  array<string, mixed>  $restaurant
+     * @param  array{log_denoms: array<string, float>, minmax: array<string, mixed>, quality: array{mean_rating: float}}  $aggregates
+     * @return array{signals: array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}>, total: float}
      */
     public function calculateBreakdownWithAggregates(array $restaurant, array $aggregates): array
     {
-        $logDenoms = ($aggregates['log_denoms'] ?? []) + [
+        $logDenoms = $aggregates['log_denoms'] + [
             'yelp_review_count' => (float) $this->logReviewDefault,
             'google_review_count' => (float) $this->logReviewDefault,
             'website_clicks_count' => (float) $this->logReviewDefault,
@@ -188,8 +213,8 @@ class PopularityScoreService
             'social_link_clicks_count' => (float) $this->logReviewDefault,
             'menu_click_count' => (float) $this->logReviewDefault,
         ];
-        $minmax = $aggregates['minmax'] ?? [];
-        $qualityMean = (float) ($aggregates['quality']['mean_rating'] ?? $this->qualityMeanFallback);
+        $minmax = $aggregates['minmax'];
+        $qualityMean = (float) $aggregates['quality']['mean_rating'];
 
         $signalLabels = [
             'yelp_rating' => 'Yelp Rating',
@@ -321,6 +346,8 @@ class PopularityScoreService
     /**
      * Extract raw signal value from an array-based restaurant (live search).
      * Shares logic with rawValue for Eloquent models.
+     *
+     * @param  array<string, mixed>  $restaurant
      */
     private function rawValueFromArray(array $restaurant, string $signal): mixed
     {
@@ -348,6 +375,8 @@ class PopularityScoreService
     /**
      * Convert an Eloquent Restaurant to an array for unified processing.
      * Includes the distance attribute added by scopeNearby.
+     *
+     * @return array<string, mixed>
      */
     private function restaurantToArray(Restaurant $restaurant): array
     {
@@ -418,6 +447,10 @@ class PopularityScoreService
         return true;
     }
 
+    /**
+     * @param  array<string, float>  $logDenoms
+     * @param  array<string, array{min: float, max: float}|null>  $minmax
+     */
     private function normalize(string $method, mixed $raw, string $signal, array $logDenoms, array $minmax, float $qualityMean): float
     {
         return match ($method) {
@@ -440,11 +473,13 @@ class PopularityScoreService
      * Q = (v/(v+m))·R + (m/(v+m))·C, then ÷5 to normalize to 0-1. A high rating
      * from few reviews collapses toward the mean; a high-review rating stands.
      * See docs/ranking-metrics.md.
+     *
+     * @param  array{rating: float|null, reviews: float}  $raw
      */
     private function normalizeBayesianQuality(array $raw, float $meanRating): float
     {
         $R = (float) ($raw['rating'] ?? 0.0);
-        $v = max(0.0, (float) ($raw['reviews'] ?? 0.0));
+        $v = max(0.0, (float) $raw['reviews']);
         $m = $this->qualityPrior;
         $C = $meanRating > 0.0 ? $meanRating : $this->qualityMeanFallback;
 
@@ -473,6 +508,8 @@ class PopularityScoreService
      * prior so they can't inflate C and still win in small collections. Falls
      * back to quality_mean_fallback when no credible venue exists. Works on both
      * Eloquent collections and plain array collections (live search).
+     *
+     * @param  Collection<int, mixed>  $all
      */
     private function collectionMeanRating(Collection $all): float
     {
@@ -544,6 +581,8 @@ class PopularityScoreService
     /**
      * Min-max normalization (kept for the opt-in popular_times signal only).
      * Returns 0.5 when the collection has no variance.
+     *
+     * @param  array{min: float, max: float}|null  $stats
      */
     private function normalizeMinMax(float $value, ?array $stats): float
     {
@@ -585,6 +624,8 @@ class PopularityScoreService
     /**
      * Log denominator for a count signal: max(collectionMax, floor). Falls back
      * to the configured default when the collection is empty or all-zero.
+     *
+     * @param  Collection<int, mixed>  $all
      */
     private function logDenominator(Collection $all, string $signal): float
     {
@@ -597,6 +638,10 @@ class PopularityScoreService
         return max((float) $values->max(), (float) $this->logReviewFloor);
     }
 
+    /**
+     * @param  Collection<int, mixed>  $all
+     * @return array{min: float, max: float}|null
+     */
     private function minmaxStats(Collection $all, string $signal): ?array
     {
         $values = $all->pluck($signal)->filter(fn ($v) => $v !== null && (float) $v > 0.0);
@@ -630,6 +675,8 @@ class PopularityScoreService
     /**
      * Compute completeness for an array-based restaurant (live search).
      * Shares the same field set and isFilled logic.
+     *
+     * @param  array<string, mixed>  $restaurant
      */
     private function computeCompletenessFromArray(array $restaurant): float
     {
