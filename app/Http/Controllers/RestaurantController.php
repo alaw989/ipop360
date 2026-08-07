@@ -15,11 +15,13 @@ use App\Services\LiveVenuePersister;
 use App\Services\PopularityScoreService;
 use App\Services\RestaurantValidationService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class RestaurantController extends Controller
 {
@@ -37,6 +39,8 @@ class RestaurantController extends Controller
      *
      * This query builder is used by both index() and apiIndex() to ensure
      * consistent filtering behavior and avoid drift between the two endpoints.
+     *
+     * @return Builder<Restaurant>
      */
     private function buildRestaurantQuery(Request $request): Builder
     {
@@ -66,6 +70,9 @@ class RestaurantController extends Controller
 
     /**
      * Apply the selected sort mode to the query.
+     *
+     * @param  Builder<Restaurant>  $query
+     * @return Builder<Restaurant>
      */
     private function applySortMode(Builder $query, string $sort, bool $hasCoords): Builder
     {
@@ -82,6 +89,8 @@ class RestaurantController extends Controller
      * external_api_cache (already written on the read path, so the "no
      * restaurants write" constraint stands) and triggers no live fetch (zero
      * quota). TTL-configurable via restaurant-finder.cache.preview_snapshot_days.
+     *
+     * @param  array<array<string, mixed>>  $results
      */
     private function snapshotLiveResults(array $results): void
     {
@@ -101,7 +110,7 @@ class RestaurantController extends Controller
         }
     }
 
-    public function index(Request $request)
+    public function index(Request $request): InertiaResponse
     {
         $validated = $request->validate([
             'sort' => 'nullable|in:best_match,nearest,rating,reviews,price',
@@ -147,7 +156,7 @@ class RestaurantController extends Controller
         }
 
         // Build the shared query with cuisine/category filtering
-        /** @var Builder $query */
+        /** @var Builder<Restaurant> $query */
         $query = $this->buildRestaurantQuery($request)
             ->when(
                 $coords !== null,
@@ -187,7 +196,7 @@ class RestaurantController extends Controller
         ]);
     }
 
-    public function show(Restaurant $restaurant)
+    public function show(Restaurant $restaurant): InertiaResponse
     {
         $restaurant->load(['cuisines.category', 'socialLinks']);
 
@@ -215,7 +224,7 @@ class RestaurantController extends Controller
      * (old lat/lng/cuisine query params are harmlessly ignored for back-compat).
      * 404s once the snapshot TTL expires (findByKey honors expires_at).
      */
-    public function preview(string $slug)
+    public function preview(string $slug): InertiaResponse
     {
         $restaurant = ExternalApiCache::findByKey("preview:{$slug}");
 
@@ -248,7 +257,7 @@ class RestaurantController extends Controller
         ]);
     }
 
-    public function apiIndex(Request $request)
+    public function apiIndex(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'sort' => 'nullable|in:best_match,nearest,rating,reviews,price',
@@ -272,7 +281,7 @@ class RestaurantController extends Controller
         }
 
         // Build the shared query with cuisine/category filtering
-        /** @var Builder $query */
+        /** @var Builder<Restaurant> $query */
         $query = $this->buildRestaurantQuery($request)
             ->when(
                 $coords !== null,
@@ -398,6 +407,9 @@ class RestaurantController extends Controller
      * negative CRC32 IDs are replaced with real auto-increment DB IDs so
      * engagement tracking, detail pages, and future lookups all work.
      * Only cuisine IDs that exist in the cuisines table are attached.
+     *
+     * @param  array<array<string, mixed>>  $results
+     * @return array<array<string, mixed>>
      */
     private function persistLiveResults(array $results): array
     {
@@ -411,7 +423,7 @@ class RestaurantController extends Controller
         }, $results);
     }
 
-    public function leaderboard(Request $request)
+    public function leaderboard(Request $request): InertiaResponse
     {
         $coords = $this->geolocationService->resolveCoordinates($request);
 
@@ -442,7 +454,7 @@ class RestaurantController extends Controller
         ]);
     }
 
-    public function compare(Request $request)
+    public function compare(Request $request): InertiaResponse
     {
         $ids = $request->query('ids', '');
         $idList = collect(explode(',', $ids))

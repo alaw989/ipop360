@@ -4,14 +4,28 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 245 (down from 255)
-- Remaining by category: missingType.iterableValue (202), missingType.generics (28), missingType.return (7), argument.templateType (7), method.unresolvableReturnType (1)
+- Baseline entries: 229 (down from 245)
+- Remaining by category: missingType.iterableValue (199), missingType.generics (22), argument.templateType (6), missingType.return (1), method.unresolvableReturnType (1)
 - missingType.parameter category fully eliminated (4→0)
-- missingType.return down to 7 (all in RestaurantController + LiveSearchService)
-- missingType.generics down to 28 (10 removed from Restaurant model)
-- Next: RestaurantController (5 generics + 2 missingType.return entries) — a combined target
+- missingType.return down to 1 (only LiveSearchService remains)
+- missingType.generics down to 22 (−6 from RestaurantController)
+- RestaurantController fully clean (all 16 blocks removed: 6 return types, 7 generics, 3 iterableValue)
+- Next: SearchController + LiveSearchService (4 generics + 1 missingType.return) — a small combined target
 
 ## Log
+### Iteration 9 — Fixed all 16 RestaurantController baseline entries (total: 245→229)
+- `app/Http/Controllers/RestaurantController.php`: Added `: InertiaResponse` return types to `index()`, `show()`, `preview()`, `leaderboard()`, `compare()`
+- Added `: JsonResponse` return type to `apiIndex()`
+- Added `@return Builder<Restaurant>` to `buildRestaurantQuery()`; `@param Builder<Restaurant>` / `@return Builder<Restaurant>` to `applySortMode()`
+- Changed `@var Builder $query` → `@var Builder<Restaurant> $query` (2 instances)
+- Added `@param array<array<string, mixed>>` / `@return array<array<string, mixed>>` to `persistLiveResults()`; `@param array<array<string, mixed>>` to `snapshotLiveResults()`
+- Imported `InertiaResponse` and `JsonResponse`
+- `app/Http/Controllers/Concerns/SortsRestaurantQueries.php`: Added `@param Builder<Restaurant>` / `@return Builder<Restaurant>` to `applyRestaurantSort()`
+- Key finding: separate `/** @param */` / `/** @return */` docblocks before a method are NOT merged — PHPStan only reads the last one. Must include `@param`/`@return` inside the main method docblock.
+- Also resolved the 2 `argument.templateType` (`->when()` on `Builder`) entries — properly typed Builder<Restaurant> resolves `TWhenReturnType`
+- Removed all 16 corresponding entries from `phpstan-baseline.neon`
+- `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 8 — Fixed Restaurant model generics (total: 255→245)
 - `app/Models/Restaurant.php`: Added `/** @use HasFactory<\Database\Factories\RestaurantFactory> */` before `use HasFactory`
 - Added `@return BelongsToMany<Cuisine, $this>` on `cuisines()`, `@return BelongsToMany<User, $this>` on `favoritedBy()`, `@return HasMany<RestaurantSocialLink, $this>` on `socialLinks()`
