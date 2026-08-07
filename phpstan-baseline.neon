@@ -223,12 +223,6 @@ parameters:
 			path: tests/Feature/OverpassServiceTest.php
 
 		-
-			message: '#^Cannot call method assertExitCode\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
-			identifier: method.nonObject
-			count: 10
-			path: tests/Feature/QuotaStatusCommandTest.php
-
-		-
 			message: '#^Method Tests\\Feature\\RatingFirstComboOrderingTest\:\:buildGrid\(\) has parameter \$cities with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
