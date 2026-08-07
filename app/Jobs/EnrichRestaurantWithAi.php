@@ -29,6 +29,8 @@ class EnrichRestaurantWithAi implements ShouldQueue
 
     /**
      * Backoff between retries (seconds). Exponential: 30s, 60s, 120s, 240s.
+     *
+     * @var array<int, int>
      */
     public array $backoff = [60, 120, 240, 480];
 

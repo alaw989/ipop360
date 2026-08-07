@@ -4,11 +4,15 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 9 (down from 11)
-- Remaining: missingType.iterableValue (8) + missingType.return (1)
-- Top files by iterableValue count: all singles now — BackfillRestaurantLocation, UptimeCanary, ValidateRestaurantData, BlogPostController, LiveRestaurantResource, EnrichRestaurantWithAi, RestaurantEnrichmentService, WikidataService
+- Baseline entries: 8 (down from 9)
+- Remaining: missingType.iterableValue (7) + missingType.return (1)
+- Top files by iterableValue count: all singles now — BackfillRestaurantLocation, UptimeCanary, ValidateRestaurantData, BlogPostController, LiveRestaurantResource, RestaurantEnrichmentService, WikidataService
 
 ## Log
+### Iteration 36 — Fixed EnrichRestaurantWithAi::$backoff iterableValue entry (total: 9→8)
+- `app/Jobs/EnrichRestaurantWithAi.php`: Added `@var array<int, int>` to `$backoff` property
+- 1 baseline entry removed; 0 EnrichRestaurantWithAi entries remain
+- `./vendor/bin/phpstan analyse` passes cleanly; all 563 tests pass
 ### Iteration 35 — Fixed all 2 RestaurantValidationService iterableValue entries (total: 11→9)
 - `app/Services/RestaurantValidationService.php`: Added value type annotations to `normalize()`:
   - `@param array<string, mixed> $attributes`
