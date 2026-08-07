@@ -169,6 +169,8 @@ class FavoriteController extends Controller
      * persisted at all (returns null). The concurrent-create race (TOCTOU on the
      * unique slug/google_place_id) is recovered by catching the unique-constraint
      * violation and re-resolving to the winner's row instead of 500-ing.
+     *
+     * @param  array<string, mixed>  $data
      */
     private function ensurePersisted(array $data, ?int $existingId = null): ?Restaurant
     {
@@ -279,6 +281,8 @@ class FavoriteController extends Controller
      * actually exist in the cuisines table. Dropping unknown ids here is what
      * stops a synthetic/unknown cuisine id (e.g. a placeholder a client echoes
      * back) from ever reaching the cuisine_restaurant pivot FK. (spec-085)
+     *
+     * @return int[]
      */
     private function resolveCuisineIds(mixed $cuisines): array
     {

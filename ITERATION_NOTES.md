@@ -4,11 +4,17 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 15 (down from 17)
-- Remaining: missingType.iterableValue (14) + missingType.return (1)
-- Top files by iterableValue count: FavoriteController.php (2), CuisineMatcher.php (2), RestaurantValidationService.php (2)
+- Baseline entries: 13 (down from 15)
+- Remaining: missingType.iterableValue (12) + missingType.return (1)
+- Top files by iterableValue count: CuisineMatcher.php (2), RestaurantValidationService.php (2)
 
 ## Log
+### Iteration 33 — Fixed all 2 FavoriteController iterableValue entries (total: 15→13)
+- `app/Http/Controllers/FavoriteController.php`: Added value type annotations:
+  - `ensurePersisted()` → `@param array<string, mixed> $data`
+  - `resolveCuisineIds()` → `@return int[]`
+- 2 baseline entries removed; 0 FavoriteController entries remain
+- `./vendor/bin/phpstan analyse` passes cleanly
 ### Iteration 32 — Fixed all 2 HomeController iterableValue entries (total: 17→15)
 - `app/Http/Controllers/HomeController.php`: Added value type annotations:
   - `getHomepageData()` → `@return array<string, mixed>`
