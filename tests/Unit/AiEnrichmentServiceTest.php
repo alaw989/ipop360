@@ -64,7 +64,7 @@ class AiEnrichmentServiceTest extends TestCase
         config(['services.ai' => $this->providerConfig()]);
 
         Http::fake([
-            self::PRIMARY_URL => Http::response($this->chatResponse(json_encode([
+            self::PRIMARY_URL => Http::response($this->chatResponse((string) json_encode([
                 'normalized_address' => '123 Main St',
                 'phone' => '(415) 555-0100',
                 'price_range' => '$$',
@@ -139,7 +139,7 @@ class AiEnrichmentServiceTest extends TestCase
 
         Http::fake([
             self::PRIMARY_URL => Http::response('', 429),
-            self::FALLBACK_URL => Http::response($this->chatResponse(json_encode([
+            self::FALLBACK_URL => Http::response($this->chatResponse((string) json_encode([
                 'price_range' => '$',
                 'cuisines' => ['Italian'],
             ]))),
@@ -224,7 +224,7 @@ class AiEnrichmentServiceTest extends TestCase
 
         Http::fake([
             self::PRIMARY_URL => fn () => throw new RequestException(Http::response('', 429)),
-            self::FALLBACK_URL => Http::response($this->chatResponse(json_encode([
+            self::FALLBACK_URL => Http::response($this->chatResponse((string) json_encode([
                 'normalized_address' => '42 Fallback St',
             ]))),
         ]);

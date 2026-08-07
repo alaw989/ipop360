@@ -73,12 +73,6 @@ parameters:
 			path: tests/Feature/RefreshAwardsTest.php
 
 		-
-			message: '#^Parameter \#1 \$content of method Tests\\Unit\\AiEnrichmentServiceTest\:\:chatResponse\(\) expects string, string\|false given\.$#'
-			identifier: argument.type
-			count: 3
-			path: tests/Unit/AiEnrichmentServiceTest.php
-
-		-
 			message: '#^Parameter \#1 \$response of class Illuminate\\Http\\Client\\RequestException constructor expects Illuminate\\Http\\Client\\Response, GuzzleHttp\\Promise\\PromiseInterface given\.$#'
 			identifier: argument.type
 			count: 1
