@@ -19,6 +19,7 @@ use App\Services\VenuePipeline;
 use App\Services\WikidataService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
+use Mockery\MockInterface;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -36,21 +37,21 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
 
     private function makeService(): RestaurantEnrichmentService
     {
-        /** @var OverpassService&\Mockery\MockInterface $overpass */
+        /** @var OverpassService&MockInterface $overpass */
         $overpass = Mockery::mock(OverpassService::class)->shouldIgnoreMissing();
-        /** @var BizDataApiService&\Mockery\MockInterface $bizData */
+        /** @var BizDataApiService&MockInterface $bizData */
         $bizData = Mockery::mock(BizDataApiService::class)->shouldIgnoreMissing();
-        /** @var SerpApiService&\Mockery\MockInterface $serpApiService */
+        /** @var SerpApiService&MockInterface $serpApiService */
         $serpApiService = Mockery::mock(SerpApiService::class)->shouldIgnoreMissing();
-        /** @var SocrataOpenDataService&\Mockery\MockInterface $socrataService */
+        /** @var SocrataOpenDataService&MockInterface $socrataService */
         $socrataService = Mockery::mock(SocrataOpenDataService::class)->shouldIgnoreMissing();
-        /** @var WikidataService&\Mockery\MockInterface $wikidata */
+        /** @var WikidataService&MockInterface $wikidata */
         $wikidata = Mockery::mock(WikidataService::class)->shouldIgnoreMissing();
-        /** @var PopularityScoreService&\Mockery\MockInterface $popularityScore */
+        /** @var PopularityScoreService&MockInterface $popularityScore */
         $popularityScore = Mockery::mock(PopularityScoreService::class)->shouldIgnoreMissing();
-        /** @var RestaurantWebsiteScraperService&\Mockery\MockInterface $websiteScraper */
+        /** @var RestaurantWebsiteScraperService&MockInterface $websiteScraper */
         $websiteScraper = Mockery::mock(RestaurantWebsiteScraperService::class)->shouldIgnoreMissing();
-        /** @var AiEnrichmentService&\Mockery\MockInterface $aiEnrichment */
+        /** @var AiEnrichmentService&MockInterface $aiEnrichment */
         $aiEnrichment = Mockery::mock(AiEnrichmentService::class)->shouldIgnoreMissing();
         $cuisineMatcher = new CuisineMatcher;
         $venuePipeline = new VenuePipeline(new PriceLevelNormalizer);

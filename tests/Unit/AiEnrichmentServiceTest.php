@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\AiEnrichmentService;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
@@ -222,7 +223,7 @@ class AiEnrichmentServiceTest extends TestCase
             ['api_key' => 'pk-fallback', 'base_url' => 'https://models.inference.ai.azure.com', 'model' => 'gpt-4o-mini'],
         )]);
 
-        /** @var \Illuminate\Http\Client\Response $rateLimitResponse */
+        /** @var Response $rateLimitResponse */
         $rateLimitResponse = Http::response('', 429);
 
         Http::fake([
