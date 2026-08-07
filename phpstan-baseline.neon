@@ -366,17 +366,7 @@ parameters:
 			count: 1
 			path: app/Models/Cuisine.php
 
-		-
-			message: '#^Class App\\Models\\CuisineCategory uses generic trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory but does not specify its types\: TFactory$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/CuisineCategory.php
 
-		-
-			message: '#^Method App\\Models\\CuisineCategory\:\:cuisines\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/CuisineCategory.php
 
 
 		-
