@@ -6,18 +6,23 @@ increase frontend test coverage with vitest
 ## State
 
 ### Changed this iteration
-- Added `resources/js/composables/__tests__/useIsMobile.spec.ts` (3 tests) covering:
-  - Returns an `isMobile` ref that proxies the `useMediaQuery` ref
-  - Reflects `true` when the media query matches (viewport <= 767px)
-  - Delegates to `useMediaQuery('(max-width: 767px)')` from `@vueuse/core`
+- Added `resources/js/composables/__tests__/useCardGallery.spec.ts` (21 tests) covering:
+  - `isMulti`: false for 0 or 1 photo, true for 2+, reactive to photo changes
+  - `activeIndex`: starts at 0
+  - `onLeave`: resets activeIndex to 0
+  - `goTo`: sets index, wraps with modulo, handles negatives, no-op when !isMulti
+  - `prev` / `next`: step with wrapping from first↔last
+  - `onMove`: maps cursor X to photo index, clamps, no-op when !isMulti, guards null currentTarget
+  - `onEnter`: does not throw
+  - lifecycle: registers/removes scroll+resize listeners on mount/unmount
 
-Verification: `npx vitest run resources/js/composables/__tests__/useIsMobile.spec.ts` → 1 file / 3 tests pass. Full suite: 37 files / 417 tests pass.
+Verification: `npx vitest run resources/js/composables/__tests__/useCardGallery.spec.ts` → 1 file / 21 tests pass. Full suite: 38 files / 438 tests pass.
 
 ### Previous iteration
-- Added `resources/js/composables/__tests__/useGeolocation.spec.ts` (15 tests).
+- Added `resources/js/composables/__tests__/useIsMobile.spec.ts` (3 tests).
 
 ### Next
-Still need: `useCardGallery.spec.ts` among composables. Among components: `CardGallery`, `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `Dropdown`, `RestaurantCardSkeleton`.
+Among composables: `useSearch`, `useFavorite`, `useForm`, `useAuth`. Among components: `CardGallery`, `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `Dropdown`, `RestaurantCardSkeleton`.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
@@ -35,5 +40,6 @@ Still need: `useCardGallery.spec.ts` among composables. Among components: `CardG
 - Composables with module-level reactive state (e.g., `const compareIds = ref<number[]>(...)` outside the exported function) share state across all callers. To get a clean state per test, use `vi.resetModules()` + `await import()` in each test, with `localStorage.clear()` before module init so `loadIds()` returns `[]`.
 - `navigator.geolocation.getCurrentPosition` uses a callback-based API. The composable's `detectLocation()` is `async` but doesn't `await` the callback chain — calls resolve immediately. Mock `getCurrentPosition` to store callbacks instead of calling them synchronously, then fire them manually. Use `vi.waitFor()` to poll for async state changes triggered by the GPS callback chain.
 - Dynamic `import('@/lib/api')` inside a GPS callback is covered by `vi.mock('@/lib/api', ...)` at module scope — no special setup needed.
+- `requestAnimationFrame` exists in jsdom as a native no-op. To test the non-rAF fast path, use `vi.stubGlobal('requestAnimationFrame', undefined)` so `typeof requestAnimationFrame === 'undefined'` is true. The synchronous-rAF mock (calling `cb()` inline) breaks the composable's debouncing: the callback body resets `raf = 0` but the mock's return value (the handle) is then assigned to `raf`, blocking subsequent `onMove` calls. For proper rAF-path testing, store the callback and invoke it manually between calls.
 
 ## Log
