@@ -87,7 +87,9 @@ class AiEnrichRestaurantsTest extends TestCase
         $jobs = Queue::pushed(EnrichRestaurantWithAi::class);
         $pushed = collect($jobs)->map->restaurantId->all();
 
-        $this->assertSame([$sparse->id, $mid->id, $complete->id], $pushed);
+        /** @var array<int, int> $expectedIds */
+        $expectedIds = [$sparse->id, $mid->id, $complete->id];
+        $this->assertSame($expectedIds, $pushed);
     }
 
     public function test_dry_run_dispatches_nothing(): void
