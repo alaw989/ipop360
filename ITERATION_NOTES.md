@@ -6,22 +6,25 @@ increase frontend test coverage with vitest
 ## State
 
 ### Changed this iteration
-- Added `resources/js/composables/__tests__/useKeyboardOffset.spec.ts` (7 tests) covering:
-  - Returns keyboardHeight ref initialized to 0
-  - Falls back to 0 when `window.visualViewport` is missing
-  - Reports 0 when viewport fills the window (no keyboard)
-  - Computes positive offset when viewport is partially overlapped by keyboard
-  - Clamps to 0 when viewport is taller than window (edge case)
-  - Registers resize + scroll listeners on visualViewport on mount
-  - Removes listeners on unmount
+- Added `resources/js/composables/__tests__/useGeolocation.spec.ts` (15 tests) covering:
+  - Initial state: lat/lng null, location null, detectingLocation false, geolocationError null, detectLocation is function
+  - Early return when `navigator.geolocation` is undefined
+  - `detectingLocation` set to true while GPS is pending
+  - lat/lng set from GPS coordinates on success
+  - `detectingLocation` reset to false after GPS callback settles
+  - Reverse geocode via `@/lib/api` on success, sets location and calls `persistLocation`
+  - Handles reverse geocode API failure gracefully (coords kept, location stays null, persistLocation not called)
+  - Skips persistLocation when geocode returns empty `{}`
+  - Passes `{ timeout: 10000, enableHighAccuracy: false }` options to `getCurrentPosition`
+  - GPS error sets `geolocationError` message and clears `detectingLocation`
 
-Verification: `npx vitest run resources/js/composables/__tests__/useKeyboardOffset.spec.ts` → 1 file / 7 tests pass. Full suite: 35 files / 399 tests pass.
+Verification: `npx vitest run resources/js/composables/__tests__/useGeolocation.spec.ts` → 1 file / 15 tests pass. Full suite: 36 files / 414 tests pass.
 
 ### Previous iteration
-- Added `resources/js/composables/__tests__/useRestaurantDisplay.spec.ts` (26 tests) covering all 6 exported pure functions.
+- Added `resources/js/composables/__tests__/useKeyboardOffset.spec.ts` (7 tests) and `resources/js/composables/__tests__/useRestaurantDisplay.spec.ts` (26 tests).
 
 ### Next
-Still need: `useGeolocation.spec.ts`, `useCardGallery.spec.ts`, `useIsMobile.spec.ts` among composables. Among components: `CardGallery`, `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `Dropdown`, `RestaurantCardSkeleton`.
+Still need: `useCardGallery.spec.ts`, `useIsMobile.spec.ts` among composables. Among components: `CardGallery`, `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `Dropdown`, `RestaurantCardSkeleton`.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
@@ -37,5 +40,7 @@ Still need: `useGeolocation.spec.ts`, `useCardGallery.spec.ts`, `useIsMobile.spe
 - Debounced async searches need `vi.useFakeTimers()` + `vi.advanceTimersByTimeAsync(300)` (not `advanceTimersByTime` — the async variant flushes microtasks that the resolved API promise schedules).
 - Dynamic `import('@/lib/api')` inside a component method resolves from the same `vi.mock('@/lib/api', ...)` as static imports.
 - Composables with module-level reactive state (e.g., `const compareIds = ref<number[]>(...)` outside the exported function) share state across all callers. To get a clean state per test, use `vi.resetModules()` + `await import()` in each test, with `localStorage.clear()` before module init so `loadIds()` returns `[]`.
+- `navigator.geolocation.getCurrentPosition` uses a callback-based API. The composable's `detectLocation()` is `async` but doesn't `await` the callback chain — calls resolve immediately. Mock `getCurrentPosition` to store callbacks instead of calling them synchronously, then fire them manually. Use `vi.waitFor()` to poll for async state changes triggered by the GPS callback chain.
+- Dynamic `import('@/lib/api')` inside a GPS callback is covered by `vi.mock('@/lib/api', ...)` at module scope — no special setup needed.
 
 ## Log
