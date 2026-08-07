@@ -4,12 +4,11 @@
 shrink the PHPStan level-7 baseline for tests/ by fixing real type issues in test code
 
 ## State
-Fixed `method.nonObject` on `PendingCommand|int` in `RefreshAwardsTest.php` (2 artisan calls) and `RestoreDatabaseCommandTest.php` (6 artisan calls). Applied the `@var PendingCommand` + explicit `run()` pattern across all affected test methods. Removed 3 baseline entries (8 method calls, count 2+4+2).
+Fixed `method.nonObject` on `PendingCommand|int` in `RefreshAwardsTest.php` and `RestoreDatabaseCommandTest.php`, and `method.nonObject` on `PDOStatement|false` in `RestoreDatabaseCommandTest.php`. The PDOStatement fix uses `@var PDOStatement` annotation on the extracted `$stmt` variable from `PDO::query()` before calling `fetchColumn()`.
 
-Baseline: 704 → 686 lines.
+Baseline: 704 → 680 lines.
 
 ### What is next
-- `method.nonObject` on `PDOStatement|false` (RestoreDatabaseCommandTest — fetchColumn on query() return)
 - `argument.type` for `glob()` returning `list<string>|false` (RestoreDatabaseCommandTest, BackupDatabaseCommandTest)
 - `missingType.iterableValue` (simple `@param`/`@return` annotations in ~10 remaining files)
 - `argument.type` for Mockery mocks passed to service constructors (LiveSearchScoringTest, RestaurantEnrichment*Test — requires stub file work)
@@ -30,3 +29,4 @@ Baseline: 704 → 686 lines.
 6. Fixed 1 entry (count 1) `method.nonObject` on `PendingCommand|int` in SerpApiExhaustionTest.php — same pattern, baseline 722→716
 7. Fixed 1 entry (count 10) `method.nonObject` on `PendingCommand|int` in QuotaStatusCommandTest.php — same pattern, baseline 716→710
 9. Fixed 3 baseline entries (count 8) `method.nonObject` on `PendingCommand|int` in RefreshAwardsTest.php and RestoreDatabaseCommandTest.php — same `@var PendingCommand` + explicit `run()` pattern, baseline 704→686
+10. Fixed 1 baseline entry (count 2) `method.nonObject` on `PDOStatement|false` in RestoreDatabaseCommandTest.php — `@var PDOStatement` on extracted `$stmt = $pdo->query(...)` before `fetchColumn()`, baseline 686→680

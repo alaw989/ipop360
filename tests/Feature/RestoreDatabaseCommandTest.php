@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Testing\PendingCommand;
 use PDO;
+use PDOStatement;
 use Tests\TestCase;
 
 /**
@@ -53,7 +54,9 @@ class RestoreDatabaseCommandTest extends TestCase
         $command->run();
 
         $restored = new PDO('sqlite:'.$this->fileDb);
-        $count = (int) $restored->query('SELECT COUNT(*) FROM t')->fetchColumn();
+        /** @var PDOStatement $stmt */
+        $stmt = $restored->query('SELECT COUNT(*) FROM t');
+        $count = (int) $stmt->fetchColumn();
         $this->assertSame(3, $count, 'post-snapshot mutation (row 99) is gone after restore');
 
         @unlink($this->fileDb);
@@ -77,7 +80,9 @@ class RestoreDatabaseCommandTest extends TestCase
 
         // The live DB is untouched.
         $live = new PDO('sqlite:'.$this->fileDb);
-        $this->assertSame(3, (int) $live->query('SELECT COUNT(*) FROM t')->fetchColumn());
+        /** @var PDOStatement $stmt */
+        $stmt = $live->query('SELECT COUNT(*) FROM t');
+        $this->assertSame(3, (int) $stmt->fetchColumn());
 
         @unlink($this->fileDb);
         array_map('unlink', glob($dir.'/pre-migrate-*.sqlite') ?: []);

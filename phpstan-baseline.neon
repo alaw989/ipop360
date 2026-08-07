@@ -247,12 +247,6 @@ parameters:
 			path: tests/Feature/RestaurantPreviewTest.php
 
 		-
-			message: '#^Cannot call method fetchColumn\(\) on PDOStatement\|false\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: tests/Feature/RestoreDatabaseCommandTest.php
-
-		-
 			message: '#^Parameter \#2 \$array of function array_map expects array, list\<string\>\|false given\.$#'
 			identifier: argument.type
 			count: 1
