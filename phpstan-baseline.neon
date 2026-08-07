@@ -61,12 +61,6 @@ parameters:
 			path: app/Models/Restaurant.php
 
 		-
-			message: '#^Parameter \#1 \$html of method App\\Services\\HtmlSanitizer\:\:decodeNonAscii\(\) expects string, string\|false given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/HtmlSanitizer.php
-
-		-
 			message: '#^Offset ''bizdata''\|''overpass''\|''serpapi''\|''socrata'' might not exist on array\{\}\|array\{bizdata\?\: string, serpapi\?\: string, socrata\?\: string, overpass\?\: string\}\.$#'
 			identifier: offsetAccess.notFound
 			count: 1
