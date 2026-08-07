@@ -47,8 +47,8 @@ class SerpApiQueryConstructionTest extends TestCase
 
         $this->assertNotNull($captured, 'SerpApi request was never sent.');
 
-        parse_str(parse_url($captured->url(), PHP_URL_QUERY), $params);
-
+        parse_str((string) parse_url($captured->url(), PHP_URL_QUERY), $params);
+        /** @var array<string, string> $params */
         return $params['q'] ?? '';
     }
 
