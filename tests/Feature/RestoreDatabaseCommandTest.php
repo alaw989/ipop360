@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Config;
+use Illuminate\Testing\PendingCommand;
 use PDO;
 use Tests\TestCase;
 
@@ -34,8 +35,10 @@ class RestoreDatabaseCommandTest extends TestCase
         $dir = sys_get_temp_dir().'/ip360-restore-'.uniqid();
 
         // Snapshot the clean 3-row state.
-        $this->artisan('db:backup', ['--path' => $dir, '--keep' => 5])
-            ->assertSuccessful();
+        /** @var PendingCommand $command */
+        $command = $this->artisan('db:backup', ['--path' => $dir, '--keep' => 5]);
+        $command->assertSuccessful();
+        $command->run();
         $backups = glob($dir.'/pre-migrate-*.sqlite');
         $this->assertCount(1, $backups, 'snapshot created');
 
@@ -44,8 +47,10 @@ class RestoreDatabaseCommandTest extends TestCase
         $live->exec('INSERT INTO t VALUES (99)');
         $live = null; // release the handle before the restore copies over the file
 
-        $this->artisan('db:restore', ['--backup-dir' => $dir, '--force' => true])
-            ->assertSuccessful();
+        /** @var PendingCommand $command */
+        $command = $this->artisan('db:restore', ['--backup-dir' => $dir, '--force' => true]);
+        $command->assertSuccessful();
+        $command->run();
 
         $restored = new PDO('sqlite:'.$this->fileDb);
         $count = (int) $restored->query('SELECT COUNT(*) FROM t')->fetchColumn();
@@ -61,9 +66,14 @@ class RestoreDatabaseCommandTest extends TestCase
         Config::set('database.connections.sqlite.database', $this->fileDb);
         $dir = sys_get_temp_dir().'/ip360-noforce-'.uniqid();
 
-        $this->artisan('db:backup', ['--path' => $dir])->assertSuccessful();
-        $this->artisan('db:restore', ['--backup-dir' => $dir])
-            ->assertFailed();
+        /** @var PendingCommand $command */
+        $command = $this->artisan('db:backup', ['--path' => $dir]);
+        $command->assertSuccessful();
+        $command->run();
+        /** @var PendingCommand $command */
+        $command = $this->artisan('db:restore', ['--backup-dir' => $dir]);
+        $command->assertFailed();
+        $command->run();
 
         // The live DB is untouched.
         $live = new PDO('sqlite:'.$this->fileDb);
@@ -78,8 +88,10 @@ class RestoreDatabaseCommandTest extends TestCase
         Config::set('database.connections.sqlite.database', ':memory:');
         $dir = sys_get_temp_dir().'/ip360-restore-mem-'.uniqid();
 
-        $this->artisan('db:restore', ['--backup-dir' => $dir, '--force' => true])
-            ->assertSuccessful();
+        /** @var PendingCommand $command */
+        $command = $this->artisan('db:restore', ['--backup-dir' => $dir, '--force' => true]);
+        $command->assertSuccessful();
+        $command->run();
     }
 
     public function test_fails_when_no_snapshot_exists(): void
@@ -88,8 +100,10 @@ class RestoreDatabaseCommandTest extends TestCase
         Config::set('database.connections.sqlite.database', $this->fileDb);
         $dir = sys_get_temp_dir().'/ip360-empty-'.uniqid();
 
-        $this->artisan('db:restore', ['--backup-dir' => $dir, '--force' => true])
-            ->assertFailed();
+        /** @var PendingCommand $command */
+        $command = $this->artisan('db:restore', ['--backup-dir' => $dir, '--force' => true]);
+        $command->assertFailed();
+        $command->run();
 
         @unlink($this->fileDb);
     }

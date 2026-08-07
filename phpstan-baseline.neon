@@ -241,28 +241,10 @@ parameters:
 			path: tests/Feature/RefreshAwardsTest.php
 
 		-
-			message: '#^Cannot call method assertExitCode\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: tests/Feature/RefreshAwardsTest.php
-
-		-
 			message: '#^Method Tests\\Feature\\RestaurantPreviewTest\:\:liveVenue\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: tests/Feature/RestaurantPreviewTest.php
-
-		-
-			message: '#^Cannot call method assertFailed\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
-			identifier: method.nonObject
-			count: 2
-			path: tests/Feature/RestoreDatabaseCommandTest.php
-
-		-
-			message: '#^Cannot call method assertSuccessful\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
-			identifier: method.nonObject
-			count: 4
-			path: tests/Feature/RestoreDatabaseCommandTest.php
 
 		-
 			message: '#^Cannot call method fetchColumn\(\) on PDOStatement\|false\.$#'

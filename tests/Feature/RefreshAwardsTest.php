@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Restaurant;
 use App\Services\WikidataService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\PendingCommand;
 use Mockery;
 use Tests\TestCase;
 
@@ -46,8 +47,10 @@ class RefreshAwardsTest extends TestCase
 
         $this->app->instance(WikidataService::class, $wikidata);
 
-        $this->artisan('restaurants:refresh-awards')
-            ->assertExitCode(0);
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:refresh-awards');
+        $command->assertExitCode(0);
+        $command->run();
 
         $this->assertTrue($restaurant->fresh()->has_award, 'SF twin should be flagged');
         $this->assertFalse(
@@ -74,8 +77,10 @@ class RefreshAwardsTest extends TestCase
 
         $this->app->instance(WikidataService::class, $wikidata);
 
-        $this->artisan('restaurants:refresh-awards --dry-run')
-            ->assertExitCode(0);
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:refresh-awards --dry-run');
+        $command->assertExitCode(0);
+        $command->run();
 
         $this->assertFalse($restaurant->fresh()->has_award, 'dry-run must not write');
     }
