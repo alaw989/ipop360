@@ -90,29 +90,7 @@ parameters:
 			count: 1
 			path: app/Http/Resources/LiveRestaurantResource.php
 
-		-
-			message: '#^Method App\\Http\\Resources\\RestaurantResource\:\:getScoreBreakdown\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Http/Resources/RestaurantResource.php
 
-		-
-			message: '#^Method App\\Http\\Resources\\RestaurantResource\:\:toArray\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Http/Resources/RestaurantResource.php
-
-		-
-			message: '#^Method App\\Http\\Resources\\RestaurantResource\:\:withAggregates\(\) has parameter \$aggregates with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Http/Resources/RestaurantResource.php
-
-		-
-			message: '#^Property App\\Http\\Resources\\RestaurantResource\:\:\$aggregates type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Http/Resources/RestaurantResource.php
 
 		-
 			message: '#^Property App\\Jobs\\EnrichRestaurantWithAi\:\:\$backoff type has no value type specified in iterable type array\.$#'

@@ -32,11 +32,15 @@ class RestaurantResource extends JsonResource
      * breakdown fallback uses these instead of recomputing them per row — the
      * O(n²) hole (each row re-running computeAggregates over the full set) that
      * LiveSearchService deliberately avoids but the Resource re-opened.
+     *
+     * @var array{log_denoms: array<string, float>, minmax: array<string, array{min: float, max: float}|null>, quality: array{mean_rating: float}}|null
      */
     private ?array $aggregates = null;
 
     /**
      * Transform a single Restaurant model into the API response shape.
+     *
+     * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
@@ -108,6 +112,7 @@ class RestaurantResource extends JsonResource
      * doesn't recompute them per row (spec-078). Computed once at the controller
      * level over the displayed collection and shared across every resource.
      *
+     * @param array{log_denoms: array<string, float>, minmax: array<string, array{min: float, max: float}|null>, quality: array{mean_rating: float}} $aggregates
      * @return $this
      */
     public function withAggregates(array $aggregates): self
@@ -123,6 +128,8 @@ class RestaurantResource extends JsonResource
      * Prefers the stored value (most efficient). Falls back to computation for
      * legacy rows using PopularityScoreService — using precomputed aggregates
      * when available (O(1) per row) to avoid the O(n²) per-row recompute.
+     *
+     * @return array<string, mixed>|null
      */
     private function getScoreBreakdown(): ?array
     {

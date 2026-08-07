@@ -4,11 +4,20 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 27 (down from 32)
-- Remaining: missingType.iterableValue (26) + missingType.return (1)
-- Top files by iterableValue count: RestaurantResource.php (4), AuditRestaurantCuisines.php (3), SearchController.php (3)
+- Baseline entries: 23 (down from 27)
+- Remaining: missingType.iterableValue (22) + missingType.return (1)
+- Top files by iterableValue count: AuditRestaurantCuisines.php (3), SearchController.php (3), HomeController.php (2), FavoriteController.php (2)
 
 ## Log
+### Iteration 29 — Fixed all 4 RestaurantResource iterableValue entries (total: 27→23)
+- `app/Http/Resources/RestaurantResource.php`: Added value type annotations:
+  - Property `$aggregates` → `@var array{log_denoms: array<string, float>, minmax: array<string, array{min: float, max: float}|null>, quality: array{mean_rating: float}}|null`
+  - `withAggregates()` → `@param array{log_denoms: array<string, float>, minmax: array<string, array{min: float, max: float}|null>, quality: array{mean_rating: float}} $aggregates`
+  - `getScoreBreakdown()` → `@return array<string, mixed>|null`
+  - `toArray()` → `@return array<string, mixed>`
+- 4 baseline entries removed; 0 RestaurantResource entries remain
+- All 563 tests pass; `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 28 — Fixed all 5 LiveVenuePersister iterableValue entries (total: 32→27)
 - `app/Services/LiveVenuePersister.php`: Added value type annotations to all 3 params + return type in `persist()`:
   - `$venue` → `@param array<string, mixed>`
