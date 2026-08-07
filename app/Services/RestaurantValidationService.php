@@ -5,7 +5,7 @@ namespace App\Services;
 class RestaurantValidationService
 {
     /**
-     * @param array<string, mixed> $attributes
+     * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
      */
     public function normalize(array $attributes): array

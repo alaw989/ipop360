@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\SqlDialect;
+use Database\Factories\RestaurantFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,7 +21,7 @@ use Illuminate\Support\Str;
  */
 class Restaurant extends Model
 {
-    /** @use HasFactory<\Database\Factories\RestaurantFactory> */
+    /** @use HasFactory<RestaurantFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -127,7 +128,7 @@ class Restaurant extends Model
     }
 
     /**
-     * @param Builder<Restaurant> $query
+     * @param  Builder<Restaurant>  $query
      * @return Builder<Restaurant>
      */
     public function scopeActive(Builder $query): Builder
@@ -136,7 +137,7 @@ class Restaurant extends Model
     }
 
     /**
-     * @param Builder<Restaurant> $query
+     * @param  Builder<Restaurant>  $query
      * @return Builder<Restaurant>
      */
     public function scopeNearby(Builder $query, float $lat, float $lng, ?float $radiusKm = null): Builder
@@ -174,7 +175,7 @@ class Restaurant extends Model
     }
 
     /**
-     * @param Builder<Restaurant> $query
+     * @param  Builder<Restaurant>  $query
      * @return Builder<Restaurant>
      */
     public function scopeByPopularity(Builder $query): Builder

@@ -162,7 +162,7 @@ class OverpassService
      * Fetch raw OSM elements for a name search, without normalization.
      * Returns ['cached' => bool, 'data' => array] or null on failure.
      *
-     * @param  array<int, string>    $keywords
+     * @param  array<int, string>  $keywords
      * @param  array<string, mixed>  $context
      * @return array{cached: bool, data: array<int, mixed>}|null
      */

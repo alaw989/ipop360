@@ -7,6 +7,7 @@ use App\Models\Cuisine;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -271,7 +272,7 @@ class RestaurantEnrichmentService
      * Then delegates to each service's normalizeForEnrichment for the enrichment format.
      * Handles failures (throwables) by skipping the source.
      *
-     * @param  array<int, \Illuminate\Http\Client\Response|\Throwable>  $responses
+     * @param  array<int, Response|\Throwable>  $responses
      * @return array<int, array<string, mixed>>
      */
     private function normalizePoolResponses(string $label, array $responses, float $lat, float $lng, Cuisine $cuisine): array
@@ -337,7 +338,7 @@ class RestaurantEnrichmentService
      * Consume Overpass responses with name-based fallback if no results.
      * Overpass needs special handling because of the fallback path.
      *
-     * @param  array<int, \Illuminate\Http\Client\Response|\Throwable>  $responses
+     * @param  array<int, Response|\Throwable>  $responses
      * @return array<int, array<string, mixed>>
      */
     private function consumeOverpassResponses(array $responses, float $lat, float $lng, string $cuisine, string $cacheKey): array
@@ -393,7 +394,7 @@ class RestaurantEnrichmentService
      * Process a single free venue: build attributes, upsert, attach cuisine.
      * Upserts by yelp_business_id when present, else by name + ≤200m proximity.
      *
-     * @param array<string, mixed> $venue
+     * @param  array<string, mixed>  $venue
      */
     private function processFreeVenue(array $venue, Cuisine $cuisine, ?string $cityName = null, ?string $stateCode = null): ?Restaurant
     {

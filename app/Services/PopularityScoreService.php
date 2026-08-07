@@ -98,7 +98,7 @@ class PopularityScoreService
     private float $qualityMeanFallback;
 
     /**
-     * @param array<string, float>|null $weights
+     * @param  array<string, float>|null  $weights
      */
     public function __construct(?array $weights = null, ?int $logReviewFloor = null, ?int $logReviewDefault = null, ?float $qualityPrior = null, ?float $qualityMeanFallback = null)
     {

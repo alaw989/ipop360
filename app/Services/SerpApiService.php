@@ -234,7 +234,7 @@ class SerpApiService
      * outbound call entirely.
      *
      * @param  array<string, mixed>  $context
-     * @return array<int, \App\Services\Http\RequestSpec>
+     * @return array<int, RequestSpec>
      */
     public function poolRequestsFor(float $lat, float $lng, ?string $query = null, array $context = []): array
     {
@@ -286,7 +286,7 @@ class SerpApiService
      * payload (30-day SerpApi TTL), and normalize. Quota-safe: the cache pass
      * runs before this, so a repeat search never reaches here.
      *
-     * @param  array<int, \Illuminate\Http\Client\Response|\Throwable>  $responses
+     * @param  array<int, Response|\Throwable>  $responses
      * @return array<int, array<string, mixed>>
      */
     public function consumePoolResponses(array $responses, float $lat, float $lng, ?string $cuisine, string $cacheKey): array

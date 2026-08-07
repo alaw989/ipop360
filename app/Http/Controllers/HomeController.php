@@ -10,6 +10,7 @@ use App\Services\GeolocationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class HomeController extends Controller
 {
@@ -17,7 +18,7 @@ class HomeController extends Controller
         private GeolocationService $geolocationService,
     ) {}
 
-    public function __invoke(Request $request): \Inertia\Response
+    public function __invoke(Request $request): Response
     {
         $location = $this->geolocationService->resolveLocation($request);
         $city = $location['city'] ?? null;

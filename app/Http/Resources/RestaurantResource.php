@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Restaurant;
 use App\Services\PopularityScoreService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -23,7 +24,8 @@ class RestaurantResource extends JsonResource
 {
     /**
      * The collection of all restaurants (for score breakdown fallback).
-     * @var Collection<int, \App\Models\Restaurant>|null
+     *
+     * @var Collection<int, Restaurant>|null
      */
     private ?Collection $allRestaurants = null;
 
@@ -97,7 +99,7 @@ class RestaurantResource extends JsonResource
      * so that score_breakdown can be computed on-the-fly for legacy rows (rows
      * scored before the score_breakdown column existed).
      *
-     * @param  Collection<int, \App\Models\Restaurant>  $allRestaurants
+     * @param  Collection<int, Restaurant>  $allRestaurants
      * @return $this
      */
     public function withAllRestaurants(Collection $allRestaurants): self
@@ -112,7 +114,7 @@ class RestaurantResource extends JsonResource
      * doesn't recompute them per row (spec-078). Computed once at the controller
      * level over the displayed collection and shared across every resource.
      *
-     * @param array{log_denoms: array<string, float>, minmax: array<string, array{min: float, max: float}|null>, quality: array{mean_rating: float}} $aggregates
+     * @param  array{log_denoms: array<string, float>, minmax: array<string, array{min: float, max: float}|null>, quality: array{mean_rating: float}}  $aggregates
      * @return $this
      */
     public function withAggregates(array $aggregates): self

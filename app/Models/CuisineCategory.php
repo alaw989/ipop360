@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use Database\Factories\CuisineCategoryFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CuisineCategory extends Model
 {
-    /** @use HasFactory<\Database\Factories\CuisineCategoryFactory> */
+    /** @use HasFactory<CuisineCategoryFactory> */
     use HasFactory;
 
     protected $fillable = [
