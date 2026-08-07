@@ -4,13 +4,26 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 195 (down from 199)
-- Remaining: missingType.iterableValue (195)
-- All 4 argument.templateType entries cleared — zero remain
-- Next: missingType.iterableValue (195 entries)
-- Top files by iterableValue count: OverpassService.php (30), SocrataOpenDataService.php (24), LiveSearchService.php (24), PopularityScoreService.php (19), SerpApiService.php (15), BizDataApiService.php (13)
+- Baseline entries: 180 (down from 195)
+- Remaining: missingType.iterableValue (180)
+- Top files by iterableValue count: OverpassService.php (30), SocrataOpenDataService.php (24), LiveSearchService.php (24), PopularityScoreService.php (19), BizDataApiService.php (13), RestaurantWebsiteScraperService.php (9), RestaurantEnrichmentService.php (9), VenuePipeline.php (8)
 
 ## Log
+### Iteration 17 — Fixed all 15 SerpApiService iterableValue entries (total: 195→180)
+- `app/Services/SerpApiService.php`: Added value types to array params/returns for 10 methods:
+  - `search()`: `@return array<int, array<string, mixed>>`
+  - `fetchRaw()`: `@return array<string, mixed>|null`
+  - `normalizeRaw()`: `@param array<int, array<string, mixed>> $localResults` + `@return` same shape
+  - `poolRequestsFor()`: `@param array<string, mixed> $context` + `@return array<int, RequestSpec>`
+  - `parsePoolResponse()`: `@return array<int, array<string, mixed>>|null`
+  - `consumePoolResponses()`: `@param array<int, Response|\Throwable> $responses` + `@return` venue shape
+  - `normalizeResults()`: `@param array<int, array<string, mixed>> $localResults` + `@return` venue shape
+  - `parsePriceRange()`: `@param array<string, mixed> $venue`
+  - `parseAddress()`: `@param array<string, mixed> $result`
+  - `normalizeForEnrichment()`: `@param array<string, mixed> $r` + `@return array<string, mixed>`
+- 15 baseline entries removed; 0 SerpApiService entries remain
+- `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 16 — Fixed all 4 argument.templateType: SearchAuditCommand + GeolocationService (total: 199→195)
 - `app/Console/Commands/SearchAuditCommand.php`: Added `/** @var array<int, array<string, mixed>> $results */` before `collect($results)` and extracted `$r['score_breakdown']['signals'] ?? []` to `$scoreSignals` with `/** @var array<int, array{label: mixed, contribution: float}> */` annotation (2 argument.templateType)
 - `app/Services/GeolocationService.php`: Added `/** @var array<int, array<string, mixed>> $features */` before `collect($features)` in `searchCities()` (2 argument.templateType)
