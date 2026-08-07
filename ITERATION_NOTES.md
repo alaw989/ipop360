@@ -4,11 +4,16 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 5 (down from 6)
-- Remaining: missingType.iterableValue (5) — `missingType.return` fully eliminated
-- Top files by iterableValue count: all singles — BackfillRestaurantLocation, BlogPostController, LiveRestaurantResource, RestaurantEnrichmentService, WikidataService
+- Baseline entries: 4 (down from 5)
+- Remaining: missingType.iterableValue (4) — `missingType.return` fully eliminated
+- Top files by iterableValue count: all singles — BackfillRestaurantLocation, BlogPostController, RestaurantEnrichmentService, WikidataService
 
 ## Log
+### Iteration 40 — Fixed LiveRestaurantResource::toArray iterableValue entry (total: 5→4)
+- `app/Http/Resources/LiveRestaurantResource.php`: Added `@return array<string, mixed>` to `toArray()`
+- 1 baseline entry removed; 0 LiveRestaurantResource entries remain
+- `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 39 — Fixed ValidateRestaurantData::$changes iterableValue entry (total: 6→5)
 - `app/Console/Commands/ValidateRestaurantData.php`: Added `@var array<int, array<string, mixed>>` to `$changes` property
 - 1 baseline entry removed; 0 ValidateRestaurantData entries remain
