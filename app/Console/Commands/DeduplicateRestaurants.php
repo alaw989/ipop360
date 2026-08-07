@@ -107,7 +107,11 @@ class DeduplicateRestaurants extends Command
             $query->limit($limit);
         }
 
-        return $query->get()->map(fn ($row) => (array) $row)->all();
+        return $query->get()->map(fn ($row) => [
+            'keep_id' => (int) $row->keep_id,
+            'dupe_id' => (int) $row->dupe_id,
+            'name' => (string) $row->name,
+        ])->all();
     }
 
     private function mergePair(int $keepId, int $dupeId, bool $apply): void

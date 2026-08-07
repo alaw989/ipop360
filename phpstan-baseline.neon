@@ -1,12 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Method App\\Console\\Commands\\DeduplicateRestaurants\:\:findDuplicatePairs\(\) should return array\<int, array\{keep_id\: int, dupe_id\: int, name\: string\}\> but returns array\<int, array\>\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Console/Commands/DeduplicateRestaurants.php
-
-		-
 			message: '#^Property App\\Models\\BlogPost\:\:\$author_id \(int\<0, max\>\) does not accept int\.$#'
 			identifier: assign.propertyType
 			count: 1
