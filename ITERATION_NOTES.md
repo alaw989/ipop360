@@ -4,12 +4,23 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 113 (down from 137)
-- Remaining: missingType.iterableValue (113)
-- Top files by iterableValue count: LiveSearchService.php (24), PopularityScoreService.php (19), RestaurantWebsiteScraperService.php (9), RestaurantEnrichmentService.php (8), VenuePipeline.php (8)
+- Baseline entries: 89 (down from 113)
+- Remaining: missingType.iterableValue (89)
+- Top files by iterableValue count: PopularityScoreService.php (19), RestaurantWebsiteScraperService.php (9), RestaurantEnrichmentService.php (8), VenuePipeline.php (8)
 
 ## Log
-### Iteration 20 — Fixed all 24 SocrataOpenDataService iterableValue entries (total: 137→113)
+### Iteration 21 — Fixed all 24 LiveSearchService iterableValue entries (total: 113→89)
+- `app/Services/LiveSearchService.php`: Added value types to every array param/return across 12 methods:
+  - `search()` → `@return array<int, array<string, mixed>>`
+  - `fetchAndMergeAllSources()` → `@return array<int, array<string, mixed>>`
+  - `fetchSerpApiUnderLock()` → `@param array<int, RequestSpec>` + `@return array<int, array<string, mixed>>`
+  - `dispatchPool()` → `@param array<string, array<int, RequestSpec>>` + `@return array<string, array<int, \Illuminate\Http\Client\Response|\Throwable>>`
+  - `normalizeCachedHit()` → `@param array<int, array<string, mixed>>` + `@return` same shape
+  - `applyOverpassNameFallback()` → `@param array<int, array<string, mixed>>` + `@param array<int, string>` + `@return` same shape
+  - `scoreWithUnifiedService()`, `filterByCuisineConfidence()`, `boundResults()`, `filterByDistance()`, `filterNonRestaurants()`, `stampCuisineMatchStrength()`, `filterByCuisineRelevance()` → all `@param array<int, array<string, mixed>>` + `@return` same shape
+- 24 baseline entries removed; 0 LiveSearchService entries remain
+- `./vendor/bin/phpstan analyse` passes cleanly
+- Key gotcha: when editing methods with existing docblocks, must ensure param/return annotations are inside the existing `/** */` block, not added as a separate block after `*/` — Fixed all 24 SocrataOpenDataService iterableValue entries (total: 137→113)
 - `app/Services/SocrataOpenDataService.php`: Added value types to every array param/return/property:
   - Property `$endpoints` → `@var array<string, array<string, mixed>>`
   - `search()` → `@return array<int, array<string, mixed>>`

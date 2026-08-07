@@ -27,6 +27,8 @@ class LiveSearchService
     /**
      * Search for restaurants near coordinates using external APIs.
      * All sources fire concurrently (BizData, Foursquare, Overpass) and are merged together.
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function search(float $lat, float $lng, ?string $cuisineSlug = null, ?string $categorySlug = null, bool $cacheOnly = false, string $sort = 'best_match', ?float $distanceKm = null): array
     {
@@ -105,6 +107,8 @@ class LiveSearchService
      * checks its own ExternalApiCache first (cheap, synchronous); only cache
      * misses enter the pool. Per-source failures are isolated — one slow or
      * dead source cannot block or fail the others.
+     *
+     * @return array<int, array<string, mixed>>
      */
     private function fetchAndMergeAllSources(float $lat, float $lng, CuisineScope $scope, bool $cacheOnly = false): array
     {
@@ -228,7 +232,8 @@ class LiveSearchService
      * spans ONLY the SerpApi pool+store — not the free sources — so a slow
      * Overpass leg can't keep the lock held past the waiter's block timeout.
      *
-     * @param  RequestSpec[]  $specs
+     * @param array<int, RequestSpec> $specs
+     * @return array<int, array<string, mixed>>
      */
     private function fetchSerpApiUnderLock(float $lat, float $lng, ?string $queryCuisine, string $cacheKey, array $specs): array
     {
@@ -325,7 +330,9 @@ class LiveSearchService
     /**
      * Dispatch all cache-miss source requests through a single Http::pool so
      * they resolve concurrently. Returns results grouped back by source label,
-     * preserving each source's spec order (Socrata issues multiple per source).
+     *
+     * @param array<string, array<int, RequestSpec>> $toFetch
+     * @return array<string, array<int, \Illuminate\Http\Client\Response|\Throwable>>
      */
     private function dispatchPool(array $toFetch): array
     {
@@ -395,6 +402,9 @@ class LiveSearchService
      * Normalize a cached payload for a source. Cached payloads are the raw API
      * arrays for four sources; Socrata caches already-normalized data (its
      * normalizeRaw is a pass-through).
+     *
+     * @param array<int, array<string, mixed>> $cached
+     * @return array<int, array<string, mixed>>
      */
     private function normalizeCachedHit(string $label, array $cached, float $lat, float $lng, ?string $cuisine): array
     {
@@ -415,6 +425,9 @@ class LiveSearchService
      * read path it is BOUNDED (one mirror, one radius, the live timeout) so a
      * cache-cold search can't blow past the gateway limit; the enrichment path
      * keeps the full fan-out.
+     * @param array<int, array<string, mixed>> $merged
+     * @param array<int, string> $keywords
+     * @return array<int, array<string, mixed>>
      */
     private function applyOverpassNameFallback(array $merged, float $lat, float $lng, array $keywords): array
     {
@@ -450,6 +463,8 @@ class LiveSearchService
     /**
      * Score results using the unified PopularityScoreService.
      * This ensures live and DB paths use the same scoring formula.
+     * @param array<int, array<string, mixed>> $results
+     * @return array<int, array<string, mixed>>
      */
     private function scoreWithUnifiedService(array $results, float $searchLat, float $searchLng): array
     {
@@ -521,6 +536,8 @@ class LiveSearchService
      * results for obscure cuisines or small towns.
      *
      * Unscoped searches pass through unchanged (no cuisine_match to judge).
+     * @param array<int, array<string, mixed>> $results
+     * @return array<int, array<string, mixed>>
      */
     private function filterByCuisineConfidence(array $results, CuisineScope $scope): array
     {
@@ -572,6 +589,8 @@ class LiveSearchService
      * low-relevance rows (Socrata's $limit=100 plus SerpApi/Socrata breadth can
      * otherwise produce ~100 cards trailing to single-digit scores). Applied to
      * scoped AND unscoped live searches.
+     * @param array<int, array<string, mixed>> $results
+     * @return array<int, array<string, mixed>>
      */
     private function boundResults(array $results): array
     {
@@ -610,6 +629,8 @@ class LiveSearchService
      * Venues with no usable coordinates (null, or the (0,0) null-island artifact)
      * are kept — locality can't be disproven, and dropping them would sacrifice
      * recall for no relevance gain.
+     * @param array<int, array<string, mixed>> $results
+     * @return array<int, array<string, mixed>>
      */
     private function filterByDistance(array $results, float $searchLat, float $searchLng, ?float $maxKmOverride = null): array
     {
@@ -741,6 +762,8 @@ class LiveSearchService
      * by `filters.scrutinize_place_types` (default true). Runs for scoped AND unscoped
      * live searches, before dedup (reads per-source place_types before dedup's
      * mergeVenues() can fold rows together).
+     * @param array<int, array<string, mixed>> $results
+     * @return array<int, array<string, mixed>>
      */
     private function filterNonRestaurants(array $results): array
     {
@@ -888,6 +911,8 @@ class LiveSearchService
      * Reuses the same $onPattern as filterByCuisineRelevance (the existing,
      * already-vetted on-cuisine allowlist) — not a new denylist, so it carries
      * no spec-046 substring-collision risk. Drops nothing (recall-protective).
+     * @param array<int, array<string, mixed>> $results
+     * @return array<int, array<string, mixed>>
      */
     private function stampCuisineMatchStrength(array $results, CuisineScope $scope): array
     {
@@ -977,6 +1002,8 @@ class LiveSearchService
      * trusted-source row into an unfiltered-source row, which would otherwise
      * mis-drop a venue carrying real data. Mirrors filterByDistance()'s role for
      * geography (spec-026).
+     * @param array<int, array<string, mixed>> $results
+     * @return array<int, array<string, mixed>>
      */
     private function filterByCuisineRelevance(array $results, CuisineScope $scope): array
     {
