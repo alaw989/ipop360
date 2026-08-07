@@ -29,6 +29,9 @@ class AiEnrichmentServiceTest extends TestCase
         Log::spy();
     }
 
+    /** @param array<string, string> $primary */
+    /** @param array<string, string>|null $fallback */
+    /** @return array<string, mixed> */
     private function providerConfig(array $primary = [], ?array $fallback = null): array
     {
         return [
@@ -39,6 +42,7 @@ class AiEnrichmentServiceTest extends TestCase
         ];
     }
 
+    /** @return array<string, mixed> */
     private function chatResponse(string $content): array
     {
         return ['choices' => [['message' => ['content' => $content]]]];

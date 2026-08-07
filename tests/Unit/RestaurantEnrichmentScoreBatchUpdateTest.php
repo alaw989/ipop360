@@ -42,6 +42,7 @@ class RestaurantEnrichmentScoreBatchUpdateTest extends TestCase
      * Drive the private applyScoreUpdateBatch() CASE WHEN update. All 11
      * collaborators are no-op mocks — this path only touches DB + inputs.
      */
+    /** @param array<int, array<string, mixed>> $scores */
     private function applyBatch(array $scores, ?string $updatedAt = null): void
     {
         $mocks = [];

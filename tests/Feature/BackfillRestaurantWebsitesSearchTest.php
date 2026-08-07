@@ -12,6 +12,7 @@ class BackfillRestaurantWebsitesSearchTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** @param array<string, mixed> $patterns */
     private function fakeHttp(array $patterns): void
     {
         Http::fake(array_merge($patterns, ['*' => Http::response('', 404)]));

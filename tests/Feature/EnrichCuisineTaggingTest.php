@@ -42,6 +42,7 @@ class EnrichCuisineTaggingTest extends TestCase
         ]);
     }
 
+    /** @return array<string, mixed> */
     private function bizDataVenue(string $name): array
     {
         return [
@@ -55,6 +56,8 @@ class EnrichCuisineTaggingTest extends TestCase
         ];
     }
 
+    /** @param array<string, string> $tags */
+    /** @return array<string, mixed> */
     private function osmNode(int $id, string $name, array $tags = []): array
     {
         return [

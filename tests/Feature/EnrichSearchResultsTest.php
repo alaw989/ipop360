@@ -29,6 +29,8 @@ class EnrichSearchResultsTest extends TestCase
         $this->seed(CuisineSeeder::class);
     }
 
+    /** @param array<int, array<string, mixed>> $cuisines */
+    /** @return array<string, mixed> */
     private function venue(string $name, array $cuisines = []): array
     {
         return [
@@ -39,6 +41,7 @@ class EnrichSearchResultsTest extends TestCase
         ];
     }
 
+    /** @param array<int, array<string, mixed>> $venues */
     private function mocks(array $venues): array
     {
         $liveSearch = Mockery::mock(LiveSearchService::class);

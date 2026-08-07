@@ -31,12 +31,6 @@ parameters:
 			path: tests/Feature/BackfillRestaurantPhotosTest.php
 
 		-
-			message: '#^Method Tests\\Feature\\BackfillRestaurantWebsitesSearchTest\:\:fakeHttp\(\) has parameter \$patterns with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/BackfillRestaurantWebsitesSearchTest.php
-
-		-
 			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\> will always evaluate to true\.$#'
 			identifier: method.alreadyNarrowedType
 			count: 1
@@ -61,37 +55,13 @@ parameters:
 			path: tests/Feature/BizDataApiServiceTest.php
 
 		-
-			message: '#^Method Tests\\Feature\\BizDataApiServiceTest\:\:fakeBizDataResponse\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/BizDataApiServiceTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\BizDataApiServiceTest\:\:makeBusiness\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/BizDataApiServiceTest.php
-
-		-
 			message: '#^Property Tests\\Feature\\EngagementApiTest\:\:\$restaurant \(App\\Models\\Restaurant\) does not accept Illuminate\\Database\\Eloquent\\Model\.$#'
 			identifier: assign.propertyType
 			count: 1
 			path: tests/Feature/EngagementApiTest.php
 
 		-
-			message: '#^Method Tests\\Feature\\EnrichCuisineTaggingTest\:\:bizDataVenue\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/EnrichCuisineTaggingTest.php
-
-		-
 			message: '#^Method Tests\\Feature\\EnrichCuisineTaggingTest\:\:osmNode\(\) has parameter \$tags with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/EnrichCuisineTaggingTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\EnrichCuisineTaggingTest\:\:osmNode\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: tests/Feature/EnrichCuisineTaggingTest.php
@@ -103,19 +73,7 @@ parameters:
 			path: tests/Feature/EnrichFreeOnlyTest.php
 
 		-
-			message: '#^Method Tests\\Feature\\EnrichFreeOnlyTest\:\:bizDataVenue\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/EnrichFreeOnlyTest.php
-
-		-
 			message: '#^Method Tests\\Feature\\EnrichFreeOnlyTest\:\:osmNode\(\) has parameter \$tags with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/EnrichFreeOnlyTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\EnrichFreeOnlyTest\:\:osmNode\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: tests/Feature/EnrichFreeOnlyTest.php
@@ -124,12 +82,6 @@ parameters:
 			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:once\(\)\.$#'
 			identifier: method.notFound
 			count: 2
-			path: tests/Feature/EnrichSearchResultsTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\EnrichSearchResultsTest\:\:mocks\(\) has parameter \$venues with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
 			path: tests/Feature/EnrichSearchResultsTest.php
 
 		-
@@ -145,25 +97,7 @@ parameters:
 			path: tests/Feature/EnrichSearchResultsTest.php
 
 		-
-			message: '#^Method Tests\\Feature\\EnrichSearchResultsTest\:\:venue\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/EnrichSearchResultsTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\LiveVenuePersisterAwardTest\:\:venue\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/LiveVenuePersisterAwardTest.php
-
-		-
 			message: '#^Method Tests\\Feature\\OverpassServiceTest\:\:makeNode\(\) has parameter \$extra with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/OverpassServiceTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\OverpassServiceTest\:\:makeNode\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: tests/Feature/OverpassServiceTest.php
@@ -175,31 +109,13 @@ parameters:
 			path: tests/Feature/OverpassServiceTest.php
 
 		-
-			message: '#^Method Tests\\Feature\\OverpassServiceTest\:\:makeRelation\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/OverpassServiceTest.php
-
-		-
 			message: '#^Method Tests\\Feature\\OverpassServiceTest\:\:makeWay\(\) has parameter \$extra with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: tests/Feature/OverpassServiceTest.php
 
 		-
-			message: '#^Method Tests\\Feature\\OverpassServiceTest\:\:makeWay\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/OverpassServiceTest.php
-
-		-
 			message: '#^Method Tests\\Feature\\RatingFirstComboOrderingTest\:\:buildGrid\(\) has parameter \$cities with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/RatingFirstComboOrderingTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\RatingFirstComboOrderingTest\:\:buildGrid\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: tests/Feature/RatingFirstComboOrderingTest.php
@@ -217,12 +133,6 @@ parameters:
 			path: tests/Feature/RefreshAwardsTest.php
 
 		-
-			message: '#^Method Tests\\Feature\\RestaurantPreviewTest\:\:liveVenue\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/RestaurantPreviewTest.php
-
-		-
 			message: '#^Method Tests\\Feature\\SerpApiQueryConstructionTest\:\:captureQuery\(\) should return string but returns array\<mixed\>\|string\.$#'
 			identifier: return.type
 			count: 1
@@ -235,12 +145,6 @@ parameters:
 			path: tests/Feature/SerpApiQueryConstructionTest.php
 
 		-
-			message: '#^Method Tests\\Unit\\AiEnrichmentServiceTest\:\:chatResponse\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Unit/AiEnrichmentServiceTest.php
-
-		-
 			message: '#^Method Tests\\Unit\\AiEnrichmentServiceTest\:\:providerConfig\(\) has parameter \$fallback with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -248,12 +152,6 @@ parameters:
 
 		-
 			message: '#^Method Tests\\Unit\\AiEnrichmentServiceTest\:\:providerConfig\(\) has parameter \$primary with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Unit/AiEnrichmentServiceTest.php
-
-		-
-			message: '#^Method Tests\\Unit\\AiEnrichmentServiceTest\:\:providerConfig\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: tests/Unit/AiEnrichmentServiceTest.php
@@ -272,12 +170,6 @@ parameters:
 
 		-
 			message: '#^Method Tests\\Unit\\CuisineScopeTest\:\:scope\(\) has parameter \$onKeywords with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Unit/CuisineScopeTest.php
-
-		-
-			message: '#^Method Tests\\Unit\\CuisineScopeTest\:\:scope\(\) has parameter \$rivalKeywords with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: tests/Unit/CuisineScopeTest.php
@@ -319,12 +211,6 @@ parameters:
 			path: tests/Unit/LiveSearchScoringTest.php
 
 		-
-			message: '#^Method Tests\\Unit\\LiveSearchScoringTest\:\:makeServiceWithVenues\(\) has parameter \$venuesBySource with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Unit/LiveSearchScoringTest.php
-
-		-
 			message: '#^Parameter \#1 \$overpassService of class App\\Services\\LiveSearchService constructor expects App\\Services\\OverpassService, Mockery\\MockInterface given\.$#'
 			identifier: argument.type
 			count: 3
@@ -363,18 +249,6 @@ parameters:
 		-
 			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsFloat\(\) with float will always evaluate to true\.$#'
 			identifier: method.alreadyNarrowedType
-			count: 1
-			path: tests/Unit/PopularityScoreServiceTest.php
-
-		-
-			message: '#^Method Tests\\Unit\\PopularityScoreServiceTest\:\:fullFreeFields\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Unit/PopularityScoreServiceTest.php
-
-		-
-			message: '#^Method Tests\\Unit\\PopularityScoreServiceTest\:\:makeRestaurant\(\) has parameter \$attributes with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
 			count: 1
 			path: tests/Unit/PopularityScoreServiceTest.php
 
@@ -443,12 +317,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
-
-		-
-			message: '#^Method Tests\\Unit\\RestaurantEnrichmentScoreBatchUpdateTest\:\:applyBatch\(\) has parameter \$scores with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
 
 		-
 			message: '#^Parameter \#1 \$overpass of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\OverpassService, Mockery\\LegacyMockInterface given\.$#'
@@ -613,32 +481,8 @@ parameters:
 			path: tests/Unit/SocrataOpenDataServiceTest.php
 
 		-
-			message: '#^Method Tests\\Unit\\SocrataOpenDataServiceTest\:\:dedup\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Unit/SocrataOpenDataServiceTest.php
-
-		-
-			message: '#^Method Tests\\Unit\\VenuePipelineMergeTest\:\:nameOnlyOverpassVenue\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Unit/VenuePipelineMergeTest.php
-
-		-
-			message: '#^Method Tests\\Unit\\VenuePipelineMergeTest\:\:richSerpApiVenue\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Unit/VenuePipelineMergeTest.php
-
-		-
 			message: '#^Static method Illuminate\\Http\\Client\\Factory\:\:assertSentCount\(\) invoked with 2 parameters, 1 required\.$#'
 			identifier: arguments.count
 			count: 1
 			path: tests/Unit/WebsiteScraperSsrfGuardTest.php
-
-		-
-			message: '#^Method Tests\\Unit\\WikidataServiceTest\:\:atelierCrennResponse\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Unit/WikidataServiceTest.php
 

@@ -10,10 +10,11 @@ Fixed `argument.type` and `offsetAccess.nonOffsetAccessible` for `glob()` return
 
 Fixed `method.nonObject` on `PDOStatement|false` (`fetchColumn()`) in `BackupDatabaseCommandTest.php` — same `@var PDOStatement` pattern already used in RestoreDatabaseCommandTest.
 
-Baseline: 704 → 680 → 650 → 644 lines.
+Fixed all 42 `missingType.iterableValue` entries across 18 test files. Added `@param` and `@return` PHPDoc annotations with value types (e.g., `array<string, mixed>`, `array<string, string>`, `array<int, string>`) to private test helper methods. Note: generics syntax (`array<K, V>`) is only valid in PHPDoc comments, NOT in PHP native type declarations.
+
+Baseline: 704 → 680 → 650 → 644 → 488 lines.
 
 ### What is next
-- `missingType.iterableValue` (simple `@param`/`@return` annotations in ~10 remaining files)
 - `argument.type` for Mockery mocks passed to service constructors (LiveSearchScoringTest, RestaurantEnrichment*Test — requires stub file work)
 - `method.notFound` on `Mockery\ExpectationInterface::andReturn()` etc. (RefreshAwardsTest — Mockery stub limitation, unresolvable in test code)
 
@@ -23,6 +24,7 @@ Baseline: 704 → 680 → 650 → 644 lines.
 - The remaining `method.notFound` on `Mockery\ExpectationInterface::once()` in BackfillRestaurantPhotosTest is a Mockery stub file limitation that can't be fixed in test code
 - `method.alreadyNarrowedType` entries (assertIsArray on known array types) are low-value — assertions are still intentional even if PHPStan can see the type
 - `glob()` in PHP 8.3 returns `array<int, string>|false`. Adding `?: []` converts false to an empty array, eliminating the union type without hiding real errors — a false return from glob() would already cause a test failure downstream.
+- `array<K, V>` generics syntax is NOT valid in PHP native type declarations — it only works inside `/** @param */` / `/** @return */` PHPDoc annotations. Using it inline (e.g., `function foo(array<string, mixed> $x)`) will cause a parse error. Use docblock annotations instead.
 
 ## Log
 1. Fixed all 5 PHPStan baseline entries for `AuditRestaurantCuisinesTest.php`
@@ -36,3 +38,6 @@ Baseline: 704 → 680 → 650 → 644 lines.
 10. Fixed 1 baseline entry (count 2) `method.nonObject` on `PDOStatement|false` in RestoreDatabaseCommandTest.php — `@var PDOStatement` on extracted `$stmt = $pdo->query(...)` before `fetchColumn()`, baseline 686→680
 11. Fixed 5 baseline entries (count 7) `argument.type` and `offsetAccess.nonOffsetAccessible` on `glob()` return type in BackupDatabaseCommandTest.php and RestoreDatabaseCommandTest.php — added `?: []` after `glob()` calls, baseline 680→650
 12. Fixed 1 baseline entry (count 1) `method.nonObject` on `PDOStatement|false` (`fetchColumn()`) in BackupDatabaseCommandTest.php — extracted `$stmt` variable with `@var PDOStatement` annotation before calling `fetchColumn()`, baseline 650→644
+13. Fixed all 42 `missingType.iterableValue` entries across 18 test files — added `@param`/`@return` PHPDoc annotations with array value types, baseline 644→488
+
+(End of file - total 53 lines)

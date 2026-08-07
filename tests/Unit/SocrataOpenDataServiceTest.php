@@ -22,6 +22,8 @@ class SocrataOpenDataServiceTest extends TestCase
         $this->service = $this->app->make(SocrataOpenDataService::class);
     }
 
+    /** @param array<int, array<string, mixed>> $results */
+    /** @return array<int, array<string, mixed>> */
     private function dedup(array $results): array
     {
         $method = new \ReflectionMethod($this->service, 'deduplicateByName');

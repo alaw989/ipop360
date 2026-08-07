@@ -410,6 +410,7 @@ class LiveSearchScoringTest extends TestCase
      * source defaults to []), driving them through the real concurrent-pool +
      * dedup + distance-filter + scoring pipeline. Reused by the distance tests.
      */
+    /** @param array<string, array<int, mixed>> $venuesBySource */
     private function makeServiceWithVenues(array $venuesBySource): LiveSearchService
     {
         Http::fake(fn (Request $request) => Http::response([]));
