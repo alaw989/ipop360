@@ -197,6 +197,11 @@ class SearchController extends Controller
         return $this->applyRestaurantSort($query, $sort, $hasCoords);
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $results
+     * @param int[]                           $cuisineIds
+     * @param array<string, mixed>|null       $defaultLocation
+     */
     private function persistLiveResults(array $results, array $cuisineIds = [], ?array $defaultLocation = null): void
     {
         foreach ($results as $venue) {

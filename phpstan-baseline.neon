@@ -49,30 +49,10 @@ parameters:
 			path: app/Http/Controllers/HomeController.php
 
 		-
-			message: '#^Method App\\Http\\Controllers\\SearchController\:\:persistLiveResults\(\) has parameter \$cuisineIds with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Http/Controllers/SearchController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\SearchController\:\:persistLiveResults\(\) has parameter \$defaultLocation with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Http/Controllers/SearchController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\SearchController\:\:persistLiveResults\(\) has parameter \$results with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Http/Controllers/SearchController.php
-
-		-
 			message: '#^Method App\\Http\\Resources\\LiveRestaurantResource\:\:toArray\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: app/Http/Resources/LiveRestaurantResource.php
-
-
 
 		-
 			message: '#^Property App\\Jobs\\EnrichRestaurantWithAi\:\:\$backoff type has no value type specified in iterable type array\.$#'
@@ -98,8 +78,6 @@ parameters:
 			count: 1
 			path: app/Services/LiveSearchService.php
 
-
-
 		-
 			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:processFreeVenue\(\) has parameter \$venue with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
@@ -117,8 +95,6 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: app/Services/RestaurantValidationService.php
-
-
 
 		-
 			message: '#^Method App\\Services\\WikidataService\:\:parseBindings\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'

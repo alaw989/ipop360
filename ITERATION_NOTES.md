@@ -4,11 +4,18 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 20 (down from 23)
-- Remaining: missingType.iterableValue (19) + missingType.return (1)
-- Top files by iterableValue count: SearchController.php (3), HomeController.php (2), FavoriteController.php (2)
+- Baseline entries: 17 (down from 20)
+- Remaining: missingType.iterableValue (16) + missingType.return (1)
+- Top files by iterableValue count: HomeController.php (2), FavoriteController.php (2)
 
 ## Log
+### Iteration 31 — Fixed all 3 SearchController iterableValue entries (total: 20→17)
+- `app/Http/Controllers/SearchController.php`: Added value type annotations to `persistLiveResults()`:
+  - `$results` → `@param array<int, array<string, mixed>>`
+  - `$cuisineIds` → `@param int[]`
+  - `$defaultLocation` → `@param array<string, mixed>|null`
+- 3 baseline entries removed; 0 SearchController entries remain
+- All 563 tests pass; `./vendor/bin/phpstan analyse` passes cleanly
 ### Iteration 30 — Fixed all 3 AuditRestaurantCuisines iterableValue entries (total: 23→20)
 - `app/Console/Commands/AuditRestaurantCuisines.php`: Added value type annotations:
   - `aiCuisineSlugs()` → `@param array<string, string> $normalizedNameToSlug`
