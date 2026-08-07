@@ -12,6 +12,11 @@ namespace App\Services\Http;
  */
 final readonly class RequestSpec
 {
+    /**
+     * @param array<string, mixed>    $query
+     * @param array<string, mixed>    $body
+     * @param array<string, string>   $headers
+     */
     public function __construct(
         public string $method,
         public string $url,
