@@ -438,7 +438,7 @@ class LiveSearchService
         try {
             $nameRaw = $this->overpassService->fetchByNameRaw($lat, $lng, $keywords, context: ['read_path' => true]);
             if ($nameRaw !== null) {
-                $merged = array_merge($merged, $this->overpassService->normalizeRaw($nameRaw['data'] ?? [], $lat, $lng));
+                $merged = array_merge($merged, $this->overpassService->normalizeRaw($nameRaw['data'], $lat, $lng));
             }
         } catch (\Throwable $e) {
             Log::warning('Overpass name fallback failed', ['message' => $e->getMessage()]);

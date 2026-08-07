@@ -4,12 +4,37 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 180 (down from 195)
-- Remaining: missingType.iterableValue (180)
-- Top files by iterableValue count: OverpassService.php (30), SocrataOpenDataService.php (24), LiveSearchService.php (24), PopularityScoreService.php (19), BizDataApiService.php (13), RestaurantWebsiteScraperService.php (9), RestaurantEnrichmentService.php (9), VenuePipeline.php (8)
+- Baseline entries: 150 (down from 180)
+- Remaining: missingType.iterableValue (150)
+- Top files by iterableValue count: SocrataOpenDataService.php (24), LiveSearchService.php (24), PopularityScoreService.php (19), BizDataApiService.php (13), RestaurantWebsiteScraperService.php (9), RestaurantEnrichmentService.php (8), VenuePipeline.php (8)
 
 ## Log
-### Iteration 17 — Fixed all 15 SerpApiService iterableValue entries (total: 195→180)
+### Iteration 18 — Fixed all 30 OverpassService iterableValue entries (total: 180→150)
+- `app/Services/OverpassService.php`: Added value types to every array param/return across the class:
+  - Property: `$mirrors` → `array<int, string>`
+  - `search()` → `@return array<int, array<string, mixed>>`
+  - `searchByName()` → `@param array<int, string> $keywords` + `@return array<int, array<string, mixed>>`
+  - `fetchRaw()` → `@return array{cached: bool, data: array<int, mixed>}|null`
+  - `fetchByNameRaw()` → `@param array<int, string> $keywords`, `@param array<string, mixed> $context`, `@return array{cached: bool, data: array<int, mixed>}|null`
+  - `executeSearch()` → `@return array<int, array<string, mixed>>`
+  - `executeSearchByName()` → `@param array<int, string> $keywords` + `@return array<int, array<string, mixed>>`
+  - `normalizeResults()` → `@param array<int, mixed> $elements` + `@return array<int, array<string, mixed>>`
+  - `extractCoords()` → `@param array<string, mixed> $el` + `@return array{lat: float, lon: float}|null`
+  - `buildAddress()` → `@param array<string, mixed> $tags`
+  - `mapPriceRange()` → `@param array<string, mixed> $tags`
+  - `extractCuisines()` → `@param array<string, mixed> $tags` + `@return array<int, array{id: int, name: string, slug: string}>`
+  - `normalizeRaw()` → `@param array<int, mixed> $elements` + `@return array<int, array<string, mixed>>`
+  - `poolRequestsFor()` → `@param array<string, mixed> $context` + `@return array<int, RequestSpec>`
+  - `parsePoolResponse()` → `@return array<int, mixed>|null`
+  - `consumePoolResponses()` → `@param array<int, Response|\Throwable> $responses` + `@return array<int, array<string, mixed>>`
+  - `extractFeatures()` → `@param array<string, mixed> $tags` + `@return array<string, mixed>`
+  - `normalizeForEnrichment()` → `@param array<string, mixed> $r` + `@return array<string, mixed>`
+- The narrower `fetchRaw()`/`fetchByNameRaw()` return types exposed 3 unnecessary `?? []` fallbacks in callers (null guard already present):
+  - `LiveSearchService.php:441`: Removed `?? []` from `$nameRaw['data']`
+  - `RestaurantEnrichmentService.php:345`: Removed `?? []` from `$nameRaw['data']`
+  - `RestaurantEnrichmentService.php:376`: Removed `?? []` from `$nameRaw['data']`
+- 30 baseline entries removed; 0 OverpassService entries remain
+- `./vendor/bin/phpstan analyse` passes cleanly
 - `app/Services/SerpApiService.php`: Added value types to array params/returns for 10 methods:
   - `search()`: `@return array<int, array<string, mixed>>`
   - `fetchRaw()`: `@return array<string, mixed>|null`

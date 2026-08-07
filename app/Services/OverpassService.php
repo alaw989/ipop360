@@ -20,6 +20,7 @@ class OverpassService
         'vegan', 'vegetarian', 'gluten_free',
     ];
 
+    /** @var array<int, string> */
     private array $mirrors;
 
     public function __construct()
@@ -41,6 +42,8 @@ class OverpassService
     /**
      * Search for restaurants near coordinates using OpenStreetMap data.
      * Retries with larger radii (25km → 50km → 100km) if <5 results.
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function search(float $lat, float $lng, ?string $cuisine = null, int $radius = 25000, int $limit = 50): array
     {
@@ -62,6 +65,9 @@ class OverpassService
 
     /**
      * Search by name regex directly in Overpass query instead of PHP filtering.
+     *
+     * @param  array<int, string>  $keywords
+     * @return array<int, array<string, mixed>>
      */
     public function searchByName(float $lat, float $lng, array $keywords, int $radius = 25000, int $limit = 50): array
     {
@@ -84,6 +90,8 @@ class OverpassService
     /**
      * Fetch raw OSM elements for a cuisine search, without normalization.
      * Returns ['cached' => bool, 'data' => array] or null on failure.
+     *
+     * @return array{cached: bool, data: array<int, mixed>}|null
      */
     public function fetchRaw(float $lat, float $lng, ?string $cuisine = null, int $radius = 25000, int $limit = 50): ?array
     {
@@ -153,6 +161,10 @@ class OverpassService
     /**
      * Fetch raw OSM elements for a name search, without normalization.
      * Returns ['cached' => bool, 'data' => array] or null on failure.
+     *
+     * @param  array<int, string>    $keywords
+     * @param  array<string, mixed>  $context
+     * @return array{cached: bool, data: array<int, mixed>}|null
      */
     public function fetchByNameRaw(float $lat, float $lng, array $keywords, int $radius = 25000, int $limit = 50, array $context = []): ?array
     {
@@ -228,6 +240,9 @@ class OverpassService
         return null;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     private function executeSearch(float $lat, float $lng, ?string $cuisine, int $radius, int $limit): array
     {
         $resolved = $cuisine ? $this->resolveCuisine($cuisine) : null;
@@ -287,6 +302,10 @@ class OverpassService
         return [];
     }
 
+    /**
+     * @param  array<int, string>  $keywords
+     * @return array<int, array<string, mixed>>
+     */
     private function executeSearchByName(float $lat, float $lng, array $keywords, int $radius, int $limit): array
     {
         $pattern = implode('|', array_map(fn ($k) => str_replace('\\.', '.', preg_quote($k, '/')), $keywords));
@@ -458,6 +477,10 @@ class OverpassService
         return $key;
     }
 
+    /**
+     * @param  array<int, mixed>  $elements
+     * @return array<int, array<string, mixed>>
+     */
     private function normalizeResults(array $elements, float $searchLat, float $searchLng): array
     {
         $results = [];
@@ -512,6 +535,10 @@ class OverpassService
         return $results;
     }
 
+    /**
+     * @param  array<string, mixed>  $el
+     * @return array{lat: float, lon: float}|null
+     */
     private function extractCoords(array $el): ?array
     {
         $type = $el['type'] ?? null;
@@ -533,6 +560,9 @@ class OverpassService
         return null;
     }
 
+    /**
+     * @param  array<string, mixed>  $tags
+     */
     private function buildAddress(array $tags): ?string
     {
         $parts = array_filter([
@@ -543,6 +573,9 @@ class OverpassService
         return $parts ? implode(' ', $parts) : null;
     }
 
+    /**
+     * @param  array<string, mixed>  $tags
+     */
     private function mapPriceRange(array $tags): ?string
     {
         $price = $tags['price_range'] ?? $tags['diet:price_range'] ?? null;
@@ -553,6 +586,10 @@ class OverpassService
         return null;
     }
 
+    /**
+     * @param  array<string, mixed>  $tags
+     * @return array<int, array{id: int, name: string, slug: string}>
+     */
     private function extractCuisines(array $tags): array
     {
         $cuisineStr = $tags['cuisine'] ?? '';
@@ -582,6 +619,9 @@ class OverpassService
     /**
      * Normalize raw OSM elements to the shared venue shape.
      * Public method for use after parallel fetch.
+     *
+     * @param  array<int, mixed>  $elements
+     * @return array<int, array<string, mixed>>
      */
     public function normalizeRaw(array $elements, float $searchLat, float $searchLng): array
     {
@@ -608,6 +648,9 @@ class OverpassService
      * key) with a tighter client timeout — instead of the full 3 mirrors x 3
      * radii fan-out enrichment performs. The name-regex fallback stays a
      * separate serial step driven by LiveSearchService.
+     *
+     * @param  array<string, mixed>  $context
+     * @return array<int, RequestSpec>
      */
     public function poolRequestsFor(float $lat, float $lng, ?string $cuisine = null, array $context = []): array
     {
@@ -644,6 +687,8 @@ class OverpassService
     /**
      * Parse a pooled Overpass response into the raw elements array (the shape
      * stored in ExternalApiCache). Returns null on HTTP failure.
+     *
+     * @return array<int, mixed>|null
      */
     public function parsePoolResponse(Response $response, float $lat, float $lng): ?array
     {
@@ -659,6 +704,9 @@ class OverpassService
     /**
      * Consume pooled responses for the live read path: parse, cache the raw
      * elements (24h), and normalize to venues.
+     *
+     * @param  array<int, Response|\Throwable>  $responses
+     * @return array<int, array<string, mixed>>
      */
     public function consumePoolResponses(array $responses, float $lat, float $lng, ?string $cuisine, string $cacheKey): array
     {
@@ -686,6 +734,9 @@ class OverpassService
      * Normalize an Overpass venue result to the enrichment venue shape.
      * This converts the rich live-search format to the simpler DB-persistence format
      * used by RestaurantEnrichmentService.
+     *
+     * @param  array<string, mixed>  $tags
+     * @return array<string, mixed>
      */
     private function extractFeatures(array $tags): array
     {
@@ -699,6 +750,10 @@ class OverpassService
         return $features;
     }
 
+    /**
+     * @param  array<string, mixed>  $r
+     * @return array<string, mixed>
+     */
     public function normalizeForEnrichment(array $r): array
     {
         return [

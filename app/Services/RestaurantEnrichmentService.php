@@ -342,7 +342,7 @@ class RestaurantEnrichmentService
             if (! empty($keywords)) {
                 $nameRaw = $this->overpass->fetchByNameRaw($lat, $lng, $keywords);
                 if ($nameRaw !== null) {
-                    $elements = $nameRaw['data'] ?? [];
+                    $elements = $nameRaw['data'];
                     $normalized = $this->overpass->normalizeRaw($elements, $lat, $lng);
                 }
             }
@@ -373,7 +373,7 @@ class RestaurantEnrichmentService
             return [];
         }
 
-        $nameElements = $nameRaw['data'] ?? [];
+        $nameElements = $nameRaw['data'];
 
         return $this->overpass->normalizeRaw($nameElements, $lat, $lng);
     }
