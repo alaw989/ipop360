@@ -4,11 +4,45 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 89 (down from 113)
-- Remaining: missingType.iterableValue (89)
-- Top files by iterableValue count: PopularityScoreService.php (19), RestaurantWebsiteScraperService.php (9), RestaurantEnrichmentService.php (8), VenuePipeline.php (8)
+- Baseline entries: 61 (down from 70)
+- Remaining: missingType.iterableValue (61)
+- Top files by iterableValue count: VenuePipeline.php (8), RestaurantEnrichmentService.php (8), GeolocationService.php (7), AiEnrichmentService.php (7)
 
 ## Log
+### Iteration 23 — Fixed all 9 RestaurantWebsiteScraperService iterableValue entries (total: 70→61)
+- `app/Services/RestaurantWebsiteScraperService.php`: Added value types to every array return:
+  - `scrape()` → `@return array{opening_hours: mixed, menu_url: string|null, photo_url: string|null, photos: string[]}|null`
+  - `performScrape()` → `@return array{opening_hours: mixed, menu_url: string|null, photo_url: string|null, photos: string[]}|null`
+  - `extractOpeningHours()` → `@return array<string, mixed>|null`
+  - `extractHoursFromJsonLd()` → `@return array<string, mixed>|null`
+  - `extractHoursFromMicrodata()` → `@return array<string, mixed>|null`
+  - `extractHoursFromText()` → `@return array<string, mixed>|null`
+  - `parseHoursText()` → `@return array{raw_text: string, structured: false}`
+  - `normalizeOpeningHours()` → `@return array<string, mixed>|null`
+  - `fetchPageForSocial()` → `@return array<string, string>|null` (was `@return array|null`)
+- 9 baseline entries removed; 0 RestaurantWebsiteScraperService entries remain
+- All RestaurantWebsiteScraperServiceTest (23) tests pass
+- `./vendor/bin/phpstan analyse` passes cleanly
+### Iteration 22 — Fixed all 19 PopularityScoreService iterableValue entries (total: 89→70)
+- `app/Services/PopularityScoreService.php`: Added value types to every array param/return/property:
+  - Property `$weights` → `array<string, float>`
+  - `__construct()` → `@param array<string, float>|null $weights`
+  - `calculateBreakdown()` → `@return array{signals: array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}>, total: float}`
+  - `calculateBreakdownForArray()` → `@param array<string, mixed> $restaurant` + breakdown return shape
+  - `calculateBreakdownWithAggregates()` → `@param array<string, mixed> $restaurant` + `@param array{log_denoms: array<string, float>, minmax: array<string, mixed>, quality: array{mean_rating: float}} $aggregates` + breakdown return shape
+  - `calculateBreakdownWithAggregatesFromEloquent()` → aggregates param + breakdown return shape
+  - `computeAggregates()` → `@return array{log_denoms: array<string, float>, minmax: array<string, array{min: float, max: float}|null>, quality: array{mean_rating: float}}`
+  - `computeCompletenessFromArray()` → `@param array<string, mixed> $restaurant`
+  - `minmaxStats()` → `@return array{min: float, max: float}|null`
+  - `normalize()` → `@param array<string, float> $logDenoms` + `@param array<string, array{min: float, max: float}|null> $minmax`
+  - `normalizeBayesianQuality()` → `@param array{rating: float|null, reviews: float} $raw`
+  - `normalizeMinMax()` → `@param array{min: float, max: float}|null $stats`
+  - `rawValueFromArray()` → `@param array<string, mixed> $restaurant`
+  - `restaurantToArray()` → `@return array<string, mixed>`
+- Tighter shapes exposed 4 unnecessary `??` coalescing guards → removed them
+- 19 baseline entries removed; 0 PopularityScoreService entries remain
+- All 17 PopularityScoreService unit tests pass
+- `./vendor/bin/phpstan analyse` passes cleanly
 ### Iteration 21 — Fixed all 24 LiveSearchService iterableValue entries (total: 113→89)
 - `app/Services/LiveSearchService.php`: Added value types to every array param/return across 12 methods:
   - `search()` → `@return array<int, array<string, mixed>>`

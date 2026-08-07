@@ -318,59 +318,7 @@ parameters:
 			count: 1
 			path: app/Services/RestaurantValidationService.php
 
-		-
-			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:extractHoursFromJsonLd\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantWebsiteScraperService.php
 
-		-
-			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:extractHoursFromMicrodata\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantWebsiteScraperService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:extractHoursFromText\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantWebsiteScraperService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:extractOpeningHours\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantWebsiteScraperService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:fetchPageForSocial\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantWebsiteScraperService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:normalizeOpeningHours\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantWebsiteScraperService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:parseHoursText\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantWebsiteScraperService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:performScrape\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantWebsiteScraperService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:scrape\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantWebsiteScraperService.php
 
 		-
 			message: '#^Method App\\Services\\VenuePipeline\:\:phonesMatch\(\) has parameter \$a with no value type specified in iterable type array\.$#'
