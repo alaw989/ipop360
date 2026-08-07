@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\GeolocationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class GeocodeController extends Controller
@@ -11,7 +12,7 @@ class GeocodeController extends Controller
         private GeolocationService $geolocationService,
     ) {}
 
-    public function reverse(Request $request)
+    public function reverse(Request $request): JsonResponse
     {
         $request->validate([
             'lat' => 'required|numeric|between:-90,90',
@@ -26,7 +27,7 @@ class GeocodeController extends Controller
         return response()->json($result ?? ['city' => null, 'state' => null]);
     }
 
-    public function search(Request $request)
+    public function search(Request $request): JsonResponse
     {
         $request->validate([
             'q' => 'required|string|min:2|max:100',
@@ -37,7 +38,7 @@ class GeocodeController extends Controller
         );
     }
 
-    public function forward(Request $request)
+    public function forward(Request $request): JsonResponse
     {
         $request->validate([
             'city' => 'required|string|max:255',

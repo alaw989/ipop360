@@ -29,7 +29,7 @@ class SearchController extends Controller
         private LiveVenuePersister $venuePersister,
     ) {}
 
-    public function __invoke(Request $request)
+    public function __invoke(Request $request): \Inertia\Response
     {
         $validated = $request->validate([
             'sort' => 'nullable|in:best_match,nearest,rating,reviews,price,social_presence,website_traffic',

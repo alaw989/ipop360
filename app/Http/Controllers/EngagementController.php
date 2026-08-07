@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class EngagementController extends Controller
 {
@@ -32,7 +33,7 @@ class EngagementController extends Controller
         '/Bytespider/',
     ];
 
-    public function store(Request $request)
+    public function store(Request $request): Response
     {
         $validated = $request->validate([
             'restaurant_id' => 'required|integer|exists:restaurants,id',

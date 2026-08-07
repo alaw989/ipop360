@@ -8,6 +8,7 @@ use App\Models\Restaurant;
 use App\Services\PopularityScoreService;
 use App\Services\RestaurantValidationService;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,7 @@ class FavoriteController extends Controller
     /**
      * Display the user's favorite restaurants.
      */
-    public function index(Request $request)
+    public function index(Request $request): \Inertia\Response
     {
         $user = $request->user();
 
@@ -51,7 +52,7 @@ class FavoriteController extends Controller
     /**
      * Toggle a restaurant as favorite for the authenticated user.
      */
-    public function toggle(Request $request)
+    public function toggle(Request $request): JsonResponse
     {
         // spec-088: tighten the client payload — bound every field, validate
         // coord ranges, cap array lengths. Rating/score/is_active/etc. are NEVER
@@ -110,7 +111,7 @@ class FavoriteController extends Controller
     /**
      * Merge local storage favorites into the user's account after login.
      */
-    public function merge(Request $request)
+    public function merge(Request $request): JsonResponse
     {
         // spec-088: cap the venues array (DoS/poisoning guard) + validate shape.
         $validated = $request->validate([

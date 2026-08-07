@@ -97,38 +97,8 @@ parameters:
 			path: app/Http/Controllers/Admin/BlogPostController.php
 
 		-
-			message: '#^Method App\\Http\\Controllers\\Admin\\DashboardController\:\:__invoke\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Http/Controllers/Admin/DashboardController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\CuisineController\:\:show\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Http/Controllers/CuisineController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\EngagementController\:\:store\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Http/Controllers/EngagementController.php
-
-		-
 			message: '#^Method App\\Http\\Controllers\\FavoriteController\:\:ensurePersisted\(\) has parameter \$data with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
-			count: 1
-			path: app/Http/Controllers/FavoriteController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\FavoriteController\:\:index\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Http/Controllers/FavoriteController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\FavoriteController\:\:merge\(\) has no return type specified\.$#'
-			identifier: missingType.return
 			count: 1
 			path: app/Http/Controllers/FavoriteController.php
 
@@ -137,36 +107,6 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: app/Http/Controllers/FavoriteController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\FavoriteController\:\:toggle\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Http/Controllers/FavoriteController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\GeocodeController\:\:forward\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Http/Controllers/GeocodeController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\GeocodeController\:\:reverse\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Http/Controllers/GeocodeController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\GeocodeController\:\:search\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Http/Controllers/GeocodeController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\HomeController\:\:__invoke\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Http/Controllers/HomeController.php
 
 		-
 			message: '#^Method App\\Http\\Controllers\\HomeController\:\:getHomepageData\(\) return type has no value type specified in iterable type array\.$#'
@@ -283,12 +223,6 @@ parameters:
 			path: app/Http/Controllers/RestaurantController.php
 
 		-
-			message: '#^Method App\\Http\\Controllers\\SearchController\:\:__invoke\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Http/Controllers/SearchController.php
-
-		-
 			message: '#^Method App\\Http\\Controllers\\SearchController\:\:applyRestaurantSort\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
 			identifier: missingType.generics
 			count: 1
@@ -329,12 +263,6 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: app/Http/Controllers/SearchController.php
-
-		-
-			message: '#^Method App\\Http\\Middleware\\LogApiRequest\:\:handle\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Http/Middleware/LogApiRequest.php
 
 		-
 			message: '#^Method App\\Http\\Resources\\LiveRestaurantResource\:\:toArray\(\) return type has no value type specified in iterable type array\.$#'

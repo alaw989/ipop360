@@ -8,7 +8,7 @@ use Inertia\Inertia;
 
 class CuisineController extends Controller
 {
-    public function show(Request $request, CuisineCategory $category)
+    public function show(Request $request, CuisineCategory $category): \Inertia\Response
     {
         $category->load([
             'cuisines' => fn ($query) => $query->orderBy('sort_order'),

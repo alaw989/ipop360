@@ -10,7 +10,7 @@ use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    public function __invoke()
+    public function __invoke(): \Inertia\Response
     {
         // SerpApi quota
         $stats = ExternalApiCache::stats();

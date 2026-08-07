@@ -17,7 +17,7 @@ class HomeController extends Controller
         private GeolocationService $geolocationService,
     ) {}
 
-    public function __invoke(Request $request)
+    public function __invoke(Request $request): \Inertia\Response
     {
         $location = $this->geolocationService->resolveLocation($request);
         $city = $location['city'] ?? null;
