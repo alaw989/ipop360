@@ -321,54 +321,6 @@ parameters:
 
 
 		-
-			message: '#^Method App\\Services\\VenuePipeline\:\:phonesMatch\(\) has parameter \$a with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/VenuePipeline.php
-
-		-
-			message: '#^Method App\\Services\\VenuePipeline\:\:phonesMatch\(\) has parameter \$b with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/VenuePipeline.php
-
-		-
-			message: '#^Method App\\Services\\VenuePipeline\:\:sortTiebreak\(\) has parameter \$a with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/VenuePipeline.php
-
-		-
-			message: '#^Method App\\Services\\VenuePipeline\:\:sortTiebreak\(\) has parameter \$b with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/VenuePipeline.php
-
-		-
-			message: '#^Method App\\Services\\VenuePipeline\:\:sortVenues\(\) has parameter \$venues with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/VenuePipeline.php
-
-		-
-			message: '#^Method App\\Services\\VenuePipeline\:\:sortVenues\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/VenuePipeline.php
-
-		-
-			message: '#^Method App\\Services\\VenuePipeline\:\:withinRadius\(\) has parameter \$a with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/VenuePipeline.php
-
-		-
-			message: '#^Method App\\Services\\VenuePipeline\:\:withinRadius\(\) has parameter \$b with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/VenuePipeline.php
-
-		-
 			message: '#^Method App\\Services\\WikidataService\:\:parseBindings\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1

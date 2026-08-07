@@ -4,11 +4,17 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 61 (down from 70)
-- Remaining: missingType.iterableValue (61)
-- Top files by iterableValue count: VenuePipeline.php (8), RestaurantEnrichmentService.php (8), GeolocationService.php (7), AiEnrichmentService.php (7)
+- Baseline entries: 53 (down from 61)
+- Remaining: missingType.iterableValue (53)
+- Top files by iterableValue count: RestaurantEnrichmentService.php (8), GeolocationService.php (7), AiEnrichmentService.php (7)
 
 ## Log
+### Iteration 24 — Fixed all 8 VenuePipeline iterableValue entries (total: 61→53)
+- `app/Services/VenuePipeline.php`: Added `@param array<string, mixed>` to `$a`/`$b` in `withinRadius()`, `phonesMatch()`, and `sortTiebreak()`
+- Added `@param array<int, array<string, mixed>>` + `@return array<int, array<string, mixed>>` to `sortVenues()`
+- 8 baseline entries removed; 0 VenuePipeline entries remain
+- All 563 tests pass; `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 23 — Fixed all 9 RestaurantWebsiteScraperService iterableValue entries (total: 70→61)
 - `app/Services/RestaurantWebsiteScraperService.php`: Added value types to every array return:
   - `scrape()` → `@return array{opening_hours: mixed, menu_url: string|null, photo_url: string|null, photos: string[]}|null`
