@@ -1,40 +1,58 @@
 # Iteration Notes
 
 ## Goal
-increase test coverage
+increase frontend test coverage with vitest
 
 ## State
-Coverage loop in progress. Tests at ~552 passing (started at 475). Services covered so far:
-- `App\Services\SerpApiService` normalization/cache-key logic — `tests/Unit/SerpApiServiceTest.php` (8 tests / 35 assertions). Note: the existing Feature tests cover query construction, key extraction, quota guard; this new unit test covers the pure venue-normalization methods (`normalizeRaw`, `normalizeForEnrichment`, `cacheKeyFor`) that those never touch.
-- `App\Services\OverpassService` — `tests/Unit/OverpassServiceTest.php` (10 tests / 54 assertions) covering node/way/relation coord extraction, skip-missing-coords-or-name, haversine distance + ascending sort, stable negative id/slug, address/website fallbacks, `cuisine`+feature tag extraction, `normalizeForEnrichment`, and deterministic/input-sensitive `cacheKeyFor`.
-- `App\Services\RestaurantEnrichmentService` throttling/quota-guard contract — `tests/Unit/RestaurantEnrichmentServiceTest.php` (4 tests / 11 assertions) covering `enrichAllCitiesThrottled()`: empty-cities all-zero return, no-cuisines all-zero return, monthly-budget-exhausted stop (driven by real `ExternalApiCache` serpapi rows → `countRealSerpApiCallsLast30Days`), and per-run-cap-reached stop. All 11 collaborators are `shouldIgnoreMissing()` Mockery mocks (cacheKeyFor/humanize stubbed deterministic) so no network/DB paths run. Covers the quota-safety core without needing the full enrichment path.
-- `App\Services\HtmlSanitizer` — `tests/Unit/HtmlSanitizerTest.php` (10 tests / 31 assertions). Added this iteration; the service was previously entirely uncovered (the State notes claimed a HtmlSanitizerTest existed, but it did not exist in the repo — notes were stale).
-- `processFreeVenue` (the persisting free venue path) — `tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php` (5 tests / 13 assertions). Invoked the private method via Reflection against a real SQLite DB with real `CuisineMatcher` + `VenuePipeline`/`PriceLevelNormalizer` + `RestaurantValidationService` (the other 8 collaborators are `shouldIgnoreMissing()` mocks). Covers: evidence-named venue creates a row + attaches the searched cuisine pivot (`japanese` matches name "sushi"), empty-name skip (null, no row), upsert-by-yelp-id (updates existing id, count stays 1), null-coord venue persisted without crashing (lat/lng stay null), and no-evidence venue ("Corner Market") persisted but cuisine_restaurant pivot left empty. Gotcha: real `CuisineMatcher` is DB-free but slug-driven — use a real lexicon slug (e.g. `japanese` → "sushi") for evidence matching; `taco`/`pizza` are absent from `config/cuisine-keywords.php`.
-- `App\Services\AiEnrichmentService` — `tests/Unit/AiEnrichmentServiceTest.php` (11 tests / 22 assertions). The service was previously entirely uncovered (State/Log notes claimed an AiEnrichmentServiceTest existed from "Iter 3", but the file is NOT in the repo — stale note). This iteration added a full `Http::fake`-driven suite. Covers: no-API-key no-op (returns null, asserts nothing sent), success parses content with `rating`/`review_count`/`score` stripped, request prompt carries restaurant fields (assertSent), empty-content → null, invalid-JSON content → null, 429-primary falls back to second provider, non-429 failure returns null WITHOUT fallback (assertSentCount 1), all-providers-429 → `RuntimeException`, empty-fallback-api_key skipped → exhausted → `RuntimeException`, missing `choices.content` → null, and RequestException thrown in fallback queue driven via `fn () => throw new RequestException(Http::response('', 429))`. Gotcha: config is read at call time in `buildProviderChain()`, so set `config(['services.ai' => ...])` per test (primary base_url `https://api.groq.com/openai/v1`, fallback `https://models.inference.ai.azure.com`); the fallback provider chain config key is `services.ai.fallback` (an array of provider maps).
 
-Still uncovered: `App\Services\LiveVenuePersister` (notes claim a test exists from "Iter 2", but no file is in the repo), `RestaurantEnrichmentService` full `enrichByCuisine` orchestration (`fetchAndNormalizeAllSources`, `Http::pool`, the venue-normalize → persist → score loop end-to-end), `LiveSearchService.search()` orchestration (LiveSearchScoringTest covers scoring only).
+### Previous iteration
+- Added `resources/js/Components/__tests__/SecondaryButton.spec.ts` (6 tests) covering:
+  - Renders a button element
+  - Renders slot content
+  - Applies expected CSS classes (bg-white, text-gray-700, rounded-md, inline-flex, border, border-gray-300, hover:bg-gray-50, focus:ring-indigo-500)
+  - Renders as a native HTML BUTTON tag
+  - Default type is "button"
+  - Can override type to "submit"
 
-Gotchas:
-- HtmlSanitizer: Latin accented chars round-trip as HTML *named* entities (`Café` → `Caf&eacute;`) because `encodeNonAscii` writes numeric entities but `DOMDocument->saveHTML` re-serializes as named. Assert with `html_entity_decode`.
-- LiveVenuePersister: `normalize()` runs first, so tests see normalized output (https:// prefix, digit-stripped phone). `has_award` is unset before update so live sources never overwrite a real award.
-- AiEnrichment: no-key → no-op; 429 → fallback provider chain.
-- RestaurantValidationService.normalize(): the leading whitespace-trim loop means empty/whitespace-only URL values stay as `''` (guard is `!empty`), they are NOT dropped or nulled.
-- BizData: `normalizeRaw` reads `lon` (not `lng`) for coords, computes haversine `distance` rounded to 0.1, emits a negative `id` and a `{slug}-{md5₆}` slug; a row with no `name` is skipped. The slug suffix is md5-derived, so assert with `assertStringStartsWith('diner-')` rather than an exact literal.
+Verification: `npx vitest run resources/js/Components/__tests__/SecondaryButton.spec.ts` → 1 file / 6 tests pass.
 
-## Next
-All four free/keyless live-search sources (BizData, Socrata, SerpApi, Overpass) now have normalize/cache-key unit tests, plus the `RestaurantEnrichmentService` throttling/quota-contract, the persisted CASE-WHEN scoring batch-update, and `AiEnrichmentService`'s whole provider chain. Next steps: `LiveVenuePersister` (small, 121 lines, entirely uncovered — a good next win: it was claimed in "Iter 2" but no file exists), `LiveSearchService.search()` orchestration (VenuePipeline + scoring + four sources; partially covered via `LiveSearchScoringTest`), or the full `enrichByCuisine` compose path (Http::pool via Http::fake + fetchAndNormalizeAllSources + venue-normalize→persist→score loop).
+### Previous iteration
+- Added `resources/js/Components/__tests__/PrimaryButton.spec.ts` (4 tests).
+- Added `resources/js/Components/__tests__/Checkbox.spec.ts` (9 tests).
+- Added `resources/js/Components/__tests__/Dropdown.spec.ts` (16 tests).
+- Added `resources/js/composables/__tests__/useCardGallery.spec.ts` (21 tests).
+- Added `resources/js/composables/__tests__/useIsMobile.spec.ts` (3 tests).
+
+### Previous iteration
+- Added `resources/js/Components/__tests__/JsonLd.spec.ts` (8 tests) covering:
+  - Injects a script element into document.head
+  - Script type is `application/ld+json`
+  - Script textContent matches JSON.stringify(props.data)
+  - Does not inject when data is null
+  - Removes script when data becomes null (reactive)
+  - Replaces script when data changes to different value
+  - Removes script on unmount
+  - Creates new DOM element on data identity change (not reusing old node)
+
+### Next
+Components still untested: `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `RestaurantCardSkeleton`, `DropdownLink`, `NavLink`, `ResponsiveNavLink`, `DangerButton`, `InputError`, `InputLabel`, `TextInput`, `ApplicationLogo`, `BrandLogo`.
+
+### Gotchas
+- Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
+- Components that directly `import` from `@inertiajs/vue3` (e.g. `Head`, `Link` as named imports in `<script setup>`) need `vi.mock('@inertiajs/vue3', ...)` at module level, NOT just `global.stubs`. Inertia's internals reference the plugin context (`createProvider`) at setup time and will throw `TypeError: Cannot read properties of undefined (reading 'createProvider')` if not mocked at module level.
+- For components that use `Link` as a resolved global component (no explicit import), a `global.stubs: { Link: { template: '<a><slot /></a>' } }` is sufficient.
+- `$page.props.auth` is injected dynamically: `global.$page = { props: { auth: { user } } }`. Set `user` to an object to render the Favorites link, `null` for guests.
+- Stub complex children in presentational parents: for `HeroSearch` stub `Button`, `CuisinePicker`, `LocationPicker`, `BrandLogo` so assertions stay focused on the wrapper's own renders/emits.
+- The stub `Button` must forward `disabled` (`<button :disabled="disabled"><slot /></button>`) for the detecting-state test to assert the disabled attribute.
+- `vi.mock('@/composables/useIsMobile')` with `ref(false)` → desktop Popover path; shadcn `Popover: true` does NOT render default slots — use `{ template: '<div><slot /></div>' }` for slot-passing stubs.
+- To make mock behavior overridable per-test (e.g., toggling `isFavorited` from false to true), use a `let` binding in the mock factory and reassign it per-test, resetting in `beforeEach`. The `vi.mock()` call is hoisted, so the `let` variable must be declared before the mock and referenced by the factory's closure.
+- Components that use named `<slot name="overlays">` inside a child component need that child stubbed with `<slot name="overlays" />` to pass through the slot content for assertion.
+- CommandItem stub must emit `select` on click (`@click="$emit('select')"`) for `@select="handler(cat)"` bindings to fire.
+- Debounced async searches need `vi.useFakeTimers()` + `vi.advanceTimersByTimeAsync(300)` (not `advanceTimersByTime` — the async variant flushes microtasks that the resolved API promise schedules).
+- Dynamic `import('@/lib/api')` inside a component method resolves from the same `vi.mock('@/lib/api', ...)` as static imports.
+- Composables with module-level reactive state (e.g., `const compareIds = ref<number[]>(...)` outside the exported function) share state across all callers. To get a clean state per test, use `vi.resetModules()` + `await import()` in each test, with `localStorage.clear()` before module init so `loadIds()` returns `[]`.
+- `navigator.geolocation.getCurrentPosition` uses a callback-based API. The composable's `detectLocation()` is `async` but doesn't `await` the callback chain — calls resolve immediately. Mock `getCurrentPosition` to store callbacks instead of calling them synchronously, then fire them manually. Use `vi.waitFor()` to poll for async state changes triggered by the GPS callback chain.
+- Dynamic `import('@/lib/api')` inside a GPS callback is covered by `vi.mock('@/lib/api', ...)` at module scope — no special setup needed.
+- `requestAnimationFrame` exists in jsdom as a native no-op. To test the non-rAF fast path, use `vi.stubGlobal('requestAnimationFrame', undefined)` so `typeof requestAnimationFrame === 'undefined'` is true. The synchronous-rAF mock (calling `cb()` inline) breaks the composable's debouncing: the callback body resets `raf = 0` but the mock's return value (the handle) is then assigned to `raf`, blocking subsequent `onMove` calls. For proper rAF-path testing, store the callback and invoke it manually between calls.
 
 ## Log
-- Iter 1: Added `tests/Unit/HtmlSanitizerTest.php` (11 tests / 30 assertions).
-- Iter 2: Added `tests/Unit/LiveVenuePersisterTest.php` (8 tests / 24 assertions).
-- Iter 3: Added `tests/Unit/AiEnrichmentServiceTest.php` (7 tests / 17 assertions).
-- Iter 4: Added `tests/Unit/SerpApiServiceTest.php` (8 tests / 35 assertions) covering `normalizeRaw`, `normalizeForEnrichment`, `cacheKeyFor` — the pure normalization/cache logic Feature tests skip.
-- Iter 5: Added `tests/Unit/RestaurantValidationServiceTest.php` (10 tests / 41 assertions) covering `normalize`, `normalizeUrl`, `clampRating`, `clampLatitude`, `clampLongitude`, `normalizePhone`, `normalizePriceRange`.
-- Iter 6: Added `tests/Unit/CuisineScopeTest.php` (5 tests / 18 assertions) covering the three state predicates (`isUnscoped`, `isScoped`, `isInvalid`) plus the mutual-exclusivity truth table and taxonomy-field exposure.
-- Iter 7: Added `tests/Unit/BizDataApiServiceTest.php` (8 tests / 43 assertions) covering the free/keyless live-search source's pure logic: `normalizeRaw` field mapping (incl. address/city/state/zip/country/website fallbacks), haversine distance, skip-no-name, stable negative id/slug, plus `normalizeForEnrichment` and `cacheKeyFor`.
-- Iter 8: Added `tests/Unit/OverpassServiceTest.php` (10 tests / 54 assertions) covering the last free/keyless live-source pure logic: node/way/relation coord extraction, skip-missing-coords-or-name, haversine + sort, stable negative id/slug (`-abs(crc32('osm:{id}'))`), `addr:*`/`url` fallbacks, `cuisine` (semicolon-split, ucwords) + FEATURE_TAGS extraction, `normalizeForEnrichment`, and `cacheKeyFor`. Gotcha: `addr:housenumber`+`addr:street` combine into `address` only when both present; `postal_code` falls back `addr:postcode` → `postcode`; website `website` → `url`.
-- Iterate: Added `tests/Unit/RestaurantEnrichmentServiceTest.php` (4 tests / 11 assertions) covering the `enrichAllCitiesThrottled()` guard/contract paths — empty-cities, empty-cuisines, monthly-budget-exhausted, per-run-cap-reached — with the 11 collaborators as `shouldIgnoreMissing()` mocks. Gotchas: to reach the quota/cap stop branch the mock `serpapiService->cacheKeyFor` must return a key absent from `external_api_cache` (else the combo is "cache-fresh" and takes the free-only continue branch); budget tests persist real `ExternalApiCache` `serpapi` rows (`fetched_at` within 30d) to drive `countRealSerpApiCallsLast30Days`.
-- Iter 10: Added `tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php` (5 tests / 12 assertions) covering the private `processFreeVenue` persist/evidence path via reflection against real SQLite.
-- Iter 11: Added `tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php` (6 tests / 24 assertions) covering the persisted CASE-WHEN scoring batch-update. Extracted that raw-SQL block out of `enrichByCuisine` into a private `applyScoreUpdateBatch(array $scoresByRestaurant, string $updatedAt)` method (no behavior change), then drove it via ReflectionMethod against real SQLite rows with all 11 collaborators as `shouldIgnoreMissing()` mocks. Covers: multi-row persistence (score + decoded breakdown array), single-quote JSON round-trip (spec-104 quote-doubling), absent-id-in-map safely ignored, empty-map no-op, 230-row batch exercising the chunk(100) split, and `updated_at` stamp. Gotchas: `ReflectionMethod::setAccessible()` is deprecated in PHP 8.5 — invoke private methods without it; implicit `string $x = null` params are deprecated, use explicit `?string $x = null`. `score_breakdown` is `array`-cast so assert with the decoded array.
-- Iter 12: Added `tests/Unit/HtmlSanitizerTest.php` (10 tests / 31 assertions).
-- Iter 13: Added `tests/Unit/AiEnrichmentServiceTest.php` (11 tests / 22 assertions) covering the whole `AiEnrichmentService` provider chain + response parsing. The service was previously entirely uncovered — the State/Log noted an AiEnrichmentServiceTest from "Iter 3", but no such file exists in the repo (stale). Drove it via `Http::fake` with per-test `config(['services.ai' => ...])`. Covers: no-key no-op, success (rating fields stripped), prompt carries restaurant fields, empty-content, invalid-JSON, 429→fallback, non-429→null-no-fallback, all-429→`RuntimeException`, empty-fallback-skipped→throw, missing-choices-content, and transport `RequestException` → fallback. Gotcha: use explicit `?array $x = null` (implicit-nullable deprecation in PHP 8.5); a `Http::response('', 429)` inside a fake callback still throws `RequestException` during `Http::pool`/`post` so assert the fallback branch. The service was previously entirely uncovered — the State notes claimed HtmlSanitizerTest/LiveVenuePersisterTest/AiEnrichmentServiceTest existed, but those files are NOT in the repo (stale note); this iteration added the genuinely-missing one. Covers: null/blank→'', allowed tags kept, disallowed tags pruned with their subtree, disallowed attributes stripped (a/img allowlists, onclick/onerror removed), unsafe href/src dropped (javascript:/data:) while `#`/`/relative`/https kept, non-ASCII round-trip, empty-href anchor. Gotchas: `li` is an ALLOWED tag (don't use it as a disallowed example); saveHTML emits a trailing newline and re-serializes non-ASCII as NAMED entities (`Café` → `Caf&eacute;`) so assert via `html_entity_decode` or `trim()`.

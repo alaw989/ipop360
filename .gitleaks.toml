@@ -22,4 +22,5 @@ regexes = [
   '''^[\w_]+=["']?0\.0["']?$''',            # Zero values
   '''^#''',                                 # Comment lines
   '''ipop360_favorites''',                  # localStorage key name (not a secret)
+  '''ipop360_compare_ids''',                # localStorage key name (not a secret)
 ]
