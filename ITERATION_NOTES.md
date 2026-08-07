@@ -4,11 +4,20 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 39 (down from 45)
-- Remaining: missingType.iterableValue (38) + missingType.return (1)
-- Top files by iterableValue count: AiEnrichmentService.php (7), LiveVenuePersister.php (5), RestaurantResource.php (4)
+- Baseline entries: 32 (down from 39)
+- Remaining: missingType.iterableValue (31) + missingType.return (1)
+- Top files by iterableValue count: LiveVenuePersister.php (5), RestaurantResource.php (4)
 
 ## Log
+### Iteration 27 — Fixed all 7 AiEnrichmentService iterableValue entries (total: 39→32)
+- `app/Services/AiEnrichmentService.php`: Added value type annotations to all 4 methods:
+  - `enrichRestaurant()` → `@param array<string, mixed> $restaurantData` + `@return array<string, mixed>|null`
+  - `buildProviderChain()` → `@return array<int, array<string, mixed>>`
+  - `tryProvider()` → `@param array<string, mixed> $restaurantData` + `@param array<string, mixed> $provider` + `@return array<string, mixed>|null`
+  - `buildPrompt()` → `@param array<string, mixed> $restaurantData`
+- 7 baseline entries removed; 0 AiEnrichmentService entries remain
+- `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 26 — Fixed all 7 GeolocationService iterableValue entries (total: 45→39)
 - `app/Services/GeolocationService.php`: Added value type annotations to all 7 methods:
   - `resolveCoordinates()` → `@return array{lat: float, lng: float}|null`

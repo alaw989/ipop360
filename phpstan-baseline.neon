@@ -121,48 +121,6 @@ parameters:
 			path: app/Jobs/EnrichRestaurantWithAi.php
 
 		-
-			message: '#^Method App\\Services\\AiEnrichmentService\:\:buildPrompt\(\) has parameter \$restaurantData with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/AiEnrichmentService.php
-
-		-
-			message: '#^Method App\\Services\\AiEnrichmentService\:\:buildProviderChain\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/AiEnrichmentService.php
-
-		-
-			message: '#^Method App\\Services\\AiEnrichmentService\:\:enrichRestaurant\(\) has parameter \$restaurantData with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/AiEnrichmentService.php
-
-		-
-			message: '#^Method App\\Services\\AiEnrichmentService\:\:enrichRestaurant\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/AiEnrichmentService.php
-
-		-
-			message: '#^Method App\\Services\\AiEnrichmentService\:\:tryProvider\(\) has parameter \$provider with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/AiEnrichmentService.php
-
-		-
-			message: '#^Method App\\Services\\AiEnrichmentService\:\:tryProvider\(\) has parameter \$restaurantData with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/AiEnrichmentService.php
-
-		-
-			message: '#^Method App\\Services\\AiEnrichmentService\:\:tryProvider\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/AiEnrichmentService.php
-
-		-
 			message: '#^Method App\\Services\\CuisineMatcher\:\:isSubstringOfAnyOnKeyword\(\) has parameter \$onKeywords with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1

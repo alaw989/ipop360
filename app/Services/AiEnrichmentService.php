@@ -24,6 +24,10 @@ use Illuminate\Support\Facades\Log;
  */
 class AiEnrichmentService
 {
+    /**
+     * @param  array<string, mixed>  $restaurantData
+     * @return array<string, mixed>|null
+     */
     public function enrichRestaurant(array $restaurantData): ?array
     {
         $providers = $this->buildProviderChain();
@@ -81,6 +85,9 @@ class AiEnrichmentService
         throw new \RuntimeException('All AI providers rate-limited or failed');
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     private function buildProviderChain(): array
     {
         $primaryKey = config('services.ai.api_key');
@@ -105,6 +112,11 @@ class AiEnrichmentService
         return $providers;
     }
 
+    /**
+     * @param  array<string, mixed>  $restaurantData
+     * @param  array<string, mixed>  $provider
+     * @return array<string, mixed>|null
+     */
     private function tryProvider(array $restaurantData, array $provider): ?array
     {
         $prompt = $this->buildPrompt($restaurantData);
@@ -168,6 +180,9 @@ class AiEnrichmentService
         return $parsed;
     }
 
+    /**
+     * @param  array<string, mixed>  $restaurantData
+     */
     private function buildPrompt(array $restaurantData): string
     {
         $name = $restaurantData['name'] ?? 'Unknown';
