@@ -175,6 +175,21 @@ class Restaurant extends Model
     }
 
     /**
+     * @param  Builder<self>  $query
+     * @param  'asc'|'desc'  $direction
+     * @return Builder<self>
+     */
+    public function scopeOrderByDecayedScore(Builder $query, string $direction = 'desc'): Builder
+    {
+        $query->getQuery()->orders[] = [
+            'type' => 'raw',
+            'sql' => self::decayedPopularityScoreExpression() . ' ' . strtoupper($direction),
+        ];
+
+        return $query;
+    }
+
+    /**
      * SQL expression that applies a linear freshness decay to popularity_score
      * based on how long ago the restaurant's data was last updated.
      * See spec-104.

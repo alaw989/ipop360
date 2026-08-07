@@ -181,17 +181,15 @@ class SearchController extends Controller
      */
     private function applySort(Builder $query, string $sort, bool $hasCoords): Builder
     {
-        $decayedScore = Restaurant::decayedPopularityScoreExpression();
-
         // Search-only sort modes (not exposed by the persisted-db endpoint).
         if (in_array($sort, ['social_presence', 'website_traffic'], true)) {
             return match ($sort) {
                 'social_presence' => $query
                     ->orderByRaw('CASE WHEN social_links_count > 0 THEN 1 ELSE 0 END DESC')
-                    ->orderByRaw("{$decayedScore} DESC"),
+                    ->orderByDecayedScore(),
                 'website_traffic' => $query
                     ->orderByDesc('website_clicks_count')
-                    ->orderByRaw("{$decayedScore} DESC"),
+                    ->orderByDecayedScore(),
             };
         }
 

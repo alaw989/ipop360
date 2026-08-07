@@ -56,14 +56,12 @@ class HomeController extends Controller
 
         $effectiveLocation = null;
 
-        $decayedScore = Restaurant::decayedPopularityScoreExpression();
-
         if ($city) {
             $popularRestaurants = Restaurant::active()
                 ->with('cuisines')
                 ->where('city', $city)
                 ->where('state', $state)
-                ->orderByRaw("{$decayedScore} DESC")
+                ->orderByDecayedScore()
                 ->limit(18)
                 ->get();
 
@@ -75,7 +73,7 @@ class HomeController extends Controller
         if ($popularRestaurants->isEmpty()) {
             $popularRestaurants = Restaurant::active()
                 ->with('cuisines')
-                ->orderByRaw("{$decayedScore} DESC")
+                ->orderByDecayedScore()
                 ->limit(18)
                 ->get();
         }

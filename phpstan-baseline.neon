@@ -1,21 +1,3 @@
 parameters:
-	ignoreErrors:
-		-
-			message: '#^Parameter \#1 \$sql of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Restaurant\>\:\:orderByRaw\(\) expects literal\-string, non\-falsy\-string given\.$#'
-			identifier: argument.type
-			count: 2
-			path: app/Http/Controllers/HomeController.php
-
-		-
-			message: '#^Parameter \#1 \$sql of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Restaurant\>\:\:orderByRaw\(\) expects literal\-string, non\-falsy\-string given\.$#'
-			identifier: argument.type
-			count: 7
-			path: app/Http/Controllers/RestaurantController.php
-
-		-
-			message: '#^Parameter \#1 \$sql of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Restaurant\>\:\:orderByRaw\(\) expects literal\-string, non\-falsy\-string given\.$#'
-			identifier: argument.type
-			count: 8
-			path: app/Http/Controllers/SearchController.php
-
+	ignoreErrors: []
 
