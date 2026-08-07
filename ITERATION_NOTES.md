@@ -4,11 +4,18 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 2 (down from 3)
-- Remaining: missingType.iterableValue (2) — `missingType.return` fully eliminated
-- Remaining files: BackfillRestaurantLocation (extractCityState return), RestaurantEnrichmentService (processFreeVenue param)
+- Baseline entries: 0 — all PHPStan level-6 issues fixed
+- All categories eliminated: missingType.iterableValue, missingType.return, generics, argument.templateType
+- `phpstan-baseline.neon` is now empty (just a header)
 
 ## Log
+### Iteration 43 — Fixed final 2 iterableValue entries: BackfillRestaurantLocation + RestaurantEnrichmentService (total: 2→0)
+- `app/Console/Commands/BackfillRestaurantLocation.php`: Added `@return array{city: string, state: string|null}|null` to `extractCityState()`
+- `app/Services/RestaurantEnrichmentService.php`: Added `@param array<string, mixed> $venue` to `processFreeVenue()`
+- 2 baseline entries removed; baseline is now empty
+- `./vendor/bin/phpstan analyse` passes cleanly; all 563 tests pass
+
+
 ### Iteration 42 — Fixed WikidataService::parseBindings iterableValue entry (total: 3→2)
 - `app/Services/WikidataService.php`: Added `@param array<int, array{itemLabel: array{value: ?string}, coord: array{value: ?string}}>` to `parseBindings()` `$bindings` param; nullable `value` is correct because the defensive `?? null` guard handles missing values
 - 1 baseline entry removed; 0 WikidataService entries remain

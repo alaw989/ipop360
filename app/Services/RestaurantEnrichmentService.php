@@ -392,6 +392,8 @@ class RestaurantEnrichmentService
     /**
      * Process a single free venue: build attributes, upsert, attach cuisine.
      * Upserts by yelp_business_id when present, else by name + ≤200m proximity.
+     *
+     * @param array<string, mixed> $venue
      */
     private function processFreeVenue(array $venue, Cuisine $cuisine, ?string $cityName = null, ?string $stateCode = null): ?Restaurant
     {

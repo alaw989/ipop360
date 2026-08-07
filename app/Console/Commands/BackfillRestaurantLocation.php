@@ -129,6 +129,7 @@ class BackfillRestaurantLocation extends Command
         $this->info("  Attempted: {$attempted}, Updated: {$updated}, Failed: {$failed}");
     }
 
+    /** @return array{city: string, state: string|null}|null */
     private function extractCityState(string $address): ?array
     {
         if (empty($address)) {
