@@ -1,12 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Call to an undefined static method Illuminate\\Support\\Facades\\Queue\:\:pushed\(\)\.$#'
-			identifier: staticMethod.notFound
-			count: 1
-			path: tests/Feature/AiEnrichRestaurantsTest.php
-
-		-
 			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\> will always evaluate to true\.$#'
 			identifier: method.alreadyNarrowedType
 			count: 1

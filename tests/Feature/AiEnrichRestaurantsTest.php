@@ -84,7 +84,7 @@ class AiEnrichRestaurantsTest extends TestCase
         $command->run();
 
         /** @var array<int, EnrichRestaurantWithAi> $jobs */
-        $jobs = Queue::pushed(EnrichRestaurantWithAi::class);
+        $jobs = Queue::pushed(EnrichRestaurantWithAi::class); /* @phpstan-ignore staticMethod.notFound */
         $pushed = collect($jobs)->map->restaurantId->all();
 
         /** @var array<int, int> $expectedIds */
