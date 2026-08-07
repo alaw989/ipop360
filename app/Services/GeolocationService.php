@@ -89,6 +89,7 @@ class GeolocationService
                 $data = $response->json();
                 $features = $data['features'] ?? [];
 
+                /** @var array<int, array<string, mixed>> $features */
                 return collect($features)
                     ->filter(fn ($f) => in_array(
                         $f['properties']['osm_value'] ?? '',

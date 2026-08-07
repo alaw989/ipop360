@@ -4,14 +4,19 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 199 (down from 208)
-- Remaining by category: missingType.iterableValue (195), argument.templateType (4)
-- All 7 missingType.generics fixed — none remain
-- method.unresolvableReturnType also cleared (regeneration absorbed it)
-- Next: missingType.iterableValue (195 entries) or argument.templateType (4 entries)
+- Baseline entries: 195 (down from 199)
+- Remaining: missingType.iterableValue (195)
+- All 4 argument.templateType entries cleared — zero remain
+- Next: missingType.iterableValue (195 entries)
+- Top files by iterableValue count: OverpassService.php (30), SocrataOpenDataService.php (24), LiveSearchService.php (24), PopularityScoreService.php (19), SerpApiService.php (15), BizDataApiService.php (13)
 
 ## Log
-### Iteration 15 — Fixed remaining 7 generics: RestaurantResource + RestaurantEnrichmentService (total: 208→199)
+### Iteration 16 — Fixed all 4 argument.templateType: SearchAuditCommand + GeolocationService (total: 199→195)
+- `app/Console/Commands/SearchAuditCommand.php`: Added `/** @var array<int, array<string, mixed>> $results */` before `collect($results)` and extracted `$r['score_breakdown']['signals'] ?? []` to `$scoreSignals` with `/** @var array<int, array{label: mixed, contribution: float}> */` annotation (2 argument.templateType)
+- `app/Services/GeolocationService.php`: Added `/** @var array<int, array<string, mixed>> $features */` before `collect($features)` in `searchCities()` (2 argument.templateType)
+- Removed the 4 corresponding entries from `phpstan-baseline.neon`
+- `./vendor/bin/phpstan analyse` passes cleanly
+- argument.templateType category fully eliminated — zero entries remain
 - `app/Http/Resources/RestaurantResource.php`: Added `@var Collection<int, \App\Models\Restaurant>|null` to `$allRestaurants` property; added `@param Collection<int, \App\Models\Restaurant>` to `withAllRestaurants()` (2 generics)
 - `app/Services/RestaurantEnrichmentService.php`: Added `@param Collection<int, Restaurant>` to `enrichAwards()`, `enrichWebsiteData()`, `enrichWithAi()`; added `@param Collection<int, Cuisine>` to `buildCityCuisineGrid()`; added `@return Collection<int, Cuisine>` to `getConfiguredCuisines()` (5 generics)
 - Baseline regenerated: 199 entries, 0 generics. Also absorbed the lone method.unresolvableReturnType entry.

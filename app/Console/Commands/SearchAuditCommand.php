@@ -98,6 +98,7 @@ class SearchAuditCommand extends Command
 
         $this->line(count($results)." results in {$elapsed}s");
 
+        /** @var array<int, array<string, mixed>> $results */
         $sources = collect($results)->countBy(fn ($r) => $r['source'] ?? '?');
         $this->line('by source: '.$sources->map(fn ($n, $s) => "{$s}={$n}")->implode(', '));
 
@@ -116,7 +117,9 @@ class SearchAuditCommand extends Command
 
             $this->line(sprintf(' %-4s %s  %-9s %5s (%-5s) %6s  %s', $rank, $score, $source, $rating, $reviews, $distance, $name));
 
-            $signals = collect($r['score_breakdown']['signals'] ?? [])
+            /** @var array<int, array{label: mixed, contribution: float}> $scoreSignals */
+            $scoreSignals = $r['score_breakdown']['signals'] ?? [];
+            $signals = collect($scoreSignals)
                 ->sortByDesc('contribution')
                 ->take(4)
                 ->map(fn ($s) => sprintf('%s=%s', $s['label'], number_format($s['contribution'], 3)))
