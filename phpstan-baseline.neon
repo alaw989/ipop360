@@ -48,10 +48,4 @@ parameters:
 			count: 1
 			path: app/Services/LiveSearchService.php
 
-		-
-			message: '#^Parameter \#1 \$scoresByRestaurant of method App\\Services\\RestaurantEnrichmentService\:\:applyScoreUpdateBatch\(\) expects array\<int, array\{popularity_score\: float\|int, score_breakdown\: string\}\>, array\<int, array\{popularity_score\: float, score_breakdown\: non\-empty\-string\|false\}\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/RestaurantEnrichmentService.php
-
 
