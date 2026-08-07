@@ -4,14 +4,19 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 215 (down from 218)
-- Remaining by category: missingType.iterableValue (196), missingType.generics (14), argument.templateType (4), method.unresolvableReturnType (1)
-- missingType.parameter category fully eliminated (4→0)
-- missingType.return category fully eliminated (1→0)
-- missingType.generics down to 14 (−1 from BackfillRestaurantWebsites missingRestaurants())
-- Next: remaining 14 generics (RestaurantResource, PopularityScoreService, RestaurantEnrichmentService)
+- Baseline entries: 208 (down from 215)
+- Remaining by category: missingType.iterableValue (196), missingType.generics (7), argument.templateType (4), method.unresolvableReturnType (1)
+- missingType.generics down to 7 (−7 from PopularityScoreService)
+- Next: remaining 7 generics (RestaurantResource: 2, RestaurantEnrichmentService: 5)
 
 ## Log
+### Iteration 14 — Fixed PopularityScoreService generics (total: 215→208)
+- `app/Services/PopularityScoreService.php`: Added `@param Collection<int, mixed> $all` or `$allRestaurants` to 7 methods: `calculateScore()`, `calculateBreakdown()`, `calculateBreakdownForArray()`, `computeAggregates()`, `collectionMeanRating()`, `logDenominator()`, `minmaxStats()`
+- Used `Collection<int, mixed>` because the service handles both Restaurant models and live-search arrays — PHPStan's invariant TValue rejects narrower union types at call sites
+- Removed the 7 corresponding entries from `phpstan-baseline.neon`
+- `./vendor/bin/phpstan analyse` passes cleanly
+- All 17 PopularityScoreService unit tests pass
+
 ### Iteration 13 — Fixed BackfillRestaurantWebsites generics + iterableValue (total: 218→215)
 - `app/Console/Commands/BackfillRestaurantWebsites.php`: Added `@return Builder<Restaurant>` to `missingRestaurants()` (1 generics)
 - Added `@return array<string>` to `candidateDomains()` (1 iterableValue)

@@ -107,6 +107,8 @@ class PopularityScoreService
      * Calculate a composite popularity score for a restaurant, normalized
      * against the provided collection of all restaurants in the same context.
      * Free signals alone are sufficient; paid Google signals add an optional bonus.
+     *
+     * @param  Collection<int, mixed>  $allRestaurants
      */
     public function calculateScore(Restaurant $restaurant, Collection $allRestaurants): float
     {
@@ -117,6 +119,8 @@ class PopularityScoreService
      * Calculate a detailed per-signal breakdown of the popularity score.
      * Returns an array with 'signals' (label, weight, normalized, contribution)
      * and 'total' (final rounded score).
+     *
+     * @param  Collection<int, mixed>  $allRestaurants
      */
     public function calculateBreakdown(Restaurant $restaurant, Collection $allRestaurants): array
     {
@@ -140,6 +144,8 @@ class PopularityScoreService
     /**
      * Collection-level aggregates needed for normalization. Computed once for
      * the full dataset and reused across chunks or restaurants.
+     *
+     * @param  Collection<int, mixed>  $allRestaurants
      */
     public function computeAggregates(Collection $allRestaurants): array
     {
@@ -166,6 +172,8 @@ class PopularityScoreService
      * Calculate a detailed per-signal breakdown for an array-based restaurant
      * (from live search). Shares normalization logic with the Eloquent path.
      * Returns the same breakdown structure.
+     *
+     * @param  Collection<int, mixed>  $allRestaurants
      */
     public function calculateBreakdownForArray(array $restaurant, Collection $allRestaurants): array
     {
@@ -473,6 +481,8 @@ class PopularityScoreService
      * prior so they can't inflate C and still win in small collections. Falls
      * back to quality_mean_fallback when no credible venue exists. Works on both
      * Eloquent collections and plain array collections (live search).
+     *
+     * @param  Collection<int, mixed>  $all
      */
     private function collectionMeanRating(Collection $all): float
     {
@@ -585,6 +595,8 @@ class PopularityScoreService
     /**
      * Log denominator for a count signal: max(collectionMax, floor). Falls back
      * to the configured default when the collection is empty or all-zero.
+     *
+     * @param  Collection<int, mixed>  $all
      */
     private function logDenominator(Collection $all, string $signal): float
     {
@@ -597,6 +609,9 @@ class PopularityScoreService
         return max((float) $values->max(), (float) $this->logReviewFloor);
     }
 
+    /**
+     * @param  Collection<int, mixed>  $all
+     */
     private function minmaxStats(Collection $all, string $signal): ?array
     {
         $values = $all->pluck($signal)->filter(fn ($v) => $v !== null && (float) $v > 0.0);

@@ -702,20 +702,8 @@ parameters:
 			path: app/Services/PopularityScoreService.php
 
 		-
-			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdown\(\) has parameter \$allRestaurants with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Services/PopularityScoreService.php
-
-		-
 			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdown\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/PopularityScoreService.php
-
-		-
-			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdownForArray\(\) has parameter \$allRestaurants with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
-			identifier: missingType.generics
 			count: 1
 			path: app/Services/PopularityScoreService.php
 
@@ -762,24 +750,6 @@ parameters:
 			path: app/Services/PopularityScoreService.php
 
 		-
-			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateScore\(\) has parameter \$allRestaurants with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Services/PopularityScoreService.php
-
-		-
-			message: '#^Method App\\Services\\PopularityScoreService\:\:collectionMeanRating\(\) has parameter \$all with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Services/PopularityScoreService.php
-
-		-
-			message: '#^Method App\\Services\\PopularityScoreService\:\:computeAggregates\(\) has parameter \$allRestaurants with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Services/PopularityScoreService.php
-
-		-
 			message: '#^Method App\\Services\\PopularityScoreService\:\:computeAggregates\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -788,18 +758,6 @@ parameters:
 		-
 			message: '#^Method App\\Services\\PopularityScoreService\:\:computeCompletenessFromArray\(\) has parameter \$restaurant with no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/PopularityScoreService.php
-
-		-
-			message: '#^Method App\\Services\\PopularityScoreService\:\:logDenominator\(\) has parameter \$all with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Services/PopularityScoreService.php
-
-		-
-			message: '#^Method App\\Services\\PopularityScoreService\:\:minmaxStats\(\) has parameter \$all with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
-			identifier: missingType.generics
 			count: 1
 			path: app/Services/PopularityScoreService.php
 
