@@ -123,43 +123,7 @@ class RestaurantEnrichmentService
 
         // Batch update using raw CASE WHEN to reduce N UPDATEs to ceil(N/100) queries
         // This is significantly faster than individual model updates
-        if (! empty($scoresByRestaurant)) {
-            DB::transaction(function () use ($scoresByRestaurant, $updatedAt) {
-                collect(array_keys($scoresByRestaurant))->chunk(100)->each(function ($chunk) use ($scoresByRestaurant, $updatedAt) {
-                    $caseScore = 'CASE id';
-                    $caseBreakdown = 'CASE id';
-                    $chunkIds = [];
-
-                    foreach ($chunk as $id) {
-                        $data = $scoresByRestaurant[$id] ?? null;
-                        if ($data === null) {
-                            continue;
-                        }
-                        $chunkIds[] = $id;
-                        $escapedScore = (float) $data['popularity_score'];
-                        // Quote-doubling is the only escape both SQLite and
-                        // MySQL honour inside single-quoted literals. addslashes
-                        // (backslash) is NOT an escape in SQLite, so a quote in
-                        // the JSON would break the statement there. (spec-104)
-                        $escapedBreakdown = str_replace("'", "''", $data['score_breakdown']);
-                        $caseScore .= " WHEN {$id} THEN {$escapedScore}";
-                        $caseBreakdown .= " WHEN {$id} THEN '{$escapedBreakdown}'";
-                    }
-
-                    $caseScore .= ' END';
-                    $caseBreakdown .= ' END';
-                    $idsIn = implode(',', $chunkIds);
-
-                    DB::update("
-                        UPDATE restaurants
-                        SET popularity_score = ({$caseScore}),
-                            score_breakdown = ({$caseBreakdown}),
-                            updated_at = ?
-                        WHERE id IN ({$idsIn})
-                    ", [$updatedAt]);
-                });
-            });
-        }
+        $this->applyScoreUpdateBatch($scoresByRestaurant, $updatedAt);
 
         Log::channel('enrichment')->info('Restaurant enrichment complete', [
             'cuisine' => $cuisine->name,
@@ -167,6 +131,56 @@ class RestaurantEnrichmentService
         ]);
 
         return count($restaurantIds);
+    }
+
+    /**
+     * Persist popularity scores for an id → score map in one pass.
+     *
+     * Uses a raw CASE WHEN batch-update so N rows are written in ceil(N/100)
+     * queries instead of N individual model updates. The `score_breakdown` JSON
+     * is quoted-doubled: that is the only escape both SQLite and MySQL honour
+     * inside single-quoted literals (spec-104). Entries whose id is absent from
+     * the map are skipped, so mixed real/computed sets stay safe.
+     *
+     * @param  array<int, array{popularity_score: int|float, score_breakdown: string}>  $scoresByRestaurant
+     */
+    private function applyScoreUpdateBatch(array $scoresByRestaurant, string $updatedAt): void
+    {
+        if (empty($scoresByRestaurant)) {
+            return;
+        }
+
+        DB::transaction(function () use ($scoresByRestaurant, $updatedAt) {
+            collect(array_keys($scoresByRestaurant))->chunk(100)->each(function ($chunk) use ($scoresByRestaurant, $updatedAt) {
+                $caseScore = 'CASE id';
+                $caseBreakdown = 'CASE id';
+                $chunkIds = [];
+
+                foreach ($chunk as $id) {
+                    $data = $scoresByRestaurant[$id] ?? null;
+                    if ($data === null) {
+                        continue;
+                    }
+                    $chunkIds[] = $id;
+                    $escapedScore = (float) $data['popularity_score'];
+                    $escapedBreakdown = str_replace("'", "''", $data['score_breakdown']);
+                    $caseScore .= " WHEN {$id} THEN {$escapedScore}";
+                    $caseBreakdown .= " WHEN {$id} THEN '{$escapedBreakdown}'";
+                }
+
+                $caseScore .= ' END';
+                $caseBreakdown .= ' END';
+                $idsIn = implode(',', $chunkIds);
+
+                DB::update("
+                    UPDATE restaurants
+                    SET popularity_score = ({$caseScore}),
+                        score_breakdown = ({$caseBreakdown}),
+                        updated_at = ?
+                    WHERE id IN ({$idsIn})
+                ", [$updatedAt]);
+            });
+        });
     }
 
     /**
