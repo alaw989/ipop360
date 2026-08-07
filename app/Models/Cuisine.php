@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Cuisine extends Model
 {
+    /** @use HasFactory<\Database\Factories\CuisineFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -20,11 +21,17 @@ class Cuisine extends Model
         'sort_order',
     ];
 
+    /**
+     * @return BelongsTo<CuisineCategory, $this>
+     */
     public function category(): BelongsTo
     {
         return $this->belongsTo(CuisineCategory::class, 'category_id');
     }
 
+    /**
+     * @return BelongsToMany<Restaurant, $this>
+     */
     public function restaurants(): BelongsToMany
     {
         return $this->belongsToMany(Restaurant::class, 'cuisine_restaurant');

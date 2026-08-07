@@ -4,14 +4,21 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 258 (down from 264)
-- Remaining by category: missingType.iterableValue (202), missingType.generics (41), missingType.return (7), argument.templateType (7), method.unresolvableReturnType (1)
+- Baseline entries: 255 (down from 258)
+- Remaining by category: missingType.iterableValue (202), missingType.generics (38), missingType.return (7), argument.templateType (7), method.unresolvableReturnType (1)
 - missingType.parameter category fully eliminated (4→0)
 - missingType.return down to 7 (all in RestaurantController + LiveSearchService)
-- missingType.generics down to 41 (6 removed from BlogPost)
-- Next: Cuisine model (3 generics entries: HasFactory, category() BelongsTo, restaurants() BelongsToMany) would be a quick win, or Restaurant model (10 entries)
+- missingType.generics down to 38 (3 removed from Cuisine model)
+- Next: Restaurant model (10 generics entries) is the largest remaining generics target
 
 ## Log
+### Iteration 7 — Fixed Cuisine model generics (total: 258→255)
+- `app/Models/Cuisine.php`: Added `/** @use HasFactory<\Database\Factories\CuisineFactory> */` before `use HasFactory`
+- Added `@return BelongsTo<CuisineCategory, $this>` on `category()`
+- Added `@return BelongsToMany<Restaurant, $this>` on `restaurants()`
+- Removed the 3 corresponding entries from `phpstan-baseline.neon`
+- `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 6 — Fixed BlogPost generics (total: 264→258)
 - `app/Models/BlogPost.php`: Added `/** @use HasFactory<\Database\Factories\BlogPostFactory> */` before `use HasFactory`
 - Added `@return BelongsTo<User, $this>` on `author()`
