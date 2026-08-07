@@ -16,14 +16,20 @@ Fixed remaining 13 `missingType.iterableValue` entries across 11 test files (Biz
 
 Fixed all 10 `argument.templateType` entries on `collect()` calls in `AiEnrichRestaurantsTest.php` (2) and `LiveSearchScoringTest.php` (8). In AiEnrichRestaurantsTest, the fix extracts `Queue::pushed()` to a `@var array<int, EnrichRestaurantWithAi>` variable before passing to `collect()`. In LiveSearchScoringTest, `$scored` from `ReflectionMethod::invoke()` was annotated with `@var array<int, array<string, mixed>>`. For the inner `collect($mystery['score_breakdown']['signals'])` calls (lines 143/170), the chained mixed array access prevented template resolution — fixed by extracting `$signals` to a variable with a full array-shape `@var` annotation (`array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}>`) matching the `@return` PHPDoc of `PopularityScoreService::calculateBreakdownForArray()`.
 
-Baseline: 410 → 386 → 382 → 374 lines (68 → 64 → 63 → 62 entries, 117 → 113 → 112 → 111 errors).
+Baseline: 410 → 386 → 382 → 374 → 369 lines (68 → 64 → 63 → 62 → 61 entries, 117 → 113 → 112 → 111 → 110 errors).
 
 Fixed `arguments.count` in `WebsiteScraperSsrfGuardTest.php` — `Http::assertSentCount()` only accepts 1 parameter (`int $count`). The second argument (a descriptive message) was removed.
 
 ### What is next
-- `argument.type` for Mockery mocks passed to service constructors (LiveSearchScoringTest, RestaurantEnrichment*Test). A PHPStan stub file was attempted but did not override Mockery's existing `@return` annotations. Likely requires a `DynamicMethodReturnTypeExtension` or `@phpstan-` comments.
-- `method.notFound` on `Mockery\ExpectationInterface::andReturn()` etc. (RefreshAwardsTest, LiveSearchScoringTest, BackfillRestaurantPhotosTest, EnrichSearchResultsTest — Mockery `shouldReceive()` returns `ExpectationInterface|HigherOrderMessage`, where `HigherOrderMessage` lacks `andReturn`/`once`/`andReturnNull`). Same stub/extension challenge.
-- Individual issues: SerpApiQueryConstructionTest (return.type, argument.type for parse_str), RestaurantResourceAggregatesTest (argument.type ×2), WebsiteScraperSsrfGuardTest (arguments.count), EnrichSearchResultsTest (argument.type for handle()), AiEnrichmentServiceTest (argument.type ×4).
+- `return.type` and `argument.type` in SerpApiQueryConstructionTest.php: `parse_url()` returns `string|false|null`, but `parse_str()` expects `string`. Also `captureQuery()` return type mismatch (`array<mixed>|string` vs `string`). Can fix with `(string)` cast and `@var` annotation.
+- `argument.type` in AiEnrichmentServiceTest.php (×4): `json_encode()` returns `string|false` passed to `chatResponse(string)`. Fix with `(string)` cast at call sites or in the helper.
+- `argument.type` in AiEnrichmentServiceTest.php (×1): `RequestException` constructor expects `Response` but gets `PromiseInterface`. Fix by extracting response to variable with `@var Response`.
+- `argument.unresolvableType` in AiEnrichRestaurantsTest.php: factory-created model IDs in array literal. Fix with `@var array<int, int>` on extracted variable.
+- `method.notFound` and `argument.type` in RestaurantEnrichmentProcessFreeVenueTest.php (×6): `Cuisine::factory()->create()` returns `Model` not `Cuisine`. Fix with `@var Cuisine` annotation.
+- `argument.type` in RestaurantResourceAggregatesTest.php (×2): array shape types and factory return types. Fix with `@var` annotations.
+- `method.alreadyNarrowedType` (×6, 4 files): intentional assertions on known types — low value but could suppress with `@phpstan-ignore` comments if desired.
+- `argument.type` for Mockery mocks passed to service constructors (LiveSearchScoringTest, EnrichSearchResultsTest, RestaurantEnrichmentServiceTest): requires a PHPStan extension or `@phpstan-` comments.
+- `method.notFound` on `Mockery\ExpectationInterface::andReturn()` etc. (RefreshAwardsTest, LiveSearchScoringTest, BackfillRestaurantPhotosTest, EnrichSearchResultsTest): requires a PHPStan extension.
 
 ### Gotchas
 - `assertSuccessful()` on `PendingCommand` is an expectation-setter, not a runner. After extracting `$this->artisan(...)` to a `@var PendingCommand` variable, you must call `$command->run()` explicitly — otherwise the command never executes and side effects (like file creation) won't happen before your assertions.
@@ -52,5 +58,6 @@ Fixed `arguments.count` in `WebsiteScraperSsrfGuardTest.php` — `Http::assertSe
 15. Fixed all 10 `argument.templateType` entries on `collect()` calls in AiEnrichRestaurantsTest.php (2) and LiveSearchScoringTest.php (8) — added `@var` annotations on input variables so PHPStan can resolve `collect()` template types. For nested collect() calls on chained array access (e.g., `collect($mystery['score_breakdown']['signals'])`), extracting to a variable with a full array-shape `@var` was needed because intermediate `mixed` from array access on `array<string, mixed>` still blocked template resolution. Baseline 410→386 (68→64 entries, 117→113 errors).
 16. Fixed 1 baseline entry `assign.propertyType` in EngagementApiTest.php — Restaurant::factory()->create() returns `Model` per PHPStan, not `Restaurant`. Extracted to local variable with `/** @var Restaurant $restaurant */` annotation before assigning to typed property. Baseline 386→382 (64→63 entries, 113→112 errors).
 17. Fixed 1 baseline entry `arguments.count` in WebsiteScraperSsrfGuardTest.php — `Http::assertSentCount()` only accepts 1 parameter (`int $count`). Removed the invalid second argument (a descriptive message string). Baseline 382→374 (63→62 entries, 112→111 errors).
+18. Fixed 1 baseline entry `arrayValues.list` in RestaurantEnrichmentServiceTest.php — `array_values($mocks)` was redundant because `$mocks` is built with sequential integer keys (0, 1, 2, ...) via foreach. Removed the `array_values()` wrapper. Baseline 374→369 (62→61 entries, 111→110 errors).
 
 (End of file - total 53 lines)

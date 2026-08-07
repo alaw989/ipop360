@@ -57,7 +57,7 @@ class RestaurantEnrichmentServiceTest extends TestCase
         // humanize drives the cache key; defer to a stable value.
         $mocks[8]->shouldReceive('humanize')->andReturn('taco');
 
-        return new RestaurantEnrichmentService(...array_values($mocks));
+        return new RestaurantEnrichmentService(...$mocks);
     }
 
     /**

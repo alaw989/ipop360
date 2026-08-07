@@ -289,12 +289,6 @@ parameters:
 			path: tests/Unit/RestaurantEnrichmentServiceTest.php
 
 		-
-			message: '#^Parameter \#1 \$array \(array\{Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, Mockery\\LegacyMockInterface, \.\.\.\}\) of array_values is already a list, call has no effect\.$#'
-			identifier: arrayValues.list
-			count: 1
-			path: tests/Unit/RestaurantEnrichmentServiceTest.php
-
-		-
 			message: '#^Parameter \#1 \$overpass of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\OverpassService, Mockery\\LegacyMockInterface given\.$#'
 			identifier: argument.type
 			count: 1
