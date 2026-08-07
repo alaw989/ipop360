@@ -4,15 +4,21 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 222 (down from 245)
-- Remaining by category: missingType.iterableValue (199), missingType.generics (16), argument.templateType (6), method.unresolvableReturnType (1)
+- Baseline entries: 218 (down from 222)
+- Remaining by category: missingType.iterableValue (198), missingType.generics (15), argument.templateType (4), method.unresolvableReturnType (1)
 - missingType.parameter category fully eliminated (4→0)
 - missingType.return category fully eliminated (1→0)
-- missingType.generics down to 16 (−2 from RestaurantSocialLink + User models)
-- Next: remaining 16 generics (EnrichRestaurantWithAi Job, Dashboard/EngagementController, etc.)
+- missingType.generics down to 15 (−1 from EnrichRestaurants getCuisines())
+- argument.templateType down to 4 (−2 from EnrichRestaurants collect() calls)
+- Next: remaining 15 generics (BackfillRestaurantWebsites, RestaurantResource, PopularityScoreService, RestaurantEnrichmentService)
 
 ## Log
-### Iteration 11 — Fixed RestaurantSocialLink + User model generics (total: 224→222)
+### Iteration 12 — Fixed EnrichRestaurants generics + iterableValue + argument.templateType (total: 222→218)
+- `app/Console/Commands/EnrichRestaurants.php`: Added `@return Collection<int, Cuisine>` to `getCuisines()` (1 generics)
+- Added `@return array<int, float>|null` to `resolveCityCoordinates()` (1 iterableValue)
+- Added `/** @var array<string, array{float, float}> $cities */` before `config()` call in `enrichAllCities()` and `/** @var array<string, int> $cityResults */` in both `enrichAllCities()` and `enrichDiscoveredCities()` (2 argument.templateType from `collect()`)
+- Removed the 4 corresponding entries from `phpstan-baseline.neon`
+- `./vendor/bin/phpstan analyse` passes cleanly
 - `app/Models/RestaurantSocialLink.php`: Added `@return BelongsTo<Restaurant, $this>` to `restaurant()` (1 generics)
 - `app/Models/User.php`: Added `@return BelongsToMany<Restaurant, $this>` to `favorites()` (1 generics)
 - Removed the 2 corresponding entries from `phpstan-baseline.neon`

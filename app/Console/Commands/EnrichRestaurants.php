@@ -131,6 +131,7 @@ class EnrichRestaurants extends Command
      */
     protected function enrichAllCities(RestaurantEnrichmentService $enrichmentService, bool $freeOnly = false): int
     {
+        /** @var array<string, array{float, float}> $cities */
         $cities = config('restaurant-finder.cities', []);
 
         if (empty($cities)) {
@@ -155,6 +156,7 @@ class EnrichRestaurants extends Command
         }
 
         $grandTotal = 0;
+        /** @var array<string, int> $cityResults */
         $cityResults = [];
 
         foreach ($cities as $cityName => $coordinates) {
@@ -240,6 +242,7 @@ class EnrichRestaurants extends Command
         }
 
         $grandTotal = 0;
+        /** @var array<string, int> $cityResults */
         $cityResults = [];
 
         foreach ($discovered as $row) {
@@ -283,6 +286,8 @@ class EnrichRestaurants extends Command
 
     /**
      * Get cuisines to enrich, either from --cuisine option or configured cuisines.
+     *
+     * @return Collection<int, Cuisine>
      */
     protected function getCuisines(): Collection
     {
@@ -305,6 +310,8 @@ class EnrichRestaurants extends Command
 
     /**
      * Resolve a city name to latitude and longitude coordinates.
+     *
+     * @return array<int, float>|null
      */
     private function resolveCityCoordinates(string $city): ?array
     {
