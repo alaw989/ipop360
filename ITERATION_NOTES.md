@@ -10,18 +10,20 @@ Coverage loop in progress. Tests at 526 passing (started at 475). Services cover
 - `App\Services\AiEnrichmentService` — `tests/Unit/AiEnrichmentServiceTest.php` (7 tests / 17 assertions)
 - `App\Services\SerpApiService` normalization/cache-key logic — `tests/Unit/SerpApiServiceTest.php` (8 tests / 35 assertions). Note: the existing Feature tests cover query construction, exhaustion, quota guard; this new unit test covers the pure venue-normalization methods (`normalizeRaw`, `normalizeForEnrichment`, `cacheKeyFor`) that those never touch.
 
-Still untested: `CuisineScope`, `RestaurantValidationService`, `RestaurantEnrichmentService`, `LiveSearchService`, `CuisineMatcher` internals.
+Still untested: `CuisineScope`, `RestaurantEnrichmentService`, `LiveSearchService`, `CuisineMatcher` internals.
 
 Gotchas:
 - HtmlSanitizer: Latin accented chars round-trip as HTML *named* entities (`Café` → `Caf&eacute;`) because `encodeNonAscii` writes numeric entities but `DOMDocument->saveHTML` re-serializes as named. Assert with `html_entity_decode`.
 - LiveVenuePersister: `normalize()` runs first, so tests see normalized output (https:// prefix, digit-stripped phone). `has_award` is unset before update so live sources never overwrite a real award.
 - AiEnrichment: no-key → no-op; 429 → fallback provider chain.
+- RestaurantValidationService.normalize(): the leading whitespace-trim loop means empty/whitespace-only URL values stay as `''` (guard is `!empty`), they are NOT dropped or nulled.
 
 ## Next
-Pick the next uncovered service. `RestaurantValidationService` (pure validation rules, no collaborators) and `CuisineScope` are good next targets. `RestaurantEnrichmentService` is the largest gap but requires stubbing/mocking many collaborators — consider testing small behaviors indirectly. `LiveSearchService` is partially covered via `LiveSearchScoringTest` but its search() orchestration is untested.
+Pick the next uncovered service. `CuisineScope` is the next good target (likely few collaborators). `RestaurantEnrichmentService` is the largest gap but requires stubbing/mocking many collaborators — consider testing small behaviors indirectly. `LiveSearchService` is partially covered via `LiveSearchScoringTest` but its search() orchestration is untested.
 
 ## Log
 - Iter 1: Added `tests/Unit/HtmlSanitizerTest.php` (11 tests / 30 assertions).
 - Iter 2: Added `tests/Unit/LiveVenuePersisterTest.php` (8 tests / 24 assertions).
 - Iter 3: Added `tests/Unit/AiEnrichmentServiceTest.php` (7 tests / 17 assertions).
 - Iter 4: Added `tests/Unit/SerpApiServiceTest.php` (8 tests / 35 assertions) covering `normalizeRaw`, `normalizeForEnrichment`, `cacheKeyFor` — the pure normalization/cache logic Feature tests skip.
+- Iter 5: Added `tests/Unit/RestaurantValidationServiceTest.php` (10 tests / 41 assertions) covering `normalize`, `normalizeUrl`, `clampRating`, `clampLatitude`, `clampLongitude`, `normalizePhone`, `normalizePriceRange`.
