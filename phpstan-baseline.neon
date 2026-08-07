@@ -1,6 +1,1753 @@
-# PHPStan Baseline File
-# Generated on 2026-06-27
-# This baseline will be populated when phpstan first runs in CI
 parameters:
-    ignoreErrors:
-        # Baseline will be populated by first CI run
+	ignoreErrors:
+		-
+			message: '#^Method App\\Console\\Commands\\AuditRestaurantCuisines\:\:aiCuisineSlugs\(\) has parameter \$normalizedNameToSlug with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Console/Commands/AuditRestaurantCuisines.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\AuditRestaurantCuisines\:\:recommendations\(\) has parameter \$normalizedNameToSlug with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Console/Commands/AuditRestaurantCuisines.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\AuditRestaurantCuisines\:\:recommendations\(\) has parameter \$slugToId with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Console/Commands/AuditRestaurantCuisines.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\BackfillRestaurantLocation\:\:extractCityState\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Console/Commands/BackfillRestaurantLocation.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\BackfillRestaurantWebsites\:\:candidateDomains\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Console/Commands/BackfillRestaurantWebsites.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\BackfillRestaurantWebsites\:\:missingRestaurants\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Console/Commands/BackfillRestaurantWebsites.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\BackfillRestaurantWebsites\:\:parseExtractedPrice\(\) has parameter \$venue with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Console/Commands/BackfillRestaurantWebsites.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\CopySqliteToMysql\:\:copyTable\(\) has parameter \$source with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: app/Console/Commands/CopySqliteToMysql.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\CopySqliteToMysql\:\:copyTable\(\) has parameter \$target with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: app/Console/Commands/CopySqliteToMysql.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\CopySqliteToMysql\:\:targetColumns\(\) has parameter \$target with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: app/Console/Commands/CopySqliteToMysql.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\EnrichRestaurants\:\:getCuisines\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Console/Commands/EnrichRestaurants.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\EnrichRestaurants\:\:resolveCityCoordinates\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Console/Commands/EnrichRestaurants.php
+
+		-
+			message: '#^Unable to resolve the template type TKey in call to function collect$#'
+			identifier: argument.templateType
+			count: 1
+			path: app/Console/Commands/EnrichRestaurants.php
+
+		-
+			message: '#^Unable to resolve the template type TValue in call to function collect$#'
+			identifier: argument.templateType
+			count: 1
+			path: app/Console/Commands/EnrichRestaurants.php
+
+		-
+			message: '#^Unable to resolve the template type TKey in call to function collect$#'
+			identifier: argument.templateType
+			count: 1
+			path: app/Console/Commands/SearchAuditCommand.php
+
+		-
+			message: '#^Unable to resolve the template type TValue in call to function collect$#'
+			identifier: argument.templateType
+			count: 1
+			path: app/Console/Commands/SearchAuditCommand.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\UptimeCanary\:\:notifyIfDegraded\(\) has parameter \$checks with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Console/Commands/UptimeCanary.php
+
+		-
+			message: '#^Property App\\Console\\Commands\\ValidateRestaurantData\:\:\$changes type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Console/Commands/ValidateRestaurantData.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\Admin\\BlogPostController\:\:validated\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/Admin/BlogPostController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\Admin\\DashboardController\:\:__invoke\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/Admin/DashboardController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\CuisineController\:\:show\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/CuisineController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\EngagementController\:\:store\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/EngagementController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\FavoriteController\:\:ensurePersisted\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/FavoriteController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\FavoriteController\:\:index\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/FavoriteController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\FavoriteController\:\:merge\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/FavoriteController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\FavoriteController\:\:resolveCuisineIds\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/FavoriteController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\FavoriteController\:\:toggle\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/FavoriteController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\GeocodeController\:\:forward\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/GeocodeController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\GeocodeController\:\:reverse\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/GeocodeController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\GeocodeController\:\:search\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/GeocodeController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\HomeController\:\:__invoke\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/HomeController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\HomeController\:\:getHomepageData\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/HomeController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\HomeController\:\:getScopedCategories\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/HomeController.php
+
+		-
+			message: '#^Return type of call to method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: method.unresolvableReturnType
+			count: 1
+			path: app/Http/Controllers/HomeController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:apiIndex\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:applyRestaurantSort\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:applyRestaurantSort\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:applySortMode\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:applySortMode\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:buildRestaurantQuery\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:compare\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:index\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:leaderboard\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:persistLiveResults\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:persistLiveResults\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:preview\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:show\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RestaurantController\:\:snapshotLiveResults\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^PHPDoc tag @var for variable \$query contains generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 2
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Unable to resolve the template type TWhenReturnType in call to method Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\:\:when\(\)$#'
+			identifier: argument.templateType
+			count: 2
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\SearchController\:\:__invoke\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\SearchController\:\:applyRestaurantSort\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\SearchController\:\:applyRestaurantSort\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\SearchController\:\:applySort\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\SearchController\:\:applySort\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\SearchController\:\:persistLiveResults\(\) has parameter \$cuisineIds with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\SearchController\:\:persistLiveResults\(\) has parameter \$defaultLocation with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\SearchController\:\:persistLiveResults\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Method App\\Http\\Middleware\\LogApiRequest\:\:handle\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Middleware/LogApiRequest.php
+
+		-
+			message: '#^Method App\\Http\\Resources\\LiveRestaurantResource\:\:toArray\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Resources/LiveRestaurantResource.php
+
+		-
+			message: '#^Method App\\Http\\Resources\\RestaurantResource\:\:getScoreBreakdown\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Resources/RestaurantResource.php
+
+		-
+			message: '#^Method App\\Http\\Resources\\RestaurantResource\:\:toArray\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Resources/RestaurantResource.php
+
+		-
+			message: '#^Method App\\Http\\Resources\\RestaurantResource\:\:withAggregates\(\) has parameter \$aggregates with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Resources/RestaurantResource.php
+
+		-
+			message: '#^Method App\\Http\\Resources\\RestaurantResource\:\:withAllRestaurants\(\) has parameter \$allRestaurants with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Http/Resources/RestaurantResource.php
+
+		-
+			message: '#^Property App\\Http\\Resources\\RestaurantResource\:\:\$aggregates type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Resources/RestaurantResource.php
+
+		-
+			message: '#^Property App\\Http\\Resources\\RestaurantResource\:\:\$allRestaurants with generic class Illuminate\\Support\\Collection does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Http/Resources/RestaurantResource.php
+
+		-
+			message: '#^Property App\\Jobs\\EnrichRestaurantWithAi\:\:\$backoff type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Jobs/EnrichRestaurantWithAi.php
+
+		-
+			message: '#^Class App\\Models\\BlogPost uses generic trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory but does not specify its types\: TFactory$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/BlogPost.php
+
+		-
+			message: '#^Method App\\Models\\BlogPost\:\:author\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/BlogPost.php
+
+		-
+			message: '#^Method App\\Models\\BlogPost\:\:scopeDraft\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/BlogPost.php
+
+		-
+			message: '#^Method App\\Models\\BlogPost\:\:scopeDraft\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/BlogPost.php
+
+		-
+			message: '#^Method App\\Models\\BlogPost\:\:scopePublished\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/BlogPost.php
+
+		-
+			message: '#^Method App\\Models\\BlogPost\:\:scopePublished\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/BlogPost.php
+
+		-
+			message: '#^Class App\\Models\\Cuisine uses generic trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory but does not specify its types\: TFactory$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Cuisine.php
+
+		-
+			message: '#^Method App\\Models\\Cuisine\:\:category\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Cuisine.php
+
+		-
+			message: '#^Method App\\Models\\Cuisine\:\:restaurants\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany does not specify its types\: TRelatedModel, TDeclaringModel, TPivotModel, TAccessor \(2\-4 required\)$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Cuisine.php
+
+		-
+			message: '#^Class App\\Models\\CuisineCategory uses generic trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory but does not specify its types\: TFactory$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/CuisineCategory.php
+
+		-
+			message: '#^Method App\\Models\\CuisineCategory\:\:cuisines\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/CuisineCategory.php
+
+		-
+			message: '#^Method App\\Models\\ExternalApiCache\:\:findByKey\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ExternalApiCache.php
+
+		-
+			message: '#^Method App\\Models\\ExternalApiCache\:\:put\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ExternalApiCache.php
+
+		-
+			message: '#^Method App\\Models\\ExternalApiCache\:\:scopeExpired\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/ExternalApiCache.php
+
+		-
+			message: '#^Method App\\Models\\ExternalApiCache\:\:scopeExpired\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/ExternalApiCache.php
+
+		-
+			message: '#^Method App\\Models\\ExternalApiCache\:\:scopeFresh\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/ExternalApiCache.php
+
+		-
+			message: '#^Method App\\Models\\ExternalApiCache\:\:scopeFresh\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/ExternalApiCache.php
+
+		-
+			message: '#^Method App\\Models\\ExternalApiCache\:\:storeByKey\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Models/ExternalApiCache.php
+
+		-
+			message: '#^Class App\\Models\\Restaurant uses generic trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory but does not specify its types\: TFactory$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Method App\\Models\\Restaurant\:\:cuisines\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany does not specify its types\: TRelatedModel, TDeclaringModel, TPivotModel, TAccessor \(2\-4 required\)$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Method App\\Models\\Restaurant\:\:favoritedBy\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany does not specify its types\: TRelatedModel, TDeclaringModel, TPivotModel, TAccessor \(2\-4 required\)$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Method App\\Models\\Restaurant\:\:scopeActive\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Method App\\Models\\Restaurant\:\:scopeActive\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Method App\\Models\\Restaurant\:\:scopeByPopularity\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Method App\\Models\\Restaurant\:\:scopeByPopularity\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Method App\\Models\\Restaurant\:\:scopeNearby\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Method App\\Models\\Restaurant\:\:scopeNearby\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Method App\\Models\\Restaurant\:\:socialLinks\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Method App\\Models\\RestaurantSocialLink\:\:restaurant\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/RestaurantSocialLink.php
+
+		-
+			message: '#^Method App\\Models\\User\:\:favorites\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany does not specify its types\: TRelatedModel, TDeclaringModel, TPivotModel, TAccessor \(2\-4 required\)$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Method App\\Services\\AiEnrichmentService\:\:buildPrompt\(\) has parameter \$restaurantData with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/AiEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\AiEnrichmentService\:\:buildProviderChain\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/AiEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\AiEnrichmentService\:\:enrichRestaurant\(\) has parameter \$restaurantData with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/AiEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\AiEnrichmentService\:\:enrichRestaurant\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/AiEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\AiEnrichmentService\:\:tryProvider\(\) has parameter \$provider with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/AiEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\AiEnrichmentService\:\:tryProvider\(\) has parameter \$restaurantData with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/AiEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\AiEnrichmentService\:\:tryProvider\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/AiEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:consumePoolResponses\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:consumePoolResponses\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:fetchRaw\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:normalizeForEnrichment\(\) has parameter \$r with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:normalizeForEnrichment\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:normalizeRaw\(\) has parameter \$businesses with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:normalizeRaw\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:normalizeResults\(\) has parameter \$businesses with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:normalizeResults\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:parsePoolResponse\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:poolRequestsFor\(\) has parameter \$context with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:poolRequestsFor\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\BizDataApiService\:\:search\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/BizDataApiService.php
+
+		-
+			message: '#^Method App\\Services\\CuisineMatcher\:\:isSubstringOfAnyOnKeyword\(\) has parameter \$onKeywords with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/CuisineMatcher.php
+
+		-
+			message: '#^Method App\\Services\\CuisineMatcher\:\:venueMatchesCuisine\(\) has parameter \$venue with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/CuisineMatcher.php
+
+		-
+			message: '#^Method App\\Services\\GeolocationService\:\:forwardGeocode\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/GeolocationService.php
+
+		-
+			message: '#^Method App\\Services\\GeolocationService\:\:ipLookup\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/GeolocationService.php
+
+		-
+			message: '#^Method App\\Services\\GeolocationService\:\:ipLookupFull\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/GeolocationService.php
+
+		-
+			message: '#^Method App\\Services\\GeolocationService\:\:resolveCoordinates\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/GeolocationService.php
+
+		-
+			message: '#^Method App\\Services\\GeolocationService\:\:resolveLocation\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/GeolocationService.php
+
+		-
+			message: '#^Method App\\Services\\GeolocationService\:\:reverseGeocode\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/GeolocationService.php
+
+		-
+			message: '#^Method App\\Services\\GeolocationService\:\:searchCities\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/GeolocationService.php
+
+		-
+			message: '#^Unable to resolve the template type TKey in call to function collect$#'
+			identifier: argument.templateType
+			count: 1
+			path: app/Services/GeolocationService.php
+
+		-
+			message: '#^Unable to resolve the template type TValue in call to function collect$#'
+			identifier: argument.templateType
+			count: 1
+			path: app/Services/GeolocationService.php
+
+		-
+			message: '#^Method App\\Services\\Http\\RequestSpec\:\:__construct\(\) has parameter \$body with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/Http/RequestSpec.php
+
+		-
+			message: '#^Method App\\Services\\Http\\RequestSpec\:\:__construct\(\) has parameter \$headers with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/Http/RequestSpec.php
+
+		-
+			message: '#^Method App\\Services\\Http\\RequestSpec\:\:__construct\(\) has parameter \$query with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/Http/RequestSpec.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:applyOverpassNameFallback\(\) has parameter \$keywords with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:applyOverpassNameFallback\(\) has parameter \$merged with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:applyOverpassNameFallback\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:boundResults\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:boundResults\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:buildPoolRequest\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:dispatchPool\(\) has parameter \$toFetch with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:dispatchPool\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:fetchAndMergeAllSources\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:fetchSerpApiUnderLock\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:filterByCuisineConfidence\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:filterByCuisineConfidence\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:filterByCuisineRelevance\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:filterByCuisineRelevance\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:filterByDistance\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:filterByDistance\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:filterNonRestaurants\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:filterNonRestaurants\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:normalizeCachedHit\(\) has parameter \$cached with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:normalizeCachedHit\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:scoreWithUnifiedService\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:scoreWithUnifiedService\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:search\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:stampCuisineMatchStrength\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveSearchService\:\:stampCuisineMatchStrength\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Method App\\Services\\LiveVenuePersister\:\:knownCuisineIds\(\) has parameter \$venue with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveVenuePersister.php
+
+		-
+			message: '#^Method App\\Services\\LiveVenuePersister\:\:persist\(\) has parameter \$cuisineIds with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveVenuePersister.php
+
+		-
+			message: '#^Method App\\Services\\LiveVenuePersister\:\:persist\(\) has parameter \$defaultLocation with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveVenuePersister.php
+
+		-
+			message: '#^Method App\\Services\\LiveVenuePersister\:\:persist\(\) has parameter \$venue with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveVenuePersister.php
+
+		-
+			message: '#^Method App\\Services\\LiveVenuePersister\:\:persist\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LiveVenuePersister.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:buildAddress\(\) has parameter \$tags with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:consumePoolResponses\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:consumePoolResponses\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:executeSearch\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:executeSearchByName\(\) has parameter \$keywords with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:executeSearchByName\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:extractCoords\(\) has parameter \$el with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:extractCoords\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:extractCuisines\(\) has parameter \$tags with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:extractCuisines\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:extractFeatures\(\) has parameter \$tags with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:extractFeatures\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:fetchByNameRaw\(\) has parameter \$context with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:fetchByNameRaw\(\) has parameter \$keywords with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:fetchByNameRaw\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:fetchRaw\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:mapPriceRange\(\) has parameter \$tags with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:normalizeForEnrichment\(\) has parameter \$r with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:normalizeForEnrichment\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:normalizeRaw\(\) has parameter \$elements with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:normalizeRaw\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:normalizeResults\(\) has parameter \$elements with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:normalizeResults\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:parsePoolResponse\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:poolRequestsFor\(\) has parameter \$context with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:poolRequestsFor\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:search\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:searchByName\(\) has parameter \$keywords with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\OverpassService\:\:searchByName\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Property App\\Services\\OverpassService\:\:\$mirrors type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/OverpassService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:__construct\(\) has parameter \$weights with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdown\(\) has parameter \$allRestaurants with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdown\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdownForArray\(\) has parameter \$allRestaurants with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdownForArray\(\) has parameter \$restaurant with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdownForArray\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdownWithAggregates\(\) has parameter \$aggregates with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdownWithAggregates\(\) has parameter \$restaurant with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdownWithAggregates\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdownWithAggregatesFromEloquent\(\) has parameter \$aggregates with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateBreakdownWithAggregatesFromEloquent\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:calculateScore\(\) has parameter \$allRestaurants with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:collectionMeanRating\(\) has parameter \$all with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:computeAggregates\(\) has parameter \$allRestaurants with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:computeAggregates\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:computeCompletenessFromArray\(\) has parameter \$restaurant with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:logDenominator\(\) has parameter \$all with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:minmaxStats\(\) has parameter \$all with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:minmaxStats\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:normalize\(\) has parameter \$logDenoms with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:normalize\(\) has parameter \$minmax with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:normalizeBayesianQuality\(\) has parameter \$raw with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:normalizeMinMax\(\) has parameter \$stats with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:rawValueFromArray\(\) has parameter \$restaurant with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\PopularityScoreService\:\:restaurantToArray\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Property App\\Services\\PopularityScoreService\:\:\$weights type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/PopularityScoreService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:buildCityCuisineGrid\(\) has parameter \$cities with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:buildCityCuisineGrid\(\) has parameter \$cuisines with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:consumeOverpassResponses\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:consumeOverpassResponses\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:enrichAllCitiesThrottled\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:enrichAwards\(\) has parameter \$restaurants with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:enrichWebsiteData\(\) has parameter \$restaurants with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:enrichWithAi\(\) has parameter \$restaurants with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:fetchAndNormalizeAllSources\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:getConfiguredCuisines\(\) return type with generic class Illuminate\\Support\\Collection does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:normalizeOverpassWithFallback\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:normalizeOverpassWithFallback\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:normalizePoolResponses\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:normalizePoolResponses\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:processFreeVenue\(\) has parameter \$venue with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantValidationService\:\:normalize\(\) has parameter \$attributes with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantValidationService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantValidationService\:\:normalize\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantValidationService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:extractHoursFromJsonLd\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:extractHoursFromMicrodata\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:extractHoursFromText\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:extractOpeningHours\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:fetchPageForSocial\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:normalizeOpeningHours\(\) has parameter \$hours with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:normalizeOpeningHours\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:parseHoursText\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:performScrape\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Method App\\Services\\RestaurantWebsiteScraperService\:\:scrape\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:consumePoolResponses\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:consumePoolResponses\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:fetchRaw\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:normalizeForEnrichment\(\) has parameter \$r with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:normalizeForEnrichment\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:normalizeRaw\(\) has parameter \$localResults with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:normalizeRaw\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:normalizeResults\(\) has parameter \$localResults with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:normalizeResults\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:parseAddress\(\) has parameter \$result with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:parsePoolResponse\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:parsePriceRange\(\) has parameter \$venue with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:poolRequestsFor\(\) has parameter \$context with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:poolRequestsFor\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SerpApiService\:\:search\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SerpApiService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:buildHeaders\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:buildSoqlQuery\(\) has parameter \$fields with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:buildSoqlQuery\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:consumePoolResponses\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:consumePoolResponses\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:deduplicateByName\(\) has parameter \$results with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:deduplicateByName\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:fetchAllEndpoints\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:fetchEndpoint\(\) has parameter \$fields with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:fetchEndpoint\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:fetchRaw\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:normalizeEndpointResults\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:normalizeEndpointResults\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:normalizeForEnrichment\(\) has parameter \$r with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:normalizeForEnrichment\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:normalizeRaw\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:normalizeRaw\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:normalizeRow\(\) has parameter \$row with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:normalizeRow\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:parsePoolResponse\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:poolRequestsFor\(\) has parameter \$context with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:poolRequestsFor\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\SocrataOpenDataService\:\:search\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Property App\\Services\\SocrataOpenDataService\:\:\$endpoints type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/SocrataOpenDataService.php
+
+		-
+			message: '#^Method App\\Services\\VenuePipeline\:\:phonesMatch\(\) has parameter \$a with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/VenuePipeline.php
+
+		-
+			message: '#^Method App\\Services\\VenuePipeline\:\:phonesMatch\(\) has parameter \$b with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/VenuePipeline.php
+
+		-
+			message: '#^Method App\\Services\\VenuePipeline\:\:sortTiebreak\(\) has parameter \$a with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/VenuePipeline.php
+
+		-
+			message: '#^Method App\\Services\\VenuePipeline\:\:sortTiebreak\(\) has parameter \$b with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/VenuePipeline.php
+
+		-
+			message: '#^Method App\\Services\\VenuePipeline\:\:sortVenues\(\) has parameter \$venues with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/VenuePipeline.php
+
+		-
+			message: '#^Method App\\Services\\VenuePipeline\:\:sortVenues\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/VenuePipeline.php
+
+		-
+			message: '#^Method App\\Services\\VenuePipeline\:\:withinRadius\(\) has parameter \$a with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/VenuePipeline.php
+
+		-
+			message: '#^Method App\\Services\\VenuePipeline\:\:withinRadius\(\) has parameter \$b with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/VenuePipeline.php
+
+		-
+			message: '#^Method App\\Services\\WikidataService\:\:parseBindings\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/WikidataService.php
