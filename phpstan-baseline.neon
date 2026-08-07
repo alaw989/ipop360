@@ -252,53 +252,7 @@ parameters:
 			count: 1
 			path: app/Services/LiveVenuePersister.php
 
-		-
-			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:consumeOverpassResponses\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantEnrichmentService.php
 
-		-
-			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:consumeOverpassResponses\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantEnrichmentService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:enrichAllCitiesThrottled\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantEnrichmentService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:fetchAndNormalizeAllSources\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantEnrichmentService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:normalizeOverpassWithFallback\(\) has parameter \$data with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantEnrichmentService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:normalizeOverpassWithFallback\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantEnrichmentService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:normalizePoolResponses\(\) has parameter \$responses with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantEnrichmentService.php
-
-		-
-			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:normalizePoolResponses\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/RestaurantEnrichmentService.php
 
 		-
 			message: '#^Method App\\Services\\RestaurantEnrichmentService\:\:processFreeVenue\(\) has parameter \$venue with no value type specified in iterable type array\.$#'

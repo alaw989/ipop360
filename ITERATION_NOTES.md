@@ -4,11 +4,16 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 53 (down from 61)
-- Remaining: missingType.iterableValue (53)
-- Top files by iterableValue count: RestaurantEnrichmentService.php (8), GeolocationService.php (7), AiEnrichmentService.php (7)
+- Baseline entries: 45 (down from 53)
+- Remaining: missingType.iterableValue (45)
+- Top files by iterableValue count: GeolocationService.php (7), AiEnrichmentService.php (7), LiveVenuePersister.php (5)
 
 ## Log
+### Iteration 25 — Fixed all 8 RestaurantEnrichmentService iterableValue entries (total: 53→45)
+- `app/Services/RestaurantEnrichmentService.php`: Added value types to `consumeOverpassResponses()` (`@param array<int, Response|Throwable>`, `@return array<int, array<string, mixed>>`), `enrichAllCitiesThrottled()` (`@return array{total_processed: int, ...}`), `fetchAndNormalizeAllSources()` (`@return array<int, array<string, mixed>>`), `normalizeOverpassWithFallback()` (`@param array<int, mixed>`, `@return array<int, array<string, mixed>>`), `normalizePoolResponses()` (`@param array<int, Response|Throwable>`, `@return array<int, array<string, mixed>>`)
+- 8 baseline entries removed; 0 RestaurantEnrichmentService entries remain
+- All 563 tests pass; `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 24 — Fixed all 8 VenuePipeline iterableValue entries (total: 61→53)
 - `app/Services/VenuePipeline.php`: Added `@param array<string, mixed>` to `$a`/`$b` in `withinRadius()`, `phonesMatch()`, and `sortTiebreak()`
 - Added `@param array<int, array<string, mixed>>` + `@return array<int, array<string, mixed>>` to `sortVenues()`
