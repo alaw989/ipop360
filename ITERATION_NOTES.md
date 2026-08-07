@@ -4,23 +4,23 @@
 shrink the PHPStan level-7 baseline for tests/ by fixing real type issues in test code
 
 ## State
-Removed 5 baseline entries from `tests/Feature/AuditRestaurantCuisinesTest.php`:
-- `method.notFound`: `cuisines()` on `Model` (from `fresh()` in both helpers)
-- `missingType.iterableValue`: `$cuisineSlugs`, `$extra`, `tags()` return
-- `return.type`: `restaurant()` returning `Model|null` instead of `Restaurant`
+Removed 4 more baseline entries from `tests/Feature/BackfillRestaurantPhotosTest.php`:
+- `return.type`: replaced `factory()->create()` with `whereKey()->firstOrFail()` reload pattern (same approach as previous iteration)
+- `missingType.iterableValue`: added `@param array<string, mixed> $overrides` annotation
+- `method.nonObject` ×2: broke `artisan()` fluent chain into `@var PendingCommand $cmd` + separate method calls to resolve `PendingCommand|int` union type
 
-Fix approach: replaced `fresh()` with `->whereKey($id)->firstOrFail()` which PHPStan resolves correctly to `Restaurant`. Added `@param` type annotations. Also replaced `! empty($cuisineSlugs)` with `$cuisineSlugs !== []` since the type is now `array<int, string>`.
+Baseline: 820 → 796 lines (136 → 132 entries).
 
 ### What is next
-Many more test files have similar patterns. High-impact targets:
-- Other files with `fresh()` returning `Model|null` on restaurant helpers (same pattern in BackfillRestaurantPhotosTest, DeduplicateRestaurantsTest, BatchedScoringTest, etc.)
-- `missingType.iterableValue` errors (simple `@param` annotations needed in ~15 files)
-- `method.nonObject` on artisan command union types (`PendingCommand|int`) — will need different approach
+Many more test files have similar patterns:
+- `return.type` / `argument.type` from `fresh()`/`factory()->create()` returning `Model` (DeduplicateRestaurantsTest, BatchedScoringTest, RestaurantControllerTest, etc.)
+- `missingType.iterableValue` (simple `@param` annotations in ~14 files)
+- `method.nonObject` on `PendingCommand|int` (same pattern in several command tests: AiEnrichRestaurantsTest, RestoreDatabaseCommandTest, BackupDatabaseCommandTest, etc.)
 
 ### Gotchas
-- `Restaurant::factory()->create()` returns `Model` at PHPStan level 7, not `Restaurant`. Workaround: reload via `Restaurant::query()->whereKey($id)->firstOrFail()`
-- `findOrFail()` on Builder resolves to `Model|Collection`, so use `whereKey()->firstOrFail()` instead
-- The `$extra` parameter (used as `array_merge` second arg with `array<string, mixed>` type annotation) doesn't affect `create()` return type
+- For `PendingCommand|int` union type issues, extracting to a variable with `@var PendingCommand` annotation is clean and avoids changing test assertions
+- The remaining `method.notFound` on `Mockery\ExpectationInterface::once()` in BackfillRestaurantPhotosTest is a Mockery stub file limitation that can't be fixed in test code
 
 ## Log
 1. Fixed all 5 PHPStan baseline entries for `AuditRestaurantCuisinesTest.php`
+2. Fixed 4 PHPStan baseline entries for `BackfillRestaurantPhotosTest.php` (return.type, missingType.iterableValue, method.nonObject ×2)
