@@ -7,12 +7,6 @@ parameters:
 			path: tests/Feature/AiEnrichRestaurantsTest.php
 
 		-
-			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:once\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: tests/Feature/BackfillRestaurantPhotosTest.php
-
-		-
 			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\> will always evaluate to true\.$#'
 			identifier: method.alreadyNarrowedType
 			count: 1
@@ -29,12 +23,6 @@ parameters:
 			identifier: method.alreadyNarrowedType
 			count: 1
 			path: tests/Feature/BatchedScoringTest.php
-
-		-
-			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:once\(\)\.$#'
-			identifier: method.notFound
-			count: 6
-			path: tests/Feature/EnrichSearchResultsTest.php
 
 		-
 			message: '#^Parameter \#1 \$liveSearchService of method App\\Jobs\\EnrichSearchResults\:\:handle\(\) expects App\\Services\\LiveSearchService, Mockery\\MockInterface given\.$#'
@@ -55,69 +43,15 @@ parameters:
 			path: tests/Feature/EnrichSearchResultsTest.php
 
 		-
-			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:andReturn\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: tests/Feature/RefreshAwardsTest.php
-
-		-
-			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:andReturnUsing\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: tests/Feature/RefreshAwardsTest.php
-
-		-
 			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertTrue\(\) with true will always evaluate to true\.$#'
 			identifier: method.alreadyNarrowedType
 			count: 1
 			path: tests/Unit/ExampleTest.php
 
 		-
-			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:andReturn\(\)\.$#'
-			identifier: method.notFound
-			count: 19
-			path: tests/Unit/LiveSearchScoringTest.php
-
-		-
-			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:andReturnNull\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: tests/Unit/LiveSearchScoringTest.php
-
-		-
-			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:once\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: tests/Unit/LiveSearchScoringTest.php
-
-		-
 			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\> will always evaluate to true\.$#'
 			identifier: method.alreadyNarrowedType
 			count: 2
-			path: tests/Unit/LiveSearchScoringTest.php
-
-		-
-			message: '#^Parameter \#1 \$overpassService of class App\\Services\\LiveSearchService constructor expects App\\Services\\OverpassService, Mockery\\MockInterface given\.$#'
-			identifier: argument.type
-			count: 3
-			path: tests/Unit/LiveSearchScoringTest.php
-
-		-
-			message: '#^Parameter \#2 \$bizDataService of class App\\Services\\LiveSearchService constructor expects App\\Services\\BizDataApiService, Mockery\\MockInterface given\.$#'
-			identifier: argument.type
-			count: 3
-			path: tests/Unit/LiveSearchScoringTest.php
-
-		-
-			message: '#^Parameter \#3 \$serpApiService of class App\\Services\\LiveSearchService constructor expects App\\Services\\SerpApiService, Mockery\\MockInterface given\.$#'
-			identifier: argument.type
-			count: 3
-			path: tests/Unit/LiveSearchScoringTest.php
-
-		-
-			message: '#^Parameter \#4 \$socrataService of class App\\Services\\LiveSearchService constructor expects App\\Services\\SocrataOpenDataService, Mockery\\MockInterface given\.$#'
-			identifier: argument.type
-			count: 3
 			path: tests/Unit/LiveSearchScoringTest.php
 
 		-
@@ -239,12 +173,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
-
-		-
-			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:andReturn\(\)\.$#'
-			identifier: method.notFound
-			count: 2
-			path: tests/Unit/RestaurantEnrichmentServiceTest.php
 
 		-
 			message: '#^Parameter \#1 \$overpass of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\OverpassService, Mockery\\LegacyMockInterface given\.$#'

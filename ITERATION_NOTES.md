@@ -16,7 +16,7 @@ Fixed remaining 13 `missingType.iterableValue` entries across 11 test files (Biz
 
 Fixed all 10 `argument.templateType` entries on `collect()` calls in `AiEnrichRestaurantsTest.php` (2) and `LiveSearchScoringTest.php` (8). In AiEnrichRestaurantsTest, the fix extracts `Queue::pushed()` to a `@var array<int, EnrichRestaurantWithAi>` variable before passing to `collect()`. In LiveSearchScoringTest, `$scored` from `ReflectionMethod::invoke()` was annotated with `@var array<int, array<string, mixed>>`. For the inner `collect($mystery['score_breakdown']['signals'])` calls (lines 143/170), the chained mixed array access prevented template resolution — fixed by extracting `$signals` to a variable with a full array-shape `@var` annotation (`array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}>`) matching the `@return` PHPDoc of `PopularityScoreService::calculateBreakdownForArray()`.
 
-Baseline: 410 → 386 → 382 → 374 → 369 → 356 → 350 → 344 → 341 → 335 → 315 lines (68 → 64 → 63 → 62 → 61 → 60 → 58 → 57 → 56 → 54 → 52 entries, 117 → 113 → 112 → 111 → 110 → 108 → 105 → 104 → 103 → 97 → 95 errors).
+Baseline: 410 → 386 → 382 → 374 → 369 → 356 → 350 → 344 → 341 → 335 → 315 → 243 lines (68 → 64 → 63 → 62 → 61 → 60 → 58 → 57 → 56 → 54 → 52 → 40 entries, 117 → 113 → 112 → 111 → 110 → 108 → 105 → 104 → 103 → 97 → 95 → 47 errors).
 
 Fixed `arguments.count` in `WebsiteScraperSsrfGuardTest.php` — `Http::assertSentCount()` only accepts 1 parameter (`int $count`). The second argument (a descriptive message) was removed.
 
@@ -27,11 +27,12 @@ Fixed `argument.unresolvableType` in `AiEnrichRestaurantsTest.php` — the array
 Fixed `method.notFound` and `argument.type` in RestaurantEnrichmentProcessFreeVenueTest.php (×2 entries). Added `/** @var Cuisine $cuisine */` before all 5 `Cuisine::factory()->create()` calls, which resolved the `argument.type` (parameter #2 expects Cuisine, Model given, ×5) and `method.notFound` (Model::restaurants() undefined, ×1) entries. The 8 remaining Mockery entries in this file require a PHPStan extension.
 
 ### What is next
-- `method.alreadyNarrowedType` (×6, 4 files): intentional assertions on known types — low value but could suppress with `@phpstan-ignore` comments if desired.
-- `argument.type` for Mockery mocks passed to service constructors (LiveSearchScoringTest, EnrichSearchResultsTest, RestaurantEnrichmentServiceTest): requires a PHPStan extension or `@phpstan-` comments.
-- `method.notFound` on `Mockery\ExpectationInterface::andReturn()` etc. (RefreshAwardsTest, LiveSearchScoringTest, BackfillRestaurantPhotosTest, EnrichSearchResultsTest): requires a PHPStan extension.
+- `staticMethod.notFound` (×1): `Queue::pushed()` on facade — Larastan may need a stub or a `@phpstan-ignore` comment.
+- `method.alreadyNarrowedType` (×6, 4 files): intentional type-checking assertions — suppress with `@phpstan-ignore` if desired.
+- `argument.type` (×33, 4 files): Mockery `LegacyMockInterface`/`MockInterface` passed to constructors — the phpstan-mockery extension resolved the `MockInterface` → `LiveSearchService` cases (LiveSearchScoringTest) but not others. The remaining may require `@var` annotations with intersection types (`Service & \Mockery\MockInterface`) on mock variables.
 
 ### Gotchas
+- `phpstan/phpstan-mockery` 2.0 requires `phpstan/phpstan ^2.0` and `mockery/mockery ^1.6.11`. It resolves `method.notFound` on Mockery expectation methods (andReturn, once, andReturnNull, andReturnUsing) but only partially resolves `argument.type` for Mockery mocks passed to constructors — it handled `MockInterface` → typed services in some cases but not `LegacyMockInterface` or job `handle()` parameter passing.
 - `assertSuccessful()` on `PendingCommand` is an expectation-setter, not a runner. After extracting `$this->artisan(...)` to a `@var PendingCommand` variable, you must call `$command->run()` explicitly — otherwise the command never executes and side effects (like file creation) won't happen before your assertions.
 - When fixing `PendingCommand|int`, remember that `assertFailed()` and `assertExitCode()` are also expectation-setters that need explicit `run()`.
 - `method.alreadyNarrowedType` entries (assertIsArray on known array types) are low-value — assertions are still intentional even if PHPStan can see the type
@@ -66,5 +67,6 @@ Fixed `method.notFound` and `argument.type` in RestaurantEnrichmentProcessFreeVe
 22. Fixed 1 baseline entry `argument.unresolvableType` (count 1) in AiEnrichRestaurantsTest.php — array literal `[$sparse->id, $mid->id, $complete->id]` where each `->id` came from factory-created models (PHPStan infers `mixed`). Extracted to `/** @var array<int, int> $expectedIds */` before passing to `assertSame()`. Baseline 344→341 (57→56 entries, 104→103 errors).
 23. Fixed 2 baseline entries (count 6) in RestaurantEnrichmentProcessFreeVenueTest.php — `argument.type` (Cuisine param ×5) and `method.notFound` (Model::restaurants() ×1). Added `/** @var Cuisine $cuisine */` before all 5 `Cuisine::factory()->create()` calls. Baseline 341→335 (56→54 entries, 103→97 errors).
 24. Fixed 2 baseline entries (count 2) in RestaurantResourceAggregatesTest.php — `argument.type` on `withAggregates()` (empty array shape mismatch) and `calculateBreakdown()` (Model|null vs Restaurant). For the aggregates shape: replaced `['log_denoms' => [], ...]` with properly-typed dummy values `['log_denoms' => ['x' => 0.0], 'minmax' => ['x' => null], 'quality' => ['mean_rating' => 0.0]]` that satisfy the full array shape. For the restaurant type: extracted `$restaurants[0]` to `/** @var Restaurant $first */` before passing to `calculateBreakdown()`. Baseline 335→315 (54→52 entries, 97→95 errors).
+25. Installed `phpstan/phpstan-mockery` ^2.0 and added `vendor/phpstan/phpstan-mockery/extension.neon` to phpstan.neon includes. Regenerated baseline: all 8 `method.notFound` entries resolved (andReturn, once, andReturnNull, andReturnUsing on Mockery expectancies) + 4 `argument.type` entries resolved (LiveSearchScoringTest constructor mocks). Baseline 315→243 (52→40 entries, 95→47 errors). Remaining: 1 staticMethod.notFound, 6 method.alreadyNarrowedType, 33 argument.type (Mockery constructor mocks not resolved by extension).
 
 (End of file)
