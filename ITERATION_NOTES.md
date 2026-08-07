@@ -5,18 +5,17 @@ increase frontend test coverage with vitest
 
 ## State
 
-### Changed this iteration
-- Added `resources/js/Components/__tests__/Checkbox.spec.ts` (9 tests) covering:
-  - Renders input of type checkbox
-  - CSS classes (rounded, border-gray-300, text-indigo-600, shadow-sm, focus:ring-indigo-500)
-  - Checked when checked prop is true, unchecked when false
-  - Emits `update:checked` with true when setChecked(true)
-  - Emits `update:checked` with false when setChecked(false)
-  - Passes value prop to the input's value attribute
-  - No value attribute rendered when value prop is undefined
-  - No emit when checked prop is updated externally via setProps
+### Previous iteration
+- Added `resources/js/Components/__tests__/Checkbox.spec.ts` (9 tests).
 
-Verification: `npx vitest run resources/js/Components/__tests__/Checkbox.spec.ts` → 1 file / 9 tests pass. Full suite: 40 files / 463 tests pass.
+### Changed this iteration
+- Added `resources/js/Components/__tests__/PrimaryButton.spec.ts` (4 tests) covering:
+  - Renders a button element
+  - Renders slot content
+  - Applies expected CSS classes (bg-gray-800, text-white, rounded-md, inline-flex, hover:bg-gray-700, focus:ring-indigo-500)
+  - Renders as a native HTML BUTTON tag
+
+Verification: `npx vitest run resources/js/Components/__tests__/PrimaryButton.spec.ts` → 1 file / 4 tests pass.
 
 ### Previous iteration
 - Added `resources/js/Components/__tests__/Dropdown.spec.ts` (16 tests).
@@ -24,7 +23,7 @@ Verification: `npx vitest run resources/js/Components/__tests__/Checkbox.spec.ts
 - Added `resources/js/composables/__tests__/useIsMobile.spec.ts` (3 tests).
 
 ### Next
-Components still untested: `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `RestaurantCardSkeleton`, `DropdownLink`, `NavLink`, `AppFooter` (copy not spec), `JsonLd`, `ResponsiveNavLink`, `PrimaryButton`, `SecondaryButton`, `DangerButton`, `InputError`, `InputLabel`, `TextInput`, `ApplicationLogo`, `BrandLogo`.
+Components still untested: `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `RestaurantCardSkeleton`, `DropdownLink`, `NavLink`, `AppFooter` (copy not spec), `JsonLd`, `ResponsiveNavLink`, `SecondaryButton`, `DangerButton`, `InputError`, `InputLabel`, `TextInput`, `ApplicationLogo`, `BrandLogo`.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
