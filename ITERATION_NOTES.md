@@ -6,15 +6,22 @@ increase frontend test coverage with vitest
 ## State
 
 ### Changed this iteration
-- Added `resources/js/composables/__tests__/useBaseUrl.spec.ts` (3 tests) covering the client-side branch of `useBaseUrl`: returns `window.location` origin from jsdom, is reactive (computed with `.value`), and matches protocol+host format (no trailing path). The SSR fallback branch (`typeof window === 'undefined'`) was already covered in `ssr-fallback.node.spec.ts`.
+- Added `resources/js/composables/__tests__/useRestaurantDisplay.spec.ts` (26 tests) covering all 6 exported pure functions:
+  - `getDetailUrl` (3): persisted URL (id>0), preview URL (id<=0 + slug), maps fallback (id<=0 + no slug)
+  - `getRankStyle` (5): gold/silver/bronze/default/#0
+  - `isTopRank` (5): ranks 1-3 true, 0/4 false
+  - `getDisplayRating` (3): Yelp preferred, Google fallback, null when neither present
+  - `getRestaurantGradient` (2): cuisine-specific, fallback for empty cuisines
+  - `getRestaurantPhotos` (4): dedup combines photo_url + photos, caps at 6, photo_url only, empty when both null
+  - `getMapCoords` (4): present, null lat, null lng, both null
 
-Verification: `npx vitest run resources/js/composables/__tests__/useBaseUrl.spec.ts` → 1 file / 3 tests pass. Full suite: 33 files / 366 tests pass.
+Verification: `npx vitest run resources/js/composables/__tests__/useRestaurantDisplay.spec.ts` → 1 file / 26 tests pass. Full suite: 34 files / 392 tests pass.
 
 ### Previous iteration
-- Added `resources/js/composables/__tests__/useCompare.spec.ts` (9 tests) covering the compare composable: empty state, toggleCompare add/remove, clearCompare, isInCompare id distinction, compareUrl, localStorage persistence, corrupt localStorage recovery.
+- Added `resources/js/composables/__tests__/useBaseUrl.spec.ts` (3 tests) covering the client-side branch of `useBaseUrl`.
 
 ### Next
-Still need: `useGeolocation.spec.ts`, `useRestaurantDisplay.spec.ts`, `useCardGallery.spec.ts`, `useIsMobile.spec.ts`, `useKeyboardOffset.spec.ts` among composables. Among components: `CardGallery`, `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `Dropdown`, `RestaurantCardSkeleton`.
+Still need: `useGeolocation.spec.ts`, `useCardGallery.spec.ts`, `useIsMobile.spec.ts`, `useKeyboardOffset.spec.ts` among composables. Among components: `CardGallery`, `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `Dropdown`, `RestaurantCardSkeleton`.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
