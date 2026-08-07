@@ -6,18 +6,15 @@ increase frontend test coverage with vitest
 ## State
 
 ### Changed this iteration
-- Added `resources/js/Components/__tests__/RestaurantCard.spec.ts` (61 tests) covering all rendering branches: basic rendering (name, address, city/state fallback, article), rank badge (fire emoji for #1, #N for others), rank change indicator (ArrowUp/Down/Minus with title Up/Down/Steady), ScoreChip visibility, award badge, StarRating, price range, distance formatting, description rendering, cuisine badges, action pills (Directions with trackDirections call, Call with callPhone, Website with openWebsite), favorites heart (aria-label Save/Saved, toggle, text-red-500 class), compare button (Add/Remove to comparison, toggleCompare call), name overlay link (internal vs external _blank), stagger animation (card-enter class when stagger && rank <= 12), and Directions link href/target/rel.
-  - Same module-level mocks as SearchResultCard: `@inertiajs/vue3`, `@lucide/vue`, `@/lib/restaurant`, `@/composables/useFavorites`, `@/composables/useRestaurantDisplay`
-  - **New mock**: `@/composables/useCompare` with `isInCompare` (overridable via let binding) and `toggleCompare` as `vi.fn()` — needed because RestaurantCard renders a compare button in the CardGallery overlays slot
-  - **New stub**: `CardGallery` with `#overlays` slot passthrough (`<div class="card-gallery-stub"><slot name="overlays" /></div>`) — required because RestaurantCard nests rank badge, ScoreChip, compare button, and heart button inside CardGallery's overlays slot
-  - Added `getRestaurantPhotos` to the useRestaurantDisplay mock (returns `photos` array or `[photo_url]`) — used by RestaurantCard's `<CardGallery :photos>` prop
-  - Overridable `mockIsFavorited` / `mockIsInCompare` via `let` bindings that `beforeEach` resets — enables testing both favorited/not-favorited and in-compare/not-in-compare states from the same describe block
-  - Helper `makeRestaurant()` and `mountCard()` follow the same pattern as SearchResultCard
+- Added `resources/js/composables/__tests__/useCompare.spec.ts` (9 tests) covering the compare composable: empty state (count 0, isInCompare false, compareUrl null), toggleCompare add/remove, clearCompare, isInCompare id distinction, compareUrl comma-separated ids and null-when-empty, localStorage persistence across module reloads, and corrupt localStorage graceful recovery.
+  - Uses `vi.resetModules()` + dynamic `await import()` in each test because `useCompare` has module-level state (`compareIds` ref shared across all callers). `beforeEach` clears localStorage and resets modules so each test gets a fresh singleton.
+  - No Inertia dependency (pure localStorage composable), so no Inertia mocks needed.
+  - Follows same `makeVenue()` factory and `readStoredIds()` helper pattern as `useFavorites.spec.ts`.
 
-Verification: `npx vitest run resources/js/Components/__tests__/RestaurantCard.spec.ts` → 1 file / 61 tests pass. Full suite: 31 files / 354 tests pass.
+Verification: `npx vitest run resources/js/composables/__tests__/useCompare.spec.ts` → 1 file / 9 tests pass. Full suite: 32 files / 363 tests pass.
 
 ### Next
-Add tests for `ResultsGrid` (already exists with 220 lines — check gaps), or pick up another untested component (HeroSearch, CuisinePicker, StickySearchBar already have tests). Good targets: `RestaurantDetailPanel`, `ComparePanel`, or composables like `useFavorites.spec.ts`, `useCompare.spec.ts`.
+Still need: `useGeolocation.spec.ts`, `useRestaurantDisplay.spec.ts`, `useCardGallery.spec.ts`, `useBaseUrl.spec.ts`, `useIsMobile.spec.ts`, `useKeyboardOffset.spec.ts` among composables. Among components: `CardGallery`, `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `Dropdown`, `RestaurantCardSkeleton`.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
@@ -32,5 +29,6 @@ Add tests for `ResultsGrid` (already exists with 220 lines — check gaps), or p
 - CommandItem stub must emit `select` on click (`@click="$emit('select')"`) for `@select="handler(cat)"` bindings to fire.
 - Debounced async searches need `vi.useFakeTimers()` + `vi.advanceTimersByTimeAsync(300)` (not `advanceTimersByTime` — the async variant flushes microtasks that the resolved API promise schedules).
 - Dynamic `import('@/lib/api')` inside a component method resolves from the same `vi.mock('@/lib/api', ...)` as static imports.
+- Composables with module-level reactive state (e.g., `const compareIds = ref<number[]>(...)` outside the exported function) share state across all callers. To get a clean state per test, use `vi.resetModules()` + `await import()` in each test, with `localStorage.clear()` before module init so `loadIds()` returns `[]`.
 
 ## Log
