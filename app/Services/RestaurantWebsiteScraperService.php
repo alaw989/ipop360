@@ -889,7 +889,7 @@ class RestaurantWebsiteScraperService
     /**
      * Normalize opening hours to a consistent format.
      */
-    private function normalizeOpeningHours($hours): ?array
+    private function normalizeOpeningHours(mixed $hours): ?array
     {
         if ($hours === null) {
             return null;

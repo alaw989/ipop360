@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -94,7 +95,7 @@ class CopySqliteToMysql extends Command
     /**
      * Copy every row of one table. Returns row count, or -1 on failure.
      */
-    private function copyTable($source, $target, string $table): int
+    private function copyTable(Connection $source, Connection $target, string $table): int
     {
         $this->line("  Copying {$table}...");
 
@@ -150,7 +151,7 @@ class CopySqliteToMysql extends Command
     /**
      * @return string[]
      */
-    private function targetColumns($target, string $table): array
+    private function targetColumns(Connection $target, string $table): array
     {
         // Alias COLUMN_NAME -> column_name: information_schema returns the
         // physical (uppercase) name and pluck('column_name') would otherwise
