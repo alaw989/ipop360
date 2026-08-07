@@ -48,8 +48,12 @@ class RestaurantControllerTest extends TestCase
             'category_id' => $category->id,
         ]);
 
-        $sushi = Restaurant::factory()->create(['name' => 'Sushi Place', 'is_active' => true]);
-        $pasta = Restaurant::factory()->create(['name' => 'Pasta Place', 'is_active' => true]);
+        $sushi = Restaurant::whereKey(
+            Restaurant::factory()->create(['name' => 'Sushi Place', 'is_active' => true])->id
+        )->firstOrFail();
+        $pasta = Restaurant::whereKey(
+            Restaurant::factory()->create(['name' => 'Pasta Place', 'is_active' => true])->id
+        )->firstOrFail();
 
         $sushi->cuisines()->attach($japanese);
         $pasta->cuisines()->attach($italian);
@@ -158,7 +162,9 @@ class RestaurantControllerTest extends TestCase
         $category = CuisineCategory::factory()->create(['slug' => 'asian']);
         $cuisine = Cuisine::factory()->create(['slug' => 'japanese', 'category_id' => $category->id]);
 
-        $restaurant = Restaurant::factory()->create(['slug' => 'test-spot']);
+        $restaurant = Restaurant::whereKey(
+            Restaurant::factory()->create(['slug' => 'test-spot'])->id
+        )->firstOrFail();
         $restaurant->cuisines()->attach($cuisine);
 
         $response = $this->get("/restaurants/{$restaurant->slug}");
@@ -339,6 +345,8 @@ class RestaurantControllerTest extends TestCase
     /**
      * Bind a LiveSearchService mock that returns the given result array, so the
      * empty-DB + coords request falls into apiIndex's live-search branch.
+     *
+     * @param  array<int, array<string, mixed>>  $results
      */
     private function bindLiveSearchResults(array $results): void
     {
@@ -347,7 +355,12 @@ class RestaurantControllerTest extends TestCase
         });
     }
 
-    /** Minimal live-search row shape with sensible defaults. */
+    /**
+     * Minimal live-search row shape with sensible defaults.
+     *
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
     private function liveRow(array $overrides = []): array
     {
         return array_merge([

@@ -65,11 +65,12 @@ class HomeControllerTest extends TestCase
     {
         $category = CuisineCategory::factory()->create(['name' => 'TestCat', 'slug' => 'test-cat']);
         $cuisine = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'test-cuisine']);
-        $restaurant = Restaurant::factory()->create([
+        $r = Restaurant::factory()->create([
             'city' => 'TestCity',
             'state' => 'TestState',
             'is_active' => true,
         ]);
+        $restaurant = Restaurant::whereKey($r->id)->firstOrFail();
         $restaurant->cuisines()->attach($cuisine);
 
         $response = $this->getJson('/api/homepage-data');
@@ -89,11 +90,12 @@ class HomeControllerTest extends TestCase
     {
         $category = CuisineCategory::factory()->create(['name' => 'Scoped', 'slug' => 'scoped']);
         $cuisine = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'scoped-cuisine']);
-        $restaurant = Restaurant::factory()->create([
+        $r = Restaurant::factory()->create([
             'city' => 'Austin',
             'state' => 'Texas',
             'is_active' => true,
         ]);
+        $restaurant = Restaurant::whereKey($r->id)->firstOrFail();
         $restaurant->cuisines()->attach($cuisine);
 
         Restaurant::factory()->create([
@@ -116,12 +118,13 @@ class HomeControllerTest extends TestCase
         $category = CuisineCategory::factory()->create(['name' => 'Global', 'slug' => 'global']);
         $cuisine = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'global-cuisine']);
 
-        $restaurant = Restaurant::factory()->create([
+        $r = Restaurant::factory()->create([
             'city' => 'KnownCity',
             'state' => 'KnownState',
             'is_active' => true,
             'popularity_score' => 0.9,
         ]);
+        $restaurant = Restaurant::whereKey($r->id)->firstOrFail();
         $restaurant->cuisines()->attach($cuisine);
 
         $response = $this->getJson('/api/homepage-data?city=Unknown&state=Nowhere');
@@ -138,11 +141,12 @@ class HomeControllerTest extends TestCase
         $inCuisine = Cuisine::factory()->create(['category_id' => $inCity->id, 'slug' => 'in-cuisine']);
         Cuisine::factory()->create(['category_id' => $emptyCat->id, 'slug' => 'empty-cuisine']);
 
-        $restaurant = Restaurant::factory()->create([
+        $r = Restaurant::factory()->create([
             'city' => 'Miami',
             'state' => 'Florida',
             'is_active' => true,
         ]);
+        $restaurant = Restaurant::whereKey($r->id)->firstOrFail();
         $restaurant->cuisines()->attach($inCuisine);
 
         $response = $this->getJson('/api/homepage-data?city=Miami&state=Florida');
@@ -157,11 +161,12 @@ class HomeControllerTest extends TestCase
         $cat = CuisineCategory::factory()->create(['name' => 'Fallback', 'slug' => 'fallback']);
         $cuisine = Cuisine::factory()->create(['category_id' => $cat->id, 'slug' => 'fallback-cuisine']);
 
-        Restaurant::factory()->create([
+        $r = Restaurant::factory()->create([
             'city' => 'Somewhere',
             'state' => 'SomeState',
             'is_active' => true,
-        ])->cuisines()->attach($cuisine);
+        ]);
+        Restaurant::whereKey($r->id)->firstOrFail()->cuisines()->attach($cuisine);
 
         $response = $this->getJson('/api/homepage-data?city=Emptyville&state=EmptyState');
 

@@ -73,12 +73,6 @@ parameters:
 			path: tests/Feature/BackupDatabaseCommandTest.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:cuisines\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: tests/Feature/BatchedScoringTest.php
-
-		-
 			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\> will always evaluate to true\.$#'
 			identifier: method.alreadyNarrowedType
 			count: 1
@@ -94,12 +88,6 @@ parameters:
 			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsNumeric\(\) with float will always evaluate to true\.$#'
 			identifier: method.alreadyNarrowedType
 			count: 1
-			path: tests/Feature/BatchedScoringTest.php
-
-		-
-			message: '#^Parameter \#1 \$restaurant of method App\\Services\\PopularityScoreService\:\:calculateBreakdown\(\) expects App\\Models\\Restaurant, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 3
 			path: tests/Feature/BatchedScoringTest.php
 
 		-
@@ -199,12 +187,6 @@ parameters:
 			path: tests/Feature/EnrichSearchResultsTest.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:cuisines\(\)\.$#'
-			identifier: method.notFound
-			count: 5
-			path: tests/Feature/HomeControllerTest.php
-
-		-
 			message: '#^Method Tests\\Feature\\LiveVenuePersisterAwardTest\:\:venue\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -283,30 +265,6 @@ parameters:
 			path: tests/Feature/RefreshAwardsTest.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:cuisines\(\)\.$#'
-			identifier: method.notFound
-			count: 3
-			path: tests/Feature/RestaurantControllerTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\RestaurantControllerTest\:\:bindLiveSearchResults\(\) has parameter \$results with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/RestaurantControllerTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\RestaurantControllerTest\:\:liveRow\(\) has parameter \$overrides with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/RestaurantControllerTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\RestaurantControllerTest\:\:liveRow\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/RestaurantControllerTest.php
-
-		-
 			message: '#^Method Tests\\Feature\\RestaurantPreviewTest\:\:liveVenue\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -341,12 +299,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: tests/Feature/RestoreDatabaseCommandTest.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:cuisines\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: tests/Feature/SearchControllerTest.php
 
 		-
 			message: '#^Cannot call method assertExitCode\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
