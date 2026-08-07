@@ -37,12 +37,6 @@ parameters:
 			path: tests/Feature/BackfillRestaurantWebsitesSearchTest.php
 
 		-
-			message: '#^Cannot call method fetchColumn\(\) on PDOStatement\|false\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: tests/Feature/BackupDatabaseCommandTest.php
-
-		-
 			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\> will always evaluate to true\.$#'
 			identifier: method.alreadyNarrowedType
 			count: 1

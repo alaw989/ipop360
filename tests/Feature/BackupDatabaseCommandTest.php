@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Testing\PendingCommand;
 use PDO;
+use PDOStatement;
 use Tests\TestCase;
 
 /**
@@ -41,7 +42,9 @@ class BackupDatabaseCommandTest extends TestCase
         $this->assertCount(1, $backups, 'one snapshot created');
 
         $snapshot = new PDO('sqlite:'.$backups[0]);
-        $this->assertSame(3, (int) $snapshot->query('SELECT COUNT(*) FROM t')->fetchColumn());
+        /** @var PDOStatement $stmt */
+        $stmt = $snapshot->query('SELECT COUNT(*) FROM t');
+        $this->assertSame(3, (int) $stmt->fetchColumn());
 
         @unlink($this->fileDb);
         array_map('unlink', $backups);

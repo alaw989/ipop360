@@ -8,10 +8,11 @@ Fixed `method.nonObject` on `PendingCommand|int` in `RefreshAwardsTest.php` and 
 
 Fixed `argument.type` and `offsetAccess.nonOffsetAccessible` for `glob()` returning `list<string>|false` in `BackupDatabaseCommandTest.php` and `RestoreDatabaseCommandTest.php`. Added `?: []` null-coalesce after `glob()` calls that didn't already have it, consistent with line 88 of RestoreDatabaseCommandTest which already used this pattern.
 
-Baseline: 704 → 680 → 650 lines.
+Fixed `method.nonObject` on `PDOStatement|false` (`fetchColumn()`) in `BackupDatabaseCommandTest.php` — same `@var PDOStatement` pattern already used in RestoreDatabaseCommandTest.
+
+Baseline: 704 → 680 → 650 → 644 lines.
 
 ### What is next
-- `method.nonObject` on `PDOStatement|false` (`fetchColumn()`) in BackupDatabaseCommandTest — same `@var PDOStatement` pattern already used in RestoreDatabaseCommandTest
 - `missingType.iterableValue` (simple `@param`/`@return` annotations in ~10 remaining files)
 - `argument.type` for Mockery mocks passed to service constructors (LiveSearchScoringTest, RestaurantEnrichment*Test — requires stub file work)
 - `method.notFound` on `Mockery\ExpectationInterface::andReturn()` etc. (RefreshAwardsTest — Mockery stub limitation, unresolvable in test code)
@@ -34,3 +35,4 @@ Baseline: 704 → 680 → 650 lines.
 9. Fixed 3 baseline entries (count 8) `method.nonObject` on `PendingCommand|int` in RefreshAwardsTest.php and RestoreDatabaseCommandTest.php — same `@var PendingCommand` + explicit `run()` pattern, baseline 704→686
 10. Fixed 1 baseline entry (count 2) `method.nonObject` on `PDOStatement|false` in RestoreDatabaseCommandTest.php — `@var PDOStatement` on extracted `$stmt = $pdo->query(...)` before `fetchColumn()`, baseline 686→680
 11. Fixed 5 baseline entries (count 7) `argument.type` and `offsetAccess.nonOffsetAccessible` on `glob()` return type in BackupDatabaseCommandTest.php and RestoreDatabaseCommandTest.php — added `?: []` after `glob()` calls, baseline 680→650
+12. Fixed 1 baseline entry (count 1) `method.nonObject` on `PDOStatement|false` (`fetchColumn()`) in BackupDatabaseCommandTest.php — extracted `$stmt` variable with `@var PDOStatement` annotation before calling `fetchColumn()`, baseline 650→644
