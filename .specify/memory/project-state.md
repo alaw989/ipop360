@@ -1,8 +1,23 @@
 # iPop360 — Current Project State
 
 > Living snapshot for Claude (and humans) picking up this project. Read this
-> together with `constitution.md` and `history.md` at session start. Detailed
-> per-spec history lives in `history/`. Updated: 2026-06-30.
+> together with `constitution.md` and `backlog.md` at session start. Detailed
+> per-spec history lives in `history/`. Updated: 2026-08-07.
+
+## Latest (2026-08-07) — hardened via `opencode-loop`
+Five PRs shipped and deployed this session (all live):
+- **#63** backend unit coverage — PHPUnit 475 → **563**
+- **#64** frontend vitest coverage — **117 → 481** (25 new spec files)
+- **#65** PHPStan **level 6**, baseline 294 → 0
+- **#66** PHPStan **level 7**, baseline 43 → 0
+- **#67** PHPStan level 7 now covers **tests/** too, baseline 219 → 0
+
+**Current floor:** 563 PHPUnit + 481 vitest tests; PHPStan level 7 over `app/ + tests/`
+with a **zero baseline**; pint clean; CI + deploy green.
+
+**Next:** see `.specify/memory/backlog.md` (next goal = frontend page-level vitest tests).
+The rest of this file below is older historical context — the specs/ queue is no longer
+the work source; iteration goals come from `backlog.md`.
 
 ## What this is
 A restaurant-discovery app that ranks venues with a free-first scoring blend.
