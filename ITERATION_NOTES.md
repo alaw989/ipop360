@@ -6,23 +6,29 @@ increase frontend test coverage with vitest
 ## State
 
 ### Changed this iteration
-- Added `resources/js/composables/__tests__/useCardGallery.spec.ts` (21 tests) covering:
-  - `isMulti`: false for 0 or 1 photo, true for 2+, reactive to photo changes
-  - `activeIndex`: starts at 0
-  - `onLeave`: resets activeIndex to 0
-  - `goTo`: sets index, wraps with modulo, handles negatives, no-op when !isMulti
-  - `prev` / `next`: step with wrapping from first↔last
-  - `onMove`: maps cursor X to photo index, clamps, no-op when !isMulti, guards null currentTarget
-  - `onEnter`: does not throw
-  - lifecycle: registers/removes scroll+resize listeners on mount/unmount
+- Added `resources/js/Components/__tests__/Dropdown.spec.ts` (16 tests) covering:
+  - Closed by default (overlay + content hidden via v-show)
+  - Open on trigger click (overlay + content visible)
+  - Close on second trigger click (toggle)
+  - Close on backdrop overlay click
+  - Close on content area click
+  - Close on Escape key (document-level listener)
+  - No response to Escape when already closed
+  - No response to non-Escape keys
+  - Right alignment default, left alignment via `align` prop
+  - Width class `w-48` by default
+  - Default and custom `contentClasses`
+  - Trigger and content slot rendering
+  - Removes keydown listener on unmount
 
-Verification: `npx vitest run resources/js/composables/__tests__/useCardGallery.spec.ts` → 1 file / 21 tests pass. Full suite: 38 files / 438 tests pass.
+Verification: `npx vitest run resources/js/Components/__tests__/Dropdown.spec.ts` → 1 file / 16 tests pass. Full suite: 39 files / 454 tests pass.
 
 ### Previous iteration
+- Added `resources/js/composables/__tests__/useCardGallery.spec.ts` (21 tests).
 - Added `resources/js/composables/__tests__/useIsMobile.spec.ts` (3 tests).
 
 ### Next
-Among composables: `useSearch`, `useFavorite`, `useForm`, `useAuth`. Among components: `CardGallery`, `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `Dropdown`, `RestaurantCardSkeleton`.
+Components still untested: `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `RestaurantCardSkeleton`, `DropdownLink`, `NavLink`, `AppFooter` (copy not spec), `JsonLd`, `ResponsiveNavLink`, `PrimaryButton`, `SecondaryButton`, `DangerButton`, `Checkbox`, `InputError`, `InputLabel`, `TextInput`, `ApplicationLogo`, `BrandLogo`.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
