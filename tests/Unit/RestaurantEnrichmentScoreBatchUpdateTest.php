@@ -24,20 +24,6 @@ class RestaurantEnrichmentScoreBatchUpdateTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const SOURCES = [
-        OverpassService::class,
-        BizDataApiService::class,
-        SerpApiService::class,
-        SocrataOpenDataService::class,
-        WikidataService::class,
-        PopularityScoreService::class,
-        RestaurantWebsiteScraperService::class,
-        AiEnrichmentService::class,
-        CuisineMatcher::class,
-        VenuePipeline::class,
-        RestaurantValidationService::class,
-    ];
-
     /**
      * Drive the private applyScoreUpdateBatch() CASE WHEN update. All 11
      * collaborators are no-op mocks — this path only touches DB + inputs.
@@ -45,12 +31,34 @@ class RestaurantEnrichmentScoreBatchUpdateTest extends TestCase
     /** @param array<int, array<string, mixed>> $scores */
     private function applyBatch(array $scores, ?string $updatedAt = null): void
     {
-        $mocks = [];
-        foreach (self::SOURCES as $class) {
-            $mocks[] = Mockery::mock($class)->shouldIgnoreMissing();
-        }
+        /** @var OverpassService&\Mockery\MockInterface $overpass */
+        $overpass = Mockery::mock(OverpassService::class)->shouldIgnoreMissing();
+        /** @var BizDataApiService&\Mockery\MockInterface $bizData */
+        $bizData = Mockery::mock(BizDataApiService::class)->shouldIgnoreMissing();
+        /** @var SerpApiService&\Mockery\MockInterface $serpApiService */
+        $serpApiService = Mockery::mock(SerpApiService::class)->shouldIgnoreMissing();
+        /** @var SocrataOpenDataService&\Mockery\MockInterface $socrataService */
+        $socrataService = Mockery::mock(SocrataOpenDataService::class)->shouldIgnoreMissing();
+        /** @var WikidataService&\Mockery\MockInterface $wikidata */
+        $wikidata = Mockery::mock(WikidataService::class)->shouldIgnoreMissing();
+        /** @var PopularityScoreService&\Mockery\MockInterface $popularityScore */
+        $popularityScore = Mockery::mock(PopularityScoreService::class)->shouldIgnoreMissing();
+        /** @var RestaurantWebsiteScraperService&\Mockery\MockInterface $websiteScraper */
+        $websiteScraper = Mockery::mock(RestaurantWebsiteScraperService::class)->shouldIgnoreMissing();
+        /** @var AiEnrichmentService&\Mockery\MockInterface $aiEnrichment */
+        $aiEnrichment = Mockery::mock(AiEnrichmentService::class)->shouldIgnoreMissing();
+        /** @var CuisineMatcher&\Mockery\MockInterface $cuisineMatcher */
+        $cuisineMatcher = Mockery::mock(CuisineMatcher::class)->shouldIgnoreMissing();
+        /** @var VenuePipeline&\Mockery\MockInterface $venuePipeline */
+        $venuePipeline = Mockery::mock(VenuePipeline::class)->shouldIgnoreMissing();
+        /** @var RestaurantValidationService&\Mockery\MockInterface $restaurantValidation */
+        $restaurantValidation = Mockery::mock(RestaurantValidationService::class)->shouldIgnoreMissing();
 
-        $service = new RestaurantEnrichmentService(...$mocks);
+        $service = new RestaurantEnrichmentService(
+            $overpass, $bizData, $serpApiService, $socrataService, $wikidata,
+            $popularityScore, $websiteScraper, $aiEnrichment, $cuisineMatcher,
+            $venuePipeline, $restaurantValidation
+        );
 
         $method = new ReflectionMethod(RestaurantEnrichmentService::class, 'applyScoreUpdateBatch');
         $method->invoke($service, $scores, $updatedAt ?? now()->toDateTimeString());
