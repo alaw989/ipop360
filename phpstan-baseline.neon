@@ -1,24 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\> will always evaluate to true\.$#'
-			identifier: method.alreadyNarrowedType
-			count: 1
-			path: tests/Feature/BatchedScoringTest.php
-
-		-
-			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\{signals\: array\<int, array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\>, total\: float\} will always evaluate to true\.$#'
-			identifier: method.alreadyNarrowedType
-			count: 1
-			path: tests/Feature/BatchedScoringTest.php
-
-		-
-			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsNumeric\(\) with float will always evaluate to true\.$#'
-			identifier: method.alreadyNarrowedType
-			count: 1
-			path: tests/Feature/BatchedScoringTest.php
-
-		-
 			message: '#^Parameter \#1 \$liveSearchService of method App\\Jobs\\EnrichSearchResults\:\:handle\(\) expects App\\Services\\LiveSearchService, Mockery\\MockInterface given\.$#'
 			identifier: argument.type
 			count: 3
@@ -35,24 +17,6 @@ parameters:
 			identifier: argument.type
 			count: 3
 			path: tests/Feature/EnrichSearchResultsTest.php
-
-		-
-			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertTrue\(\) with true will always evaluate to true\.$#'
-			identifier: method.alreadyNarrowedType
-			count: 1
-			path: tests/Unit/ExampleTest.php
-
-		-
-			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsArray\(\) with array\<int, array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\> will always evaluate to true\.$#'
-			identifier: method.alreadyNarrowedType
-			count: 2
-			path: tests/Unit/LiveSearchScoringTest.php
-
-		-
-			message: '#^Call to method PHPUnit\\Framework\\Assert\:\:assertIsFloat\(\) with float will always evaluate to true\.$#'
-			identifier: method.alreadyNarrowedType
-			count: 1
-			path: tests/Unit/PopularityScoreServiceTest.php
 
 		-
 			message: '#^Parameter \#1 \$overpass of class App\\Services\\RestaurantEnrichmentService constructor expects App\\Services\\OverpassService, Mockery\\LegacyMockInterface given\.$#'

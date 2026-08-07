@@ -200,11 +200,11 @@ class BatchedScoringTest extends TestCase
         $breakdown = $scorer->calculateBreakdown($restaurant, $restaurants);
 
         // Verify breakdown structure
-        $this->assertIsArray($breakdown);
+        $this->assertIsArray($breakdown); // @phpstan-ignore method.alreadyNarrowedType
         $this->assertArrayHasKey('signals', $breakdown);
         $this->assertArrayHasKey('total', $breakdown);
-        $this->assertIsNumeric($breakdown['total']);
-        $this->assertIsArray($breakdown['signals']);
+        $this->assertIsNumeric($breakdown['total']); // @phpstan-ignore method.alreadyNarrowedType
+        $this->assertIsArray($breakdown['signals']); // @phpstan-ignore method.alreadyNarrowedType
 
         // Verify each signal has the expected structure
         foreach ($breakdown['signals'] as $signal) {

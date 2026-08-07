@@ -28,8 +28,11 @@ Fixed `method.notFound` and `argument.type` in RestaurantEnrichmentProcessFreeVe
 
 Fixed `staticMethod.notFound` in `AiEnrichRestaurantsTest.php` — `Queue::pushed()` is a `QueueFake` method not modeled by the `Queue` facade stub in Larastan. Suppressed with inline `/* @phpstan-ignore staticMethod.notFound */` on the call site. `@phpstan-ignore-next-line` with a `/** @var */` block between it and the error line did NOT work — the ignore must be on the same line as the error.
 
+Fixed all 6 `method.alreadyNarrowedType` entries across 4 files (BatchedScoringTest, ExampleTest, LiveSearchScoringTest, PopularityScoreServiceTest). These are intentional type-checking assertions where PHPStan already knows the type (e.g., `assertIsArray` on a known-array return, `assertTrue(true)`). Suppressed with inline `// @phpstan-ignore method.alreadyNarrowedType` on each assertion line.
+
+Baseline: 237 → 201 lines (39 → 33 entries, 46 → 39 errors).
+
 ### What is next
-- `method.alreadyNarrowedType` (×6, 4 files): intentional type-checking assertions — suppress with `@phpstan-ignore` if desired.
 - `argument.type` (×33, 4 files): Mockery `LegacyMockInterface`/`MockInterface` passed to constructors — the phpstan-mockery extension resolved the `MockInterface` → `LiveSearchService` cases (LiveSearchScoringTest) but not others. The remaining may require `@var` annotations with intersection types (`Service & \Mockery\MockInterface`) on mock variables.
 
 ### Gotchas
@@ -70,5 +73,6 @@ Fixed `staticMethod.notFound` in `AiEnrichRestaurantsTest.php` — `Queue::pushe
 24. Fixed 2 baseline entries (count 2) in RestaurantResourceAggregatesTest.php — `argument.type` on `withAggregates()` (empty array shape mismatch) and `calculateBreakdown()` (Model|null vs Restaurant). For the aggregates shape: replaced `['log_denoms' => [], ...]` with properly-typed dummy values `['log_denoms' => ['x' => 0.0], 'minmax' => ['x' => null], 'quality' => ['mean_rating' => 0.0]]` that satisfy the full array shape. For the restaurant type: extracted `$restaurants[0]` to `/** @var Restaurant $first */` before passing to `calculateBreakdown()`. Baseline 335→315 (54→52 entries, 97→95 errors).
 25. Installed `phpstan/phpstan-mockery` ^2.0 and added `vendor/phpstan/phpstan-mockery/extension.neon` to phpstan.neon includes. Regenerated baseline: all 8 `method.notFound` entries resolved (andReturn, once, andReturnNull, andReturnUsing on Mockery expectancies) + 4 `argument.type` entries resolved (LiveSearchScoringTest constructor mocks). Baseline 315→243 (52→40 entries, 95→47 errors). Remaining: 1 staticMethod.notFound, 6 method.alreadyNarrowedType, 33 argument.type (Mockery constructor mocks not resolved by extension).
 26. Fixed 1 baseline entry (count 1) `staticMethod.notFound` in AiEnrichRestaurantsTest.php — `Queue::pushed()` is a `QueueFake` method not modeled by the `Queue` facade stub. Suppressed with inline `/* @phpstan-ignore staticMethod.notFound */` on the call line. Baseline 243→237 (40→39 entries, 47→46 errors). Remaining: 6 method.alreadyNarrowedType, 33 argument.type (Mockery constructor mocks).
+27. Fixed all 6 `method.alreadyNarrowedType` entries across 4 files (BatchedScoringTest ×3, ExampleTest ×1, LiveSearchScoringTest ×1 count 2, PopularityScoreServiceTest ×1). Added inline `// @phpstan-ignore method.alreadyNarrowedType` on each assertion. Baseline 237→201 (39→33 entries, 46→39 errors). Remaining: 33 argument.type (Mockery constructor mocks).
 
 (End of file)

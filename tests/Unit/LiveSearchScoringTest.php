@@ -86,8 +86,8 @@ class LiveSearchScoringTest extends TestCase
         $farBreakdown = $this->scoreService->calculateBreakdownForArray($results[1], $all);
 
         // Both should have breakdowns
-        $this->assertIsArray($nearbyBreakdown['signals']);
-        $this->assertIsArray($farBreakdown['signals']);
+        $this->assertIsArray($nearbyBreakdown['signals']); // @phpstan-ignore method.alreadyNarrowedType
+        $this->assertIsArray($farBreakdown['signals']); // @phpstan-ignore method.alreadyNarrowedType
 
         // Nearby should have higher proximity score
         $nearbyProximity = collect($nearbyBreakdown['signals'])->first(fn ($s) => $s['label'] === 'Proximity');

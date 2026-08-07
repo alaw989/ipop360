@@ -280,7 +280,7 @@ class PopularityScoreServiceTest extends TestCase
         $all = new Collection([$restaurant]);
         $score = $this->service->calculateScore($restaurant, $all);
 
-        $this->assertIsFloat($score);
+        $this->assertIsFloat($score); // @phpstan-ignore method.alreadyNarrowedType
         $this->assertFinite($score);
     }
 
