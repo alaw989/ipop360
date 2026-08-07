@@ -37,27 +37,9 @@ parameters:
 			path: tests/Feature/BackfillRestaurantWebsitesSearchTest.php
 
 		-
-			message: '#^Cannot access offset 0 on list\<string\>\|false\.$#'
-			identifier: offsetAccess.nonOffsetAccessible
-			count: 1
-			path: tests/Feature/BackupDatabaseCommandTest.php
-
-		-
 			message: '#^Cannot call method fetchColumn\(\) on PDOStatement\|false\.$#'
 			identifier: method.nonObject
 			count: 1
-			path: tests/Feature/BackupDatabaseCommandTest.php
-
-		-
-			message: '#^Parameter \#2 \$array of function array_map expects array, list\<string\>\|false given\.$#'
-			identifier: argument.type
-			count: 2
-			path: tests/Feature/BackupDatabaseCommandTest.php
-
-		-
-			message: '#^Parameter \#2 \$haystack of method PHPUnit\\Framework\\Assert\:\:assertCount\(\) expects Countable\|iterable, list\<string\>\|false given\.$#'
-			identifier: argument.type
-			count: 2
 			path: tests/Feature/BackupDatabaseCommandTest.php
 
 		-
@@ -245,18 +227,6 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: tests/Feature/RestaurantPreviewTest.php
-
-		-
-			message: '#^Parameter \#2 \$array of function array_map expects array, list\<string\>\|false given\.$#'
-			identifier: argument.type
-			count: 1
-			path: tests/Feature/RestoreDatabaseCommandTest.php
-
-		-
-			message: '#^Parameter \#2 \$haystack of method PHPUnit\\Framework\\Assert\:\:assertCount\(\) expects Countable\|iterable, list\<string\>\|false given\.$#'
-			identifier: argument.type
-			count: 1
-			path: tests/Feature/RestoreDatabaseCommandTest.php
 
 		-
 			message: '#^Method Tests\\Feature\\SerpApiQueryConstructionTest\:\:captureQuery\(\) should return string but returns array\<mixed\>\|string\.$#'

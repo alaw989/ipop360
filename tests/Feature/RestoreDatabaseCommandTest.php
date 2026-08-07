@@ -40,7 +40,7 @@ class RestoreDatabaseCommandTest extends TestCase
         $command = $this->artisan('db:backup', ['--path' => $dir, '--keep' => 5]);
         $command->assertSuccessful();
         $command->run();
-        $backups = glob($dir.'/pre-migrate-*.sqlite');
+        $backups = glob($dir.'/pre-migrate-*.sqlite') ?: [];
         $this->assertCount(1, $backups, 'snapshot created');
 
         // "Bad migration": mutate the live DB after the snapshot.

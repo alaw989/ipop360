@@ -37,7 +37,7 @@ class BackupDatabaseCommandTest extends TestCase
         $command->assertSuccessful();
         $command->run();
 
-        $backups = glob($dir.'/pre-migrate-*.sqlite');
+        $backups = glob($dir.'/pre-migrate-*.sqlite') ?: [];
         $this->assertCount(1, $backups, 'one snapshot created');
 
         $snapshot = new PDO('sqlite:'.$backups[0]);
@@ -77,7 +77,7 @@ class BackupDatabaseCommandTest extends TestCase
         $command->assertSuccessful();
         $command->run();
 
-        $remaining = glob($dir.'/pre-migrate-*.sqlite');
+        $remaining = glob($dir.'/pre-migrate-*.sqlite') ?: [];
         $this->assertCount(2, $remaining, 'only the 2 newest snapshots are retained');
 
         @unlink($this->fileDb);

@@ -6,10 +6,12 @@ shrink the PHPStan level-7 baseline for tests/ by fixing real type issues in tes
 ## State
 Fixed `method.nonObject` on `PendingCommand|int` in `RefreshAwardsTest.php` and `RestoreDatabaseCommandTest.php`, and `method.nonObject` on `PDOStatement|false` in `RestoreDatabaseCommandTest.php`. The PDOStatement fix uses `@var PDOStatement` annotation on the extracted `$stmt` variable from `PDO::query()` before calling `fetchColumn()`.
 
-Baseline: 704 → 680 lines.
+Fixed `argument.type` and `offsetAccess.nonOffsetAccessible` for `glob()` returning `list<string>|false` in `BackupDatabaseCommandTest.php` and `RestoreDatabaseCommandTest.php`. Added `?: []` null-coalesce after `glob()` calls that didn't already have it, consistent with line 88 of RestoreDatabaseCommandTest which already used this pattern.
+
+Baseline: 704 → 680 → 650 lines.
 
 ### What is next
-- `argument.type` for `glob()` returning `list<string>|false` (RestoreDatabaseCommandTest, BackupDatabaseCommandTest)
+- `method.nonObject` on `PDOStatement|false` (`fetchColumn()`) in BackupDatabaseCommandTest — same `@var PDOStatement` pattern already used in RestoreDatabaseCommandTest
 - `missingType.iterableValue` (simple `@param`/`@return` annotations in ~10 remaining files)
 - `argument.type` for Mockery mocks passed to service constructors (LiveSearchScoringTest, RestaurantEnrichment*Test — requires stub file work)
 - `method.notFound` on `Mockery\ExpectationInterface::andReturn()` etc. (RefreshAwardsTest — Mockery stub limitation, unresolvable in test code)
@@ -19,6 +21,7 @@ Baseline: 704 → 680 lines.
 - When fixing `PendingCommand|int`, remember that `assertFailed()` and `assertExitCode()` are also expectation-setters that need explicit `run()`.
 - The remaining `method.notFound` on `Mockery\ExpectationInterface::once()` in BackfillRestaurantPhotosTest is a Mockery stub file limitation that can't be fixed in test code
 - `method.alreadyNarrowedType` entries (assertIsArray on known array types) are low-value — assertions are still intentional even if PHPStan can see the type
+- `glob()` in PHP 8.3 returns `array<int, string>|false`. Adding `?: []` converts false to an empty array, eliminating the union type without hiding real errors — a false return from glob() would already cause a test failure downstream.
 
 ## Log
 1. Fixed all 5 PHPStan baseline entries for `AuditRestaurantCuisinesTest.php`
@@ -30,3 +33,4 @@ Baseline: 704 → 680 lines.
 7. Fixed 1 entry (count 10) `method.nonObject` on `PendingCommand|int` in QuotaStatusCommandTest.php — same pattern, baseline 716→710
 9. Fixed 3 baseline entries (count 8) `method.nonObject` on `PendingCommand|int` in RefreshAwardsTest.php and RestoreDatabaseCommandTest.php — same `@var PendingCommand` + explicit `run()` pattern, baseline 704→686
 10. Fixed 1 baseline entry (count 2) `method.nonObject` on `PDOStatement|false` in RestoreDatabaseCommandTest.php — `@var PDOStatement` on extracted `$stmt = $pdo->query(...)` before `fetchColumn()`, baseline 686→680
+11. Fixed 5 baseline entries (count 7) `argument.type` and `offsetAccess.nonOffsetAccessible` on `glob()` return type in BackupDatabaseCommandTest.php and RestoreDatabaseCommandTest.php — added `?: []` after `glob()` calls, baseline 680→650
