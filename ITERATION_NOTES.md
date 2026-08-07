@@ -4,15 +4,21 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 229 (down from 245)
-- Remaining by category: missingType.iterableValue (199), missingType.generics (22), argument.templateType (6), missingType.return (1), method.unresolvableReturnType (1)
+- Baseline entries: 224 (down from 245)
+- Remaining by category: missingType.iterableValue (199), missingType.generics (18), argument.templateType (6), method.unresolvableReturnType (1)
 - missingType.parameter category fully eliminated (4→0)
-- missingType.return down to 1 (only LiveSearchService remains)
-- missingType.generics down to 22 (−6 from RestaurantController)
-- RestaurantController fully clean (all 16 blocks removed: 6 return types, 7 generics, 3 iterableValue)
-- Next: SearchController + LiveSearchService (4 generics + 1 missingType.return) — a small combined target
+- missingType.return category fully eliminated (1→0)
+- missingType.generics down to 18 (−4 from SearchController)
+- Next: RestaurantSocialLink + User models (2 generics, similar to iteration 6-8 model fixes)
 
 ## Log
+### Iteration 10 — Fixed SearchController generics + LiveSearchService return type (total: 229→224)
+- `app/Http/Controllers/SearchController.php`: Added `@param Builder<Restaurant> $query` / `@return Builder<Restaurant>` PHPDoc to `applySort()` (2 generics)
+- `app/Services/LiveSearchService.php`: Added `: \Illuminate\Http\Client\Response` return type to `buildPoolRequest()` (1 missingType.return)
+- Also removed the 2 SearchController `applyRestaurantSort()` generics — the trait already had generics from iteration 9 but the baseline entries under SearchController were never removed
+- Removed all 5 corresponding entries from `phpstan-baseline.neon`
+- `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 9 — Fixed all 16 RestaurantController baseline entries (total: 245→229)
 - `app/Http/Controllers/RestaurantController.php`: Added `: InertiaResponse` return types to `index()`, `show()`, `preview()`, `leaderboard()`, `compare()`
 - Added `: JsonResponse` return type to `apiIndex()`

@@ -174,6 +174,10 @@ class SearchController extends Controller
         ]);
     }
 
+    /**
+     * @param  Builder<Restaurant>  $query
+     * @return Builder<Restaurant>
+     */
     private function applySort(Builder $query, string $sort, bool $hasCoords): Builder
     {
         $decayedScore = Restaurant::decayedPopularityScoreExpression();
