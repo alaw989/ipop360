@@ -4,15 +4,20 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 264 (down from 292)
-- Remaining by category: missingType.iterableValue (202), missingType.generics (47), missingType.return (7), argument.templateType (7), method.unresolvableReturnType (1)
+- Baseline entries: 258 (down from 264)
+- Remaining by category: missingType.iterableValue (202), missingType.generics (41), missingType.return (7), argument.templateType (7), method.unresolvableReturnType (1)
 - missingType.parameter category fully eliminated (4→0)
 - missingType.return down to 7 (all in RestaurantController + LiveSearchService)
-- missingType.generics down to 47 (2 removed from CuisineCategory)
-- Next: another model with generics (BlogPost: 6 entries, Restaurant: 10, Cuisine: 3) or BlogPost scopes + relations would be a good high-return target
+- missingType.generics down to 41 (6 removed from BlogPost)
+- Next: Cuisine model (3 generics entries: HasFactory, category() BelongsTo, restaurants() BelongsToMany) would be a quick win, or Restaurant model (10 entries)
 
 ## Log
-### Iteration 5 — Fixed CuisineCategory generics (total: 266→264)
+### Iteration 6 — Fixed BlogPost generics (total: 264→258)
+- `app/Models/BlogPost.php`: Added `/** @use HasFactory<\Database\Factories\BlogPostFactory> */` before `use HasFactory`
+- Added `@return BelongsTo<User, $this>` on `author()`
+- Added `@param Builder<BlogPost>` / `@return Builder<BlogPost>` on `scopePublished()` and `scopeDraft()`
+- Removed the 6 corresponding entries from `phpstan-baseline.neon`
+- `./vendor/bin/phpstan analyse` passes cleanly
 - `app/Models/CuisineCategory.php`: Added `/** @use HasFactory<...> */` inline before `use HasFactory` and `@return HasMany<Cuisine, $this>` on `cuisines()`
 - Key finding: `@use` for traits must go directly before the `use` statement, not on the class docblock
 - Removed the 2 corresponding entries from `phpstan-baseline.neon`

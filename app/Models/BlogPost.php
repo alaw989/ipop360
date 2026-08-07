@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
  */
 class BlogPost extends Model
 {
+    /** @use HasFactory<\Database\Factories\BlogPostFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -41,11 +42,18 @@ class BlogPost extends Model
         });
     }
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');
     }
 
+    /**
+     * @param  Builder<BlogPost>  $query
+     * @return Builder<BlogPost>
+     */
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('status', 'published')
@@ -53,6 +61,10 @@ class BlogPost extends Model
             ->where('published_at', '<=', now());
     }
 
+    /**
+     * @param  Builder<BlogPost>  $query
+     * @return Builder<BlogPost>
+     */
     public function scopeDraft(Builder $query): Builder
     {
         return $query->where('status', 'draft');

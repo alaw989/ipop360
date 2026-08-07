@@ -312,41 +312,7 @@ parameters:
 			count: 1
 			path: app/Jobs/EnrichRestaurantWithAi.php
 
-		-
-			message: '#^Class App\\Models\\BlogPost uses generic trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory but does not specify its types\: TFactory$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/BlogPost.php
 
-		-
-			message: '#^Method App\\Models\\BlogPost\:\:author\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/BlogPost.php
-
-		-
-			message: '#^Method App\\Models\\BlogPost\:\:scopeDraft\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/BlogPost.php
-
-		-
-			message: '#^Method App\\Models\\BlogPost\:\:scopeDraft\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/BlogPost.php
-
-		-
-			message: '#^Method App\\Models\\BlogPost\:\:scopePublished\(\) has parameter \$query with generic class Illuminate\\Database\\Eloquent\\Builder but does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/BlogPost.php
-
-		-
-			message: '#^Method App\\Models\\BlogPost\:\:scopePublished\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
-			identifier: missingType.generics
-			count: 1
-			path: app/Models/BlogPost.php
 
 		-
 			message: '#^Class App\\Models\\Cuisine uses generic trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory but does not specify its types\: TFactory$#'
