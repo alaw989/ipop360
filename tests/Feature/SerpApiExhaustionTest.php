@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Testing\PendingCommand;
 use Tests\TestCase;
 
 /**
@@ -68,9 +69,11 @@ class SerpApiExhaustionTest extends TestCase
     {
         app(SerpApiService::class)->markProviderExhausted();
 
-        $this->artisan('quota:status')
-            ->assertExitCode(0)
-            ->expectsOutputToContain('Provider status: EXHAUSTED')
-            ->expectsOutputToContain('Live fetches are paused');
+        /** @var PendingCommand $command */
+        $command = $this->artisan('quota:status');
+        $command->assertExitCode(0);
+        $command->expectsOutputToContain('Provider status: EXHAUSTED');
+        $command->expectsOutputToContain('Live fetches are paused');
+        $command->run();
     }
 }
