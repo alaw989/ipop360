@@ -312,15 +312,4 @@ parameters:
 			count: 1
 			path: tests/Unit/RestaurantEnrichmentServiceTest.php
 
-		-
-			message: '#^Parameter \#1 \$aggregates of method App\\Http\\Resources\\RestaurantResource\:\:withAggregates\(\) expects array\{log_denoms\: array\<string, float\>, minmax\: array\<string, array\{min\: float, max\: float\}\|null\>, quality\: array\{mean_rating\: float\}\}, array\{log_denoms\: array\{\}, minmax\: array\{\}, quality\: array\{\}\} given\.$#'
-			identifier: argument.type
-			count: 1
-			path: tests/Unit/RestaurantResourceAggregatesTest.php
-
-		-
-			message: '#^Parameter \#1 \$restaurant of method App\\Services\\PopularityScoreService\:\:calculateBreakdown\(\) expects App\\Models\\Restaurant, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: tests/Unit/RestaurantResourceAggregatesTest.php
 
