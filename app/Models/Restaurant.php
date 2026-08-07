@@ -20,6 +20,7 @@ use Illuminate\Support\Str;
  */
 class Restaurant extends Model
 {
+    /** @use HasFactory<\Database\Factories\RestaurantFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -98,6 +99,9 @@ class Restaurant extends Model
         });
     }
 
+    /**
+     * @return BelongsToMany<Cuisine, $this>
+     */
     public function cuisines(): BelongsToMany
     {
         return $this->belongsToMany(Cuisine::class, 'cuisine_restaurant');
@@ -105,6 +109,8 @@ class Restaurant extends Model
 
     /**
      * The users who have favorited this restaurant.
+     *
+     * @return BelongsToMany<User, $this>
      */
     public function favoritedBy(): BelongsToMany
     {
@@ -112,16 +118,27 @@ class Restaurant extends Model
             ->withTimestamps();
     }
 
+    /**
+     * @return HasMany<RestaurantSocialLink, $this>
+     */
     public function socialLinks(): HasMany
     {
         return $this->hasMany(RestaurantSocialLink::class);
     }
 
+    /**
+     * @param Builder<Restaurant> $query
+     * @return Builder<Restaurant>
+     */
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
     }
 
+    /**
+     * @param Builder<Restaurant> $query
+     * @return Builder<Restaurant>
+     */
     public function scopeNearby(Builder $query, float $lat, float $lng, ?float $radiusKm = null): Builder
     {
         $radiusKm ??= (float) config('restaurant-finder.live_search.nearby_radius_km', 25);
@@ -156,6 +173,10 @@ class Restaurant extends Model
             ->whereRaw("{$haversine} <= ".SqlDialect::castToFloat('?'), [$lat, $lng, $lat, $radiusKm]);
     }
 
+    /**
+     * @param Builder<Restaurant> $query
+     * @return Builder<Restaurant>
+     */
     public function scopeByPopularity(Builder $query): Builder
     {
         return $query->orderByRaw(self::decayedPopularityScoreExpression().' DESC');

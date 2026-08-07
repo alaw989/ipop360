@@ -4,14 +4,21 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 255 (down from 258)
-- Remaining by category: missingType.iterableValue (202), missingType.generics (38), missingType.return (7), argument.templateType (7), method.unresolvableReturnType (1)
+- Baseline entries: 245 (down from 255)
+- Remaining by category: missingType.iterableValue (202), missingType.generics (28), missingType.return (7), argument.templateType (7), method.unresolvableReturnType (1)
 - missingType.parameter category fully eliminated (4→0)
 - missingType.return down to 7 (all in RestaurantController + LiveSearchService)
-- missingType.generics down to 38 (3 removed from Cuisine model)
-- Next: Restaurant model (10 generics entries) is the largest remaining generics target
+- missingType.generics down to 28 (10 removed from Restaurant model)
+- Next: RestaurantController (5 generics + 2 missingType.return entries) — a combined target
 
 ## Log
+### Iteration 8 — Fixed Restaurant model generics (total: 255→245)
+- `app/Models/Restaurant.php`: Added `/** @use HasFactory<\Database\Factories\RestaurantFactory> */` before `use HasFactory`
+- Added `@return BelongsToMany<Cuisine, $this>` on `cuisines()`, `@return BelongsToMany<User, $this>` on `favoritedBy()`, `@return HasMany<RestaurantSocialLink, $this>` on `socialLinks()`
+- Added `@param Builder<Restaurant> $query` + `@return Builder<Restaurant>` on `scopeActive()`, `scopeNearby()`, `scopeByPopularity()`
+- Removed the 10 corresponding entries from `phpstan-baseline.neon`
+- `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 7 — Fixed Cuisine model generics (total: 258→255)
 - `app/Models/Cuisine.php`: Added `/** @use HasFactory<\Database\Factories\CuisineFactory> */` before `use HasFactory`
 - Added `@return BelongsTo<CuisineCategory, $this>` on `category()`
