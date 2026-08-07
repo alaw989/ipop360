@@ -30,35 +30,7 @@ parameters:
 			count: 1
 			path: tests/Feature/AiEnrichRestaurantsTest.php
 
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:cuisines\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: tests/Feature/AuditRestaurantCuisinesTest.php
 
-		-
-			message: '#^Method Tests\\Feature\\AuditRestaurantCuisinesTest\:\:restaurant\(\) has parameter \$cuisineSlugs with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/AuditRestaurantCuisinesTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\AuditRestaurantCuisinesTest\:\:restaurant\(\) has parameter \$extra with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/AuditRestaurantCuisinesTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\AuditRestaurantCuisinesTest\:\:restaurant\(\) should return App\\Models\\Restaurant but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: tests/Feature/AuditRestaurantCuisinesTest.php
-
-		-
-			message: '#^Method Tests\\Feature\\AuditRestaurantCuisinesTest\:\:tags\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: tests/Feature/AuditRestaurantCuisinesTest.php
 
 		-
 			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:once\(\)\.$#'

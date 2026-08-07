@@ -18,22 +18,29 @@ class AuditRestaurantCuisinesTest extends TestCase
         $this->seed(CuisineSeeder::class);
     }
 
+    /**
+     * @param array<int, string> $cuisineSlugs
+     * @param array<string, mixed> $extra
+     */
     private function restaurant(string $name, array $cuisineSlugs, array $extra = []): Restaurant
     {
-        $restaurant = Restaurant::factory()->create(array_merge([
+        $r = Restaurant::factory()->create(array_merge([
             'name' => $name,
             'description' => null,
         ], $extra));
-        if (! empty($cuisineSlugs)) {
+        $restaurant = Restaurant::query()->whereKey($r->id)->firstOrFail();
+
+        if ($cuisineSlugs !== []) {
             $restaurant->cuisines()->attach(Cuisine::whereIn('slug', $cuisineSlugs)->pluck('id'));
         }
 
-        return $restaurant->fresh();
+        return $restaurant;
     }
 
+    /** @return array<int, string> */
     private function tags(Restaurant $restaurant): array
     {
-        return $restaurant->fresh()->cuisines->pluck('slug')->sort()->values()->all();
+        return Restaurant::query()->whereKey($restaurant->id)->firstOrFail()->cuisines->pluck('slug')->sort()->values()->all();
     }
 
     public function test_keeps_neutral_tag_without_evidence(): void
