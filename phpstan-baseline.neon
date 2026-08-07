@@ -13,8 +13,4 @@ parameters:
 			count: 1
 			path: app/Services/RestaurantEnrichmentService.php
 
-		-
-			message: '#^Method App\\Services\\WikidataService\:\:parseBindings\(\) has parameter \$bindings with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/WikidataService.php
+
