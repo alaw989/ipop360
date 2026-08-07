@@ -23,6 +23,7 @@ class RestaurantResource extends JsonResource
 {
     /**
      * The collection of all restaurants (for score breakdown fallback).
+     * @var Collection<int, \App\Models\Restaurant>|null
      */
     private ?Collection $allRestaurants = null;
 
@@ -92,6 +93,7 @@ class RestaurantResource extends JsonResource
      * so that score_breakdown can be computed on-the-fly for legacy rows (rows
      * scored before the score_breakdown column existed).
      *
+     * @param  Collection<int, \App\Models\Restaurant>  $allRestaurants
      * @return $this
      */
     public function withAllRestaurants(Collection $allRestaurants): self

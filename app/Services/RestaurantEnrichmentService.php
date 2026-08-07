@@ -560,6 +560,8 @@ class RestaurantEnrichmentService
     /**
      * Optional award enrichment (Wikidata, free): one SPARQL box query for the
      * search area, then match each persisted restaurant by name + proximity.
+     *
+     * @param  Collection<int, Restaurant>  $restaurants
      */
     private function enrichAwards(Collection $restaurants, float $lat, float $lng): void
     {
@@ -601,6 +603,8 @@ class RestaurantEnrichmentService
      * Optional website scraper enrichment (free): scrape restaurant's own website
      * for opening hours and menu data. Runs only for restaurants with a website_url.
      * Mutates the passed models in place.
+     *
+     * @param  Collection<int, Restaurant>  $restaurants
      */
     private function enrichWebsiteData(Collection $restaurants): void
     {
@@ -725,6 +729,8 @@ class RestaurantEnrichmentService
     /**
      * Optional AI enrichment (async): dispatch jobs to fill data gaps.
      * Never runs on the request path (queue only). No-op without AI key.
+     *
+     * @param  Collection<int, Restaurant>  $restaurants
      */
     private function enrichWithAi(Collection $restaurants): void
     {
@@ -943,6 +949,8 @@ class RestaurantEnrichmentService
      * hammer the same cuisine. Replaces the previous blind shuffle, which spent
      * quota on a coin-flip of combo need.
      *
+     * @param  array<string, array{float, float}>  $cities
+     * @param  Collection<int, Cuisine>  $cuisines
      * @return array<array{city:string, lat:float, lng:float, cuisine:Cuisine}>
      */
     private function buildCityCuisineGrid(array $cities, Collection $cuisines): array
@@ -999,6 +1007,8 @@ class RestaurantEnrichmentService
     /**
      * Get cuisines filtered to the configured set, falling back to all
      * when no config is defined (preserves test behavior).
+     *
+     * @return Collection<int, Cuisine>
      */
     private function getConfiguredCuisines(): Collection
     {

@@ -4,13 +4,18 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 208 (down from 215)
-- Remaining by category: missingType.iterableValue (196), missingType.generics (7), argument.templateType (4), method.unresolvableReturnType (1)
-- missingType.generics down to 7 (−7 from PopularityScoreService)
-- Next: remaining 7 generics (RestaurantResource: 2, RestaurantEnrichmentService: 5)
+- Baseline entries: 199 (down from 208)
+- Remaining by category: missingType.iterableValue (195), argument.templateType (4)
+- All 7 missingType.generics fixed — none remain
+- method.unresolvableReturnType also cleared (regeneration absorbed it)
+- Next: missingType.iterableValue (195 entries) or argument.templateType (4 entries)
 
 ## Log
-### Iteration 14 — Fixed PopularityScoreService generics (total: 215→208)
+### Iteration 15 — Fixed remaining 7 generics: RestaurantResource + RestaurantEnrichmentService (total: 208→199)
+- `app/Http/Resources/RestaurantResource.php`: Added `@var Collection<int, \App\Models\Restaurant>|null` to `$allRestaurants` property; added `@param Collection<int, \App\Models\Restaurant>` to `withAllRestaurants()` (2 generics)
+- `app/Services/RestaurantEnrichmentService.php`: Added `@param Collection<int, Restaurant>` to `enrichAwards()`, `enrichWebsiteData()`, `enrichWithAi()`; added `@param Collection<int, Cuisine>` to `buildCityCuisineGrid()`; added `@return Collection<int, Cuisine>` to `getConfiguredCuisines()` (5 generics)
+- Baseline regenerated: 199 entries, 0 generics. Also absorbed the lone method.unresolvableReturnType entry.
+- `./vendor/bin/phpstan analyse` passes cleanly
 - `app/Services/PopularityScoreService.php`: Added `@param Collection<int, mixed> $all` or `$allRestaurants` to 7 methods: `calculateScore()`, `calculateBreakdown()`, `calculateBreakdownForArray()`, `computeAggregates()`, `collectionMeanRating()`, `logDenominator()`, `minmaxStats()`
 - Used `Collection<int, mixed>` because the service handles both Restaurant models and live-search arrays — PHPStan's invariant TValue rejects narrower union types at call sites
 - Removed the 7 corresponding entries from `phpstan-baseline.neon`
