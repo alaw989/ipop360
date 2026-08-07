@@ -4,11 +4,23 @@
 shrink the PHPStan level-6 baseline by fixing real type issues in code
 
 ## State
-- Baseline entries: 45 (down from 53)
-- Remaining: missingType.iterableValue (45)
-- Top files by iterableValue count: GeolocationService.php (7), AiEnrichmentService.php (7), LiveVenuePersister.php (5)
+- Baseline entries: 39 (down from 45)
+- Remaining: missingType.iterableValue (38) + missingType.return (1)
+- Top files by iterableValue count: AiEnrichmentService.php (7), LiveVenuePersister.php (5), RestaurantResource.php (4)
 
 ## Log
+### Iteration 26 — Fixed all 7 GeolocationService iterableValue entries (total: 45→39)
+- `app/Services/GeolocationService.php`: Added value type annotations to all 7 methods:
+  - `resolveCoordinates()` → `@return array{lat: float, lng: float}|null`
+  - `resolveLocation()` → `@return array{lat: float, lng: float, city: string|null, state: string|null}|null`
+  - `ipLookup()` → `@return array{lat: float, lng: float}|null`
+  - `searchCities()` → `@return array<int, array{city: string|null, state: string|null, country: string|null, lat: float|null, lng: float|null, display: string}>`
+  - `forwardGeocode()` → `@return array{lat: float, lng: float}|null`
+  - `reverseGeocode()` → `@return array{city: string|null, state: string|null}|null`
+  - `ipLookupFull()` → `@return array{lat: float, lng: float, city: string|null, region: string|null}|null`
+- 7 baseline entries removed; 0 GeolocationService entries remain
+- All 563 tests pass; `./vendor/bin/phpstan analyse` passes cleanly
+
 ### Iteration 25 — Fixed all 8 RestaurantEnrichmentService iterableValue entries (total: 53→45)
 - `app/Services/RestaurantEnrichmentService.php`: Added value types to `consumeOverpassResponses()` (`@param array<int, Response|Throwable>`, `@return array<int, array<string, mixed>>`), `enrichAllCitiesThrottled()` (`@return array{total_processed: int, ...}`), `fetchAndNormalizeAllSources()` (`@return array<int, array<string, mixed>>`), `normalizeOverpassWithFallback()` (`@param array<int, mixed>`, `@return array<int, array<string, mixed>>`), `normalizePoolResponses()` (`@param array<int, Response|Throwable>`, `@return array<int, array<string, mixed>>`)
 - 8 baseline entries removed; 0 RestaurantEnrichmentService entries remain

@@ -175,48 +175,6 @@ parameters:
 			path: app/Services/CuisineMatcher.php
 
 		-
-			message: '#^Method App\\Services\\GeolocationService\:\:forwardGeocode\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/GeolocationService.php
-
-		-
-			message: '#^Method App\\Services\\GeolocationService\:\:ipLookup\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/GeolocationService.php
-
-		-
-			message: '#^Method App\\Services\\GeolocationService\:\:ipLookupFull\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/GeolocationService.php
-
-		-
-			message: '#^Method App\\Services\\GeolocationService\:\:resolveCoordinates\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/GeolocationService.php
-
-		-
-			message: '#^Method App\\Services\\GeolocationService\:\:resolveLocation\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/GeolocationService.php
-
-		-
-			message: '#^Method App\\Services\\GeolocationService\:\:reverseGeocode\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/GeolocationService.php
-
-		-
-			message: '#^Method App\\Services\\GeolocationService\:\:searchCities\(\) return type has no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			count: 1
-			path: app/Services/GeolocationService.php
-
-		-
 			message: '#^Method App\\Services\\LiveSearchService\:\:buildPoolRequest\(\) has no return type specified\.$#'
 			identifier: missingType.return
 			count: 1
