@@ -70,6 +70,7 @@ const barSegments = computed<BarSegment[]>(() => {
     contribution: s.contribution,
     weight: s.weight,
     normalized: s.normalized,
+    detail: s.detail,
     color: segmentColor(i, s.label),
     width: Math.max((s.contribution / total) * 100, 5),
   }))
