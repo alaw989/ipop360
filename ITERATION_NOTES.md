@@ -23,8 +23,19 @@ Verification: `npx vitest run resources/js/Components/__tests__/SecondaryButton.
 - Added `resources/js/composables/__tests__/useCardGallery.spec.ts` (21 tests).
 - Added `resources/js/composables/__tests__/useIsMobile.spec.ts` (3 tests).
 
+### Previous iteration
+- Added `resources/js/Components/__tests__/JsonLd.spec.ts` (8 tests) covering:
+  - Injects a script element into document.head
+  - Script type is `application/ld+json`
+  - Script textContent matches JSON.stringify(props.data)
+  - Does not inject when data is null
+  - Removes script when data becomes null (reactive)
+  - Replaces script when data changes to different value
+  - Removes script on unmount
+  - Creates new DOM element on data identity change (not reusing old node)
+
 ### Next
-Components still untested: `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `RestaurantCardSkeleton`, `DropdownLink`, `NavLink`, `JsonLd`, `ResponsiveNavLink`, `DangerButton`, `InputError`, `InputLabel`, `TextInput`, `ApplicationLogo`, `BrandLogo`.
+Components still untested: `PopularRestaurants`, `HeroBanner`, `SearchMap`, `DetailMap`, `BlogEditor`, `Modal`, `RestaurantCardSkeleton`, `DropdownLink`, `NavLink`, `ResponsiveNavLink`, `DangerButton`, `InputError`, `InputLabel`, `TextInput`, `ApplicationLogo`, `BrandLogo`.
 
 ### Gotchas
 - Tests live in `resources/js/Components/__tests__/`; run individually with `npx vitest run <file>`.
