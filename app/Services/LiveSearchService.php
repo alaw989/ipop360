@@ -381,7 +381,7 @@ class LiveSearchService
      * Register one request on the pool under $key. Http::pool keys its results
      * by the ->as($key) name.
      */
-    private function buildPoolRequest(Pool $pool, string $key, RequestSpec $spec): \Illuminate\Http\Client\Response
+    private function buildPoolRequest(Pool $pool, string $key, RequestSpec $spec)
     {
         $request = $pool->as($key)->timeout($spec->timeout);
 
