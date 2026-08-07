@@ -18,6 +18,7 @@
 | `npm run test` | `vitest run` (frontend tests, jsdom, no globals, explicit vitest imports) |
 | `npm run build` | `vue-tsc && vite build && vite build --ssr` — **must pass before pushing** |
 | `vendor/bin/pint --test` | Laravel Pint lint check |
+| `opencode-loop N --goal "…" --check "…"` | Finite-cap iterative improvement loop driving `opencode run` (installed at `~/.local/bin/opencode-loop`) — see `.specify/memory/backlog.md` for the next goal |
 | `./vendor/bin/phpstan analyse` | PHPStan level 5 (baseline in phpstan-baseline.neon) |
 
 ## Get running locally
@@ -180,5 +181,6 @@ To recover:
 Daily: 00:30 engagement aggregation → 02:00 score → 03:00 cache GC → 04:00 throttled enrichment → 05:00 website backfill → 05:30 social scrape. Weekly: Sat 06:30 full social re-scrape, Sun 06:00 dead-link check. Every 15min: uptime canary.
 
 ## Outdated references
-- `.specify/` directory does not exist in this repo. CLAUDE.md references to it are stale.
-- SHARED_TASK_NOTES.md, PROMPT_build.md, PROMPT_plan.md, TOOL_AUDIT.md, specs/ are historical/loop artifacts.
+- `.specify/memory/` (constitution.md, project-state.md, history/, backlog.md) is the **living memory bank** — read it at session start. `history.md` + `.specify/memory/history/` hold per-spec records.
+- PROMPT_build.md, PROMPT_plan.md, TOOL_AUDIT.md, SHARED_TASK_NOTES.md, specs/ are historical/loop artifacts. Iteration work uses `opencode-loop` (see backlog).
+- `ITERATION_NOTES.md` is the loop's relay file — re-seeded automatically when the goal changes.
