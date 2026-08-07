@@ -43,12 +43,6 @@ parameters:
 			path: tests/Feature/BackupDatabaseCommandTest.php
 
 		-
-			message: '#^Cannot call method assertSuccessful\(\) on Illuminate\\Testing\\PendingCommand\|int\.$#'
-			identifier: method.nonObject
-			count: 3
-			path: tests/Feature/BackupDatabaseCommandTest.php
-
-		-
 			message: '#^Cannot call method fetchColumn\(\) on PDOStatement\|false\.$#'
 			identifier: method.nonObject
 			count: 1

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Config;
+use Illuminate\Testing\PendingCommand;
 use PDO;
 use Tests\TestCase;
 
@@ -31,8 +32,10 @@ class BackupDatabaseCommandTest extends TestCase
         Config::set('database.connections.sqlite.database', $this->fileDb);
         $dir = sys_get_temp_dir().'/ip360-backup-'.uniqid();
 
-        $this->artisan('db:backup', ['--path' => $dir, '--keep' => 5])
-            ->assertSuccessful();
+        /** @var PendingCommand $command */
+        $command = $this->artisan('db:backup', ['--path' => $dir, '--keep' => 5]);
+        $command->assertSuccessful();
+        $command->run();
 
         $backups = glob($dir.'/pre-migrate-*.sqlite');
         $this->assertCount(1, $backups, 'one snapshot created');
@@ -49,7 +52,11 @@ class BackupDatabaseCommandTest extends TestCase
         Config::set('database.connections.sqlite.database', ':memory:');
         $dir = sys_get_temp_dir().'/ip360-skip-'.uniqid();
 
-        $this->artisan('db:backup', ['--path' => $dir])->assertSuccessful();
+        /** @var PendingCommand $command */
+        $command = $this->artisan('db:backup', ['--path' => $dir]);
+        $command->assertSuccessful();
+        $command->run();
+
         $this->assertFileDoesNotExist($dir, 'no backup created for an in-memory DB');
     }
 
@@ -65,8 +72,10 @@ class BackupDatabaseCommandTest extends TestCase
             file_put_contents("{$dir}/pre-migrate-".(time() - (100 - $i)).'.sqlite', 'old');
         }
 
-        $this->artisan('db:backup', ['--path' => $dir, '--keep' => 2])
-            ->assertSuccessful();
+        /** @var PendingCommand $command */
+        $command = $this->artisan('db:backup', ['--path' => $dir, '--keep' => 2]);
+        $command->assertSuccessful();
+        $command->run();
 
         $remaining = glob($dir.'/pre-migrate-*.sqlite');
         $this->assertCount(2, $remaining, 'only the 2 newest snapshots are retained');
