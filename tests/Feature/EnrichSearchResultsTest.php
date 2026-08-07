@@ -11,6 +11,7 @@ use App\Services\LiveVenuePersister;
 use Database\Seeders\CuisineSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 /**
@@ -30,7 +31,7 @@ class EnrichSearchResultsTest extends TestCase
     }
 
     /**
-     * @param  array<int, array<string, mixed>> $cuisines
+     * @param  array<int, array<string, mixed>>  $cuisines
      * @return array<string, mixed>
      */
     private function venue(string $name, array $cuisines = []): array
@@ -44,8 +45,8 @@ class EnrichSearchResultsTest extends TestCase
     }
 
     /**
-     * @param  array<int, array<string, mixed>> $venues
-     * @return array<int, \Mockery\MockInterface>
+     * @param  array<int, array<string, mixed>>  $venues
+     * @return array<int, MockInterface>
      */
     private function mocks(array $venues): array
     {

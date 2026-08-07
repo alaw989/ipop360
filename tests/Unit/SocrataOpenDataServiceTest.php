@@ -23,7 +23,7 @@ class SocrataOpenDataServiceTest extends TestCase
     }
 
     /**
-     * @param  array<int, array<string, mixed>> $results
+     * @param  array<int, array<string, mixed>>  $results
      * @return array<int, array<string, mixed>>
      */
     private function dedup(array $results): array

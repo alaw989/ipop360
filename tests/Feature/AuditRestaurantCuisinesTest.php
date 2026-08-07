@@ -19,8 +19,8 @@ class AuditRestaurantCuisinesTest extends TestCase
     }
 
     /**
-     * @param array<int, string> $cuisineSlugs
-     * @param array<string, mixed> $extra
+     * @param  array<int, string>  $cuisineSlugs
+     * @param  array<string, mixed>  $extra
      */
     private function restaurant(string $name, array $cuisineSlugs, array $extra = []): Restaurant
     {

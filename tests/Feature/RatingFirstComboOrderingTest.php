@@ -15,7 +15,7 @@ class RatingFirstComboOrderingTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * @param  array<string, array{float, float}> $cities
+     * @param  array<string, array{float, float}>  $cities
      * @return array<int, array<string, mixed>>
      */
     private function buildGrid(array $cities): array

@@ -5,9 +5,9 @@ namespace Tests\Feature;
 use App\Jobs\EnrichRestaurantWithAi;
 use App\Models\Restaurant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Testing\PendingCommand;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Testing\PendingCommand;
 use Tests\TestCase;
 
 class AiEnrichRestaurantsTest extends TestCase
@@ -83,7 +83,9 @@ class AiEnrichRestaurantsTest extends TestCase
         $command->assertExitCode(0);
         $command->run();
 
-        $pushed = collect(Queue::pushed(EnrichRestaurantWithAi::class))->map->restaurantId->all();
+        /** @var array<int, EnrichRestaurantWithAi> $jobs */
+        $jobs = Queue::pushed(EnrichRestaurantWithAi::class);
+        $pushed = collect($jobs)->map->restaurantId->all();
 
         $this->assertSame([$sparse->id, $mid->id, $complete->id], $pushed);
     }

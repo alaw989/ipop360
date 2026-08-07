@@ -12,7 +12,7 @@ class OverpassServiceTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * @param  array<string, string> $extra
+     * @param  array<string, string>  $extra
      * @return array<string, mixed>
      */
     private function makeNode(string $name, float $lat, float $lng, int $id, array $extra = []): array
@@ -27,7 +27,7 @@ class OverpassServiceTest extends TestCase
     }
 
     /**
-     * @param  array<string, string> $extra
+     * @param  array<string, string>  $extra
      * @return array<string, mixed>
      */
     private function makeWay(string $name, int $id, float $centerLat, float $centerLng, array $extra = []): array
@@ -41,7 +41,7 @@ class OverpassServiceTest extends TestCase
     }
 
     /**
-     * @param  array<string, string> $extra
+     * @param  array<string, string>  $extra
      * @return array<string, mixed>
      */
     private function makeRelation(string $name, int $id, float $centerLat, float $centerLng, array $extra = []): array

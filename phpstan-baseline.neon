@@ -13,18 +13,6 @@ parameters:
 			path: tests/Feature/AiEnrichRestaurantsTest.php
 
 		-
-			message: '#^Unable to resolve the template type TKey in call to function collect$#'
-			identifier: argument.templateType
-			count: 1
-			path: tests/Feature/AiEnrichRestaurantsTest.php
-
-		-
-			message: '#^Unable to resolve the template type TValue in call to function collect$#'
-			identifier: argument.templateType
-			count: 1
-			path: tests/Feature/AiEnrichRestaurantsTest.php
-
-		-
 			message: '#^Call to an undefined method Mockery\\ExpectationInterface\|Mockery\\HigherOrderMessage\:\:once\(\)\.$#'
 			identifier: method.notFound
 			count: 3
@@ -166,18 +154,6 @@ parameters:
 			message: '#^Parameter \#4 \$socrataService of class App\\Services\\LiveSearchService constructor expects App\\Services\\SocrataOpenDataService, Mockery\\MockInterface given\.$#'
 			identifier: argument.type
 			count: 3
-			path: tests/Unit/LiveSearchScoringTest.php
-
-		-
-			message: '#^Unable to resolve the template type TKey in call to function collect$#'
-			identifier: argument.templateType
-			count: 4
-			path: tests/Unit/LiveSearchScoringTest.php
-
-		-
-			message: '#^Unable to resolve the template type TValue in call to function collect$#'
-			identifier: argument.templateType
-			count: 4
 			path: tests/Unit/LiveSearchScoringTest.php
 
 		-

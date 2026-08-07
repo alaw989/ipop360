@@ -14,12 +14,13 @@ Fixed all 42 `missingType.iterableValue` entries across 18 test files. Added `@p
 
 Fixed remaining 13 `missingType.iterableValue` entries across 11 test files (BizDataApiServiceTest, EnrichCuisineTaggingTest, EnrichFreeOnlyTest, EnrichSearchResultsTest, OverpassServiceTest, RatingFirstComboOrderingTest, AiEnrichmentServiceTest, CuisineScopeTest, SocrataOpenDataServiceTest, RestaurantEnrichmentProcessFreeVenueTest). Root cause: multiple separate `/** @param */` and `/** @return */` docblocks before a method — PHPStan only reads the last one. Fix: merged into single combined docblocks.
 
-Baseline: 704 → 680 → 650 → 644 → 488 → 410 lines (81 → 69 → 68 entries).
+Fixed all 10 `argument.templateType` entries on `collect()` calls in `AiEnrichRestaurantsTest.php` (2) and `LiveSearchScoringTest.php` (8). In AiEnrichRestaurantsTest, the fix extracts `Queue::pushed()` to a `@var array<int, EnrichRestaurantWithAi>` variable before passing to `collect()`. In LiveSearchScoringTest, `$scored` from `ReflectionMethod::invoke()` was annotated with `@var array<int, array<string, mixed>>`. For the inner `collect($mystery['score_breakdown']['signals'])` calls (lines 143/170), the chained mixed array access prevented template resolution — fixed by extracting `$signals` to a variable with a full array-shape `@var` annotation (`array<int, array{label: string, weight: float, normalized: float, contribution: float, detail: string}>`) matching the `@return` PHPDoc of `PopularityScoreService::calculateBreakdownForArray()`.
+
+Baseline: 410 → 386 lines (68 → 64 entries, 117 → 113 errors).
 
 ### What is next
 - `argument.type` for Mockery mocks passed to service constructors (LiveSearchScoringTest, RestaurantEnrichment*Test). A PHPStan stub file was attempted but did not override Mockery's existing `@return` annotations. Likely requires a `DynamicMethodReturnTypeExtension` or `@phpstan-` comments.
 - `method.notFound` on `Mockery\ExpectationInterface::andReturn()` etc. (RefreshAwardsTest, LiveSearchScoringTest, BackfillRestaurantPhotosTest, EnrichSearchResultsTest — Mockery `shouldReceive()` returns `ExpectationInterface|HigherOrderMessage`, where `HigherOrderMessage` lacks `andReturn`/`once`/`andReturnNull`). Same stub/extension challenge.
-- `argument.templateType` for `collect()` without explicit generic type hints (LiveSearchScoringTest, AiEnrichRestaurantsTest) — fixable by adding explicit type annotations to `collect()` calls.
 - Individual issues: SerpApiQueryConstructionTest (return.type, argument.type for parse_str), EngagementApiTest (assign.propertyType), RestaurantResourceAggregatesTest (argument.type ×2), WebsiteScraperSsrfGuardTest (arguments.count), EnrichSearchResultsTest (argument.type for handle()), AiEnrichmentServiceTest (argument.type ×4).
 
 ### Gotchas
@@ -45,5 +46,6 @@ Baseline: 704 → 680 → 650 → 644 → 488 → 410 lines (81 → 69 → 68 en
 12. Fixed 1 baseline entry (count 1) `method.nonObject` on `PDOStatement|false` (`fetchColumn()`) in BackupDatabaseCommandTest.php — extracted `$stmt` variable with `@var PDOStatement` annotation before calling `fetchColumn()`, baseline 650→644
 13. Fixed all 42 `missingType.iterableValue` entries across 18 test files — added `@param`/`@return` PHPDoc annotations with array value types, baseline 644→488
 14. Fixed remaining 13 `missingType.iterableValue` entries across 11 test files — merged multiple separate `/** */` docblocks into single combined docblocks so PHPStan reads all annotations, baseline 488→410 (81→69→68 entries)
+15. Fixed all 10 `argument.templateType` entries on `collect()` calls in AiEnrichRestaurantsTest.php (2) and LiveSearchScoringTest.php (8) — added `@var` annotations on input variables so PHPStan can resolve `collect()` template types. For nested collect() calls on chained array access (e.g., `collect($mystery['score_breakdown']['signals'])`), extracting to a variable with a full array-shape `@var` was needed because intermediate `mixed` from array access on `array<string, mixed>` still blocked template resolution. Baseline 410→386 (68→64 entries, 117→113 errors).
 
 (End of file - total 53 lines)

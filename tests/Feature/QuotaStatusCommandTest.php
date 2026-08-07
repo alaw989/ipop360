@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\ExternalApiCache;
-use Illuminate\Testing\PendingCommand;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Testing\PendingCommand;
 use Tests\TestCase;
 
 /**

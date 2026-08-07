@@ -30,8 +30,8 @@ class AiEnrichmentServiceTest extends TestCase
     }
 
     /**
-     * @param  array<string, string> $primary
-     * @param  array<string, string>|null $fallback
+     * @param  array<string, string>  $primary
+     * @param  array<string, string>|null  $fallback
      * @return array<string, mixed>
      */
     private function providerConfig(array $primary = [], ?array $fallback = null): array

@@ -42,7 +42,7 @@ class EnrichFreeOnlyTest extends TestCase
     }
 
     /**
-     * @param  array<string, float>|null $coords
+     * @param  array<string, float>|null  $coords
      * @return array<string, mixed>
      */
     private function bizDataVenue(string $name, ?array $coords = null, ?string $phone = null): array
@@ -61,7 +61,7 @@ class EnrichFreeOnlyTest extends TestCase
     }
 
     /**
-     * @param  array<string, string> $tags
+     * @param  array<string, string>  $tags
      * @return array<string, mixed>
      */
     private function osmNode(int $id, string $name, float $lat = 37.78, float $lon = -122.41, array $tags = []): array
