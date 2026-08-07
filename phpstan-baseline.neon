@@ -1,4 +1,117 @@
 parameters:
 	ignoreErrors:
+		-
+			message: '#^Argument of an invalid type DOMNodeList\<DOMNameSpaceNode\|DOMNode\>\|false supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: app/Console/Commands/BackfillRestaurantWebsites.php
+
+		-
+			message: '#^Method App\\Console\\Commands\\DeduplicateRestaurants\:\:findDuplicatePairs\(\) should return array\<int, array\{keep_id\: int, dupe_id\: int, name\: string\}\> but returns array\<int, array\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Console/Commands/DeduplicateRestaurants.php
+
+		-
+			message: '#^Parameter \#1 \$callback of function array_map expects \(callable\(int\|string\)\: mixed\)\|null, ''strtolower'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Console/Commands/EnrichRestaurants.php
+
+		-
+			message: '#^Property App\\Models\\BlogPost\:\:\$author_id \(int\<0, max\>\) does not accept int\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Http/Controllers/Admin/BlogPostController.php
+
+		-
+			message: '#^Parameter \#1 \$sql of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Restaurant\>\:\:orderByRaw\(\) expects literal\-string, non\-falsy\-string given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Http/Controllers/HomeController.php
+
+		-
+			message: '#^Parameter \#1 \$sql of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Restaurant\>\:\:orderByRaw\(\) expects literal\-string, non\-falsy\-string given\.$#'
+			identifier: argument.type
+			count: 7
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Parameter \#1 \$sql of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Restaurant\>\:\:orderByRaw\(\) expects literal\-string, non\-falsy\-string given\.$#'
+			identifier: argument.type
+			count: 8
+			path: app/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Parameter \#1 \$expression of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Restaurant\>\:\:selectRaw\(\) expects literal\-string, non\-falsy\-string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Parameter \#1 \$sql of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Restaurant\>\:\:orderByRaw\(\) expects literal\-string, non\-falsy\-string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Parameter \#1 \$sql of method Illuminate\\Database\\Eloquent\\Builder\<App\\Models\\Restaurant\>\:\:whereRaw\(\) expects Illuminate\\Contracts\\Database\\Query\\Expression\|literal\-string, non\-falsy\-string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/Restaurant.php
+
+		-
+			message: '#^Parameter \#1 \$html of method App\\Services\\HtmlSanitizer\:\:decodeNonAscii\(\) expects string, string\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/HtmlSanitizer.php
+
+		-
+			message: '#^Offset ''bizdata''\|''overpass''\|''serpapi''\|''socrata'' might not exist on array\{\}\|array\{bizdata\?\: string, serpapi\?\: string, socrata\?\: string, overpass\?\: string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Offset ''serpapi'' might not exist on array\{\}\|array\{bizdata\?\: string, serpapi\?\: string, socrata\?\: string, overpass\?\: string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: app/Services/LiveSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$scoresByRestaurant of method App\\Services\\RestaurantEnrichmentService\:\:applyScoreUpdateBatch\(\) expects array\<int, array\{popularity_score\: float\|int, score_breakdown\: string\}\>, array\<int, array\{popularity_score\: float, score_breakdown\: non\-empty\-string\|false\}\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Access to an undefined property DOMNameSpaceNode\|DOMNode\:\:\$textContent\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Argument of an invalid type DOMNodeList\<DOMNameSpaceNode\|DOMNode\>\|false supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 5
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Argument of an invalid type list\<string\>\|false supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Cannot access property \$length on DOMNodeList\<DOMNameSpaceNode\|DOMNode\>\|false\.$#'
+			identifier: property.nonObject
+			count: 3
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Cannot call method item\(\) on DOMNodeList\<DOMNameSpaceNode\|DOMNode\>\|false\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
 
 
