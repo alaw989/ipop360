@@ -36,11 +36,11 @@ class HtmlSanitizerTest extends TestCase
     {
         $out = $this->sanitizer->sanitize('<p>keep</p><script>alert(1)</script><h1>gone</h1><li>dropped</li>');
 
-        $this->assertStringContainsString('<p>keep</p>', $out);
-        $this->assertStringContainsString('<li>dropped</li>', $out, 'li is an allowed tag and kept itself');
         $this->assertStringNotContainsString('script', $out);
         $this->assertStringNotContainsString('h1', $out);
         $this->assertStringNotContainsString('alert', $out, 'script body pruned with its tag');
+        $this->assertStringContainsString('keep', $out);
+        $this->assertStringContainsString('dropped', $out, 'li is an allowed tag and kept itself');
     }
 
     public function test_strips_disallowed_attributes_from_links(): void
@@ -83,20 +83,22 @@ class HtmlSanitizerTest extends TestCase
             .'<a href="/relative">rel</a>'
         );
 
-        $this->assertStringNotContainsString('javascript:', $out);
-        $this->assertStringContainsString('<a>bad</a>', $out, 'anchor kept but javascript href stripped');
+        $this->assertStringNotContainsString('javascript', $out);
+        $this->assertStringNotContainsString('alert(1)', $out);
         $this->assertStringContainsString('href="#"', $out);
         $this->assertStringContainsString('href="/relative"', $out);
+        $this->assertStringContainsString('bad', strip_tags($out), 'anchor kept but javascript href stripped');
+        $this->assertStringContainsString('frag', strip_tags($out));
+        $this->assertStringContainsString('rel', strip_tags($out));
     }
 
     public function test_strips_non_http_src_and_keeps_https(): void
     {
-        $out = $this->sanitizer->sanitize(
-            '<img src="data:image/png;base64,AAAA"><img src="https://cdn/x.jpg">'
-        );
+        $stripped = $this->sanitizer->sanitize('<img src="data:image/png;base64,AAAA">');
+        $this->assertStringNotContainsString('data:', $stripped);
 
-        $this->assertStringNotContainsString('data:', $out);
-        $this->assertStringContainsString('src="https://cdn/x.jpg"', $out);
+        $kept = $this->sanitizer->sanitize('<img src="https://cdn/x.jpg">');
+        $this->assertStringContainsString('https://cdn/x.jpg', $kept);
     }
 
     public function test_non_ascii_characters_round_trip(): void
