@@ -333,6 +333,10 @@ class BackfillRestaurantWebsites extends Command
                 $xpath = new \DOMXPath($dom);
                 $links = $xpath->query("//a[contains(@class, 'result__a')]");
 
+                if ($links === false) {
+                    return null;
+                }
+
                 foreach ($links as $link) {
                     $href = $link->getAttribute('href');
                     if (empty($href)) {
