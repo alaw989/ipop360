@@ -82,6 +82,7 @@ class RestaurantEnrichmentScoreBatchUpdateTest extends TestCase
 
         foreach ($restaurants as $i => $r) {
             $fresh = $r->fresh();
+            $this->assertNotNull($fresh);
             $this->assertSame(0.40 + $i, $fresh->popularity_score);
             $this->assertSame($breakdown, $fresh->score_breakdown);
         }
@@ -99,7 +100,9 @@ class RestaurantEnrichmentScoreBatchUpdateTest extends TestCase
             ],
         ]);
 
-        $this->assertSame($breakdown, $restaurant->fresh()->score_breakdown);
+        $fresh = $restaurant->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame($breakdown, $fresh->score_breakdown);
     }
 
     public function test_missing_breakdown_or_absent_row_does_not_break_others(): void
@@ -116,8 +119,12 @@ class RestaurantEnrichmentScoreBatchUpdateTest extends TestCase
 
         $this->applyBatch($scores);
 
-        $this->assertSame(0.1, $a->fresh()->popularity_score);
-        $this->assertSame(0.2, $b->fresh()->popularity_score);
+        $freshA = $a->fresh();
+        $this->assertNotNull($freshA);
+        $this->assertSame(0.1, $freshA->popularity_score);
+        $freshB = $b->fresh();
+        $this->assertNotNull($freshB);
+        $this->assertSame(0.2, $freshB->popularity_score);
     }
 
     public function test_empty_map_is_noop(): void
@@ -126,7 +133,9 @@ class RestaurantEnrichmentScoreBatchUpdateTest extends TestCase
 
         $this->applyBatch([]);
 
-        $this->assertSame(0.33, $restaurant->fresh()->popularity_score);
+        $fresh = $restaurant->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame(0.33, $fresh->popularity_score);
     }
 
     public function test_large_batch_chunks_into_multiple_queries_and_writes_all(): void
@@ -144,7 +153,9 @@ class RestaurantEnrichmentScoreBatchUpdateTest extends TestCase
         $this->applyBatch($scores);
 
         foreach ($restaurants as $i => $r) {
-            $this->assertSame(round(0.01 * $i, 4), $r->fresh()->popularity_score);
+            $fresh = $r->fresh();
+            $this->assertNotNull($fresh);
+            $this->assertSame(round(0.01 * $i, 4), $fresh->popularity_score);
         }
     }
 
@@ -160,6 +171,8 @@ class RestaurantEnrichmentScoreBatchUpdateTest extends TestCase
             ],
         ], $marked);
 
-        $this->assertSame($marked, $restaurant->fresh()->updated_at->toDateTimeString());
+        $fresh = $restaurant->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame($marked, $fresh->updated_at->toDateTimeString());
     }
 }

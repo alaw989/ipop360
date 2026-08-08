@@ -37,24 +37,6 @@ parameters:
 			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
 
 		-
-			message: '#^Cannot access property \$popularity_score on Illuminate\\Database\\Eloquent\\Model\|null\.$#'
-			identifier: property.nonObject
-			count: 5
-			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
-
-		-
-			message: '#^Cannot access property \$score_breakdown on Illuminate\\Database\\Eloquent\\Model\|null\.$#'
-			identifier: property.nonObject
-			count: 2
-			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
-
-		-
-			message: '#^Cannot access property \$updated_at on Illuminate\\Database\\Eloquent\\Model\|null\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
-
-		-
 			message: '#^Offset ''score_breakdown'' might not exist on array\|null\.$#'
 			identifier: offsetAccess.notFound
 			count: 1
