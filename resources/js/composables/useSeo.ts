@@ -1,6 +1,3 @@
-import type { ComputedRef } from 'vue';
-import { usePage } from '@inertiajs/vue3';
-
 export interface SeoOptions {
     title: string;
     description: string;
@@ -12,7 +9,6 @@ export interface SeoOptions {
 }
 
 export function useSeo(options: SeoOptions) {
-    const page = usePage();
     const rawUrl = options.url || (typeof window !== 'undefined' ? window.location.href : '');
 
     // Strip tracking params for canonical URL

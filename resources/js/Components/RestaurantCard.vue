@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import StarRating from '@/Components/StarRating.vue';
 import CardGallery from '@/Components/CardGallery.vue';
 import ScoreChip from '@/Components/ScoreChip.vue';
-import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import type { Restaurant } from '@/types/restaurant';
 import { callPhone, openWebsite, trackDirections } from '@/lib/restaurant';

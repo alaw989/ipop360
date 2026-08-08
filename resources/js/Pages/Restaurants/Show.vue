@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { computed, onMounted } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import StarRating from '@/Components/StarRating.vue';
 import ScoreBreakdown from '@/Components/ScoreBreakdown.vue';

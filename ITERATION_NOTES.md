@@ -4,10 +4,11 @@
 enable stricter TypeScript compiler flags and fix all resulting type errors
 
 ## State
-- Enabled `noUncheckedIndexedAccess` and `noImplicitReturns` in tsconfig.json.
-- Fixed 3 resulting errors: HeroBanner.vue (optional chain for slides array access), LocationPicker.vue (guard before index access), ScoreBreakdown.vue (non-null assertion on defaultColors).
-- Next flags to enable: `noUnusedLocals` (~25 unused import/var errors), `noUnusedParameters` (1 error).
-- Gotcha: `noUnusedLocals` will require cleaning up ~25 unused imports across many components.
+- Enabled `noUncheckedIndexedAccess`, `noImplicitReturns`, `noUnusedLocals`, `noUnusedParameters` in tsconfig.json.
+- Fixed all 27 `noUnusedLocals` / `noUnusedParameters` errors across 13 files (removed unused imports, destructured vars, and `const props =` assignments where props was only used in template).
+- Next flags to enable: `exactOptionalPropertyTypes` or `noUncheckedSideEffectImports` — whichever yields the fewest errors.
+- Gotcha: Several `defineProps` had `const props =` prefix where `props` was only used in template (not script). Removed assignment, kept `defineProps` call.
 
 ## Log
 - Iteration 1: Enabled `noUncheckedIndexedAccess` + `noImplicitReturns`, fixed 3 type errors. Build passes.
+- Iteration 2: Enabled `noUnusedLocals` + `noUnusedParameters`, fixed 27 unused import/var errors. Build passes.

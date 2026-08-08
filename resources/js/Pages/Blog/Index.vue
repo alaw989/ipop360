@@ -16,7 +16,7 @@ interface BlogPost {
     author: { name: string } | null
 }
 
-const props = defineProps<{
+defineProps<{
     posts: {
         data: BlogPost[]
         links: { url: string | null; label: string; active: boolean }[]

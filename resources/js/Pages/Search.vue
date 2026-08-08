@@ -55,7 +55,6 @@ const sortOptions = [
 ];
 
 const currentSort = computed(() => (props.filters.sort as string) || 'best_match');
-const currentPrice = computed(() => (props.filters.price_range as string) || '');
 
 function updateSort(newSort: string) {
     router.get('/search', { ...props.filters, sort: newSort }, { preserveState: true, replace: true });

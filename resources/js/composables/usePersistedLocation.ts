@@ -1,4 +1,4 @@
-import { ref, onMounted, type Ref } from 'vue';
+import { ref, type Ref } from 'vue';
 
 interface Location {
     city: string | null;

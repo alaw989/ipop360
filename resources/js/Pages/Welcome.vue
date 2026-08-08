@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3'
+import { router } from '@inertiajs/vue3'
 import { ref, computed, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -144,7 +144,6 @@ const {
     nextPageUrl,
     searchError,
     loadMoreError,
-    search,
     resort,
     loadMore,
     resetState,

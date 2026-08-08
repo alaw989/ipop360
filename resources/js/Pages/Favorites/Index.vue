@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RestaurantCard from '@/Components/RestaurantCard.vue';
@@ -9,7 +8,7 @@ import { useBaseUrl } from '@/composables/useBaseUrl';
 import SeoMeta from '@/Components/SeoMeta.vue';
 import type { Restaurant } from '@/types/restaurant';
 
-const props = defineProps<{
+defineProps<{
     favorites: Restaurant[];
 }>();
 

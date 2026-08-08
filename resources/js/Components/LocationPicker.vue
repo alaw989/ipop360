@@ -2,8 +2,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+
 import { useIsMobile } from '@/composables/useIsMobile'
 import { useKeyboardOffset } from '@/composables/useKeyboardOffset'
 
