@@ -4,8 +4,8 @@
 shrink the PHPStan level-8 baseline by fixing real type issues in code
 
 ## State
-- Remaining: 10 entries (25 error instances), all in tests. App code: RestaurantController (2 PHPStan limitations).
-- Next: fix LiveVenuePersisterAwardTest (1 instance).
+- Remaining: 9 entries (24 error instances), all in tests. App code: RestaurantController (2 PHPStan limitations).
+- Next: fix RefreshAwardsTest (4 instances: 3 property.nonObject + 1 method.nonObject).
 
 ## Log
 1. Fixed `app/Services/PriceLevelNormalizer.php:29` — `preg_replace` can return `string|null`, but `ltrim()` was called on the result without null check. Added `$remaining === null` to the guard condition. Regenerated baseline, PHPStan clean, all 563 tests pass.
@@ -29,3 +29,4 @@ shrink the PHPStan level-8 baseline by fixing real type issues in code
 29. Fixed `tests/Feature/EnrichCuisineTaggingTest.php` — 1 entry: `property.nonObject` on `$restaurant->fresh()->cuisines` where `fresh()` returns `Restaurant|null`. Extracted `$fresh = $restaurant->fresh()` with `assertNotNull($fresh)` guard. Baseline: 12 → 11 entries (27 → 26 instances), EnrichCuisineTaggingTest now 0 entries, all 563 tests pass.
 
 19. Fixed `tests/Feature/FavoriteControllerTest.php` — 1 entry: `property.nonObject` on `$restaurant->fresh()->is_active` where `fresh()` returns `Restaurant|null`. Extracted `$fresh = $restaurant->fresh()` with `$this->assertNotNull($fresh)` guard before property access. Baseline: 11 → 10 entries (26 → 25 instances), FavoriteControllerTest now 0 entries, all 563 tests pass.
+20. Fixed `tests/Feature/LiveVenuePersisterAwardTest.php` — 1 entry: `property.nonObject` on `$restaurant->fresh()->has_award` (line 52). Extracted `$fresh = $restaurant->fresh()` with `$this->assertNotNull($fresh)` guard before property access. Baseline: 10 → 9 entries (25 → 24 instances), LiveVenuePersisterAwardTest now 0 entries, all 3 tests pass.
