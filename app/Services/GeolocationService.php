@@ -38,7 +38,12 @@ class GeolocationService
             return $sessionCoords;
         }
 
-        return $this->ipLookup($request->ip());
+        $ip = $request->ip();
+        if ($ip === null) {
+            return null;
+        }
+
+        return $this->ipLookup($ip);
     }
 
     /**
@@ -51,7 +56,12 @@ class GeolocationService
             return null;
         }
 
-        $ipData = $this->ipLookupFull($request->ip());
+        $ip = $request->ip();
+        if ($ip === null) {
+            return null;
+        }
+
+        $ipData = $this->ipLookupFull($ip);
 
         return [
             'lat' => $coords['lat'],

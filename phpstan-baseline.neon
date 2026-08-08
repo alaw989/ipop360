@@ -169,18 +169,6 @@ parameters:
 			path: app/Http/Requests/ProfileUpdateRequest.php
 
 		-
-			message: '#^Parameter \#1 \$ip of method App\\Services\\GeolocationService\:\:ipLookup\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/GeolocationService.php
-
-		-
-			message: '#^Parameter \#1 \$ip of method App\\Services\\GeolocationService\:\:ipLookupFull\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/GeolocationService.php
-
-		-
 			message: '#^Parameter \#1 \$string of function substr expects string, string\|null given\.$#'
 			identifier: argument.type
 			count: 1
