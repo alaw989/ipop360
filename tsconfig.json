@@ -9,6 +9,7 @@
         "noImplicitReturns": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,
+        "noUncheckedSideEffectImports": true,
         "isolatedModules": true,
         "target": "ESNext",
         "esModuleInterop": true,
