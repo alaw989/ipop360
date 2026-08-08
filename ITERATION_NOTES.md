@@ -4,10 +4,12 @@
 shrink the PHPStan level-8 baseline by fixing real type issues in code
 
 ## State
-- Remaining: 3 entries (8 error instances): 2 RestaurantController (PHPStan limitations, can't fix), 5 OverpassServiceTest.
-- Next: fix OverpassServiceTest (5 instances: offsetAccess.notFound on `array{Request, Response|null}|null`).
+- **DONE**: All fixable entries eliminated. Only 2 RestaurantController entries remain (PHPStan limitations, can't fix — `assert(true)` always true + `!== null` always true, both required by the code's control flow).
+- Baseline: 14 lines (2 entries), PHPStan clean, all 563 tests pass.
 
 ## Log
+28. Fixed `tests/Feature/OverpassServiceTest.php` — 5 instances of `offsetAccess.notFound` on `array{Request, Response|null}|null` from `$recorded[0][0]` where `Http::recorded()` returns `list<...>` and PHPStan can't prove offset 0 exists. Added `$entry = $recorded[0] ?? null; $this->assertNotNull($entry);` pattern at all 5 sites, then used `$entry[0]->body()`. Baseline: 3 → 2 entries (8 → 2 instances), OverpassServiceTest now 0 entries, all 563 tests pass.
+
 1. Fixed `app/Services/PriceLevelNormalizer.php:29` — `preg_replace` can return `string|null`, but `ltrim()` was called on the result without null check. Added `$remaining === null` to the guard condition. Regenerated baseline, PHPStan clean, all 563 tests pass.
 2. Fixed `app/Console/Commands/BackfillRestaurantLocation.php` — added null guards before `extractCityState($r->address)` (`parseAddresses`, line 57 area) and before `reverseGeocode($r->latitude, $r->longitude)` (`reverseGeocode`, line 106 area). Eloquent queries already filter `whereNotNull`, so guards just `return`/increment fail counter if null. Baseline: 345 lines, PHPStan clean, all 563 tests pass.
 3. Fixed `app/Services/GeolocationService.php` — `$request->ip()` returns `string|null` but `ipLookup(string)` and `ipLookupFull(string)` both expect `string`. Added `$ip = $request->ip(); if ($ip === null) return null;` guards in `resolveCoordinates` (line 41 area) and `resolveLocation` (line 54 area). Baseline: 333 lines, PHPStan clean, all 563 tests pass.

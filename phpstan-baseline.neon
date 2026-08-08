@@ -12,9 +12,3 @@ parameters:
 			count: 1
 			path: app/Http/Controllers/RestaurantController.php
 
-		-
-			message: '#^Offset 0 might not exist on array\{Illuminate\\Http\\Client\\Request, Illuminate\\Http\\Client\\Response\|null\}\|null\.$#'
-			identifier: offsetAccess.notFound
-			count: 5
-			path: tests/Feature/OverpassServiceTest.php
-
