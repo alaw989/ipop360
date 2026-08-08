@@ -4,8 +4,8 @@
 shrink the PHPStan level-8 baseline by fixing real type issues in code
 
 ## State
-- Remaining: 6 entries (11 error instances): 2 RestaurantController (PHPStan limitations), 5 OverpassServiceTest, 2 RestaurantControllerTest, 1 PopularityScoreServiceTest, 1 RestaurantResourceAggregatesTest.
-- Next: fix RestaurantResourceAggregatesTest (1 instance: offsetAccess.notFound on score_breakdown).
+- Remaining: 5 entries (10 error instances): 2 RestaurantController (PHPStan limitations), 5 OverpassServiceTest, 2 RestaurantControllerTest, 1 PopularityScoreServiceTest.
+- Next: fix PopularityScoreServiceTest (1 instance: offsetAccess.notFound on 'normalized').
 
 ## Log
 1. Fixed `app/Services/PriceLevelNormalizer.php:29` — `preg_replace` can return `string|null`, but `ltrim()` was called on the result without null check. Added `$remaining === null` to the guard condition. Regenerated baseline, PHPStan clean, all 563 tests pass.
@@ -32,3 +32,4 @@ shrink the PHPStan level-8 baseline by fixing real type issues in code
 22. Fixed `tests/Feature/RefreshAwardsTest.php` — 4 instances (3 property.nonObject + 1 method.nonObject) all from `->fresh()` on `Restaurant|null` and `->first()` returning `Restaurant|null`. Added `$fresh = $restaurant->fresh(); $this->assertNotNull($fresh);` guards before each property access; extracted Houston query chain into separate variables with null checks. Baseline: 9 → 8 entries (24 → 20 instances), RefreshAwardsTest now 0 entries, all 563 tests pass.
 23. Fixed `tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php` — 8 instances (5 popularity_score, 2 score_breakdown, 1 updated_at) all `property.nonObject` on `$model->fresh()->*`. Extracted `$fresh = $model->fresh()` with `$this->assertNotNull($fresh)` at every call site (6 methods). Baseline: 8 → 7 entries (20 → 12 instances), RestaurantEnrichmentScoreBatchUpdateTest now 0 entries, all 6 tests pass.
 24. Fixed `tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php:142` — `property.nonObject` on `$restaurant->id` where `processFreeVenue()` returns `?Restaurant` and `assertSame` doesn't narrow the type. Added `$this->assertNotNull($restaurant)` before the `assertSame($existing->id, $restaurant->id)` call. Baseline: 7 → 6 entries (12 → 11 instances), RestaurantEnrichmentProcessFreeVenueTest now 0 entries, all 5 tests pass.
+25. Fixed `tests/Unit/RestaurantResourceAggregatesTest.php:54` — `offsetAccess.notFound` on `$resolved[0]['score_breakdown']` where `$resolved` is a Collection and PHPStan can't prove `$resolved[0]` is non-null through ArrayAccess. Added `$this->assertIsArray($resolved[0])` guard before the offset access. Baseline: 6 → 5 entries (11 → 10 instances), RestaurantResourceAggregatesTest now 0 entries, all 2 tests pass.

@@ -29,9 +29,3 @@ parameters:
 			identifier: offsetAccess.notFound
 			count: 1
 			path: tests/Unit/PopularityScoreServiceTest.php
-
-		-
-			message: '#^Offset ''score_breakdown'' might not exist on array\|null\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: tests/Unit/RestaurantResourceAggregatesTest.php
