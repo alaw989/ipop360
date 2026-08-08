@@ -23,9 +23,3 @@ parameters:
 			identifier: offsetAccess.notFound
 			count: 2
 			path: tests/Feature/RestaurantControllerTest.php
-
-		-
-			message: '#^Offset ''normalized'' might not exist on array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\|null\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: tests/Unit/PopularityScoreServiceTest.php

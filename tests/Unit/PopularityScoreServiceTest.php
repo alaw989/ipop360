@@ -394,6 +394,7 @@ class PopularityScoreServiceTest extends TestCase
         $labels = collect($present['signals'])->pluck('label')->toArray();
         $this->assertContains('Cuisine Match', $labels);
         $cm = collect($present['signals'])->firstWhere('label', 'Cuisine Match');
+        $this->assertNotNull($cm);
         $this->assertSame(0.0, $cm['normalized']);
         $this->assertSame(0.0, $cm['contribution']);
 
