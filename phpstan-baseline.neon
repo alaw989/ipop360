@@ -7,18 +7,6 @@ parameters:
 			path: app/Console/Commands/BackfillRestaurantWebsites.php
 
 		-
-			message: '#^Parameter \#1 \$websiteUrl of method App\\Services\\RestaurantWebsiteScraperService\:\:scrapeSocial\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/ScrapeRestaurantSocialLinks.php
-
-		-
-			message: '#^Parameter \#1 \$url of method Illuminate\\Http\\Client\\PendingRequest\<false\>\:\:head\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/VerifyRestaurantWebsites.php
-
-		-
 			message: '#^Cannot access property \$id on App\\Models\\User\|null\.$#'
 			identifier: property.nonObject
 			count: 1
@@ -311,5 +299,3 @@ parameters:
 			identifier: offsetAccess.notFound
 			count: 1
 			path: tests/Unit/RestaurantResourceAggregatesTest.php
-
-
