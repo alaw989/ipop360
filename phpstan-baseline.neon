@@ -19,24 +19,6 @@ parameters:
 			path: tests/Feature/OverpassServiceTest.php
 
 		-
-			message: '#^Cannot access property \$has_award on App\\Models\\Restaurant\|null\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: tests/Feature/RefreshAwardsTest.php
-
-		-
-			message: '#^Cannot access property \$has_award on Illuminate\\Database\\Eloquent\\Model\|null\.$#'
-			identifier: property.nonObject
-			count: 2
-			path: tests/Feature/RefreshAwardsTest.php
-
-		-
-			message: '#^Cannot call method fresh\(\) on App\\Models\\Restaurant\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: tests/Feature/RefreshAwardsTest.php
-
-		-
 			message: '#^Offset ''name'' might not exist on array\<mixed\>\|null\.$#'
 			identifier: offsetAccess.notFound
 			count: 2
