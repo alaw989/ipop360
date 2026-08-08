@@ -48,7 +48,9 @@ class BackfillRestaurantPhotosTest extends TestCase
         $cmd = $this->artisan('restaurants:backfill-photos');
         $cmd->expectsOutputToContain('DRY RUN');
 
-        $this->assertNull($r->fresh()->photo_url, 'dry-run must not persist');
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNull($fresh->photo_url, 'dry-run must not persist');
     }
 
     public function test_apply_persists_photo_and_gallery(): void
@@ -62,7 +64,9 @@ class BackfillRestaurantPhotosTest extends TestCase
         $this->artisan('restaurants:backfill-photos', ['--apply' => true]);
 
         $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
         $this->assertSame('https://cdn.example/photo.jpg', $fresh->photo_url);
+        $this->assertIsArray($fresh->photos);
         $this->assertContains('https://cdn.example/photo.jpg', $fresh->photos);
     }
 
@@ -78,7 +82,9 @@ class BackfillRestaurantPhotosTest extends TestCase
         $cmd = $this->artisan('restaurants:backfill-photos');
         $cmd->expectsOutputToContain('No restaurants need photos');
 
-        $this->assertSame('https://cdn.example/existing.jpg', $r->fresh()->photo_url);
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('https://cdn.example/existing.jpg', $fresh->photo_url);
     }
 
     public function test_handles_scraper_failure_without_aborting(): void

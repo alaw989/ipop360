@@ -13,24 +13,6 @@ parameters:
 			path: app/Http/Controllers/RestaurantController.php
 
 		-
-			message: '#^Cannot access property \$photo_url on App\\Models\\Restaurant\|null\.$#'
-			identifier: property.nonObject
-			count: 3
-			path: tests/Feature/BackfillRestaurantPhotosTest.php
-
-		-
-			message: '#^Cannot access property \$photos on App\\Models\\Restaurant\|null\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: tests/Feature/BackfillRestaurantPhotosTest.php
-
-		-
-			message: '#^Parameter \#2 \$haystack of method PHPUnit\\Framework\\Assert\:\:assertContains\(\) expects iterable, array\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: tests/Feature/BackfillRestaurantPhotosTest.php
-
-		-
 			message: '#^Cannot access property \$body on App\\Models\\BlogPost\|null\.$#'
 			identifier: property.nonObject
 			count: 3
