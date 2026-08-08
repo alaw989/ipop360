@@ -35,17 +35,21 @@ with a **zero baseline**; pint clean; CI + deploy green on master.
    Welcome 19 · Restaurants/Index 15 · Restaurants/Show 43 · Favorites/Index 7.
    vitest 481 → **565** (deduped a duplicate FavoritesIndex.spec.ts from iter 1).
    Deployed + live-verified (/, /api both 200).
+7. **TypeScript stricter compiler flags** — PR #70 (opencode-loop, 8 iterations): all 11
+   strict-adjacent flags enabled in `tsconfig.json` (`noUncheckedIndexedAccess`, `noImplicitReturns`,
+   `noUnusedLocals`, `noUnusedParameters`, `noUncheckedSideEffectImports`, `exactOptionalPropertyTypes`,
+   `strictPropertyInitialization`, `noPropertyAccessFromIndexSignature`, `noFallthroughCasesInSwitch`,
+   `noImplicitOverride`) with zero type errors. Deployed + live-verified (/, /api both 200).
 
 ---
 
 ## Next goals (in priority order)
 
-### 1. TypeScript stricter compiler flags ⬅ NEXT
-- tsconfig is `strict` + clean. Tighten with `noUncheckedIndexedAccess`, `noImplicitOverride`,
-  `exactOptionalPropertyTypes`, `noUnusedLocals`, and fix the fallout across
-  `resources/js/`.
-- **Goal:** `enable stricter TypeScript compiler flags and fix all resulting type errors`
-- **Gate:** `npm run build` (runs `vue-tsc`)
+### 1. PHPStan level 8 ⬅ NEXT
+- Level 7 is fully clean. Bump `level: 8`, generate baseline, loop shrinks to zero
+  (same playbook as #3/#4 above).
+- **Goal:** `shrink the PHPStan level-8 baseline by fixing real type issues in code`
+- **Gate:** `./vendor/bin/phpstan analyse && composer test`
 
 ### 3. PHPStan level 8
 - Level 7 is fully clean. Bump `level: 8`, generate baseline, loop shrinks to zero
