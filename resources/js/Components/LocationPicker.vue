@@ -105,7 +105,8 @@ function onKeydown(e: KeyboardEvent) {
         selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
     } else if (e.key === 'Enter' && selectedIndex.value >= 0) {
         e.preventDefault()
-        selectResult(results.value[selectedIndex.value])
+        const res = results.value[selectedIndex.value]
+        if (res) selectResult(res)
     } else if (e.key === 'Escape') {
         open.value = false
     }

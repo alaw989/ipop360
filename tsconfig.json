@@ -5,6 +5,8 @@
         "moduleResolution": "bundler",
         "jsx": "preserve",
         "strict": true,
+        "noUncheckedIndexedAccess": true,
+        "noImplicitReturns": true,
         "isolatedModules": true,
         "target": "ESNext",
         "esModuleInterop": true,

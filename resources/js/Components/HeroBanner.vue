@@ -234,7 +234,7 @@ function onDetect() {
 
         <!-- Photo attribution -->
         <div class="absolute bottom-2 right-3 z-10 text-[10px] text-white/40">
-            {{ slides[currentSlide].attribution }}
+            {{ slides[currentSlide]?.attribution ?? '' }}
         </div>
     </section>
 </template>
