@@ -7,48 +7,6 @@ parameters:
 			path: app/Http/Controllers/Admin/BlogPostController.php
 
 		-
-			message: '#^Cannot access property \$email on App\\Models\\User\|null\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: app/Http/Controllers/Auth/ConfirmablePasswordController.php
-
-		-
-			message: '#^Cannot call method hasVerifiedEmail\(\) on App\\Models\\User\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Http/Controllers/Auth/EmailVerificationNotificationController.php
-
-		-
-			message: '#^Cannot call method sendEmailVerificationNotification\(\) on App\\Models\\User\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Http/Controllers/Auth/EmailVerificationNotificationController.php
-
-		-
-			message: '#^Cannot call method hasVerifiedEmail\(\) on App\\Models\\User\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Http/Controllers/Auth/EmailVerificationPromptController.php
-
-		-
-			message: '#^Cannot call method update\(\) on App\\Models\\User\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Http/Controllers/Auth/PasswordController.php
-
-		-
-			message: '#^Cannot call method hasVerifiedEmail\(\) on App\\Models\\User\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Http/Controllers/Auth/VerifyEmailController.php
-
-		-
-			message: '#^Cannot call method markEmailAsVerified\(\) on App\\Models\\User\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Http/Controllers/Auth/VerifyEmailController.php
-
-		-
 			message: '#^Cannot access property \$email_verified_at on App\\Models\\User\|null\.$#'
 			identifier: property.nonObject
 			count: 1
@@ -89,18 +47,6 @@ parameters:
 			identifier: notIdentical.alwaysTrue
 			count: 1
 			path: app/Http/Controllers/RestaurantController.php
-
-		-
-			message: '#^Offset ''lat'' might not exist on array\{lat\: float, lng\: float\}\|null\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: app/Http/Controllers/SearchController.php
-
-		-
-			message: '#^Offset ''lng'' might not exist on array\{lat\: float, lng\: float\}\|null\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: app/Http/Controllers/SearchController.php
 
 		-
 			message: '#^Cannot access property \$id on App\\Models\\User\|null\.$#'

@@ -96,7 +96,14 @@ class SearchController extends Controller
                     )
                 )
             )
-            ->nearby($coords['lat'], $coords['lng'], $distanceKm)
+            ->when(
+                $coords !== null,
+                function ($q) use ($coords, $distanceKm) {
+                    assert($coords !== null);
+
+                    return $q->nearby($coords['lat'], $coords['lng'], $distanceKm);
+                }
+            )
             ->when(
                 $priceRange,
                 fn ($q) => $q->where('price_range', $priceRange)
