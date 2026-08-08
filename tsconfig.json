@@ -13,6 +13,7 @@
         "exactOptionalPropertyTypes": true,
         "strictPropertyInitialization": true,
         "noPropertyAccessFromIndexSignature": true,
+        "noFallthroughCasesInSwitch": true,
         "isolatedModules": true,
         "target": "ESNext",
         "esModuleInterop": true,
