@@ -116,4 +116,9 @@ describe('Favorites page', () => {
         const wrapper = mountFavorites()
         expect(wrapper.text()).not.toContain('Test Restaurant')
     })
+
+    it('renders the favorites grid when favorites exist', () => {
+        const wrapper = mountFavorites([makeRestaurant(), makeRestaurant({ id: 2 })])
+        expect(wrapper.find('.grid').exists()).toBe(true)
+    })
 })
