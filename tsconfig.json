@@ -12,6 +12,7 @@
         "noUncheckedSideEffectImports": true,
         "exactOptionalPropertyTypes": true,
         "strictPropertyInitialization": true,
+        "noPropertyAccessFromIndexSignature": true,
         "isolatedModules": true,
         "target": "ESNext",
         "esModuleInterop": true,

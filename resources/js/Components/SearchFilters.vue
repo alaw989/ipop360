@@ -17,10 +17,10 @@ const emit = defineEmits<{
     clear: [];
 }>();
 
-const currentPrice = computed(() => props.filters.price_range as string || '');
-const currentDistance = computed(() => props.filters.distance as string || '25');
-const currentCuisine = computed(() => props.filters.cuisine as string || '');
-const currentCategory = computed(() => props.filters.category as string || '');
+const currentPrice = computed(() => props.filters["price_range"] as string || '');
+const currentDistance = computed(() => props.filters["distance"] as string || '25');
+const currentCuisine = computed(() => props.filters["cuisine"] as string || '');
+const currentCategory = computed(() => props.filters["category"] as string || '');
 
 const hasActiveFilters = computed(() => {
     return !!(currentPrice.value || currentDistance.value !== '25' || currentCuisine.value || currentCategory.value);
