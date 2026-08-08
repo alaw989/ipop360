@@ -178,6 +178,8 @@ class EnrichCuisineTaggingTest extends TestCase
 
         // Second pass (as the city grid revisits this cuisine): still untagged.
         $service->enrichByCuisine(37.7749, -122.4194, $cuisine);
-        $this->assertCount(0, $restaurant->fresh()->cuisines);
+        $fresh = $restaurant->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertCount(0, $fresh->cuisines);
     }
 }
