@@ -30,19 +30,17 @@
 **Current floor:** 563 PHPUnit tests + 481 vitest tests; PHPStan level 7 over `app/ + tests/`
 with a **zero baseline**; pint clean; CI + deploy green on master.
 
+## ✅ Done (2026-08-08 session)
+6. **Frontend page-level vitest tests** — PR #69 (opencode-loop, 4 iterations + dedupe):
+   Welcome 19 · Restaurants/Index 15 · Restaurants/Show 43 · Favorites/Index 7.
+   vitest 481 → **565** (deduped a duplicate FavoritesIndex.spec.ts from iter 1).
+   Deployed + live-verified (/, /api both 200).
+
 ---
 
 ## Next goals (in priority order)
 
-### 1. Frontend page-level vitest tests ⬅ NEXT
-- Only `resources/js/Pages/__tests__/Search.spec.ts` covers a page. `Welcome.vue`,
-  `Restaurants/Index.vue`, `Restaurants/Show.vue`, and the favorites page have none.
-- **Goal:** `increase vitest coverage of the page components (Welcome, Restaurants/Index, Restaurants/Show, favorites)`
-- **Gate:** `npm run test`
-- Notes: page tests need `@inertiajs` mocks + `usePage`/router mocking; components already
-  covered (RestaurantCard, SearchFilters, ResultsGrid, etc.) so focus on page orchestration.
-
-### 2. TypeScript stricter compiler flags
+### 1. TypeScript stricter compiler flags ⬅ NEXT
 - tsconfig is `strict` + clean. Tighten with `noUncheckedIndexedAccess`, `noImplicitOverride`,
   `exactOptionalPropertyTypes`, `noUnusedLocals`, and fix the fallout across
   `resources/js/`.
