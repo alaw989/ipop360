@@ -26,7 +26,7 @@ class PriceLevelNormalizer
             // We have at least 2 repeated symbols
             $remaining = preg_replace('/^([\$\€\£\¥\₩\₹\₽\₴\₦\₪\₫\₡\₸\₱\₲\₾\₮])+/u', '', $trimmed, 1);
             // If what follows starts with a digit, this is a price value like "$10-30", not a level indicator
-            if ($remaining === '' || $remaining === ' ' || ! preg_match('/^\d/', ltrim($remaining, ' '))) {
+            if ($remaining === null || $remaining === '' || $remaining === ' ' || ! preg_match('/^\d/', ltrim($remaining, ' '))) {
                 // Count consecutive symbols at the start
                 preg_match('/^([\$\€\£\¥\₩\₹\₽\₴\₦\₪\₫\₡\₸\₱\₲\₾\₮])+/u', $trimmed, $matches);
                 if (isset($matches[0])) {
