@@ -11,6 +11,7 @@
         "noUnusedParameters": true,
         "noUncheckedSideEffectImports": true,
         "exactOptionalPropertyTypes": true,
+        "strictPropertyInitialization": true,
         "isolatedModules": true,
         "target": "ESNext",
         "esModuleInterop": true,
