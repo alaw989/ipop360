@@ -1,12 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Parameter \#1 \$string of function substr expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/BackfillRestaurantWebsites.php
-
-		-
 			message: '#^Cannot access property \$id on App\\Models\\User\|null\.$#'
 			identifier: property.nonObject
 			count: 1
@@ -137,18 +131,6 @@ parameters:
 			identifier: property.nonObject
 			count: 1
 			path: app/Http/Requests/ProfileUpdateRequest.php
-
-		-
-			message: '#^Parameter \#1 \$string of function substr expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/RestaurantEnrichmentService.php
-
-		-
-			message: '#^Parameter \#1 \$string of function strlen expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/RestaurantValidationService.php
 
 		-
 			message: '#^Cannot call method getAttribute\(\) on DOMNameSpaceNode\|DOMNode\|null\.$#'

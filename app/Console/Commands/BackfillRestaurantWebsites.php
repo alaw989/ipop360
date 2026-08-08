@@ -124,7 +124,7 @@ class BackfillRestaurantWebsites extends Command
 
             // Try phone match
             if ($entryData === null) {
-                $phoneDigits = substr(preg_replace('/\D+/', '', $restaurant->phone ?? ''), -10);
+                $phoneDigits = substr((string) preg_replace('/\D+/', '', $restaurant->phone ?? ''), -10);
                 if (strlen($phoneDigits) === 10 && isset($phoneIndex[$phoneDigits])) {
                     $entryData = $phoneIndex[$phoneDigits];
                 }
