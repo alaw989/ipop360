@@ -4,8 +4,8 @@
 shrink the PHPStan level-8 baseline by fixing real type issues in code
 
 ## State
-- Remaining: 4 entries (9 error instances): 2 RestaurantController (PHPStan limitations, can't fix), 5 OverpassServiceTest, 2 RestaurantControllerTest.
-- Next: fix RestaurantControllerTest (2 instances: offsetAccess.notFound on 'name').
+- Remaining: 3 entries (8 error instances): 2 RestaurantController (PHPStan limitations, can't fix), 5 OverpassServiceTest.
+- Next: fix OverpassServiceTest (5 instances: offsetAccess.notFound on `array{Request, Response|null}|null`).
 
 ## Log
 1. Fixed `app/Services/PriceLevelNormalizer.php:29` — `preg_replace` can return `string|null`, but `ltrim()` was called on the result without null check. Added `$remaining === null` to the guard condition. Regenerated baseline, PHPStan clean, all 563 tests pass.
@@ -34,3 +34,4 @@ shrink the PHPStan level-8 baseline by fixing real type issues in code
 24. Fixed `tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php:142` — `property.nonObject` on `$restaurant->id` where `processFreeVenue()` returns `?Restaurant` and `assertSame` doesn't narrow the type. Added `$this->assertNotNull($restaurant)` before the `assertSame($existing->id, $restaurant->id)` call. Baseline: 7 → 6 entries (12 → 11 instances), RestaurantEnrichmentProcessFreeVenueTest now 0 entries, all 5 tests pass.
 25. Fixed `tests/Unit/RestaurantResourceAggregatesTest.php:54` — `offsetAccess.notFound` on `$resolved[0]['score_breakdown']` where `$resolved` is a Collection and PHPStan can't prove `$resolved[0]` is non-null through ArrayAccess. Added `$this->assertIsArray($resolved[0])` guard before the offset access. Baseline: 6 → 5 entries (11 → 10 instances), RestaurantResourceAggregatesTest now 0 entries, all 2 tests pass.
 26. Fixed `tests/Unit/PopularityScoreServiceTest.php:396-398` — `offsetAccess.notFound` on `$cm['normalized']` where `firstWhere()` returns `array{...}|null`. Added `$this->assertNotNull($cm)` guard between `firstWhere()` and array offset accesses. Baseline: 5 → 4 entries (10 → 9 instances), PopularityScoreServiceTest now 0 entries, all 563 tests pass.
+27. Fixed `tests/Feature/RestaurantControllerTest.php:564-565` — `offsetAccess.notFound` on `['name']` where `ExternalApiCache::findByKey()` returns `?array`. Extracted `$previewAlpha`/`$previewBeta` with `$this->assertNotNull()` guards before offset access. Baseline: 4 → 3 entries (9 → 8 instances), RestaurantControllerTest now 0 entries, all 563 tests pass.

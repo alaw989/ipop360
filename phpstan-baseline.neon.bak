@@ -18,3 +18,8 @@ parameters:
 			count: 5
 			path: tests/Feature/OverpassServiceTest.php
 
+		-
+			message: '#^Offset ''name'' might not exist on array\<mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: tests/Feature/RestaurantControllerTest.php

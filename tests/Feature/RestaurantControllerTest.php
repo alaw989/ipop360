@@ -561,8 +561,12 @@ class RestaurantControllerTest extends TestCase
         $response = $this->get('/api/restaurants?lat=30.0&lng=-88.0');
 
         $response->assertStatus(200);
-        $this->assertSame('Alpha', ExternalApiCache::findByKey('preview:alpha-aaaaaa')['name']);
-        $this->assertSame('Beta', ExternalApiCache::findByKey('preview:beta-bbbbbb')['name']);
+        $previewAlpha = ExternalApiCache::findByKey('preview:alpha-aaaaaa');
+        $previewBeta = ExternalApiCache::findByKey('preview:beta-bbbbbb');
+        $this->assertNotNull($previewAlpha);
+        $this->assertNotNull($previewBeta);
+        $this->assertSame('Alpha', $previewAlpha['name']);
+        $this->assertSame('Beta', $previewBeta['name']);
     }
 
     public function test_sort_venues_nearest_without_coords_falls_back_to_best_match(): void
