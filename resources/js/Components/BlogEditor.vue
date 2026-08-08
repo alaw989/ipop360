@@ -171,6 +171,7 @@ onBeforeUnmount(() => {
         </div>
 
         <EditorContent
+            v-if="editor"
             :editor="editor"
             class="prose prose-neutral max-w-none p-3 text-sm focus:outline-none dark:prose-invert [&_.tiptap]:min-h-[300px] [&_.tiptap]:outline-none [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]"
         />

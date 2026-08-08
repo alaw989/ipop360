@@ -264,7 +264,7 @@ function onSearch() {
 
 function onResort() {
     resort({
-        selectedCuisine: selectedCuisine.value,
+        ...(selectedCuisine.value ? { selectedCuisine: selectedCuisine.value } : {}),
         selectedCategory: selectedCategory.value,
         lat,
         lng,

@@ -64,7 +64,7 @@ const seoData = computed(() => {
         title,
         description,
         url: restaurantUrl,
-        image: photos.value[0] || undefined,
+        ...(photos.value[0] ? { image: photos.value[0] } : {}),
         type: 'restaurant',
         noindex: props.isLivePreview === true,
     })

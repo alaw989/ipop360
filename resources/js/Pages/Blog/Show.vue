@@ -39,15 +39,15 @@ const seoData = useSeo({
     description: props.post.excerpt,
     url: `${baseUrl}/blog/${props.post.slug}`,
     type: 'article',
-    image: props.post.featured_image || undefined,
+    ...(props.post.featured_image ? { image: props.post.featured_image } : {}),
 })
 
 const jsonLd = generateArticleJsonLd({
     title: props.post.title,
     url: `${baseUrl}/blog/${props.post.slug}`,
-    image: props.post.featured_image,
-    publishedAt: props.post.published_at,
-    author: props.post.author?.name,
+    ...(props.post.featured_image ? { image: props.post.featured_image } : {}),
+    ...(props.post.published_at ? { publishedAt: props.post.published_at } : {}),
+    ...(props.post.author?.name ? { author: props.post.author.name } : {}),
     excerpt: props.post.excerpt,
 })
 </script>

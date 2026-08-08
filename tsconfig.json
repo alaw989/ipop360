@@ -10,6 +10,7 @@
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "noUncheckedSideEffectImports": true,
+        "exactOptionalPropertyTypes": true,
         "isolatedModules": true,
         "target": "ESNext",
         "esModuleInterop": true,

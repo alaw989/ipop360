@@ -22,8 +22,8 @@ const props = withDefaults(defineProps<Props>(), {
     data-slot="button"
     :data-variant="variant"
     :data-size="size"
-    :as="as"
-    :as-child="asChild"
+    :as="as!"
+    :as-child="asChild!"
     :class="cn(buttonVariants({ variant, size }), props.class)"
   >
     <slot />

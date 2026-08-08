@@ -4,11 +4,17 @@ import DeleteUserForm from './Partials/DeleteUserForm.vue';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm.vue';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm.vue';
 import { Head } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
-defineProps<{
+const props = defineProps<{
     mustVerifyEmail?: boolean;
     status?: string;
 }>();
+
+const updateProfileProps = computed(() => ({
+    ...(props.mustVerifyEmail !== undefined ? { mustVerifyEmail: props.mustVerifyEmail } : {}),
+    ...(props.status ? { status: props.status } : {}),
+}));
 </script>
 
 <template>
@@ -29,8 +35,7 @@ defineProps<{
                     class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
                 >
                     <UpdateProfileInformationForm
-                        :must-verify-email="mustVerifyEmail"
-                        :status="status"
+                        v-bind="updateProfileProps"
                         class="max-w-xl"
                     />
                 </div>

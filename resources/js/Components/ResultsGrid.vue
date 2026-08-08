@@ -147,7 +147,7 @@ function onDismissLoadMoreError() {
                             :rank="index + 1"
                             :search-lat="lat"
                             :search-lng="lng"
-                            :cuisine="selectedCuisine"
+                            :cuisine="selectedCuisine!"
                             :stagger="shouldStagger"
                         />
                     </div>

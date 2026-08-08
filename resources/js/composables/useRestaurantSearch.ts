@@ -53,7 +53,7 @@ export function useRestaurantSearch(
     }
 
     async function fetchValidated(url: string, signal?: AbortSignal): Promise<ApiResponse> {
-        const response = await fetch(url, { signal });
+        const response = await fetch(url, { ...(signal ? { signal } : {}) });
         if (!response.ok) {
             throw new Error('Search failed');
         }
