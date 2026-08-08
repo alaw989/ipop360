@@ -4,8 +4,8 @@
 shrink the PHPStan level-8 baseline by fixing real type issues in code
 
 ## State
-- Remaining: 11 entries (26 error instances), all in tests. App code: RestaurantController (2 PHPStan limitations).
-- Next: fix FavoriteControllerTest (1 instance).
+- Remaining: 10 entries (25 error instances), all in tests. App code: RestaurantController (2 PHPStan limitations).
+- Next: fix LiveVenuePersisterAwardTest (1 instance).
 
 ## Log
 1. Fixed `app/Services/PriceLevelNormalizer.php:29` — `preg_replace` can return `string|null`, but `ltrim()` was called on the result without null check. Added `$remaining === null` to the guard condition. Regenerated baseline, PHPStan clean, all 563 tests pass.
@@ -27,3 +27,5 @@ shrink the PHPStan level-8 baseline by fixing real type issues in code
 17. Fixed `tests/Feature/BlogAdminTest.php` — 4 entries (7 instances): all `property.nonObject` on `BlogPost::where()->first()` returns `BlogPost|null` (3 sites: `$published_at`/`$slug`, `$status`/`$published_at`, `$body`×3). Added `$this->assertNotNull($post)` after each of the 3 `->first()` calls. Baseline: 22 → 15 entries (37 → 30 instances), BlogAdminTest now 0 entries, all 563 tests pass.
 28: 18. Fixed `tests/Feature/DeduplicateRestaurantsTest.php` — 3 entries (3 instances): `property.nonObject` on `Restaurant::find($keep->id)->website_url` (1×), `->social_links_count` (2×). Replaced all 3 `Restaurant::find($keep->id)` with `Restaurant::findOrFail($keep->id)`. Baseline: 15 → 12 entries (30 → 27 instances), DeduplicateRestaurantsTest now 0 entries, all 563 tests pass.
 29. Fixed `tests/Feature/EnrichCuisineTaggingTest.php` — 1 entry: `property.nonObject` on `$restaurant->fresh()->cuisines` where `fresh()` returns `Restaurant|null`. Extracted `$fresh = $restaurant->fresh()` with `assertNotNull($fresh)` guard. Baseline: 12 → 11 entries (27 → 26 instances), EnrichCuisineTaggingTest now 0 entries, all 563 tests pass.
+
+19. Fixed `tests/Feature/FavoriteControllerTest.php` — 1 entry: `property.nonObject` on `$restaurant->fresh()->is_active` where `fresh()` returns `Restaurant|null`. Extracted `$fresh = $restaurant->fresh()` with `$this->assertNotNull($fresh)` guard before property access. Baseline: 11 → 10 entries (26 → 25 instances), FavoriteControllerTest now 0 entries, all 563 tests pass.
