@@ -4,8 +4,8 @@
 shrink the PHPStan level-8 baseline by fixing real type issues in code
 
 ## State
-- Remaining: 27 error entries (~45 PHPStan count). App code: RestaurantController (2 PHPStan limitations), RestaurantWebsiteScraperService (1). BlogPostController and ProfileUpdateRequest now clean (0 entries).
-- Next: RestaurantWebsiteScraperService (1 error — `method.nonObject` on `getAttribute()` call on `DOMNameSpaceNode|DOMNode|null`).
+- Remaining: 26 error entries (all in tests). App code: RestaurantController (2 PHPStan limitations). RestaurantWebsiteScraperService now clean (0 entries). All remaining entries are in test files.
+- Next: fix test file entries — EmailVerificationTest (2), then BackfillRestaurantPhotosTest (5), then BlogAdminTest (6), etc.
 
 ## Log
 1. Fixed `app/Services/PriceLevelNormalizer.php:29` — `preg_replace` can return `string|null`, but `ltrim()` was called on the result without null check. Added `$remaining === null` to the guard condition. Regenerated baseline, PHPStan clean, all 563 tests pass.
@@ -21,3 +21,4 @@ shrink the PHPStan level-8 baseline by fixing real type issues in code
 11. Fixed `app/Http/Controllers/ProfileController.php` — all 5 errors: 4 `method.nonObject` (`fill()`, `isDirty()`, `save()`, `delete()`) + 1 `property.nonObject` (`$email_verified_at`) on `$request->user()` calls. Extracted `$user = $request->user()` and added null guards: `if (! $user) { return Redirect::route('profile.edit'); }` in `update()` and `if (! $user) { return Redirect::to('/'); }` in `destroy()`. Baseline: 205 → 175 lines, 34 → 29 entries, ProfileController now 0 entries, all 563 tests pass.
 12. Fixed `app/Http/Controllers/Admin/BlogPostController.php` — 1 error: `$request->user()->id` accesses property on `User|null`. Extracted `$user = $request->user()` with null guard returning `redirect()->route('login')`. Added `assert($user->id >= 0)` to satisfy `int` vs `int<0, max>` type narrowing. Baseline: 29 → 28 entries, BlogPostController now 0 entries, all tests pass.
 13. Fixed `app/Http/Requests/ProfileUpdateRequest.php` — 1 error: `$this->user()->id` accesses property on `User|null`. Extracted `$user = $this->user()` with `assert($user !== null)` to narrow type before `Rule::unique(User::class)->ignore($user->id)`. Baseline: 28 → 27 entries, ProfileUpdateRequest now 0 entries, all tests pass.
+14. Fixed `app/Services/RestaurantWebsiteScraperService.php:1049` — `method.nonObject` on `$nodes->item(0)->getAttribute('content')` where `item(0)` returns `DOMNode|null`. Extracted to `$firstNode = $nodes->item(0)` with `if (! $firstNode instanceof \DOMElement) { continue; }` guard. Baseline: 27 → 26 entries, RestaurantWebsiteScraperService now 0 entries, all 563 tests pass.
