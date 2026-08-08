@@ -96,10 +96,7 @@ class SearchController extends Controller
                     )
                 )
             )
-            ->when(
-                $coords !== null,
-                fn ($q) => $q->nearby($coords['lat'], $coords['lng'], $distanceKm)
-            )
+            ->nearby($coords['lat'], $coords['lng'], $distanceKm)
             ->when(
                 $priceRange,
                 fn ($q) => $q->where('price_range', $priceRange)
@@ -139,9 +136,11 @@ class SearchController extends Controller
         $aggregates = app(PopularityScoreService::class)->computeAggregates($allItems);
 
         $formatted = RestaurantResource::collection($items);
-        $formatted->collection->each(fn ($resource) => $resource
-            ->withAllRestaurants($allItems)
-            ->withAggregates($aggregates));
+        if ($formatted->collection !== null) {
+            $formatted->collection->each(fn ($resource) => $resource
+                ->withAllRestaurants($allItems)
+                ->withAggregates($aggregates));
+        }
 
         $formattedArray = $formatted->resolve();
         $restaurants->setCollection(collect($formattedArray));
