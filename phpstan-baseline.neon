@@ -49,18 +49,6 @@ parameters:
 			path: app/Http/Controllers/Auth/VerifyEmailController.php
 
 		-
-			message: '#^Cannot call method each\(\) on Illuminate\\Support\\Collection\|null\.$#'
-			identifier: method.nonObject
-			count: 1
-			path: app/Http/Controllers/FavoriteController.php
-
-		-
-			message: '#^Cannot call method favorites\(\) on App\\Models\\User\|null\.$#'
-			identifier: method.nonObject
-			count: 6
-			path: app/Http/Controllers/FavoriteController.php
-
-		-
 			message: '#^Cannot access property \$email_verified_at on App\\Models\\User\|null\.$#'
 			identifier: property.nonObject
 			count: 1

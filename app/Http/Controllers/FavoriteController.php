@@ -24,6 +24,9 @@ class FavoriteController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
+        if (! $user) {
+            abort(401);
+        }
 
         // spec-088: bound the query (memory-DoS guard for power users). Full
         // pagination is a frontend follow-up; a generous cap preserves the
@@ -41,9 +44,11 @@ class FavoriteController extends Controller
         /** @var AnonymousResourceCollection $formatted */
         $formatted = RestaurantResource::collection($favorites);
         // Attach the full collection + precomputed aggregates to each resource
-        $formatted->collection->each(fn ($resource) => $resource
-            ->withAllRestaurants($favorites)
-            ->withAggregates($aggregates));
+        if ($formatted->collection !== null) {
+            $formatted->collection->each(fn ($resource) => $resource
+                ->withAllRestaurants($favorites)
+                ->withAggregates($aggregates));
+        }
 
         return Inertia::render('Favorites/Index', [
             'favorites' => $formatted->resolve(),
@@ -81,6 +86,9 @@ class FavoriteController extends Controller
         $existingId = $validated['id'] ?? null;
 
         $user = $request->user();
+        if (! $user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
 
         // Ensure the restaurant is persisted (using existing ID if provided).
         // Returns null only when the create kill-switch is off AND the venue is
@@ -125,6 +133,9 @@ class FavoriteController extends Controller
         ]);
 
         $user = $request->user();
+        if (! $user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
         $existingIds = $validated['ids'] ?? [];
         $unpersistedVenues = $validated['venues'] ?? [];
 
