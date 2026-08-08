@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -40,7 +39,7 @@ interface Emits {
     (e: 'search'): void
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 function onSortChange(event: Event) {
@@ -148,7 +147,7 @@ function onDismissLoadMoreError() {
                             :rank="index + 1"
                             :search-lat="lat"
                             :search-lng="lng"
-                            :cuisine="selectedCuisine"
+                            :cuisine="selectedCuisine!"
                             :stagger="shouldStagger"
                         />
                     </div>

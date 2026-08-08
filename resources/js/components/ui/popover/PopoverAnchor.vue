@@ -9,6 +9,8 @@ const props = defineProps<PopoverAnchorProps>()
   <PopoverAnchor
     data-slot="popover-anchor"
     v-bind="props"
+    :as="as!"
+    :reference="reference!"
   >
     <slot />
   </PopoverAnchor>

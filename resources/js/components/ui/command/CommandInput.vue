@@ -34,6 +34,7 @@ const { filterState } = useCommand()
         v-bind="{ ...forwardedProps, ...$attrs }"
         v-model="filterState.search"
         data-slot="command-input"
+        :as="as!"
         :autoFocus="props.autoFocus !== false"
         :class="cn('w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50', props.class)"
       />

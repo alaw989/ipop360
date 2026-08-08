@@ -14,7 +14,6 @@ const isExpanded = ref(false);
 let map: any = null;
 let markers: any[] = [];
 let leaflet: any = null;
-let tileLayer: any = null;
 
 const center = computed(() => {
     if (props.lat && props.lng) {

@@ -2,8 +2,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+
 import { useIsMobile } from '@/composables/useIsMobile'
 import { useKeyboardOffset } from '@/composables/useKeyboardOffset'
 
@@ -105,7 +104,8 @@ function onKeydown(e: KeyboardEvent) {
         selectedIndex.value = Math.max(selectedIndex.value - 1, 0)
     } else if (e.key === 'Enter' && selectedIndex.value >= 0) {
         e.preventDefault()
-        selectResult(results.value[selectedIndex.value])
+        const res = results.value[selectedIndex.value]
+        if (res) selectResult(res)
     } else if (e.key === 'Escape') {
         open.value = false
     }

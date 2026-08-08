@@ -1,12 +1,18 @@
 # Iteration Notes
 
 ## Goal
-increase vitest coverage of the page components (Welcome, Restaurants/Index, Restaurants/Show, favorites)
+enable stricter TypeScript compiler flags and fix all resulting type errors
 
 ## State
-- Added `resources/js/Pages/__tests__/Favorites.Index.spec.ts` — 6 tests covering empty state, restaurant card rendering, heading/links. All passing.
-- Added `resources/js/Pages/__tests__/Restaurants.Index.spec.ts` — 15 tests covering cuisine filtering (heading, back links), skeleton loading (show/hide 8 skeletons), empty state, results rendering with rank computation, sort dropdown, and pagination (prev/next, page count, hidden when single page). All passing.
-- Added `resources/js/Pages/__tests__/Restaurants.Show.spec.ts` — 43 tests covering: header name/award badge, description, cuisine badges, price range, back link (cuisine-filtered vs generic), address (with city/state/postal_code), phone (render + click handler), website (render + click handler), menu (render + click handler), ratings (yelp/google presence triggers card), directions link (render + click handler + absent), social links, opening hours, score breakdown, map, gallery, favorites (heart button, filled state, toggle click), pageview tracking, SEO/JsonLd stubs, isLivePreview, and canonicalUrl. All passing.
-- Added `resources/js/Pages/__tests__/Welcome.spec.ts` — 19 tests covering: accessible h1 heading, HeroBanner rendering (search button, router.get on click), featured restaurants (PopularRestaurants section, city from props, restaurant count, empty count), idle phase sections (CategoryGrid, PopularCuisines, BlogPreview with posts, AppFooter), ResultsGrid/StickySearchBar absence in idle phase, and geolocation error card. All passing.
-- Next: run `npm run test` to verify all page component tests pass together.
-- Gotchas: `useSeo` and `useBaseUrl` composables need manual mocking since they use `usePage()` / `window`. RestaurantCard should be stubbed to avoid deep dependency chains. `vi.mock` factories cannot reference top-level variables — use `vi.hoisted()`. shadcn Button with `as="a"` renders native `<a>` in DOM; `&` in query strings is HTML-encoded to `&amp;`, so use `findAll('a').find()` with text matching rather than exact href selectors. `useFavorites` composable uses `usePage()` from inertia so must be entirely mocked rather than importing real module. `callPhone`/`openWebsite`/`trackDirections`/`trackPageview`/`trackMenuClick` from `@/lib/restaurant` need vi.hoisted mocks to verify click behavior.
+- All strict-adjacent compiler flags are now enabled. The tsconfig.json has: `strict`, `noUncheckedIndexedAccess`, `noImplicitReturns`, `noUnusedLocals`, `noUnusedParameters`, `noUncheckedSideEffectImports`, `exactOptionalPropertyTypes`, `strictPropertyInitialization`, `noPropertyAccessFromIndexSignature`, `noFallthroughCasesInSwitch`, `noImplicitOverride`. Build passes clean with zero type errors.
+- **Goal achieved.** No further strict-adjacent flags remain to enable. All flags that could be enabled have been enabled and verified.
+
+## Log
+- Iteration 1: Enabled `noUncheckedIndexedAccess` + `noImplicitReturns`, fixed 3 type errors. Build passes.
+- Iteration 2: Enabled `noUnusedLocals` + `noUnusedParameters`, fixed 27 unused import/var errors. Build passes.
+- Iteration 3: Enabled `noUncheckedSideEffectImports`, added module declaration for `@fontsource/poppins`. Build passes.
+- Iteration 4: Enabled `exactOptionalPropertyTypes`, fixed ~40 errors (13 app code, 27 shadcn-vue wrappers). Build passes.
+- Iteration 5: Enabled `strictPropertyInitialization`, zero errors (no class-based code). Build passes.
+- Iteration 6: Enabled `noPropertyAccessFromIndexSignature`, fixed 55 dot→bracket errors in SearchFilters.vue, Search.vue, Subcategories.vue, AuthenticatedLayout.vue, useSeo.ts, app.ts, ssr.ts. Build passes.
+- Iteration 7: Enabled `noFallthroughCasesInSwitch`, zero errors. Build passes.
+- Iteration 8: Enabled `noImplicitOverride`, the last strict-adjacent flag. Zero errors (no TS classes in project). Build passes. Goal achieved.

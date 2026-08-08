@@ -4,7 +4,7 @@ import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ScoreChip from '@/Components/ScoreChip.vue';
 import StarRating from '@/Components/StarRating.vue';
-import { ArrowUp, ArrowDown, Minus, Medal, TrendingUp } from '@lucide/vue';
+import { ArrowUp, ArrowDown, Minus } from '@lucide/vue';
 import type { Restaurant } from '@/types/restaurant';
 
 const props = defineProps<{

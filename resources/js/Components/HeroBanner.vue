@@ -212,7 +212,7 @@ function onDetect() {
             <!-- Slide controls -->
             <div class="flex items-center justify-center gap-2 pb-6">
                 <button
-                    v-for="(slide, i) in slides"
+                    v-for="(_, i) in slides"
                     :key="'dot-' + i"
                     class="rounded-full transition-all duration-300"
                     :class="i === currentSlide
@@ -234,7 +234,7 @@ function onDetect() {
 
         <!-- Photo attribution -->
         <div class="absolute bottom-2 right-3 z-10 text-[10px] text-white/40">
-            {{ slides[currentSlide].attribution }}
+            {{ slides[currentSlide]?.attribution ?? '' }}
         </div>
     </section>
 </template>

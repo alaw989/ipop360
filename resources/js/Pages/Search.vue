@@ -54,8 +54,7 @@ const sortOptions = [
     { value: 'website_traffic', label: 'Website Traffic' },
 ];
 
-const currentSort = computed(() => (props.filters.sort as string) || 'best_match');
-const currentPrice = computed(() => (props.filters.price_range as string) || '');
+const currentSort = computed(() => (props.filters["sort"] as string) || 'best_match');
 
 function updateSort(newSort: string) {
     router.get('/search', { ...props.filters, sort: newSort }, { preserveState: true, replace: true });
@@ -97,12 +96,12 @@ if (props.enriching && props.restaurants.data.length === 0) {
 
             try {
                 const params = new URLSearchParams()
-                if (props.filters.cuisine) params.set('cuisine', String(props.filters.cuisine))
-                if (props.filters.category) params.set('category', String(props.filters.category))
-                if (props.filters.lat) params.set('lat', String(props.filters.lat))
-                if (props.filters.lng) params.set('lng', String(props.filters.lng))
-                if (props.filters.distance) params.set('distance', String(props.filters.distance))
-                if (props.filters.sort) params.set('sort', String(props.filters.sort))
+                if (props.filters["cuisine"]) params.set('cuisine', String(props.filters["cuisine"]))
+                if (props.filters["category"]) params.set('category', String(props.filters["category"]))
+                if (props.filters["lat"]) params.set('lat', String(props.filters["lat"]))
+                if (props.filters["lng"]) params.set('lng', String(props.filters["lng"]))
+                if (props.filters["distance"]) params.set('distance', String(props.filters["distance"]))
+                if (props.filters["sort"]) params.set('sort', String(props.filters["sort"]))
 
                 const res = await fetch(`/api/restaurants?${params}`)
                 const data = await res.json()
@@ -134,7 +133,7 @@ const displayRestaurants = computed(() =>
 const baseUrl = useBaseUrl();
 
 const seoData = computed(() => {
-    const cuisine = props.cuisineName || (typeof props.filters.cuisine === 'string' ? props.filters.cuisine : null);
+    const cuisine = props.cuisineName || (typeof props.filters["cuisine"] === 'string' ? props.filters["cuisine"] : null);
     const title = cuisine
         ? `Best ${cuisine} Near You | iPop360`
         : 'Search Restaurants Near You | iPop360';
@@ -227,7 +226,7 @@ const structuredData = computed(() => {
 
                 <!-- Location needed banner -->
                 <div
-                    v-if="!dismissedLocationBanner && !hasCoords && filters.distance"
+                    v-if="!dismissedLocationBanner && !hasCoords && filters['distance']"
                     class="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
                 >
                     <span>Enable location sharing to filter results by distance.</span>
@@ -313,8 +312,8 @@ const structuredData = computed(() => {
                 <div class="sticky top-24">
                     <SearchMap
                         :restaurants="displayRestaurants"
-                        :lat="filters.lat as string"
-                        :lng="filters.lng as string"
+                        :lat="filters['lat'] as string"
+                        :lng="filters['lng'] as string"
                     />
                 </div>
             </aside>

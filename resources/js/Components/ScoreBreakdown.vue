@@ -53,7 +53,7 @@ const defaultColors = [
 ]
 
 function segmentColor(index: number, label: string): string {
-  return segmentColors[label] ?? defaultColors[index % defaultColors.length]
+  return segmentColors[label] ?? defaultColors[index % defaultColors.length]!
 }
 
 const barSegments = computed<BarSegment[]>(() => {

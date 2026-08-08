@@ -8,7 +8,7 @@ import { createApp, DefineComponent, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { router } from '@inertiajs/vue3';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env["VITE_APP_NAME"] || 'Laravel';
 
 // Merge-on-login: check if user has localStorage favorites to merge
 const STORAGE_KEY = 'ipop360_favorites';

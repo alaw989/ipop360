@@ -9,6 +9,7 @@ const props = defineProps<DialogCloseProps>()
   <DialogClose
     data-slot="sheet-close"
     v-bind="props"
+    :as="as!"
   >
     <slot />
   </DialogClose>

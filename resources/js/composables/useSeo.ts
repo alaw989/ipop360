@@ -1,6 +1,3 @@
-import type { ComputedRef } from 'vue';
-import { usePage } from '@inertiajs/vue3';
-
 export interface SeoOptions {
     title: string;
     description: string;
@@ -12,7 +9,6 @@ export interface SeoOptions {
 }
 
 export function useSeo(options: SeoOptions) {
-    const page = usePage();
     const rawUrl = options.url || (typeof window !== 'undefined' ? window.location.href : '');
 
     // Strip tracking params for canonical URL
@@ -125,51 +121,51 @@ export function generateRestaurantJsonLd(restaurant: Record<string, unknown>) {
     const base: Record<string, unknown> = {
         '@context': 'https://schema.org',
         '@type': 'Restaurant',
-        name: restaurant.name,
-        url: restaurant.url,
+        name: restaurant["name"],
+        url: restaurant["url"],
     };
 
-    if (restaurant.address) {
-        base.address = {
+    if (restaurant["address"]) {
+        base["address"] = {
             '@type': 'PostalAddress',
-            streetAddress: restaurant.address,
-            addressLocality: restaurant.city,
-            addressRegion: restaurant.state,
+            streetAddress: restaurant["address"],
+            addressLocality: restaurant["city"],
+            addressRegion: restaurant["state"],
             addressCountry: 'US',
         };
     }
 
-    if (restaurant.latitude && restaurant.longitude) {
-        base.geo = {
+    if (restaurant["latitude"] && restaurant["longitude"]) {
+        base["geo"] = {
             '@type': 'GeoCoordinates',
-            latitude: restaurant.latitude,
-            longitude: restaurant.longitude,
+            latitude: restaurant["latitude"],
+            longitude: restaurant["longitude"],
         };
     }
 
-    if (restaurant.phone) {
-        base.telephone = restaurant.phone;
+    if (restaurant["phone"]) {
+        base["telephone"] = restaurant["phone"];
     }
 
-    if (restaurant.google_rating && typeof restaurant.google_rating === 'number') {
-        base.aggregateRating = {
+    if (restaurant["google_rating"] && typeof restaurant["google_rating"] === 'number') {
+        base["aggregateRating"] = {
             '@type': 'AggregateRating',
-            ratingValue: restaurant.google_rating,
-            ratingCount: restaurant.google_review_count || 0,
+            ratingValue: restaurant["google_rating"],
+            ratingCount: restaurant["google_review_count"] || 0,
             bestRating: 5,
             worstRating: 1,
         };
     }
 
-    if (restaurant.cuisines && Array.isArray(restaurant.cuisines)) {
-        base.servesCuisine = restaurant.cuisines
-            .map((c: Record<string, unknown>) => c.name)
+    if (restaurant["cuisines"] && Array.isArray(restaurant["cuisines"])) {
+        base["servesCuisine"] = (restaurant["cuisines"] as Array<Record<string, unknown>>)
+            .map((c) => c["name"])
             .filter(Boolean)
             .join(', ');
     }
 
-    if (restaurant.price_range) {
-        base.priceRange = restaurant.price_range;
+    if (restaurant["price_range"]) {
+        base["priceRange"] = restaurant["price_range"];
     }
 
     return base;

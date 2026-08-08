@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RestaurantCard from '@/Components/RestaurantCard.vue';
@@ -9,7 +9,7 @@ import { useSeo, generateItemListJsonLd } from '@/composables/useSeo';
 import { useBaseUrl } from '@/composables/useBaseUrl';
 import JsonLd from '@/Components/JsonLd.vue';
 import SeoMeta from '@/Components/SeoMeta.vue';
-import type { Restaurant, ScoreBreakdown } from '@/types/restaurant';
+import type { Restaurant } from '@/types/restaurant';
 
 const props = defineProps<{
     filters: {
@@ -69,7 +69,7 @@ const seoData = computed(() => {
 
 const structuredData = computed(() => {
     const items = props.restaurants.data
-        .filter((r, index) => index < 10) // Schema recommends limiting to 10 items
+        .filter((_, index) => index < 10) // Schema recommends limiting to 10 items
         .map((restaurant, index) => ({
             name: restaurant.name,
             url: `${baseUrl.value}/restaurants/${restaurant.slug}`,

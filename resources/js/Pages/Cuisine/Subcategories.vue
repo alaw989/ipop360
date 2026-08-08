@@ -27,8 +27,8 @@ const props = defineProps<{
 function selectCuisine(slug: string) {
     const data: Record<string, string> = { cuisine: slug };
     if (props.coords.lat && props.coords.lng) {
-        data.lat = props.coords.lat;
-        data.lng = props.coords.lng;
+        data["lat"] = props.coords.lat;
+        data["lng"] = props.coords.lng;
     }
 
     router.visit('/restaurants', { data });

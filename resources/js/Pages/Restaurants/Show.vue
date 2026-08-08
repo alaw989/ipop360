@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { Head } from '@inertiajs/vue3';
+import { computed, onMounted } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import StarRating from '@/Components/StarRating.vue';
 import ScoreBreakdown from '@/Components/ScoreBreakdown.vue';
@@ -65,7 +64,7 @@ const seoData = computed(() => {
         title,
         description,
         url: restaurantUrl,
-        image: photos.value[0] || undefined,
+        ...(photos.value[0] ? { image: photos.value[0] } : {}),
         type: 'restaurant',
         noindex: props.isLivePreview === true,
     })
