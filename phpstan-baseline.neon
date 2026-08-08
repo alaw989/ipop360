@@ -1,24 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Parameter \#1 \$address of method App\\Console\\Commands\\BackfillRestaurantLocation\:\:extractCityState\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/BackfillRestaurantLocation.php
-
-		-
-			message: '#^Parameter \#1 \$lat of method App\\Services\\GeolocationService\:\:reverseGeocode\(\) expects float, float\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/BackfillRestaurantLocation.php
-
-		-
-			message: '#^Parameter \#2 \$lng of method App\\Services\\GeolocationService\:\:reverseGeocode\(\) expects float, float\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/BackfillRestaurantLocation.php
-
-		-
 			message: '#^Parameter \#1 \$string of function substr expects string, string\|null given\.$#'
 			identifier: argument.type
 			count: 1
