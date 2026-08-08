@@ -31,12 +31,6 @@ parameters:
 			path: tests/Unit/PopularityScoreServiceTest.php
 
 		-
-			message: '#^Cannot access property \$id on App\\Models\\Restaurant\|null\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
-
-		-
 			message: '#^Offset ''score_breakdown'' might not exist on array\|null\.$#'
 			identifier: offsetAccess.notFound
 			count: 1
