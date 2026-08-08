@@ -7,24 +7,6 @@ parameters:
 			path: app/Console/Commands/BackfillRestaurantWebsites.php
 
 		-
-			message: '#^Parameter \#1 \$string of function trim expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 2
-			path: app/Console/Commands/BackfillRestaurantWebsites.php
-
-		-
-			message: '#^Parameter \#1 \$websiteUrl of method App\\Services\\RestaurantWebsiteScraperService\:\:scrapeSocial\(\) expects string, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/BackfillRestaurantWebsites.php
-
-		-
-			message: '#^Parameter \#3 \$subject of function preg_replace expects array\<float\|int\|string\>\|string, string\|null given\.$#'
-			identifier: argument.type
-			count: 3
-			path: app/Console/Commands/BackfillRestaurantWebsites.php
-
-		-
 			message: '#^Parameter \#1 \$websiteUrl of method App\\Services\\RestaurantWebsiteScraperService\:\:scrapeSocial\(\) expects string, string\|null given\.$#'
 			identifier: argument.type
 			count: 1

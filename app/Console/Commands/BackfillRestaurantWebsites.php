@@ -99,7 +99,7 @@ class BackfillRestaurantWebsites extends Command
                     }
                     $phone = $venue['phone'] ?? null;
                     if (! empty($phone)) {
-                        $digits = substr(preg_replace('/\D+/', '', $phone), -10);
+                        $digits = substr(preg_replace('/\D+/', '', (string) $phone) ?? '', -10);
                         if (strlen($digits) === 10) {
                             $phoneIndex[$digits] = $entryData;
                         }
@@ -393,7 +393,10 @@ class BackfillRestaurantWebsites extends Command
 
     private function normalize(string $name): string
     {
-        return strtolower(trim(preg_replace('/\s+/', ' ', preg_replace('/[^a-z0-9\s]/i', '', $name))));
+        $name = preg_replace('/[^a-z0-9\s]/i', '', $name) ?? '';
+        $name = preg_replace('/\s+/', ' ', $name) ?? '';
+
+        return strtolower(trim($name));
     }
 
     /**
@@ -465,6 +468,11 @@ class BackfillRestaurantWebsites extends Command
         $query->chunkById(50, function ($restaurants) use ($scraper, $bar) {
             foreach ($restaurants as $restaurant) {
                 try {
+                    if ($restaurant->website_url === null || $restaurant->website_url === '') {
+                        $bar->advance();
+
+                        continue;
+                    }
                     $links = $scraper->scrapeSocial($restaurant->website_url);
 
                     if ($links !== null) {
@@ -585,9 +593,9 @@ class BackfillRestaurantWebsites extends Command
     private function toSlug(string $text): string
     {
         $text = strtolower(trim($text));
-        $text = preg_replace('/[^a-z0-9\s-]/', '', $text);
-        $text = preg_replace('/\s+/', '-', $text);
-        $text = preg_replace('/-+/', '-', $text);
+        $text = preg_replace('/[^a-z0-9\s-]/', '', $text) ?? '';
+        $text = preg_replace('/\s+/', '-', $text) ?? '';
+        $text = preg_replace('/-+/', '-', $text) ?? '';
 
         return trim($text, '-');
     }
