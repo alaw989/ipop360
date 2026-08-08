@@ -53,7 +53,7 @@ class DeduplicateRestaurantsTest extends TestCase
 
         $this->assertDatabaseHas('restaurants', ['id' => $keep->id]);
         $this->assertDatabaseMissing('restaurants', ['id' => $dupe->id]);
-        $this->assertSame('https://keep.example', Restaurant::find($keep->id)->website_url);
+        $this->assertSame('https://keep.example', Restaurant::findOrFail($keep->id)->website_url);
     }
 
     public function test_repoints_social_links_and_recomputes_counter(): void
@@ -69,7 +69,7 @@ class DeduplicateRestaurantsTest extends TestCase
             'restaurant_id' => $keep->id,
             'platform' => 'instagram',
         ]);
-        $this->assertSame(1, Restaurant::find($keep->id)->social_links_count);
+        $this->assertSame(1, Restaurant::findOrFail($keep->id)->social_links_count);
     }
 
     public function test_drops_colliding_social_link_and_keeps_other(): void
@@ -89,7 +89,7 @@ class DeduplicateRestaurantsTest extends TestCase
         $this->assertSame(2, $links->count());
         $this->assertSame(1, $links->where('platform', 'facebook')->count());
         $this->assertSame(1, $links->where('platform', 'twitter')->count());
-        $this->assertSame(2, Restaurant::find($keep->id)->social_links_count);
+        $this->assertSame(2, Restaurant::findOrFail($keep->id)->social_links_count);
     }
 
     public function test_unions_cuisine_pivot_and_avoids_duplicate(): void

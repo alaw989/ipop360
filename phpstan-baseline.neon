@@ -13,18 +13,6 @@ parameters:
 			path: app/Http/Controllers/RestaurantController.php
 
 		-
-			message: '#^Cannot access property \$social_links_count on App\\Models\\Restaurant\|null\.$#'
-			identifier: property.nonObject
-			count: 2
-			path: tests/Feature/DeduplicateRestaurantsTest.php
-
-		-
-			message: '#^Cannot access property \$website_url on App\\Models\\Restaurant\|null\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: tests/Feature/DeduplicateRestaurantsTest.php
-
-		-
 			message: '#^Cannot access property \$cuisines on App\\Models\\Restaurant\|null\.$#'
 			identifier: property.nonObject
 			count: 1
