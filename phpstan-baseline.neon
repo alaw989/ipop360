@@ -1,4 +1,369 @@
 parameters:
-	ignoreErrors: []
+	ignoreErrors:
+		-
+			message: '#^Parameter \#1 \$address of method App\\Console\\Commands\\BackfillRestaurantLocation\:\:extractCityState\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Console/Commands/BackfillRestaurantLocation.php
+
+		-
+			message: '#^Parameter \#1 \$lat of method App\\Services\\GeolocationService\:\:reverseGeocode\(\) expects float, float\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Console/Commands/BackfillRestaurantLocation.php
+
+		-
+			message: '#^Parameter \#2 \$lng of method App\\Services\\GeolocationService\:\:reverseGeocode\(\) expects float, float\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Console/Commands/BackfillRestaurantLocation.php
+
+		-
+			message: '#^Parameter \#1 \$string of function substr expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Console/Commands/BackfillRestaurantWebsites.php
+
+		-
+			message: '#^Parameter \#1 \$string of function trim expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Console/Commands/BackfillRestaurantWebsites.php
+
+		-
+			message: '#^Parameter \#1 \$websiteUrl of method App\\Services\\RestaurantWebsiteScraperService\:\:scrapeSocial\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Console/Commands/BackfillRestaurantWebsites.php
+
+		-
+			message: '#^Parameter \#3 \$subject of function preg_replace expects array\<float\|int\|string\>\|string, string\|null given\.$#'
+			identifier: argument.type
+			count: 3
+			path: app/Console/Commands/BackfillRestaurantWebsites.php
+
+		-
+			message: '#^Parameter \#1 \$websiteUrl of method App\\Services\\RestaurantWebsiteScraperService\:\:scrapeSocial\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Console/Commands/ScrapeRestaurantSocialLinks.php
+
+		-
+			message: '#^Parameter \#1 \$url of method Illuminate\\Http\\Client\\PendingRequest\<false\>\:\:head\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Console/Commands/VerifyRestaurantWebsites.php
+
+		-
+			message: '#^Cannot access property \$id on App\\Models\\User\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Http/Controllers/Admin/BlogPostController.php
+
+		-
+			message: '#^Cannot access property \$email on App\\Models\\User\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Http/Controllers/Auth/ConfirmablePasswordController.php
+
+		-
+			message: '#^Cannot call method hasVerifiedEmail\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Auth/EmailVerificationNotificationController.php
+
+		-
+			message: '#^Cannot call method sendEmailVerificationNotification\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Auth/EmailVerificationNotificationController.php
+
+		-
+			message: '#^Cannot call method hasVerifiedEmail\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Auth/EmailVerificationPromptController.php
+
+		-
+			message: '#^Cannot call method update\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Auth/PasswordController.php
+
+		-
+			message: '#^Cannot call method hasVerifiedEmail\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Auth/VerifyEmailController.php
+
+		-
+			message: '#^Cannot call method markEmailAsVerified\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Auth/VerifyEmailController.php
+
+		-
+			message: '#^Cannot call method each\(\) on Illuminate\\Support\\Collection\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/FavoriteController.php
+
+		-
+			message: '#^Cannot call method favorites\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 6
+			path: app/Http/Controllers/FavoriteController.php
+
+		-
+			message: '#^Cannot access property \$email_verified_at on App\\Models\\User\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Http/Controllers/ProfileController.php
+
+		-
+			message: '#^Cannot call method delete\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/ProfileController.php
+
+		-
+			message: '#^Cannot call method fill\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/ProfileController.php
+
+		-
+			message: '#^Cannot call method isDirty\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/ProfileController.php
+
+		-
+			message: '#^Cannot call method save\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/ProfileController.php
+
+		-
+			message: '#^Cannot call method each\(\) on Illuminate\\Support\\Collection\|null\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Offset ''lat'' might not exist on array\{lat\: float, lng\: float\}\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Offset ''lng'' might not exist on array\{lat\: float, lng\: float\}\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 3
+			path: app/Http/Controllers/RestaurantController.php
+
+		-
+			message: '#^Cannot call method each\(\) on Illuminate\\Support\\Collection\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Offset ''lat'' might not exist on array\{lat\: float, lng\: float\}\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: app/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Offset ''lng'' might not exist on array\{lat\: float, lng\: float\}\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: app/Http/Controllers/SearchController.php
+
+		-
+			message: '#^Cannot access property \$id on App\\Models\\User\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Http/Requests/ProfileUpdateRequest.php
+
+		-
+			message: '#^Parameter \#1 \$ip of method App\\Services\\GeolocationService\:\:ipLookup\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/GeolocationService.php
+
+		-
+			message: '#^Parameter \#1 \$ip of method App\\Services\\GeolocationService\:\:ipLookupFull\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/GeolocationService.php
+
+		-
+			message: '#^Parameter \#1 \$string of function ltrim expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/PriceLevelNormalizer.php
+
+		-
+			message: '#^Parameter \#1 \$string of function substr expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/RestaurantEnrichmentService.php
+
+		-
+			message: '#^Parameter \#1 \$string of function strlen expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/RestaurantValidationService.php
+
+		-
+			message: '#^Cannot call method getAttribute\(\) on DOMNameSpaceNode\|DOMNode\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/RestaurantWebsiteScraperService.php
+
+		-
+			message: '#^Cannot call method hasVerifiedEmail\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: tests/Feature/Auth/EmailVerificationTest.php
+
+		-
+			message: '#^Cannot access property \$photo_url on App\\Models\\Restaurant\|null\.$#'
+			identifier: property.nonObject
+			count: 3
+			path: tests/Feature/BackfillRestaurantPhotosTest.php
+
+		-
+			message: '#^Cannot access property \$photos on App\\Models\\Restaurant\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Feature/BackfillRestaurantPhotosTest.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of method PHPUnit\\Framework\\Assert\:\:assertContains\(\) expects iterable, array\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Feature/BackfillRestaurantPhotosTest.php
+
+		-
+			message: '#^Cannot access property \$body on App\\Models\\BlogPost\|null\.$#'
+			identifier: property.nonObject
+			count: 3
+			path: tests/Feature/BlogAdminTest.php
+
+		-
+			message: '#^Cannot access property \$published_at on App\\Models\\BlogPost\|null\.$#'
+			identifier: property.nonObject
+			count: 2
+			path: tests/Feature/BlogAdminTest.php
+
+		-
+			message: '#^Cannot access property \$slug on App\\Models\\BlogPost\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Feature/BlogAdminTest.php
+
+		-
+			message: '#^Cannot access property \$status on App\\Models\\BlogPost\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Feature/BlogAdminTest.php
+
+		-
+			message: '#^Cannot access property \$social_links_count on App\\Models\\Restaurant\|null\.$#'
+			identifier: property.nonObject
+			count: 2
+			path: tests/Feature/DeduplicateRestaurantsTest.php
+
+		-
+			message: '#^Cannot access property \$website_url on App\\Models\\Restaurant\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Feature/DeduplicateRestaurantsTest.php
+
+		-
+			message: '#^Cannot access property \$cuisines on App\\Models\\Restaurant\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Feature/EnrichCuisineTaggingTest.php
+
+		-
+			message: '#^Cannot access property \$is_active on Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Feature/FavoriteControllerTest.php
+
+		-
+			message: '#^Cannot access property \$has_award on Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Feature/LiveVenuePersisterAwardTest.php
+
+		-
+			message: '#^Offset 0 might not exist on array\{Illuminate\\Http\\Client\\Request, Illuminate\\Http\\Client\\Response\|null\}\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 5
+			path: tests/Feature/OverpassServiceTest.php
+
+		-
+			message: '#^Cannot access property \$has_award on App\\Models\\Restaurant\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Feature/RefreshAwardsTest.php
+
+		-
+			message: '#^Cannot access property \$has_award on Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: property.nonObject
+			count: 2
+			path: tests/Feature/RefreshAwardsTest.php
+
+		-
+			message: '#^Cannot call method fresh\(\) on App\\Models\\Restaurant\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: tests/Feature/RefreshAwardsTest.php
+
+		-
+			message: '#^Offset ''name'' might not exist on array\<mixed\>\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: tests/Feature/RestaurantControllerTest.php
+
+		-
+			message: '#^Offset ''normalized'' might not exist on array\{label\: string, weight\: float, normalized\: float, contribution\: float, detail\: string\}\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: tests/Unit/PopularityScoreServiceTest.php
+
+		-
+			message: '#^Cannot access property \$id on App\\Models\\Restaurant\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentProcessFreeVenueTest.php
+
+		-
+			message: '#^Cannot access property \$popularity_score on Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: property.nonObject
+			count: 5
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Cannot access property \$score_breakdown on Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: property.nonObject
+			count: 2
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Cannot access property \$updated_at on Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Unit/RestaurantEnrichmentScoreBatchUpdateTest.php
+
+		-
+			message: '#^Offset ''score_breakdown'' might not exist on array\|null\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: tests/Unit/RestaurantResourceAggregatesTest.php
 
 
