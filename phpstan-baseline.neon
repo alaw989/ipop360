@@ -79,21 +79,15 @@ parameters:
 			path: app/Http/Controllers/ProfileController.php
 
 		-
-			message: '#^Cannot call method each\(\) on Illuminate\\Support\\Collection\|null\.$#'
-			identifier: method.nonObject
-			count: 4
+			message: '#^Call to function assert\(\) with true will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
 			path: app/Http/Controllers/RestaurantController.php
 
 		-
-			message: '#^Offset ''lat'' might not exist on array\{lat\: float, lng\: float\}\|null\.$#'
-			identifier: offsetAccess.notFound
-			count: 3
-			path: app/Http/Controllers/RestaurantController.php
-
-		-
-			message: '#^Offset ''lng'' might not exist on array\{lat\: float, lng\: float\}\|null\.$#'
-			identifier: offsetAccess.notFound
-			count: 3
+			message: '#^Strict comparison using \!\=\= between array\{lat\: float, lng\: float\} and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
 			path: app/Http/Controllers/RestaurantController.php
 
 		-

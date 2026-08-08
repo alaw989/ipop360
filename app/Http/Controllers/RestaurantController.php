@@ -160,7 +160,11 @@ class RestaurantController extends Controller
         $query = $this->buildRestaurantQuery($request)
             ->when(
                 $coords !== null,
-                fn ($query) => $query->nearby($coords['lat'], $coords['lng'], $distanceKm)
+                function ($query) use ($coords, $distanceKm) {
+                    assert($coords !== null);
+
+                    return $query->nearby($coords['lat'], $coords['lng'], $distanceKm);
+                }
             )
             ->active();
 
@@ -180,9 +184,11 @@ class RestaurantController extends Controller
         /** @var AnonymousResourceCollection $formatted */
         $formatted = RestaurantResource::collection($items);
         // Attach the full collection + precomputed aggregates to each resource
-        $formatted->collection->each(fn ($resource) => $resource
-            ->withAllRestaurants($allItems)
-            ->withAggregates($aggregates));
+        if ($formatted->collection !== null) {
+            $formatted->collection->each(fn ($resource) => $resource
+                ->withAllRestaurants($allItems)
+                ->withAggregates($aggregates));
+        }
 
         $formattedArray = $formatted->resolve();
 
@@ -285,7 +291,11 @@ class RestaurantController extends Controller
         $query = $this->buildRestaurantQuery($request)
             ->when(
                 $coords !== null,
-                fn ($query) => $query->nearby($coords['lat'], $coords['lng'], $distanceKm)
+                function ($query) use ($coords, $distanceKm) {
+                    assert($coords !== null);
+
+                    return $query->nearby($coords['lat'], $coords['lng'], $distanceKm);
+                }
             )
             ->active();
 
@@ -295,6 +305,7 @@ class RestaurantController extends Controller
         $restaurants = $query->paginate(20)->withQueryString();
 
         if ($restaurants->isEmpty() && $coords !== null) {
+            assert($coords !== null);
             // spec-068: paginate the live result set. Page 1 runs the (cache-warm,
             // zero-quota) live search and snapshots the full user-sorted set under
             // live_page:{coords+cuisine+category+sort}; pages 2+ slice that snapshot
@@ -383,9 +394,11 @@ class RestaurantController extends Controller
         /** @var AnonymousResourceCollection $formatted */
         $formatted = RestaurantResource::collection($items);
         // Attach the full collection + precomputed aggregates to each resource
-        $formatted->collection->each(fn ($resource) => $resource
-            ->withAllRestaurants($allItems)
-            ->withAggregates($aggregates));
+        if ($formatted->collection !== null) {
+            $formatted->collection->each(fn ($resource) => $resource
+                ->withAllRestaurants($allItems)
+                ->withAggregates($aggregates));
+        }
 
         return response()->json([
             'data' => $formatted->resolve(),
@@ -431,7 +444,11 @@ class RestaurantController extends Controller
             ->with('cuisines')
             ->when(
                 $coords !== null,
-                fn ($query) => $query->nearby($coords['lat'], $coords['lng'])
+                function ($query) use ($coords) {
+                    assert($coords !== null);
+
+                    return $query->nearby($coords['lat'], $coords['lng']);
+                }
             )
             ->orderByDecayedScore()
             ->orderBy('id', 'asc');
@@ -442,9 +459,11 @@ class RestaurantController extends Controller
         $aggregates = app(PopularityScoreService::class)->computeAggregates($items);
 
         $formatted = RestaurantResource::collection($items);
-        $formatted->collection->each(fn ($resource) => $resource
-            ->withAllRestaurants($items)
-            ->withAggregates($aggregates));
+        if ($formatted->collection !== null) {
+            $formatted->collection->each(fn ($resource) => $resource
+                ->withAllRestaurants($items)
+                ->withAggregates($aggregates));
+        }
 
         $restaurants->setCollection(collect($formatted->resolve()));
 
@@ -477,9 +496,11 @@ class RestaurantController extends Controller
         $aggregates = app(PopularityScoreService::class)->computeAggregates($restaurants);
 
         $formatted = RestaurantResource::collection($restaurants);
-        $formatted->collection->each(fn ($resource) => $resource
-            ->withAllRestaurants($restaurants)
-            ->withAggregates($aggregates));
+        if ($formatted->collection !== null) {
+            $formatted->collection->each(fn ($resource) => $resource
+                ->withAllRestaurants($restaurants)
+                ->withAggregates($aggregates));
+        }
 
         return Inertia::render('Compare/Index', [
             'restaurants' => $formatted->resolve(),
