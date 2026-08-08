@@ -13,30 +13,6 @@ parameters:
 			path: app/Http/Controllers/RestaurantController.php
 
 		-
-			message: '#^Cannot access property \$body on App\\Models\\BlogPost\|null\.$#'
-			identifier: property.nonObject
-			count: 3
-			path: tests/Feature/BlogAdminTest.php
-
-		-
-			message: '#^Cannot access property \$published_at on App\\Models\\BlogPost\|null\.$#'
-			identifier: property.nonObject
-			count: 2
-			path: tests/Feature/BlogAdminTest.php
-
-		-
-			message: '#^Cannot access property \$slug on App\\Models\\BlogPost\|null\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: tests/Feature/BlogAdminTest.php
-
-		-
-			message: '#^Cannot access property \$status on App\\Models\\BlogPost\|null\.$#'
-			identifier: property.nonObject
-			count: 1
-			path: tests/Feature/BlogAdminTest.php
-
-		-
 			message: '#^Cannot access property \$social_links_count on App\\Models\\Restaurant\|null\.$#'
 			identifier: property.nonObject
 			count: 2

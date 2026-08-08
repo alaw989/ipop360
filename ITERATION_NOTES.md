@@ -4,8 +4,8 @@
 shrink the PHPStan level-8 baseline by fixing real type issues in code
 
 ## State
-- Remaining: 22 entries (37 error instances), all in tests. App code: RestaurantController (2 PHPStan limitations).
-- Next: fix BlogAdminTest (7 instances), then DeduplicateRestaurantsTest (3), then EnrichCuisineTaggingTest (1).
+- Remaining: 15 entries (30 error instances), all in tests. App code: RestaurantController (2 PHPStan limitations).
+- Next: fix DeduplicateRestaurantsTest (3 instances), then EnrichCuisineTaggingTest (1), then FavoriteControllerTest (1).
 
 ## Log
 1. Fixed `app/Services/PriceLevelNormalizer.php:29` — `preg_replace` can return `string|null`, but `ltrim()` was called on the result without null check. Added `$remaining === null` to the guard condition. Regenerated baseline, PHPStan clean, all 563 tests pass.
@@ -24,3 +24,4 @@ shrink the PHPStan level-8 baseline by fixing real type issues in code
 14. Fixed `app/Services/RestaurantWebsiteScraperService.php:1049` — `method.nonObject` on `$nodes->item(0)->getAttribute('content')` where `item(0)` returns `DOMNode|null`. Extracted to `$firstNode = $nodes->item(0)` with `if (! $firstNode instanceof \DOMElement) { continue; }` guard. Baseline: 27 → 26 entries, RestaurantWebsiteScraperService now 0 entries, all 563 tests pass.
 15. Fixed `tests/Feature/Auth/EmailVerificationTest.php` — 2 entries: `method.nonObject` on `$user->fresh()->hasVerifiedEmail()` where `fresh()` returns `User|null`. Added `$freshUser = $user->fresh(); $this->assertNotNull($freshUser);` before each `hasVerifiedEmail()` call (lines 40 and 56). Baseline: 26 → ~21 entries (52 → 42 PHPStan count), EmailVerificationTest now 0 entries, all 3 EmailVerificationTest tests pass.
 16. Fixed `tests/Feature/BackfillRestaurantPhotosTest.php` — 3 entries (5 instances): 4 `property.nonObject` on `$r->fresh()->photo_url`/`$r->fresh()->photos` (lines 51, 65, 66, 83) + 1 `argument.type` on `assertContains` receiving `array|null` (line 66). Added `$fresh = $r->fresh(); $this->assertNotNull($fresh);` before each property access; added `assertIsArray($fresh->photos)` before `assertContains`. Baseline: 25 → 22 entries (42 → 37 instances), BackfillRestaurantPhotosTest now 0 entries, all 4 tests pass.
+17. Fixed `tests/Feature/BlogAdminTest.php` — 4 entries (7 instances): all `property.nonObject` on `BlogPost::where()->first()` returns `BlogPost|null` (3 sites: `$published_at`/`$slug`, `$status`/`$published_at`, `$body`×3). Added `$this->assertNotNull($post)` after each of the 3 `->first()` calls. Baseline: 22 → 15 entries (37 → 30 instances), BlogAdminTest now 0 entries, all 563 tests pass.
