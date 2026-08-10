@@ -4,9 +4,9 @@
 find and remove dead code and unused configuration across the app
 
 ## State
-Removed 7 deprecated env vars, 3 npm packages, and 4 dead artisan commands. Full PHP codebase scan complete: all services, controllers, middleware, models, jobs, resources are actively referenced. Cleaned `config/database.php`: removed unused `mariadb`, `pgsql`, `sqlsrv` connections and dead Redis section (zero env var references, cache/queue/session all default to `database` driver). Dropped `Illuminate\Support\Str` import (only used by Redis prefix).
+Removed 7 deprecated env vars, 3 npm packages, and 4 dead artisan commands. Full PHP codebase scan complete: all services, controllers, middleware, models, jobs, resources are actively referenced. Cleaned `config/database.php`: removed unused `mariadb`, `pgsql`, `sqlsrv` connections and dead Redis section (zero env var references, cache/queue/session all default to `database` driver). Dropped `Illuminate\Support\Str` import (only used by Redis prefix). Verified all 12 scheduled commands in `routes/console.php` — all exist and are active. Cleaned `config/pulse.php`: removed 3 Telescope ignore patterns (Telescope not installed). Standard boilerplate stores (cache: memcached/redis/dynamodb/octane, queue: beanstalkd/sqs/redis) left untouched — Laravel framework defaults, not dead app code.
 
-Next: scan `config/` directory for any remaining dead config files or unused commented-out sections. Also check `routes/console.php` for any dead scheduled commands.
+Next: audit `.env.example` for env vars with zero PHP references. The 4 dead artisan commands were already removed; verify no other unscheduled/untested commands are truly dead (check `AuditRestaurantCuisines`, `BackfillRestaurantPhotos`, `DeduplicateRestaurants`, `RestoreDatabaseCommand`, `BackupDatabaseCommand`, `QuotaStatusCommand`).
 
 ## Log
 1. Removed commented-out `database` provider from `config/auth.php` — dead boilerplate, only the `eloquent` provider and `web` guard are actively used.
@@ -20,4 +20,6 @@ Next: scan `config/` directory for any remaining dead config files or unused com
 9. Removed `app/Console/Commands/ValidateRestaurantData.php` — zero references, zero tests, never scheduled. 563 tests pass, build clean.
 10. Removed `app/Console/Commands/CopySqliteToMysql.php` — zero references, zero tests, never scheduled. 563 tests pass.
 11. Cleaned `config/database.php` — removed dead `mariadb`, `pgsql`, `sqlsrv` connections and unused Redis section (zero references in .env or app config; cache/queue/session all default to `database` driver). Removed `Illuminate\Support\Str` import (only used for Redis prefix). File went from 187 lines to 89. 563 tests pass, build clean.
+12. Verified all 12 scheduled commands in `routes/console.php` — every one maps to an existing command file. `inspire` is built-in Laravel. No dead scheduled commands.
+13. Scanned all 14 config files for dead sections. Removed 3 Telescope ignore patterns from `config/pulse.php` — Telescope is not in composer.json and has zero app references. Verified `google_custom_search` in services.php is actively used by RestaurantWebsiteScraperService. Verified `restaurant-finder.cuisines` is actively used by EnrichRestaurants and RestaurantEnrichmentService. 563 tests pass, build clean.
 
