@@ -14,7 +14,7 @@ Scanned all 99 Vue components for unused imports — zero found (excellent impor
 
 Cleaned `resources/css/app.css`: removed dead `--chart-1` through `--chart-5` variables (light+dark, no chart components exist), all `--sidebar-*` variables (no sidebar component), and `@theme inline` block for `--font-heading` (referenced only by the non-functional `cn-font-heading` class). Removed dead `cn-font-heading` class from `CardTitle.vue` — not a valid Tailwind utility, applied nothing. Build clean.
 
-Next: scan for dead Tailwind utility classes in Vue components (classes that don't match any Tailwind 4 utility).
+Next: scan for dead Tailwind 3 utilities (`backdrop-filter`, `decoration-slice`, `will-change`, more `*-opacity-*`) in Vue + UI components.
 
 ## Log
 1. Removed commented-out `database` provider from `config/auth.php` — dead boilerplate, only the `eloquent` provider and `web` guard are actively used.
@@ -35,4 +35,5 @@ Next: scan for dead Tailwind utility classes in Vue components (classes that don
 16. Removed 25 dead shadcn-vue UI components (CardAction, CardDescription, CardFooter, CommandDialog, CommandSeparator, CommandShortcut, DialogClose, DialogFooter, DialogScrollContent, DialogTrigger, InputGroupButton, InputGroupInput, InputGroupText, InputGroupTextarea, PopoverAnchor, PopoverDescription, PopoverHeader, PopoverTitle, Separator, SheetClose, SheetDescription, SheetFooter, SheetHeader, SheetTitle, Textarea) — all zero app references. Updated 6 barrel index.ts files; removed empty separator/ and textarea/ directories. Cleaned dead types and unused imports from input-group/index.ts. 563 tests pass, build clean.
 17. Removed dead `components/ui/dialog/` directory (7 files: Dialog.vue, DialogContent.vue, DialogDescription.vue, DialogHeader.vue, DialogOverlay.vue, DialogTitle.vue, index.ts) — zero external references; app uses custom `Components/Modal.vue` instead. Build clean.
 18. Cleaned `resources/css/app.css`: removed `--chart-1` through `--chart-5` (light+dark, no chart components exist), all `--sidebar-*` variables (no sidebar component), and the `@theme inline` block for `--font-heading`. Removed dead `cn-font-heading` class from `CardTitle.vue` — not a valid Tailwind 4 utility, applied nothing. file went from 122 to 92 lines. Build clean.
+19. Fixed dead Tailwind 3 `ring-opacity-5` utility in `Dropdown.vue` — replaced with Tailwind 4 opacity modifier syntax `ring-black/5`. Removed dead `supports-backdrop-filter:backdrop-blur-xs` from `SheetOverlay.vue` — neither the v3 `supports-backdrop-filter:` variant nor the non-existent `backdrop-blur-xs` utility generate any CSS in Tailwind 4. Build clean.
 
