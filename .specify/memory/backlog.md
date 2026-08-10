@@ -57,14 +57,19 @@ with a 2-entry baseline; pint clean; CI + deploy green on master.
    DB connections, dead postmark/resend/slack services + mailers, Telescope pulse patterns,
    chart/sidebar CSS vars, stale Tailwind-3 utilities, 2 allow-plugins entries. 57 files,
    +50/−1642. Deployed + live-verified (/, /api 200, homepage renders).
+10. **LiveSearchService.search() orchestration coverage** — PR #73 (opencode-loop, 5
+    iterations, ALL_DONE early): 4 new tests in `tests/Unit/LiveSearchScoringTest.php`
+    covering full orchestration (scored/sorted/bounded output, cuisine-match stamping +
+    confidence filtering, multi-source merge/dedup, phone fast-path dedup). 567 PHPUnit
+    tests (was 563). PR #74 fixed a post-merge PHPStan level 8 failure (`assertIsFloat`
+    on a cast float). Deployed + live-verified (/, /api 200).
+
+**Current floor:** 567 PHPUnit tests + 565 vitest tests; PHPStan level 8 over `app/ + tests/`
+with a 2-entry baseline; pint clean; CI + deploy green on master.
 
 ## Next goals (in priority order)
 
-### 1. LiveSearchService.search() orchestration coverage ⬅ NEXT
-- `LiveSearchScoringTest` covers scoring; the full `search()` orchestration (pooling,
-  cache-first, merge, bounds) is only partly covered.
-- **Goal:** `add unit coverage for LiveSearchService.search() orchestration`
-- **Gate:** `composer test`
+_No open goals currently in the backlog._
 
 ---
 
