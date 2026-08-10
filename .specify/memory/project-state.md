@@ -2,20 +2,22 @@
 
 > Living snapshot for Claude (and humans) picking up this project. Read this
 > together with `constitution.md` and `backlog.md` at session start. Detailed
-> per-spec history lives in `history/`. Updated: 2026-08-07.
+> per-spec history lives in `history/`. Updated: 2026-08-10.
 
-## Latest (2026-08-07) — hardened via `opencode-loop`
-Five PRs shipped and deployed this session (all live):
-- **#63** backend unit coverage — PHPUnit 475 → **563**
-- **#64** frontend vitest coverage — **117 → 481** (25 new spec files)
-- **#65** PHPStan **level 6**, baseline 294 → 0
-- **#66** PHPStan **level 7**, baseline 43 → 0
-- **#67** PHPStan level 7 now covers **tests/** too, baseline 219 → 0
+## Latest (2026-08-10) — quality sprint via `opencode-loop`
+Seven PRs shipped and deployed this session (all live):
+- **#71** PHPStan **level 8** (16 loop iterations), baseline 345 → 2
+- **#72** dead-code / cruft sweep (20 loop iterations) — 57 files, +50/−1642
+- **#73** `LiveSearchService.search()` orchestration coverage (5 iterations, ALL_DONE early)
+- **#74** fix post-merge PHPStan level-8 failure (`assertIsFloat` on a cast float)
+- **#75** PHPStan level 8 **zero baseline** — deleted `phpstan-baseline.neon`
+- **#76** CI actions → Node-24 majors (checkout v5, setup-node v5, gitleaks v3) — zero annotations
+- **#77** page-level vitest for every remaining page (9 iterations, ALL_DONE early) — vitest 565 → **725**
 
-**Current floor:** 563 PHPUnit + 481 vitest tests; PHPStan level 7 over `app/ + tests/`
-with a **zero baseline**; pint clean; CI + deploy green.
+**Current floor:** 567 PHPUnit + 725 vitest tests; PHPStan level 8 over `app/ + tests/`
+with a **zero baseline**; pint clean; CI + deploy green with zero annotations.
 
-**Next:** see `.specify/memory/backlog.md` (next goal = frontend page-level vitest tests).
+**Next:** see `.specify/memory/backlog.md` (next goal = scheduled-command test coverage).
 The rest of this file below is older historical context — the specs/ queue is no longer
 the work source; iteration goals come from `backlog.md`.
 

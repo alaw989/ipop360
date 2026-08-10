@@ -19,7 +19,7 @@
 | `npm run build` | `vue-tsc && vite build && vite build --ssr` — **must pass before pushing** |
 | `vendor/bin/pint --test` | Laravel Pint lint check |
 | `opencode-loop N --goal "…" --check "…"` | Finite-cap iterative improvement loop driving `opencode run` (installed at `~/.local/bin/opencode-loop`) — see `.specify/memory/backlog.md` for the next goal |
-| `./vendor/bin/phpstan analyse` | PHPStan level 5 (baseline in phpstan-baseline.neon) |
+| `./vendor/bin/phpstan analyse` | PHPStan level 8 over `app/ + tests/` (zero baseline — `phpstan-baseline.neon` deleted; 18 regex `ignoreErrors` patterns remain in `phpstan.neon` for mockery/Model limitations) |
 
 ## Get running locally
 
