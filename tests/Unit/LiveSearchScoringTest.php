@@ -1748,6 +1748,55 @@ class LiveSearchScoringTest extends TestCase
         }
     }
 
+    public function test_scoped_search_stamps_cuisine_match_and_confidence_filters_output(): void
+    {
+        $this->seedCuisine('Chinese', 'chinese');
+
+        $service = $this->makeServiceWithVenues([
+            'serpapi' => [
+                [
+                    'name' => 'China Wok',
+                    'source' => 'serpapi',
+                    'lat' => 30.65,
+                    'lng' => -88.20,
+                    'place_types' => ['Chinese restaurant'],
+                    'description' => 'Traditional Chinese dishes.',
+                ],
+                [
+                    'name' => 'Generic Diner',
+                    'source' => 'serpapi',
+                    'lat' => 30.66,
+                    'lng' => -88.21,
+                    'place_types' => ['Restaurant'],
+                    'description' => 'Neighborhood dining.',
+                ],
+            ],
+        ]);
+
+        $results = $service->search(30.6199783, -88.1967496, 'chinese');
+
+        $this->assertNotEmpty($results);
+
+        foreach ($results as $r) {
+            $this->assertArrayHasKey('cuisine_match', $r, 'Every scoped result must carry a cuisine_match stamp');
+            $this->assertIsFloat((float) $r['cuisine_match']);
+            $this->assertArrayHasKey('popularity_score', $r);
+            $this->assertArrayHasKey('score_breakdown', $r);
+        }
+
+        $byName = array_column($results, null, 'name');
+        $this->assertArrayHasKey('China Wok', $byName);
+        $this->assertSame(1.0, $byName['China Wok']['cuisine_match']);
+
+        $chinaWokLabels = array_column($byName['China Wok']['score_breakdown']['signals'], 'label');
+        $this->assertContains('Cuisine Match', $chinaWokLabels, 'On-cuisine venue must carry Cuisine Match signal in breakdown');
+
+        $scores = array_map(fn ($r) => (float) $r['popularity_score'], $results);
+        for ($i = 0; $i < count($scores) - 1; $i++) {
+            $this->assertGreaterThanOrEqual($scores[$i + 1], $scores[$i], 'Results must be sorted by score descending');
+        }
+    }
+
     /**
      * Create a cuisine (with the category row its FK requires). Cuisine
      * resolution now reads config/cuisine-keywords.php via CuisineMatcher, so a
