@@ -1721,6 +1721,33 @@ class LiveSearchScoringTest extends TestCase
         $this->assertNotContains('Barrigas', $names);
     }
 
+    public function test_search_orchestration_produces_scored_sorted_bounded_results(): void
+    {
+        $service = $this->makeServiceWithVenues([
+            'serpapi' => [
+                ['name' => 'Great Restaurant', 'source' => 'serpapi', 'lat' => 37.776, 'lng' => -122.420],
+                ['name' => 'OK Restaurant', 'source' => 'serpapi', 'lat' => 37.777, 'lng' => -122.421],
+                ['name' => 'Mediocre Place', 'source' => 'serpapi', 'lat' => 37.778, 'lng' => -122.422],
+            ],
+        ]);
+
+        $results = $service->search(37.7749, -122.4194, null);
+
+        $this->assertNotEmpty($results, 'Search must return non-empty results');
+
+        $scores = array_map(fn ($r) => (float) $r['popularity_score'], $results);
+
+        for ($i = 0; $i < count($scores) - 1; $i++) {
+            $this->assertGreaterThanOrEqual($scores[$i + 1], $scores[$i], 'Results must be sorted by score descending');
+        }
+
+        foreach ($results as $r) {
+            $this->assertIsFloat((float) $r['popularity_score']); // @phpstan-ignore method.alreadyNarrowedType
+            $this->assertArrayHasKey('score_breakdown', $r);
+            $this->assertIsArray($r['score_breakdown']);
+        }
+    }
+
     /**
      * Create a cuisine (with the category row its FK requires). Cuisine
      * resolution now reads config/cuisine-keywords.php via CuisineMatcher, so a
