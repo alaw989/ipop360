@@ -1721,6 +1721,209 @@ class LiveSearchScoringTest extends TestCase
         $this->assertNotContains('Barrigas', $names);
     }
 
+    public function test_search_orchestration_produces_scored_sorted_bounded_results(): void
+    {
+        $service = $this->makeServiceWithVenues([
+            'serpapi' => [
+                ['name' => 'Great Restaurant', 'source' => 'serpapi', 'lat' => 37.776, 'lng' => -122.420],
+                ['name' => 'OK Restaurant', 'source' => 'serpapi', 'lat' => 37.777, 'lng' => -122.421],
+                ['name' => 'Mediocre Place', 'source' => 'serpapi', 'lat' => 37.778, 'lng' => -122.422],
+            ],
+        ]);
+
+        $results = $service->search(37.7749, -122.4194, null);
+
+        $this->assertNotEmpty($results, 'Search must return non-empty results');
+
+        $scores = array_map(fn ($r) => (float) $r['popularity_score'], $results);
+
+        for ($i = 0; $i < count($scores) - 1; $i++) {
+            $this->assertGreaterThanOrEqual($scores[$i + 1], $scores[$i], 'Results must be sorted by score descending');
+        }
+
+        foreach ($results as $r) {
+            $this->assertIsFloat((float) $r['popularity_score']); // @phpstan-ignore method.alreadyNarrowedType
+            $this->assertArrayHasKey('score_breakdown', $r);
+            $this->assertIsArray($r['score_breakdown']);
+        }
+    }
+
+    public function test_scoped_search_stamps_cuisine_match_and_confidence_filters_output(): void
+    {
+        $this->seedCuisine('Chinese', 'chinese');
+
+        $service = $this->makeServiceWithVenues([
+            'serpapi' => [
+                [
+                    'name' => 'China Wok',
+                    'source' => 'serpapi',
+                    'lat' => 30.65,
+                    'lng' => -88.20,
+                    'place_types' => ['Chinese restaurant'],
+                    'description' => 'Traditional Chinese dishes.',
+                ],
+                [
+                    'name' => 'Generic Diner',
+                    'source' => 'serpapi',
+                    'lat' => 30.66,
+                    'lng' => -88.21,
+                    'place_types' => ['Restaurant'],
+                    'description' => 'Neighborhood dining.',
+                ],
+            ],
+        ]);
+
+        $results = $service->search(30.6199783, -88.1967496, 'chinese');
+
+        $this->assertNotEmpty($results);
+
+        foreach ($results as $r) {
+            $this->assertArrayHasKey('cuisine_match', $r, 'Every scoped result must carry a cuisine_match stamp');
+            $this->assertIsFloat((float) $r['cuisine_match']);
+            $this->assertArrayHasKey('popularity_score', $r);
+            $this->assertArrayHasKey('score_breakdown', $r);
+        }
+
+        $byName = array_column($results, null, 'name');
+        $this->assertArrayHasKey('China Wok', $byName);
+        $this->assertSame(1.0, $byName['China Wok']['cuisine_match']);
+
+        $chinaWokLabels = array_column($byName['China Wok']['score_breakdown']['signals'], 'label');
+        $this->assertContains('Cuisine Match', $chinaWokLabels, 'On-cuisine venue must carry Cuisine Match signal in breakdown');
+
+        $scores = array_map(fn ($r) => (float) $r['popularity_score'], $results);
+        for ($i = 0; $i < count($scores) - 1; $i++) {
+            $this->assertGreaterThanOrEqual($scores[$i + 1], $scores[$i], 'Results must be sorted by score descending');
+        }
+    }
+
+    public function test_multi_source_merge_dedup_collapses_same_venue_and_preserves_distinct(): void
+    {
+        $this->seedCuisine('Chinese', 'chinese');
+
+        $service = $this->makeServiceWithVenues([
+            'serpapi' => [
+                [
+                    'name' => 'China Palace',
+                    'source' => 'serpapi',
+                    'lat' => 30.65,
+                    'lng' => -88.20,
+                    'google_rating' => 4.5,
+                    'google_review_count' => 200,
+                    'place_types' => ['Chinese restaurant'],
+                    'description' => 'Authentic Chinese cuisine.',
+                ],
+                [
+                    'name' => 'Golden Dragon',
+                    'source' => 'serpapi',
+                    'lat' => 30.67,
+                    'lng' => -88.22,
+                    'place_types' => ['Chinese restaurant'],
+                    'description' => 'Cantonese specialties.',
+                ],
+            ],
+            'overpass' => [
+                [
+                    'name' => 'China Palace',
+                    'source' => 'overpass',
+                    'lat' => 30.6505,
+                    'lng' => -88.2005,
+                    'cuisines' => [
+                        ['id' => 1, 'name' => 'Chinese', 'slug' => 'chinese'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $results = $service->search(30.6199783, -88.1967496, 'chinese');
+
+        $this->assertCount(2, $results, '3 venues from 2 sources must dedup to 2 distinct venues');
+
+        $names = array_column($results, 'name');
+        $this->assertContains('China Palace', $names);
+        $this->assertContains('Golden Dragon', $names);
+
+        $byName = array_column($results, null, 'name');
+        $this->assertSame('Authentic Chinese cuisine.', $byName['China Palace']['description'],
+            'Merged venue must retain description from SerpApi');
+        $this->assertNotEmpty($byName['China Palace']['cuisines'] ?? [],
+            'Merged venue must carry cuisines from Overpass');
+        $this->assertSame('Chinese', $byName['China Palace']['cuisines'][0]['name']);
+
+        $scores = array_map(fn ($r) => (float) $r['popularity_score'], $results);
+        for ($i = 0; $i < count($scores) - 1; $i++) {
+            $this->assertGreaterThanOrEqual($scores[$i + 1], $scores[$i], 'Results must be sorted by score descending');
+        }
+    }
+
+    public function test_phone_dedup_fast_path_collapses_divergent_name_venues_within_proximity(): void
+    {
+        $this->seedCuisine('Italian', 'italian');
+
+        $service = $this->makeServiceWithVenues([
+            'serpapi' => [
+                [
+                    'name' => "Tony's Pizza Napoletana",
+                    'source' => 'serpapi',
+                    'lat' => 40.72,
+                    'lng' => -74.00,
+                    'phone' => '+1 (212) 555-0142',
+                    'google_rating' => 4.7,
+                    'google_review_count' => 350,
+                    'place_types' => ['Italian restaurant', 'Pizza restaurant'],
+                    'description' => 'Award-winning Neapolitan pizza.',
+                ],
+                [
+                    'name' => 'Maria Trattoria',
+                    'source' => 'serpapi',
+                    'lat' => 40.73,
+                    'lng' => -74.01,
+                    'phone' => '(718) 555-9999',
+                    'place_types' => ['Italian restaurant'],
+                    'description' => 'Family-style Italian.',
+                ],
+            ],
+            'overpass' => [
+                [
+                    'name' => 'Tonys Pizza',
+                    'source' => 'overpass',
+                    'lat' => 40.7201,
+                    'lng' => -74.0001,
+                    'phone' => '2125550142',
+                    'cuisines' => [
+                        ['id' => 1, 'name' => 'Italian', 'slug' => 'italian'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $results = $service->search(40.71, -74.00, 'italian');
+
+        $this->assertCount(2, $results, '3 venues must dedup to 2: phone-matched pair collapses, distinct venue survives');
+
+        $names = array_column($results, 'name');
+        $this->assertContains("Tony's Pizza Napoletana", $names);
+        $this->assertContains('Maria Trattoria', $names);
+        $this->assertNotContains('Tonys Pizza', $names, 'Overpass variant name must be absorbed by phone-matched SerpApi venue');
+
+        $byName = array_column($results, null, 'name');
+        $merged = $byName["Tony's Pizza Napoletana"];
+
+        $this->assertSame(
+            'Award-winning Neapolitan pizza.',
+            $merged['description'],
+            'Merged venue must retain SerpApi description'
+        );
+        $this->assertNotEmpty($merged['cuisines'] ?? [], 'Merged venue must carry cuisines from Overpass');
+        $this->assertSame('Italian', $merged['cuisines'][0]['name']);
+        $this->assertSame(4.7, $merged['google_rating'], 'Merged venue must retain SerpApi rating');
+
+        $scores = array_map(fn ($r) => (float) $r['popularity_score'], $results);
+        for ($i = 0; $i < count($scores) - 1; $i++) {
+            $this->assertGreaterThanOrEqual($scores[$i + 1], $scores[$i], 'Results must be sorted by score descending');
+        }
+    }
+
     /**
      * Create a cuisine (with the category row its FK requires). Cuisine
      * resolution now reads config/cuisine-keywords.php via CuisineMatcher, so a
