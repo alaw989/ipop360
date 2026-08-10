@@ -78,6 +78,12 @@ with a 2-entry baseline; pint clean; CI + deploy green on master.
 **Current floor:** 567 PHPUnit tests + 565 vitest tests; PHPStan level 8 over `app/ + tests/`
 with a **zero baseline**; pint clean; CI + deploy green on master.
 
+## ✅ Done (2026-08-10 session, continued)
+12. **CI actions → Node-24 majors** — PR #76: bumped `actions/checkout@v4` → `@v5`,
+    `actions/setup-node@v4` → `@v5`, `gitleaks/gitleaks-action@v2` → `@v3` in both
+    workflows. Eliminates the "Node.js 20 is deprecated" Actions annotation — quality +
+    deploy now run with zero annotations. CI green before merge; deployed + live (200).
+
 ## Next goals (in priority order)
 
 _No open goals currently in the backlog._
