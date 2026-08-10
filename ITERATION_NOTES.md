@@ -4,9 +4,9 @@
 find and remove dead code and unused configuration across the app
 
 ## State
-Removed 7 deprecated env vars, 3 npm packages, and 4 dead artisan commands (`SearchAuditCommand`, `BackfillRestaurantLocation`, `ValidateRestaurantData`, `CopySqliteToMysql`). Full PHP codebase scan complete: all services, controllers, middleware, models, jobs, resources are actively referenced. All 4 unused artisan commands removed. Config files `database.php` and `auth.php` have dead boilerplate sections left to clean up.
+Removed 7 deprecated env vars, 3 npm packages, and 4 dead artisan commands. Full PHP codebase scan complete: all services, controllers, middleware, models, jobs, resources are actively referenced. Cleaned `config/database.php`: removed unused `mariadb`, `pgsql`, `sqlsrv` connections and dead Redis section (zero env var references, cache/queue/session all default to `database` driver). Dropped `Illuminate\Support\Str` import (only used by Redis prefix).
 
-Next: clean dead boilerplate from `config/database.php` (sqlite connection is mysql-shaped; only `driver` + `database` + `foreign_keys` matter) and `config/auth.php` (unused guards like `web` session config, unused provider configs).
+Next: clean dead boilerplate from `config/auth.php` — remove commented-out `database` provider (the `eloquent` provider and `web` guard are actively used).
 
 ## Log
 1. Removed from `.env.example`: `GOOGLE_PLACES_API_KEY`, `OUTSCRAPER_API_KEY`, `FOURSQUARE_API_KEY`, `OUTSCRAPER_CACHE_TTL_HOURS`, `GOOGLE_CACHE_TTL_HOURS`, `FOURSQUARE_CACHE_TTL_HOURS`, `LIVE_SEARCH_FOURSQUARE_TIMEOUT` — all zero PHP references.
@@ -18,4 +18,5 @@ Next: clean dead boilerplate from `config/database.php` (sqlite connection is my
 7. Removed `app/Console/Commands/BackfillRestaurantLocation.php` — zero references, zero tests, never scheduled. 563 tests pass, build clean.
 8. Removed `app/Console/Commands/ValidateRestaurantData.php` — zero references, zero tests, never scheduled. 563 tests pass, build clean.
 9. Removed `app/Console/Commands/CopySqliteToMysql.php` — zero references, zero tests, never scheduled. 563 tests pass.
+10. Cleaned `config/database.php` — removed dead `mariadb`, `pgsql`, `sqlsrv` connections and unused Redis section (zero references in .env or app config; cache/queue/session all default to `database` driver). Removed `Illuminate\Support\Str` import (only used for Redis prefix). File went from 187 lines to 89. 563 tests pass, build clean.
 
