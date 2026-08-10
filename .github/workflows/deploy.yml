@@ -23,12 +23,12 @@ jobs:
         # Full history (fetch-depth: 0) so gitleaks can resolve the push's
         # base^..head range — a shallow clone makes base^ "unknown revision"
         # and aborts the scan (blocking deploy) on multi-commit pushes.
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Run Gitleaks (secret scanning)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -40,7 +40,7 @@ jobs:
           tools: composer:v2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: 'npm'
@@ -81,7 +81,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -91,7 +91,7 @@ jobs:
           tools: composer:v2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: 'npm'
