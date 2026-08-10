@@ -12,7 +12,9 @@ Removed 25 dead shadcn-vue UI components with zero app references: CardAction, C
 
 Scanned all 99 Vue components for unused imports — zero found (excellent import hygiene). Scanned all 33 non-test .ts/.js files for dead files. Removed dead `components/ui/dialog/` directory (7 files: Dialog.vue, DialogContent.vue, DialogDescription.vue, DialogHeader.vue, DialogOverlay.vue, DialogTitle.vue, index.ts) — zero external imports; app uses custom `Components/Modal.vue` instead. Build clean.
 
-Next: scan CSS files for unused classes and dead stylesheets.
+Cleaned `resources/css/app.css`: removed dead `--chart-1` through `--chart-5` variables (light+dark, no chart components exist), all `--sidebar-*` variables (no sidebar component), and `@theme inline` block for `--font-heading` (referenced only by the non-functional `cn-font-heading` class). Removed dead `cn-font-heading` class from `CardTitle.vue` — not a valid Tailwind utility, applied nothing. Build clean.
+
+Next: scan for dead Tailwind utility classes in Vue components (classes that don't match any Tailwind 4 utility).
 
 ## Log
 1. Removed commented-out `database` provider from `config/auth.php` — dead boilerplate, only the `eloquent` provider and `web` guard are actively used.
@@ -32,4 +34,5 @@ Next: scan CSS files for unused classes and dead stylesheets.
 15. Removed `REDIS_CLIENT`, `REDIS_HOST`, `REDIS_PASSWORD`, `REDIS_PORT` from `.env.example` — zero PHP references in config/ or app/ (the Redis connection was already removed from config/database.php in iteration 11). Verified `config/app.php` and `bootstrap/app.php`: both are clean — app.php has no providers/aliases arrays (Laravel 11+ style), all 4 registered middleware (`HandleInertiaRequests`, `AddLinkHeadersForPreloadedAssets`, `log.api`, `admin`) are actively referenced in routes/web.php. 563 tests pass, build clean.
 16. Removed 25 dead shadcn-vue UI components (CardAction, CardDescription, CardFooter, CommandDialog, CommandSeparator, CommandShortcut, DialogClose, DialogFooter, DialogScrollContent, DialogTrigger, InputGroupButton, InputGroupInput, InputGroupText, InputGroupTextarea, PopoverAnchor, PopoverDescription, PopoverHeader, PopoverTitle, Separator, SheetClose, SheetDescription, SheetFooter, SheetHeader, SheetTitle, Textarea) — all zero app references. Updated 6 barrel index.ts files; removed empty separator/ and textarea/ directories. Cleaned dead types and unused imports from input-group/index.ts. 563 tests pass, build clean.
 17. Removed dead `components/ui/dialog/` directory (7 files: Dialog.vue, DialogContent.vue, DialogDescription.vue, DialogHeader.vue, DialogOverlay.vue, DialogTitle.vue, index.ts) — zero external references; app uses custom `Components/Modal.vue` instead. Build clean.
+18. Cleaned `resources/css/app.css`: removed `--chart-1` through `--chart-5` (light+dark, no chart components exist), all `--sidebar-*` variables (no sidebar component), and the `@theme inline` block for `--font-heading`. Removed dead `cn-font-heading` class from `CardTitle.vue` — not a valid Tailwind 4 utility, applied nothing. file went from 122 to 92 lines. Build clean.
 
