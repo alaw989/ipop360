@@ -93,7 +93,33 @@ with a **zero baseline**; pint clean; CI + deploy green on master.
 
 ## Next goals (in priority order)
 
-_No open goals currently in the backlog._
+### 1. Scheduled-command test coverage ⬅ NEXT
+- 7 artisan commands run daily/weekly in production but have **zero test references**:
+  `restaurants:update-engagement`, `seo:sitemap`, `restaurants:score`,
+  `uptime:canary`, `restaurants:scrape-social`, `apicache:gc`,
+  `restaurants:verify-websites`. All scheduled in `routes/console.php`; none tested.
+- **Goal:** `add unit coverage for the 7 scheduled artisan commands (UpdateEngagement, GenerateSitemap, ScoreRestaurants, UptimeCanary, ScrapeRestaurantSocialLinks, GarbageCollectApiCache, VerifyRestaurantWebsites)`
+- **Gate:** `composer test`
+
+### 2. Complex component vitest specs
+- 9 non-trivial Vue components still lack specs: `Modal`, `CardGallery`, `BlogEditor`,
+  `BlogPreview`, `SearchMap`, `DetailMap`, `HeroBanner`, `PopularRestaurants`,
+  `RestaurantCardSkeleton` (thin primitives like `InputLabel`/`BrandLogo` are not worth it).
+- **Goal:** `add vitest specs for the complex Vue components (Modal, CardGallery, BlogEditor, BlogPreview, SearchMap, DetailMap, HeroBanner, PopularRestaurants, RestaurantCardSkeleton)`
+- **Gate:** `npm run test`
+
+### 3. CI coverage enforcement
+- `phpunit.xml` has no coverage config and CI never fails on coverage loss — the suite
+  can regress silently between PRs. Add PHPUnit (xdebug) + vitest coverage thresholds to
+  the quality gate.
+- **Goal:** `enforce code coverage thresholds in CI for both PHPUnit and vitest`
+- **Gate:** `composer test && npm run test`
+
+### 4. Align CI PHP with production
+- CI runs `php-version: '8.5'` but the droplet runs `php8.4` (all artisan/fpm commands).
+  Tests pass on a different PHP than prod. Either run both in CI or upgrade the droplet.
+- **Goal:** `align the CI PHP version with production (php 8.4), or run both 8.4 and 8.5`
+- **Gate:** `composer test`
 
 ---
 
