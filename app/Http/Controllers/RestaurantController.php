@@ -305,7 +305,6 @@ class RestaurantController extends Controller
         $restaurants = $query->paginate(20)->withQueryString();
 
         if ($restaurants->isEmpty() && $coords !== null) {
-            assert($coords !== null);
             // spec-068: paginate the live result set. Page 1 runs the (cache-warm,
             // zero-quota) live search and snapshots the full user-sorted set under
             // live_page:{coords+cuisine+category+sort}; pages 2+ slice that snapshot
