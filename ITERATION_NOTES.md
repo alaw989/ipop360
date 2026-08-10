@@ -4,9 +4,9 @@
 find and remove dead code and unused configuration across the app
 
 ## State
-Removed 7 deprecated env vars, 3 npm packages, and 2 dead artisan commands (`SearchAuditCommand`, `BackfillRestaurantLocation`). Full PHP codebase scan complete: all services, controllers, middleware, models, jobs, resources are actively referenced. 2 more dead commands remain (`ValidateRestaurantData`, `CopySqliteToMysql`). Config files `database.php` and `auth.php` have dead boilerplate sections.
+Removed 7 deprecated env vars, 3 npm packages, and 3 dead artisan commands (`SearchAuditCommand`, `BackfillRestaurantLocation`, `ValidateRestaurantData`). Full PHP codebase scan complete: all services, controllers, middleware, models, jobs, resources are actively referenced. 1 more dead command remains (`CopySqliteToMysql`). Config files `database.php` and `auth.php` have dead boilerplate sections.
 
-Next: remove `ValidateRestaurantData` (dead command, zero references, no tests).
+Next: remove `CopySqliteToMysql` (dead command, zero references, no tests).
 
 ## Log
 1. Removed from `.env.example`: `GOOGLE_PLACES_API_KEY`, `OUTSCRAPER_API_KEY`, `FOURSQUARE_API_KEY`, `OUTSCRAPER_CACHE_TTL_HOURS`, `GOOGLE_CACHE_TTL_HOURS`, `FOURSQUARE_CACHE_TTL_HOURS`, `LIVE_SEARCH_FOURSQUARE_TIMEOUT` — all zero PHP references.
@@ -16,3 +16,4 @@ Next: remove `ValidateRestaurantData` (dead command, zero references, no tests).
 5. Full PHP codebase scan (grep for every class name): all 19 services, 22 controllers, 3 middleware, 7 models, 2 jobs, 2 resources, 1 trait, 1 support class are actively referenced. 4 dead commands found: `SearchAuditCommand`, `BackfillRestaurantLocation`, `ValidateRestaurantData`, `CopySqliteToMysql` (all zero references, no tests, never scheduled).
 6. Removed `app/Console/Commands/SearchAuditCommand.php` — zero references, zero tests, never scheduled in `routes/console.php`. 563 tests pass.
 7. Removed `app/Console/Commands/BackfillRestaurantLocation.php` — zero references, zero tests, never scheduled. 563 tests pass, build clean.
+8. Removed `app/Console/Commands/ValidateRestaurantData.php` — zero references, zero tests, never scheduled. 563 tests pass, build clean.
