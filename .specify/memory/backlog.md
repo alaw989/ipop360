@@ -75,8 +75,15 @@ with a 2-entry baseline; pint clean; CI + deploy green on master.
     `phpstan.neon` (still needed for mockery/Model limitations). CI green before merge;
     deployed + live-verified (/, /api 200).
 
-**Current floor:** 567 PHPUnit tests + 565 vitest tests; PHPStan level 8 over `app/ + tests/`
+**Current floor:** 567 PHPUnit tests + 725 vitest tests; PHPStan level 8 over `app/ + tests/`
 with a **zero baseline**; pint clean; CI + deploy green on master.
+
+## ✅ Done (2026-08-10 session, continued)
+13. **Page-level vitest for all remaining pages** — PR #77 (opencode-loop, 9 iterations,
+    ALL_DONE early): 9 new specs (Leaderboard, Blog Index/Show, Compare, Cuisine
+    Subcategories, Dashboard, Admin Dashboard, Admin Blog Index/Edit) — +2144 lines.
+    vitest 565 → **725**. Every page in `resources/js/Pages/` now has a spec. CI green
+    before merge; deployed + live-verified (/, /api 200).
 
 ## ✅ Done (2026-08-10 session, continued)
 12. **CI actions → Node-24 majors** — PR #76: bumped `actions/checkout@v4` → `@v5`,
