@@ -22,7 +22,9 @@ Next: scan config files for dead service provider registrations or unused facade
 
 Removed dead `postmark`, `resend`, and `slack` service entries from `config/services.php` — three unique env vars (`POSTMARK_API_KEY`, `RESEND_API_KEY`, `SLACK_BOT_USER_OAUTH_TOKEN`, `SLACK_BOT_USER_DEFAULT_CHANNEL`) exist nowhere else (not in .env.example, no app code references). Default mailer is `log`, zero notification usage. Kept `ses` (shares AWS env vars with S3). Laravel 11+ bootstrap/providers.php has only AppServiceProvider (expected) and config/app.php has no providers/aliases arrays (Laravel 11+ style). 563 tests pass, build clean.
 
-Next: scan for any remaining dead env vars referenced in configs but missing from .env.example.
+Removed dead `postmark` and `resend` mailer transports from `config/mail.php` — their service configs were already removed from services.php in prior iteration (POSTMARK_API_KEY, RESEND_API_KEY), zero app code references to either mailer, default mailer is `log`. Updated `roundrobin` mailer to reference `smtp`/`log` instead of now-dead `postmark`. 563 tests pass, build clean.
+
+Next: scan for dead `ses` mailer references or remaining unused facade aliases in config/app.php.
 
 ## Log
 1. Removed commented-out `database` provider from `config/auth.php` — dead boilerplate, only the `eloquent` provider and `web` guard are actively used.
