@@ -14,7 +14,11 @@ Scanned all 99 Vue components for unused imports — zero found (excellent impor
 
 Cleaned `resources/css/app.css`: removed dead `--chart-1` through `--chart-5` variables (light+dark, no chart components exist), all `--sidebar-*` variables (no sidebar component), and `@theme inline` block for `--font-heading` (referenced only by the non-functional `cn-font-heading` class). Removed dead `cn-font-heading` class from `CardTitle.vue` — not a valid Tailwind utility, applied nothing. Build clean.
 
-Next: scan for dead Tailwind 3 utilities (`backdrop-filter`, `decoration-slice`, `will-change`, more `*-opacity-*`) in Vue + UI components.
+Removed 2 dead `allow-plugins` entries from `composer.json`: `pestphp/pest-plugin` and `php-http/discovery` — neither package is installed (zero composer.lock or source references). 563 tests pass, build clean.
+
+Completed scan for dead Tailwind 3 utilities (`backdrop-filter`, `decoration-slice`, `will-change`, `*-opacity-*`, `flex-shrink`, `flex-grow`, `overflow-ellipsis`) across all Vue, TS, JS, and CSS files — zero found. All previously cleaned. The `supports-[backdrop-filter]:` in StickySearchBar.vue is valid Tailwind 4 custom variant syntax, not dead v3 code.
+
+Next: scan config files for dead service provider registrations or unused facade aliases.
 
 ## Log
 1. Removed commented-out `database` provider from `config/auth.php` — dead boilerplate, only the `eloquent` provider and `web` guard are actively used.
