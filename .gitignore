@@ -38,3 +38,6 @@ Thumbs.db
 # Deploy keys (never commit)
 /deploy_key
 /deploy_key.pub
+
+# Loop/iteration logs
+/logs
