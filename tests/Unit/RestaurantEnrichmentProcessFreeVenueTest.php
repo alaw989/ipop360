@@ -139,6 +139,7 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
             'source' => 'serpapi',
         ], $cuisine);
 
+        $this->assertNotNull($restaurant);
         $this->assertSame($existing->id, $restaurant->id);
         $this->assertDatabaseCount('restaurants', 1);
         $this->assertDatabaseHas('restaurants', ['id' => $existing->id, 'name' => 'Sushi Izakaya']);

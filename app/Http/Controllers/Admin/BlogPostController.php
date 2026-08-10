@@ -40,9 +40,12 @@ class BlogPostController extends Controller
         $data['body'] = $sanitizer->sanitize($data['body']);
 
         $post = new BlogPost($data);
-        $userId = $request->user()->id;
-        assert($userId >= 0);
-        $post->author_id = $userId;
+        $user = $request->user();
+        if (! $user) {
+            return redirect()->route('login');
+        }
+        assert($user->id >= 0);
+        $post->author_id = $user->id;
         $post->save();
 
         if (($data['status'] ?? null) === 'published') {

@@ -162,7 +162,10 @@ class OverpassServiceTest extends TestCase
         $service->search(37.7749, -122.4194, 'italian');
 
         $recorded = Http::recorded();
-        $body = urldecode($recorded[0][0]->body());
+        $this->assertCount(1, $recorded);
+        $entry = $recorded[0] ?? null;
+        $this->assertNotNull($entry);
+        $body = urldecode($entry[0]->body());
         $this->assertStringContainsString('node[', $body);
         $this->assertStringContainsString('way[', $body);
         $this->assertStringContainsString('rel[', $body);
@@ -243,7 +246,10 @@ class OverpassServiceTest extends TestCase
         $service->search(37.7749, -122.4194, 'vietnamese');
 
         $recorded = Http::recorded();
-        $body = urldecode($recorded[0][0]->body());
+        $this->assertCount(1, $recorded);
+        $entry = $recorded[0] ?? null;
+        $this->assertNotNull($entry);
+        $body = urldecode($entry[0]->body());
 
         $this->assertStringContainsString('["cuisine"~', $body);
         $this->assertStringNotContainsString('(?:', $body, 'Overpass rejects non-capturing (?:...) groups');
@@ -269,7 +275,10 @@ class OverpassServiceTest extends TestCase
         $service->search(37.7749, -122.4194, 'japanese');
 
         $recorded = Http::recorded();
-        $body = urldecode($recorded[0][0]->body());
+        $this->assertCount(1, $recorded);
+        $entry = $recorded[0] ?? null;
+        $this->assertNotNull($entry);
+        $body = urldecode($entry[0]->body());
         $this->assertStringContainsString('japanese', $body);
         $this->assertStringContainsString('sushi', $body);
         $this->assertStringContainsString('ramen', $body);
@@ -298,7 +307,10 @@ class OverpassServiceTest extends TestCase
         $this->assertSame(1, $count);
 
         $recorded = Http::recorded();
-        $body = urldecode($recorded[0][0]->body());
+        $this->assertCount(1, $recorded);
+        $entry = $recorded[0] ?? null;
+        $this->assertNotNull($entry);
+        $body = urldecode($entry[0]->body());
         $this->assertStringContainsString('chinese', $body);
         $this->assertStringContainsString('japanese', $body);
         $this->assertStringContainsString('thai', $body);
@@ -320,7 +332,10 @@ class OverpassServiceTest extends TestCase
         $service->searchByName(37.7749, -122.4194, ['sushi', 'ramen']);
 
         $recorded = Http::recorded();
-        $body = urldecode($recorded[0][0]->body());
+        $this->assertCount(1, $recorded);
+        $entry = $recorded[0] ?? null;
+        $this->assertNotNull($entry);
+        $body = urldecode($entry[0]->body());
         $this->assertStringContainsString('["name"~"', $body);
         $this->assertStringContainsString('sushi', $body);
         $this->assertStringContainsString('ramen', $body);

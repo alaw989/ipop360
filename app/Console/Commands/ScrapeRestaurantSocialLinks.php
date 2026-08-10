@@ -56,7 +56,7 @@ class ScrapeRestaurantSocialLinks extends Command
                 $startTime = microtime(true);
 
                 try {
-                    $links = $scraper->scrapeSocial($restaurant->website_url);
+                    $links = $scraper->scrapeSocial((string) $restaurant->website_url);
 
                     $elapsed = (microtime(true) - $startTime) * 1000;
 

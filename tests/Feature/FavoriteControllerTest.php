@@ -602,7 +602,9 @@ class FavoriteControllerTest extends TestCase
             ]);
 
         $response->assertStatus(200)->assertJson(['favorited' => true]);
-        $this->assertTrue((bool) $restaurant->fresh()->is_active, 'pre-existing active row stays active');
+        $fresh = $restaurant->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertTrue((bool) $fresh->is_active, 'pre-existing active row stays active');
         $this->assertTrue(Restaurant::active()->where('slug', $restaurant->slug)->exists());
     }
 

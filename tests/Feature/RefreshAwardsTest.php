@@ -52,11 +52,15 @@ class RefreshAwardsTest extends TestCase
         $command->assertExitCode(0);
         $command->run();
 
-        $this->assertTrue($restaurant->fresh()->has_award, 'SF twin should be flagged');
-        $this->assertFalse(
-            Restaurant::where('city', 'Houston')->first()->fresh()->has_award,
-            'Houston twin is >1.5km away and must not be flagged'
-        );
+        $freshSf = $restaurant->fresh();
+        $this->assertNotNull($freshSf);
+        $this->assertTrue($freshSf->has_award, 'SF twin should be flagged');
+
+        $houstonRestaurant = Restaurant::where('city', 'Houston')->first();
+        $this->assertNotNull($houstonRestaurant);
+        $freshHouston = $houstonRestaurant->fresh();
+        $this->assertNotNull($freshHouston);
+        $this->assertFalse($freshHouston->has_award, 'Houston twin is >1.5km away and must not be flagged');
     }
 
     public function test_dry_run_does_not_write(): void
@@ -82,6 +86,8 @@ class RefreshAwardsTest extends TestCase
         $command->assertExitCode(0);
         $command->run();
 
-        $this->assertFalse($restaurant->fresh()->has_award, 'dry-run must not write');
+        $fresh = $restaurant->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertFalse($fresh->has_award, 'dry-run must not write');
     }
 }

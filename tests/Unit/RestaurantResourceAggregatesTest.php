@@ -48,6 +48,7 @@ class RestaurantResourceAggregatesTest extends TestCase
         /** @var Restaurant $first */
         $first = $restaurants[0];
         $expected = $service->calculateBreakdown($first, $restaurants);
+        $this->assertIsArray($resolved[0]);
         $this->assertSame(
             $expected,
             $resolved[0]['score_breakdown'],

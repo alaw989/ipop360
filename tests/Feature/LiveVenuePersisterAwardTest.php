@@ -49,7 +49,9 @@ class LiveVenuePersisterAwardTest extends TestCase
 
         $this->persister->persist($this->venue('place_123', $restaurant->name, false));
 
-        $this->assertTrue($restaurant->fresh()->has_award, 'enrichment award must survive a live-search update');
+        $fresh = $restaurant->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertTrue($fresh->has_award, 'enrichment award must survive a live-search update');
     }
 
     public function test_create_sets_has_award_from_source(): void

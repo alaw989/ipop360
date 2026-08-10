@@ -54,6 +54,10 @@ class BackfillRestaurantLocation extends Command
 
         $query->when($limit > 0, fn ($q) => $q->limit($limit))
             ->each(function (Restaurant $r) use ($dryRun, &$updated, &$parsed) {
+                if ($r->address === null) {
+                    return;
+                }
+
                 $result = $this->extractCityState($r->address);
                 if ($result === null) {
                     return;
@@ -102,6 +106,12 @@ class BackfillRestaurantLocation extends Command
         $query->when($limit > 0, fn ($q) => $q->limit($limit))
             ->each(function (Restaurant $r) use ($geolocation, &$attempted, &$updated, &$failed, $totalToProcess) {
                 $attempted++;
+
+                if ($r->latitude === null || $r->longitude === null) {
+                    $failed++;
+
+                    return;
+                }
 
                 $result = $geolocation->reverseGeocode($r->latitude, $r->longitude);
 

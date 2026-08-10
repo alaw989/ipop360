@@ -542,7 +542,7 @@ class RestaurantEnrichmentService
      */
     private function findWebsiteByPhoneInCache(string $phone): ?string
     {
-        $phoneDigits = substr(preg_replace('/\D+/', '', $phone), -10);
+        $phoneDigits = substr((string) preg_replace('/\D+/', '', $phone), -10);
         if (strlen($phoneDigits) !== 10) {
             return null;
         }

@@ -54,6 +54,7 @@ class BlogAdminTest extends TestCase
         ]);
 
         $post = BlogPost::where('title', 'My First Post')->first();
+        $this->assertNotNull($post);
         $this->assertNotNull($post->published_at);
         $this->assertSame('my-first-post', $post->slug);
         $this->assertSame('Blog post created.', session('success'));
@@ -69,6 +70,7 @@ class BlogAdminTest extends TestCase
         ])->assertRedirect(route('admin.blog.index'));
 
         $post = BlogPost::where('title', 'Draft Post')->first();
+        $this->assertNotNull($post);
         $this->assertSame('draft', $post->status);
         $this->assertNull($post->published_at);
         $this->assertSame('Blog post created.', session('success'));
@@ -135,6 +137,7 @@ class BlogAdminTest extends TestCase
         ])->assertRedirect(route('admin.blog.index'));
 
         $post = BlogPost::where('title', 'Sanitized Post')->first();
+        $this->assertNotNull($post);
         $this->assertStringNotContainsString('<script>', $post->body);
         $this->assertStringNotContainsString('onerror', $post->body);
         $this->assertStringContainsString('<p>Hello', $post->body);

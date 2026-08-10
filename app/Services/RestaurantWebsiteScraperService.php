@@ -1046,7 +1046,11 @@ class RestaurantWebsiteScraperService
         foreach ($patterns as $pattern) {
             $nodes = $xpath->query($pattern);
             if ($nodes !== false && $nodes->length > 0) {
-                $content = $nodes->item(0)->getAttribute('content');
+                $firstNode = $nodes->item(0);
+                if (! $firstNode instanceof \DOMElement) {
+                    continue;
+                }
+                $content = $firstNode->getAttribute('content');
                 if (! empty($content)) {
                     if (str_starts_with($content, 'http://') || str_starts_with($content, 'https://')) {
                         return $content;

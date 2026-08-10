@@ -54,7 +54,7 @@ class VerifyRestaurantWebsites extends Command
                 try {
                     $response = Http::timeout(8)
                         ->withUserAgent('Mozilla/5.0 (compatible; iPop360-Verify/1.0)')
-                        ->head($restaurant->website_url);
+                        ->head((string) $restaurant->website_url);
 
                     if ($response->successful()) {
                         $this->verified++;

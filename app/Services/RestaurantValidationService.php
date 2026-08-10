@@ -124,7 +124,7 @@ class RestaurantValidationService
             return null;
         }
 
-        $digits = preg_replace('/\D+/', '', $phone);
+        $digits = (string) preg_replace('/\D+/', '', $phone);
 
         if (strlen($digits) === 0) {
             return null;
