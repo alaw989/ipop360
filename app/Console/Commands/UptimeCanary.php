@@ -91,7 +91,7 @@ class UptimeCanary extends Command
                 ->max('updated_at');
 
             $hoursSinceLastScrape = $lastScrape
-                ? now()->diffInHours($lastScrape)
+                ? now()->diffInHours($lastScrape, true)
                 : null;
 
             $checks['social_scrape'] = 'ok';
