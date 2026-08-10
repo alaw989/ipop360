@@ -1856,6 +1856,74 @@ class LiveSearchScoringTest extends TestCase
         }
     }
 
+    public function test_phone_dedup_fast_path_collapses_divergent_name_venues_within_proximity(): void
+    {
+        $this->seedCuisine('Italian', 'italian');
+
+        $service = $this->makeServiceWithVenues([
+            'serpapi' => [
+                [
+                    'name' => "Tony's Pizza Napoletana",
+                    'source' => 'serpapi',
+                    'lat' => 40.72,
+                    'lng' => -74.00,
+                    'phone' => '+1 (212) 555-0142',
+                    'google_rating' => 4.7,
+                    'google_review_count' => 350,
+                    'place_types' => ['Italian restaurant', 'Pizza restaurant'],
+                    'description' => 'Award-winning Neapolitan pizza.',
+                ],
+                [
+                    'name' => 'Maria Trattoria',
+                    'source' => 'serpapi',
+                    'lat' => 40.73,
+                    'lng' => -74.01,
+                    'phone' => '(718) 555-9999',
+                    'place_types' => ['Italian restaurant'],
+                    'description' => 'Family-style Italian.',
+                ],
+            ],
+            'overpass' => [
+                [
+                    'name' => 'Tonys Pizza',
+                    'source' => 'overpass',
+                    'lat' => 40.7201,
+                    'lng' => -74.0001,
+                    'phone' => '2125550142',
+                    'cuisines' => [
+                        ['id' => 1, 'name' => 'Italian', 'slug' => 'italian'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $results = $service->search(40.71, -74.00, 'italian');
+
+        $this->assertCount(2, $results, '3 venues must dedup to 2: phone-matched pair collapses, distinct venue survives');
+
+        $names = array_column($results, 'name');
+        $this->assertContains("Tony's Pizza Napoletana", $names);
+        $this->assertContains('Maria Trattoria', $names);
+        $this->assertNotContains('Tonys Pizza', $names, 'Overpass variant name must be absorbed by phone-matched SerpApi venue');
+
+        $byName = array_column($results, null, 'name');
+        $merged = $byName["Tony's Pizza Napoletana"];
+
+        $this->assertSame(
+            'Award-winning Neapolitan pizza.',
+            $merged['description'],
+            'Merged venue must retain SerpApi description'
+        );
+        $this->assertNotEmpty($merged['cuisines'] ?? [], 'Merged venue must carry cuisines from Overpass');
+        $this->assertSame('Italian', $merged['cuisines'][0]['name']);
+        $this->assertSame(4.7, $merged['google_rating'], 'Merged venue must retain SerpApi rating');
+
+        $scores = array_map(fn ($r) => (float) $r['popularity_score'], $results);
+        for ($i = 0; $i < count($scores) - 1; $i++) {
+            $this->assertGreaterThanOrEqual($scores[$i + 1], $scores[$i], 'Results must be sorted by score descending');
+        }
+    }
+
     /**
      * Create a cuisine (with the category row its FK requires). Cuisine
      * resolution now reads config/cuisine-keywords.php via CuisineMatcher, so a
