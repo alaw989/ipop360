@@ -20,6 +20,10 @@ Completed scan for dead Tailwind 3 utilities (`backdrop-filter`, `decoration-sli
 
 Next: scan config files for dead service provider registrations or unused facade aliases.
 
+Removed dead `postmark`, `resend`, and `slack` service entries from `config/services.php` — three unique env vars (`POSTMARK_API_KEY`, `RESEND_API_KEY`, `SLACK_BOT_USER_OAUTH_TOKEN`, `SLACK_BOT_USER_DEFAULT_CHANNEL`) exist nowhere else (not in .env.example, no app code references). Default mailer is `log`, zero notification usage. Kept `ses` (shares AWS env vars with S3). Laravel 11+ bootstrap/providers.php has only AppServiceProvider (expected) and config/app.php has no providers/aliases arrays (Laravel 11+ style). 563 tests pass, build clean.
+
+Next: scan for any remaining dead env vars referenced in configs but missing from .env.example.
+
 ## Log
 1. Removed commented-out `database` provider from `config/auth.php` — dead boilerplate, only the `eloquent` provider and `web` guard are actively used.
 2. Removed from `.env.example`: `GOOGLE_PLACES_API_KEY`, `OUTSCRAPER_API_KEY`, `FOURSQUARE_API_KEY`, `OUTSCRAPER_CACHE_TTL_HOURS`, `GOOGLE_CACHE_TTL_HOURS`, `FOURSQUARE_CACHE_TTL_HOURS`, `LIVE_SEARCH_FOURSQUARE_TIMEOUT` — all zero PHP references.
@@ -40,4 +44,5 @@ Next: scan config files for dead service provider registrations or unused facade
 17. Removed dead `components/ui/dialog/` directory (7 files: Dialog.vue, DialogContent.vue, DialogDescription.vue, DialogHeader.vue, DialogOverlay.vue, DialogTitle.vue, index.ts) — zero external references; app uses custom `Components/Modal.vue` instead. Build clean.
 18. Cleaned `resources/css/app.css`: removed `--chart-1` through `--chart-5` (light+dark, no chart components exist), all `--sidebar-*` variables (no sidebar component), and the `@theme inline` block for `--font-heading`. Removed dead `cn-font-heading` class from `CardTitle.vue` — not a valid Tailwind 4 utility, applied nothing. file went from 122 to 92 lines. Build clean.
 19. Fixed dead Tailwind 3 `ring-opacity-5` utility in `Dropdown.vue` — replaced with Tailwind 4 opacity modifier syntax `ring-black/5`. Removed dead `supports-backdrop-filter:backdrop-blur-xs` from `SheetOverlay.vue` — neither the v3 `supports-backdrop-filter:` variant nor the non-existent `backdrop-blur-xs` utility generate any CSS in Tailwind 4. Build clean.
+20. Removed dead `postmark`, `resend`, and `slack` service entries from `config/services.php` — each referenced unique env vars (`POSTMARK_API_KEY`, `RESEND_API_KEY`, `SLACK_BOT_USER_OAUTH_TOKEN`, `SLACK_BOT_USER_DEFAULT_CHANNEL`) that exist nowhere else (not in .env.example, zero app code usage). Default mailer is `log`; app never sends postmark/resend mail or Slack notifications. Kept `ses` (shares `AWS_ACCESS_KEY_ID` etc with S3 filesystem). Verified Laravel 11+ bootstrap/providers.php has only AppServiceProvider and config/app.php has no providers/aliases arrays — no dead provider/alias registrations exist. 563 tests pass, build clean.
 
