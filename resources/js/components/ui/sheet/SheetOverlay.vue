@@ -10,7 +10,7 @@ const props = defineProps<DialogOverlayProps & { class?: HTMLAttributes['class']
 <template>
   <DialogOverlay
     data-slot="sheet-overlay"
-    :class="cn('bg-black/10 supports-backdrop-filter:backdrop-blur-xs fixed inset-0 z-50 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0', props.class)"
+    :class="cn('bg-black/10 fixed inset-0 z-50 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0', props.class)"
     :as="props.as!"
     :as-child="props.asChild!"
     :force-mount="props.forceMount!"
