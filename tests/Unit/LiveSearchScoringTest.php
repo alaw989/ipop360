@@ -1779,7 +1779,7 @@ class LiveSearchScoringTest extends TestCase
 
         foreach ($results as $r) {
             $this->assertArrayHasKey('cuisine_match', $r, 'Every scoped result must carry a cuisine_match stamp');
-            $this->assertIsFloat((float) $r['cuisine_match']);
+            $this->assertIsFloat($r['cuisine_match']);
             $this->assertArrayHasKey('popularity_score', $r);
             $this->assertArrayHasKey('score_breakdown', $r);
         }
