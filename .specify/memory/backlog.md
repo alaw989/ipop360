@@ -50,15 +50,17 @@ with a **zero baseline**; pint clean; CI + deploy green on master.
 **Current floor:** 563 PHPUnit tests + 565 vitest tests; PHPStan level 8 over `app/ + tests/`
 with a 2-entry baseline; pint clean; CI + deploy green on master.
 
+## ✅ Done (2026-08-10 session, continued)
+9. **Dead-code / cruft sweep** — PR #72 (opencode-loop, 20 iterations): removed 4 dead
+   artisan commands, ~35 unused shadcn-vue components (dialog/separator/textarea/sheet/
+   popover/input-group), 3 npm packages, 13 dead env vars, dead mariadb/pgsql/sqlsrv/Redis
+   DB connections, dead postmark/resend/slack services + mailers, Telescope pulse patterns,
+   chart/sidebar CSS vars, stale Tailwind-3 utilities, 2 allow-plugins entries. 57 files,
+   +50/−1642. Deployed + live-verified (/, /api 200, homepage renders).
+
 ## Next goals (in priority order)
 
-### 1. Dead-code / cruft sweep ⬅ NEXT
-- Remove unused services, dead config keys, orphaned scopes/helpers (e.g. any remaining
-  `scope*`/`byPopularity`-style dead code; unused imports after the type work).
-- **Goal:** `find and remove dead code and unused configuration across the app`
-- **Gate:** `composer test && npm run build`
-
-### 2. LiveSearchService.search() orchestration coverage
+### 1. LiveSearchService.search() orchestration coverage ⬅ NEXT
 - `LiveSearchScoringTest` covers scoring; the full `search()` orchestration (pooling,
   cache-first, merge, bounds) is only partly covered.
 - **Goal:** `add unit coverage for LiveSearchService.search() orchestration`
