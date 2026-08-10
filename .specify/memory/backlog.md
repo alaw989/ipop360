@@ -41,29 +41,24 @@ with a **zero baseline**; pint clean; CI + deploy green on master.
    `strictPropertyInitialization`, `noPropertyAccessFromIndexSignature`, `noFallthroughCasesInSwitch`,
    `noImplicitOverride`) with zero type errors. Deployed + live-verified (/, /api both 200).
 
----
+## ✅ Done (2026-08-10 session)
+8. **PHPStan level 8** — PR #71 (opencode-loop, 16 iterations): `phpstan.neon` 7 → 8,
+   baseline 345 lines / ~70 entries → **2 entries** (both documented PHPStan limitations in
+   `RestaurantController`). Null-safety fixes across 6 services, 4 commands, 9 controllers,
+   1 request, 15 test files. Deployed + live-verified (/, /api both 200).
+
+**Current floor:** 563 PHPUnit tests + 565 vitest tests; PHPStan level 8 over `app/ + tests/`
+with a 2-entry baseline; pint clean; CI + deploy green on master.
 
 ## Next goals (in priority order)
 
-### 1. PHPStan level 8 ⬅ NEXT
-- Level 7 is fully clean. Bump `level: 8`, generate baseline, loop shrinks to zero
-  (same playbook as #3/#4 above).
-- **Goal:** `shrink the PHPStan level-8 baseline by fixing real type issues in code`
-- **Gate:** `./vendor/bin/phpstan analyse && composer test`
-
-### 3. PHPStan level 8
-- Level 7 is fully clean. Bump `level: 8`, generate baseline, loop shrinks to zero
-  (same playbook as #3/#4 above).
-- **Goal:** `shrink the PHPStan level-8 baseline by fixing real type issues in code`
-- **Gate:** `./vendor/bin/phpstan analyse && composer test`
-
-### 4. Dead-code / cruft sweep
+### 1. Dead-code / cruft sweep ⬅ NEXT
 - Remove unused services, dead config keys, orphaned scopes/helpers (e.g. any remaining
   `scope*`/`byPopularity`-style dead code; unused imports after the type work).
 - **Goal:** `find and remove dead code and unused configuration across the app`
 - **Gate:** `composer test && npm run build`
 
-### 5. LiveSearchService.search() orchestration coverage
+### 2. LiveSearchService.search() orchestration coverage
 - `LiveSearchScoringTest` covers scoring; the full `search()` orchestration (pooling,
   cache-first, merge, bounds) is only partly covered.
 - **Goal:** `add unit coverage for LiveSearchService.search() orchestration`
