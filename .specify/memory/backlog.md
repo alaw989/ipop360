@@ -67,6 +67,17 @@ with a 2-entry baseline; pint clean; CI + deploy green on master.
 **Current floor:** 567 PHPUnit tests + 565 vitest tests; PHPStan level 8 over `app/ + tests/`
 with a 2-entry baseline; pint clean; CI + deploy green on master.
 
+## ✅ Done (2026-08-10 session, continued)
+11. **PHPStan level 8: zero baseline** — PR #75: removed the last 2 baseline entries
+    (redundant `assert($coords !== null)` in `RestaurantController::apiIndex`, already
+    narrowed by the `if` condition) and deleted `phpstan-baseline.neon` entirely. Kept the
+    `when()`-closure asserts (load-bearing) and the 18 regex `ignoreErrors` patterns in
+    `phpstan.neon` (still needed for mockery/Model limitations). CI green before merge;
+    deployed + live-verified (/, /api 200).
+
+**Current floor:** 567 PHPUnit tests + 565 vitest tests; PHPStan level 8 over `app/ + tests/`
+with a **zero baseline**; pint clean; CI + deploy green on master.
+
 ## Next goals (in priority order)
 
 _No open goals currently in the backlog._
