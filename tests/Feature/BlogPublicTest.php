@@ -111,6 +111,51 @@ class BlogPublicTest extends TestCase
         $this->assertSame('only', $page['categories'][0]);
     }
 
+    public function test_index_can_search_by_title(): void
+    {
+        BlogPost::factory()->create(['title' => 'The Best Pizza in Town', 'excerpt' => 'Something else']);
+        BlogPost::factory()->create(['title' => 'Sushi Guide 2025', 'excerpt' => 'Another topic']);
+
+        $this->get('/blog?search=pizza')
+            ->assertOk()
+            ->assertSee('The Best Pizza in Town')
+            ->assertDontSee('Sushi Guide 2025');
+    }
+
+    public function test_index_can_search_by_excerpt(): void
+    {
+        BlogPost::factory()->create(['title' => 'Title One', 'excerpt' => 'Learn about tacos here']);
+        BlogPost::factory()->create(['title' => 'Title Two', 'excerpt' => 'Burger reviews']);
+
+        $this->get('/blog?search=tacos')
+            ->assertOk()
+            ->assertSee('Title One')
+            ->assertDontSee('Title Two');
+    }
+
+    public function test_index_combines_search_and_category_filters(): void
+    {
+        BlogPost::factory()->create(['title' => 'Ramen Shop', 'category' => 'reviews', 'excerpt' => 'Best ramen']);
+        BlogPost::factory()->create(['title' => 'Ramen Recipe', 'category' => 'recipes', 'excerpt' => 'Make ramen']);
+        BlogPost::factory()->create(['title' => 'Sushi Bar', 'category' => 'reviews', 'excerpt' => 'Great sushi']);
+
+        $this->get('/blog?search=ramen&category=reviews')
+            ->assertOk()
+            ->assertSee('Ramen Shop')
+            ->assertDontSee('Ramen Recipe')
+            ->assertDontSee('Sushi Bar');
+    }
+
+    public function test_search_query_passed_to_view(): void
+    {
+        BlogPost::factory()->create(['title' => 'Any Post']);
+
+        $response = $this->get('/blog?search=pizza')->assertOk();
+        $page = $response->inertiaProps();
+
+        $this->assertSame('pizza', $page['filters']['search']);
+    }
+
     public function test_homepage_prioritizes_featured_posts(): void
     {
         Restaurant::factory()->count(3)->create();

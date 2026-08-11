@@ -61,7 +61,7 @@ function mountBlogIndex(propsOverrides: Record<string, any> = {}) {
                 links: [],
             },
             categories: [],
-            filters: { category: null },
+            filters: { category: null, search: null },
             ...propsOverrides,
         },
         global: { stubs },
@@ -253,5 +253,47 @@ describe('Blog Index page', () => {
         const pills = wrapper.findAll('nav.flex-wrap a')
         expect(pills[1].text()).toBe('beta')
         expect(pills[2].text()).toBe('alpha')
+    })
+
+    it('renders a search input', () => {
+        const wrapper = mountBlogIndex()
+        const input = wrapper.find('input[name="search"]')
+        expect(input.exists()).toBe(true)
+    })
+
+    it('preserves category filter in search form via hidden input', () => {
+        const wrapper = mountBlogIndex({ filters: { category: 'tech', search: null } })
+        const hiddenInput = wrapper.find('input[name="category"][type="hidden"]')
+        expect(hiddenInput.exists()).toBe(true)
+        expect(hiddenInput.attributes('value')).toBe('tech')
+    })
+
+    it('omits hidden category input when no category is selected', () => {
+        const wrapper = mountBlogIndex({ filters: { category: null, search: null } })
+        const hiddenInput = wrapper.find('input[name="category"][type="hidden"]')
+        expect(hiddenInput.exists()).toBe(false)
+    })
+
+    it('shows search term in the search input', () => {
+        const wrapper = mountBlogIndex({ filters: { category: null, search: 'pizza' } })
+        const input = wrapper.find<HTMLInputElement>('input[name="search"]')
+        expect(input.element.value).toBe('pizza')
+    })
+
+    it('shows empty search result message when search returns no posts', () => {
+        const wrapper = mountBlogIndex({
+            posts: { data: [], links: [] },
+            filters: { category: null, search: 'nothing' },
+        })
+        expect(wrapper.text()).toContain('No posts match your search')
+    })
+
+    it('shows generic empty state when no posts and no search term', () => {
+        const wrapper = mountBlogIndex({
+            posts: { data: [], links: [] },
+            filters: { category: null, search: null },
+        })
+        expect(wrapper.text()).toContain('No articles yet')
+        expect(wrapper.text()).not.toContain('No posts match your search')
     })
 })

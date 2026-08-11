@@ -21,6 +21,14 @@ class BlogController extends Controller
             $query->whereRaw('LOWER(category) = ?', [mb_strtolower($category)]);
         }
 
+        $search = $request->query('search');
+        if (is_string($search) && $search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->whereRaw('LOWER(title) like ?', ['%'.mb_strtolower($search).'%'])
+                    ->orWhereRaw('LOWER(excerpt) like ?', ['%'.mb_strtolower($search).'%']);
+            });
+        }
+
         $posts = $query->paginate(12)->withQueryString();
 
         $categories = BlogPost::published()
@@ -37,6 +45,7 @@ class BlogController extends Controller
             'categories' => $categories,
             'filters' => [
                 'category' => $category ?: null,
+                'search' => $search ?: null,
             ],
         ]);
     }
