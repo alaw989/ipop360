@@ -1,0 +1,101 @@
+import { describe, it, expect, vi } from 'vitest'
+import { mount } from '@vue/test-utils'
+import BlogPreview from '@/Components/BlogPreview.vue'
+
+vi.mock('@inertiajs/vue3', async () => {
+    const actual = await vi.importActual('@inertiajs/vue3')
+    return {
+        ...actual as any,
+        Link: { template: '<a :href="href"><slot /></a>', props: ['href'] },
+    }
+})
+
+function makePost(overrides: Record<string, any> = {}) {
+    return {
+        id: 1,
+        title: 'Test Post Title',
+        slug: 'test-post',
+        excerpt: 'A test excerpt for the preview card.',
+        featured_image: null,
+        published_at: '2025-06-15T10:00:00.000000Z',
+        ...overrides,
+    }
+}
+
+function mountComponent(posts: any[] = [makePost()]) {
+    return mount(BlogPreview, {
+        props: { posts },
+    })
+}
+
+describe('BlogPreview', () => {
+    it('renders nothing when posts array is empty', () => {
+        const wrapper = mountComponent([])
+        expect(wrapper.find('section').exists()).toBe(false)
+    })
+
+    it('renders the section header with title and subtitle', () => {
+        const wrapper = mountComponent()
+        expect(wrapper.text()).toContain('From the blog')
+        expect(wrapper.text()).toContain('Guides, trends, and dining insights')
+    })
+
+    it('renders a "View all" link pointing to /blog', () => {
+        const wrapper = mountComponent()
+        const link = wrapper.find('a[href="/blog"]')
+        expect(link.exists()).toBe(true)
+        expect(link.text()).toContain('View all')
+    })
+
+    it('renders the correct number of post cards', () => {
+        const posts = [
+            makePost({ id: 1, title: 'First' }),
+            makePost({ id: 2, title: 'Second' }),
+            makePost({ id: 3, title: 'Third' }),
+        ]
+        const wrapper = mountComponent(posts)
+        const cards = wrapper.findAll('.group')
+        expect(cards).toHaveLength(3)
+    })
+
+    it('shows the featured image when the post has one', () => {
+        const wrapper = mountComponent([makePost({ featured_image: '/img/test.jpg' })])
+        const img = wrapper.find('img')
+        expect(img.exists()).toBe(true)
+        expect(img.attributes('src')).toBe('/img/test.jpg')
+        expect(img.attributes('alt')).toBe('Test Post Title')
+    })
+
+    it('does not render an image element when featured_image is null', () => {
+        const wrapper = mountComponent([makePost({ featured_image: null })])
+        expect(wrapper.find('img').exists()).toBe(false)
+    })
+
+    it('renders the post title', () => {
+        const wrapper = mountComponent([makePost({ title: 'My Blog Article' })])
+        expect(wrapper.text()).toContain('My Blog Article')
+    })
+
+    it('renders the post excerpt', () => {
+        const wrapper = mountComponent([makePost({ excerpt: 'Short preview text.' })])
+        expect(wrapper.text()).toContain('Short preview text.')
+    })
+
+    it('formats and displays the published date', () => {
+        const wrapper = mountComponent([makePost({ published_at: '2025-03-01T12:00:00.000000Z' })])
+        expect(wrapper.text()).toContain('Mar 1, 2025')
+    })
+
+    it('renders nothing for date when published_at is null', () => {
+        const wrapper = mountComponent([makePost({ published_at: null })])
+        expect(wrapper.text()).not.toContain(', 2025')
+        const calendarIcons = wrapper.findAll('svg')
+        expect(calendarIcons.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('links each card to /blog/:slug', () => {
+        const wrapper = mountComponent([makePost({ slug: 'delicious-tacos' })])
+        const link = wrapper.find('a[href="/blog/delicious-tacos"]')
+        expect(link.exists()).toBe(true)
+    })
+})
