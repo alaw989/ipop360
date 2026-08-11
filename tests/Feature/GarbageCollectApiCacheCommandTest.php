@@ -148,7 +148,9 @@ class GarbageCollectApiCacheCommandTest extends TestCase
         ]);
 
         // First run: delete the expired entry
-        $this->artisan('apicache:gc')->run();
+        /** @var PendingCommand $command */
+        $command = $this->artisan('apicache:gc');
+        $command->run();
         $this->assertSame(1, ExternalApiCache::count());
 
         // Second run: no expired entries remain

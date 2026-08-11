@@ -99,6 +99,6 @@ class UpdateEngagementCommandTest extends TestCase
         $restaurantWithout->refresh();
 
         $this->assertSame(0, $restaurantWithout->total_engagement);
-        $this->assertSame(1, $restaurantWithEngagement->fresh()->total_engagement);
+        $this->assertSame(1, $restaurantWithEngagement->fresh()?->total_engagement);
     }
 }

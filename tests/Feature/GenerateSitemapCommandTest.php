@@ -46,6 +46,7 @@ class GenerateSitemapCommandTest extends TestCase
         $command->run();
 
         $content = file_get_contents(public_path('sitemap.xml'));
+        $this->assertIsString($content);
 
         $this->assertStringContainsString('<loc>http://example.com/restaurants</loc>', $content);
         $this->assertStringContainsString('<loc>http://example.com/login</loc>', $content);
@@ -75,6 +76,7 @@ class GenerateSitemapCommandTest extends TestCase
         $command->run();
 
         $content = file_get_contents(public_path('sitemap.xml'));
+        $this->assertIsString($content);
 
         $this->assertStringContainsString('<loc>http://example.com/cuisine/italian</loc>', $content);
         $this->assertStringContainsString('<loc>http://example.com/cuisine/mexican</loc>', $content);
@@ -91,6 +93,7 @@ class GenerateSitemapCommandTest extends TestCase
         $command->run();
 
         $content = file_get_contents(public_path('sitemap.xml'));
+        $this->assertIsString($content);
 
         $this->assertStringContainsString('<loc>http://example.com/restaurants/active-bistro</loc>', $content);
         $this->assertStringNotContainsString('inactive-cafe', $content);
@@ -112,6 +115,7 @@ class GenerateSitemapCommandTest extends TestCase
         $command->run();
 
         $content = file_get_contents(public_path('sitemap.xml'));
+        $this->assertIsString($content);
 
         $this->assertStringContainsString('<loc>http://example.com/blog/my-published-post</loc>', $content);
         $this->assertStringNotContainsString('my-draft-post', $content);
@@ -131,6 +135,7 @@ class GenerateSitemapCommandTest extends TestCase
         $command->run();
 
         $content = file_get_contents(public_path('sitemap.xml'));
+        $this->assertIsString($content);
 
         $this->assertMatchesRegularExpression(
             '#<loc>http://example\.com/restaurants/timely-eats</loc>(?:(?!</url>).)*?<lastmod>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.*?</lastmod>#s',

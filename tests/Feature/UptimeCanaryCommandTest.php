@@ -180,10 +180,14 @@ class UptimeCanaryCommandTest extends TestCase
 
         $this->assertSame(0, (int) Cache::get('uptime:degraded_count', 0));
 
-        $this->artisan('uptime:canary')->run();
+        /** @var PendingCommand $command */
+        $command = $this->artisan('uptime:canary');
+        $command->run();
         $this->assertSame(1, (int) Cache::get('uptime:degraded_count', 0));
 
-        $this->artisan('uptime:canary')->run();
+        /** @var PendingCommand $command2 */
+        $command2 = $this->artisan('uptime:canary');
+        $command2->run();
         $this->assertSame(2, (int) Cache::get('uptime:degraded_count', 0));
     }
 }

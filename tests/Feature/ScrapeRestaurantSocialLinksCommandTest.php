@@ -14,6 +14,7 @@ class ScrapeRestaurantSocialLinksCommandTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** @param array<string, string>|null $returnValue */
     protected function makeScraperMock(?array $returnValue): RestaurantWebsiteScraperService
     {
         $mock = $this->createMock(RestaurantWebsiteScraperService::class);
