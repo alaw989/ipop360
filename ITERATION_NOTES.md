@@ -1,17 +1,12 @@
 # Iteration Notes
 
 ## Goal
-align the CI PHP version with production (php 8.4), or run both 8.4 and 8.5
+replace the is_admin boolean with a role column (admin/editor/user) on users
 
 ## State
-Changed deploy.yml PHP versions from 8.5 → 8.4 in both the quality gate step
-and the deploy step. CI and Deploy workflows now both use 8.4 (matching prod).
-
-CI (ci.yml + deploy.yml) now uses PHP 8.4. AGENTS.md stack line updated to 8.4.
-Goal achieved — no remaining PHP version mismatches.
+- **Done**: Created migration `2026_08_10_000001_add_role_to_users_table.php` — adds `role` column (string, default 'user') to users table, migrates existing `is_admin = true` rows to `role = 'admin'`. Migration runs cleanly, all 10 BlogAdminTest + full suite passes.
+- **Next**: Update User model (`#[Fillable]`, `casts()`, `isAdmin()` method) to use `role` instead of `is_admin`.
+- **Gotchas**: None. `is_admin` column still present — both columns coexist during migration window. The `role` default is `'user'` (string), checked against `'admin'`/`'editor'`/`'user'`.
 
 ## Log
-- Iteration 1: Changed `.github/workflows/ci.yml` php-version from 8.5 → 8.4.
-- Iteration 2: Changed `.github/workflows/deploy.yml` php-version from 8.5 → 8.4
-  (both quality gate and deploy steps).
-- Iteration 3: Updated AGENTS.md stack line from PHP 8.3 → 8.4.
+1. Added `role` column migration + data migration from `is_admin`
