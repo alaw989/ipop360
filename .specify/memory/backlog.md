@@ -218,24 +218,36 @@ with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP
 **users have admin/editor/user roles; editors CRUD their own blog posts; homepage has a
 featured blog section**; CI + deploy green on master.
 
+## ✅ Done (2026-08-11 session)
+21. **Blog archive page (upgrade /blog index)** — opencode-loop `--pr` mode, **4
+    iterations, ALL_DONE on iter 4**; shipped as 3 per-iteration PRs (#85/#86/#87,
+    all CI-green before the poll fix confirmed post-hoc, deployed on each merge):
+    date/month-year grouping on `/blog` (`Blog/Index.vue` sections + `<h2>` headers),
+    `?category=` filter chips (case-insensitive, count-ordered, stacked with search),
+    and `?search=` (title/excerpt LIKE). 9 new PHPUnit + 12 new vitest cases.
+    Iteration 3 stalled (agent forgot the `<promise>` tag) → its search work was
+    re-done in iteration 4. Post-loop: fixed a `pr_wait_checks` bug in the loop
+    (it merged before CI appeared — "no checks → proceed" after 45s; now waits
+    180s via `gh pr view --json statusCheckRollup`, counts SKIPPED/NEUTRAL as
+    green, and never merges with pending/failed checks). Deployed + live-verified
+    behaviorally (temp-published post → "August 2026" group, All/Guides chips,
+    `?search=test` filter).
+
+**Current floor:** 646 PHPUnit tests + 956 vitest tests; PHPStan level 8 over `app/ + tests/`
+with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP 8.4**;
+**users have admin/editor/user roles; editors CRUD their own blog posts; homepage has a
+featured blog section; /blog is a grouped/filtered/searchable archive**; CI + deploy green.
+
 ## Next goals (in priority order)
 
-### 1. Blog archive page (upgrade /blog index) ⬅ NEXT
-- Add a `category` string column to `blog_posts` (+ factory + admin editor field in
-  `Admin/Blog/Edit.vue`), then upgrade the public `/blog` (`Blog/Index.vue`) into a full
-  archive: month/year grouping, category filter chips, and search. If categories are
-  unwanted, scope can shrink to date grouping + search only.
-- **Goal:** `upgrade the blog index into an archive with date grouping, category filter, and search`
-- **Gate:** `composer test && npm run build`
-
-### 2. Admin dashboard basic counts
+### 1. Admin dashboard basic counts ⬅ NEXT
 - Surface clear counts on `Admin/Dashboard.vue`: total restaurants, cuisines, users, and
   blog posts — alongside the existing data-quality/SerpApi/scrape cards. Backed by
   `Admin/DashboardController` (`__invoke`).
 - **Goal:** `add restaurant, cuisine, user, and blog post counts to the admin dashboard overview`
 - **Gate:** `composer test`
 
-### 3. Post-login admin landing + nav discoverability
+### 2. Post-login admin landing + nav discoverability
 - After login, redirect `admin`/`editor` users to `/admin` (dashboard) instead of the
   stub `Dashboard.vue` ("You're logged in!"), so editors land where the blog editor
   lives. Make the admin/blog links reachable from the admin nav after auth. Roles
@@ -243,7 +255,7 @@ featured blog section**; CI + deploy green on master.
 - **Goal:** `redirect admin/editor users to the admin dashboard after login and make blog editing discoverable in nav`
 - **Gate:** `composer test && npm run build`
 
-### 4. Homepage nav + hero polish
+### 3. Homepage nav + hero polish
 - Adopt the `AppLayout` top nav (brand left, links right: Browse/Leaderboard/Blog +
   Favorites/Dashboard/Login, admin links when admin) on the homepage instead of the
   sparse hero-only links floating in the slideshow. Tighten the hero: `min-h-screen` →
@@ -252,7 +264,7 @@ featured blog section**; CI + deploy green on master.
 - **Goal:** `adopt the AppLayout top nav on the homepage and tighten the hero banner while preserving the current Yelp-style design`
 - **Gate:** `npm run build`
 
-### 5. Homepage section rhythm + stats band
+### 4. Homepage section rhythm + stats band
 - Alternate section backgrounds (e.g. `bg-muted/40` bands) and consistent section
   headers (title, subtitle, "View all" CTA) across `CategoryGrid`, `PopularCuisines`,
   `PopularRestaurants`, `BlogPreview`. Add a slim stats/trust band under the hero
@@ -262,7 +274,7 @@ featured blog section**; CI + deploy green on master.
 - **Goal:** `add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design`
 - **Gate:** `npm run build`
 
-### 6. Homepage scroll-reveal motion
+### 5. Homepage scroll-reveal motion
 - Scroll-reveal animations for homepage sections via IntersectionObserver (reuse
   `resources/css/transitions.css`), honoring `prefers-reduced-motion`. Verify no
   regressions in `resources/js/Pages/__tests__/Welcome.spec.ts` (19 cases) and no
@@ -270,7 +282,7 @@ featured blog section**; CI + deploy green on master.
 - **Goal:** `add prefers-reduced-motion-aware scroll-reveal animations to homepage sections`
 - **Gate:** `npm run build`
 
-### 7. SerpApi quota honesty
+### 6. SerpApi quota honesty
 - **Audit finding:** the SerpApi account is genuinely exhausted (429 "out of
   searches") but the app assumes a 250/mo quota, counts only SUCCESSFUL cached
   calls (failures never counted → the 80% circuit breaker at 200 never trips),
@@ -283,7 +295,7 @@ featured blog section**; CI + deploy green on master.
 - **Goal:** `make SerpApi quota accounting honest — count all calls incl. failures, trip the circuit breaker early, and honor provider exhaustion on every failure path`
 - **Gate:** `composer test`
 
-### 8. Photon venue source
+### 7. Photon venue source
 - **Audit finding:** the Overpass name-regex fallback is broken (takes 60s+ /
   504s on both mirrors — too heavy for Overpass) and its keyword regex wouldn't
   match real names like "Jerk Pit". Add a free `PhotonVenueService` (geo-bias +
@@ -293,7 +305,7 @@ featured blog section**; CI + deploy green on master.
 - **Goal:** `add a free Photon venue source to the live search and remove the broken Overpass name-regex fallback`
 - **Gate:** `composer test`
 
-### 9. Cuisine keyword lexicon fix
+### 8. Cuisine keyword lexicon fix
 - **Audit finding:** jamaican keywords are `jerk.chicken|jerk.pork|jerk.sauce`
   (dotted dish names) — no bare `jerk`, so "Jerk Pit" / "Jerk House Caribbean"
   never match the cuisine and get mis-classified/dropped. Add bare name tokens
@@ -302,7 +314,7 @@ featured blog section**; CI + deploy green on master.
 - **Goal:** `fix the jamaican/caribbean cuisine keywords so real venue names like "Jerk Pit" match`
 - **Gate:** `composer test`
 
-### 10. Live-first search page
+### 9. Live-first search page
 - **Audit finding:** `/search` queries the DB, then on empty dispatches an async
   `EnrichSearchResults` job and returns a spinner — an 8×4s poll gamble that ends
   in a bare empty when live sources are thin. Make `/search` run the free-source
@@ -313,7 +325,7 @@ featured blog section**; CI + deploy green on master.
 - **Goal:** `make the search page run a live search immediately when the DB has no results and show an honest empty state`
 - **Gate:** `composer test && npm run build`
 
-### 11. BizData resilience
+### 10. BizData resilience
 - **Audit finding:** BizData's upstream is flaky (intermittent 502 "fetch
   failed") and passing the ignored `query` param (always sent on scoped
   searches) can itself trigger the 502. Stop sending `query`; add a bounded
