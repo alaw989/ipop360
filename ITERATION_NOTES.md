@@ -4,13 +4,12 @@
 build a featured blog section on the homepage (hero post + grid)
 
 ## State
-Iteration 9: Accepted `is_featured` in BlogPostController::validated() — added `['boolean']` validation rule. Added 3 tests: defaults to false on create, can be set true on create, can be updated. All 29 BlogAdminTest tests pass.
+Iteration 10: Updated HomeController blog query to `->orderBy('is_featured', 'desc')->latest('published_at')` so featured posts float to the top. Added `is_featured` to selected columns and to BlogPost interfaces in both BlogPreview.vue and Welcome.vue. Added `test_homepage_prioritizes_featured_posts` in BlogPublicTest verifying featured posts appear before non-featured in the HTML. All 639 backend + 950 frontend tests pass.
 
 ### What's next
-- Backend: update HomeController to prioritize featured posts in the homepage query (featured first, then latest).
 - Admin UI: add `is_featured` checkbox to Admin/Blog/Edit.vue, show featured badge in Admin/Blog/Index.vue.
-- Frontend: add `is_featured` to BlogPost interfaces in Welcome.vue and BlogPreview.vue, render a "Featured" badge.
-- Tests: BlogPublicTest for featured prioritization, BlogPreview.spec.ts for badge rendering.
+- Frontend: render a "Featured" badge on hero/grid cards in BlogPreview.vue when `is_featured` is true.
+- Tests: BlogPreview.spec.ts for featured badge rendering.
 
 ## Log
 1. Rewrote `BlogPreview.vue` hero section: overlay layout with `absolute inset-0` image, gradient overlay, and white text positioned at bottom via `absolute inset-x-0 bottom-0`. aspect-video on mobile, sm:aspect-[21/9] for wider screens.
@@ -22,3 +21,4 @@ Iteration 9: Accepted `is_featured` in BlogPostController::validated() — added
 7. Added category field to admin blog create/edit form (Admin/Blog/Edit.vue): BlogPost interface includes `category: string | null`, form data includes `category`, text input between excerpt and body. Backend BlogPostController::validated() accepts `category` as nullable string max:100. 4 new BlogAdminTest cases cover create, nullable, update, and max-length validation. All 26 blog admin tests pass; backend test suite and `npm run build` clean.
 8. Added `is_featured` boolean column (default false) via migration. BlogPost model: added to `$fillable`, `$casts` (boolean), and new `featured()` scope. BlogPostFactory: default `is_featured => false` + `featured()` state. All 635 backend + 950 frontend tests pass.
 9. Added `'is_featured' => ['boolean']` to BlogPostController::validated(). Tests: defaults to false on create, can be set true on create, can be updated. All 29 BlogAdminTest pass.
+10. HomeController: `->orderBy(is_featured, desc)->latest(published_at)` on blog query, added `is_featured` to columns + both BlogPost interfaces. `test_homepage_prioritizes_featured_posts` added. All 639 backend + 950 frontend tests pass.

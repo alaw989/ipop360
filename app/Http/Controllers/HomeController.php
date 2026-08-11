@@ -91,9 +91,10 @@ class HomeController extends Controller
 
         $latestPosts = BlogPost::published()
             ->with('author:id,name')
+            ->orderBy('is_featured', 'desc')
             ->latest('published_at')
             ->limit(3)
-            ->get(['id', 'title', 'slug', 'excerpt', 'category', 'featured_image', 'published_at', 'author_id']);
+            ->get(['id', 'title', 'slug', 'excerpt', 'category', 'featured_image', 'published_at', 'author_id', 'is_featured']);
 
         return [
             'categories' => $categories,

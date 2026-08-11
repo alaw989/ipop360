@@ -63,4 +63,27 @@ class BlogPublicTest extends TestCase
             ->assertSee($old->title)
             ->assertDontSee('Not On Homepage');
     }
+
+    public function test_homepage_prioritizes_featured_posts(): void
+    {
+        Restaurant::factory()->count(3)->create();
+
+        $regular = BlogPost::factory()->create(['title' => 'Regular Post', 'is_featured' => false, 'published_at' => now()->subDay()]);
+        $newerRegular = BlogPost::factory()->create(['title' => 'Newer Regular', 'is_featured' => false, 'published_at' => now()]);
+        $featured = BlogPost::factory()->create(['title' => 'Featured Post', 'is_featured' => true, 'published_at' => now()->subDays(2)]);
+
+        $response = $this->get('/')->assertOk();
+
+        $html = $response->getContent();
+        $featuredPos = strpos($html, 'Featured Post');
+        $newerPos = strpos($html, 'Newer Regular');
+        $regularPos = strpos($html, 'Regular Post');
+
+        $this->assertNotFalse($featuredPos, 'Featured post should be visible');
+        $this->assertNotFalse($newerPos, 'Newer regular should be visible');
+        $this->assertNotFalse($regularPos, 'Regular post should be visible');
+
+        $this->assertLessThan($newerPos, $featuredPos, 'Featured post should appear before newer regular post');
+        $this->assertLessThan($regularPos, $featuredPos, 'Featured post should appear before older regular post');
+    }
 }

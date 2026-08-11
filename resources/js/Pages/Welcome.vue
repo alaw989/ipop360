@@ -75,6 +75,7 @@ interface BlogPost {
     category: string | null
     featured_image: string | null
     published_at: string | null
+    is_featured: boolean
     author?: { id: number; name: string } | null
 }
 
