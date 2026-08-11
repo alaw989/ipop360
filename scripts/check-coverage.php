@@ -39,6 +39,10 @@ $actual = [
     'methods' => $totals['methods'] > 0 ? round(($totals['covered_meth'] / $totals['methods']) * 100, 2) : 0,
 ];
 
+// Drivers like pcov emit conditionals="0" (no branch/conditional metric), so
+// skip any metric the driver reports as unmeasured rather than failing on it.
+$measured = array_filter($totals, fn ($total, $metric) => $total > 0, ARRAY_FILTER_USE_BOTH);
+
 echo "\n┌──────────────────────────────┐\n";
 echo "│  PHPUnit Coverage Thresholds │\n";
 echo "├──────────┬────────┬──────────┤\n";
@@ -48,6 +52,16 @@ echo "├──────────┼────────┼───�
 $failed = false;
 
 foreach (['statements', 'conditionals', 'methods'] as $metric) {
+    $totalAttr = match ($metric) {
+        'statements' => 'statements',
+        'conditionals' => 'conditionals',
+        'methods' => 'methods',
+    };
+    if (($measured[$totalAttr] ?? 0) === 0) {
+        echo "│ {$metric} │ skipped │ driver N/A │  -\n";
+
+        continue;
+    }
     $label = str_pad(ucfirst($metric), 8);
     $actualStr = str_pad($actual[$metric].'%', 6);
     $requiredStr = str_pad($thresholds[$metric].'%', 8);

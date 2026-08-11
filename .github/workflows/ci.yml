@@ -1,55 +1,87 @@
 name: CI
 
 on:
-  push:
-    branches: [master]
   pull_request:
-    branches: [master]
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: ci-quality
+  cancel-in-progress: true
 
 jobs:
   phpunit:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
-      - uses: shivammathur/setup-php@v2
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo_sqlite, sqlite3
+          php-version: '8.5'
+          extensions: sqlite3, mbstring, xml, curl, bcmath, gd, zip, fileinfo
+          tools: composer:v2
           coverage: pcov
 
-      - run: composer install --prefer-dist --no-progress --no-interaction
+      - name: Install PHP dependencies (with dev)
+        run: composer install
 
-      - run: php artisan config:clear --ansi
-      - run: php artisan test --coverage-clover=coverage/phpunit.xml
+      - name: Create empty .env for testing
+        # CI has no .env (gitignored). Without it, booting the artisan kernel
+        # emits a file_get_contents('.env') warning per test (~260 spurious
+        # "test triggered warning" entries). An EMPTY .env satisfies that read
+        # with no env values, so phpunit.xml fully owns the test env. Do NOT
+        # cp .env.example -- its empty APP_KEY= collides and breaks CSRF (419).
+        run: touch .env
 
-      - run: php scripts/check-coverage.php coverage/phpunit.xml
+      - name: Run tests with coverage
+        run: php artisan test --coverage-clover=coverage/phpunit.xml
 
-      - run: vendor/bin/pint --test
+      - name: Enforce coverage thresholds
+        run: php scripts/check-coverage.php coverage/phpunit.xml
 
-      - run: ./vendor/bin/phpstan analyse
+      - name: Run Pint (lint check)
+        run: vendor/bin/pint --test
 
-      - uses: actions/upload-artifact@v4
+      - name: Run PHPStan (static analysis)
+        run: ./vendor/bin/phpstan analyse
+
+      - name: Upload PHPUnit coverage artifact
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: phpunit-coverage
           path: coverage/phpunit.xml
 
   vitest:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
-          cache: npm
+          node-version: '22'
+          cache: 'npm'
 
-      - run: npm ci
+      - name: Install Node dependencies
+        run: npm ci
 
-      - run: npx vitest run --coverage
+      - name: Build frontend
+        run: npm run build
 
-      - uses: actions/upload-artifact@v4
+      - name: Run frontend tests with coverage (Vitest)
+        run: npx vitest run --coverage
+
+      - name: Upload Vitest coverage artifact
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: vitest-coverage
