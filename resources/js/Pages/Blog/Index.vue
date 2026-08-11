@@ -27,6 +27,10 @@ const props = defineProps<{
         data: BlogPost[]
         links: { url: string | null; label: string; active: boolean }[]
     }
+    categories: string[]
+    filters: {
+        category: string | null
+    }
 }>()
 
 const baseUrl = useBaseUrl()
@@ -75,6 +79,29 @@ const seoData = useSeo({
                     Restaurant insights, food trends, and dining guides.
                 </p>
             </header>
+
+            <nav v-if="categories.length > 0" class="mb-8 flex flex-wrap gap-2">
+                <Link
+                    href="/blog"
+                    class="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
+                    :class="!filters.category
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-background text-muted-foreground hover:border-muted-foreground hover:text-foreground'"
+                >
+                    All
+                </Link>
+                <Link
+                    v-for="cat in categories"
+                    :key="cat"
+                    :href="`/blog?category=${encodeURIComponent(cat)}`"
+                    class="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
+                    :class="filters.category === cat
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-background text-muted-foreground hover:border-muted-foreground hover:text-foreground'"
+                >
+                    {{ cat }}
+                </Link>
+            </nav>
 
             <div v-if="groupedPosts.length > 0" class="space-y-10">
                 <section v-for="group in groupedPosts" :key="group.label">

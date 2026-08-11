@@ -60,6 +60,8 @@ function mountBlogIndex(propsOverrides: Record<string, any> = {}) {
                 data: [makeBlogPost()],
                 links: [],
             },
+            categories: [],
+            filters: { category: null },
             ...propsOverrides,
         },
         global: { stubs },
@@ -205,5 +207,51 @@ describe('Blog Index page', () => {
         expect(sections[0].text()).toContain('January 2025')
         expect(sections[0].text()).toContain('First Jan Post')
         expect(sections[0].text()).toContain('Second Jan Post')
+    })
+
+    it('does not render category nav when categories is empty', () => {
+        const wrapper = mountBlogIndex({ categories: [] })
+        expect(wrapper.find('nav.flex-wrap').exists()).toBe(false)
+    })
+
+    it('renders category pills when categories are provided', () => {
+        const wrapper = mountBlogIndex({ categories: ['tech', 'food'] })
+        const pills = wrapper.findAll('nav.flex-wrap a')
+        expect(pills).toHaveLength(3) // All + 2 categories
+        expect(pills[0].text()).toBe('All')
+        expect(pills[1].text()).toBe('tech')
+        expect(pills[2].text()).toBe('food')
+    })
+
+    it('highlights the active category pill', () => {
+        const wrapper = mountBlogIndex({
+            categories: ['tech', 'food'],
+            filters: { category: 'tech' },
+        })
+        const pills = wrapper.findAll('nav.flex-wrap a')
+        expect(pills[1].classes()).toContain('bg-primary')
+        expect(pills[2].classes()).not.toContain('bg-primary')
+    })
+
+    it('highlights "All" pill when no category is selected', () => {
+        const wrapper = mountBlogIndex({
+            categories: ['tech'],
+            filters: { category: null },
+        })
+        const allPill = wrapper.find('nav.flex-wrap a[href="/blog"]')
+        expect(allPill.classes()).toContain('bg-primary')
+    })
+
+    it('category pills link to filtered URL', () => {
+        const wrapper = mountBlogIndex({ categories: ['tech'] })
+        const pill = wrapper.find('a[href="/blog?category=tech"]')
+        expect(pill.exists()).toBe(true)
+    })
+
+    it('renders category pills in the order received', () => {
+        const wrapper = mountBlogIndex({ categories: ['beta', 'alpha'] })
+        const pills = wrapper.findAll('nav.flex-wrap a')
+        expect(pills[1].text()).toBe('beta')
+        expect(pills[2].text()).toBe('alpha')
     })
 })
