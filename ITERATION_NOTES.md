@@ -4,8 +4,8 @@
 add vitest specs for the complex Vue components (Modal, CardGallery, BlogEditor, BlogPreview, SearchMap, DetailMap, HeroBanner, PopularRestaurants, RestaurantCardSkeleton)
 
 ## State
-Added: RestaurantCardSkeleton.spec.ts (7 tests), BlogPreview.spec.ts (11 tests), SearchMap.spec.ts (20 tests), DetailMap.spec.ts (18 tests), HeroBanner.spec.ts (18 tests), PopularRestaurants.spec.ts (33 tests), Modal.spec.ts (24 tests), CardGallery.spec.ts (39 tests — rendering (gradient, scrim, hero img, slot, roundedClass, aspect), image attributes (eager/lazy, CLS dims, sizes, opacity), gallery controls visibility, chevron/tap click triggers, dots/counter, mouse events (enter/leave/move with galleryActive gating), non-hero image expansion, lifecycle (matchMedia, IntersectionObserver)).
-Next: BlogEditor.spec.ts (last remaining Goal component)
+Added: RestaurantCardSkeleton.spec.ts (7 tests), BlogPreview.spec.ts (11 tests), SearchMap.spec.ts (20 tests), DetailMap.spec.ts (18 tests), HeroBanner.spec.ts (18 tests), PopularRestaurants.spec.ts (33 tests), Modal.spec.ts (24 tests), CardGallery.spec.ts (39 tests), BlogEditor.spec.ts (33 tests — rendering (all 9 toolbar buttons, EditorContent, modelValue→useEditor), toolbar actions (bold/italic/headings/lists/blockquote chain calls), isActive styling (active class, attrs for headings), link handling (empty selection + prompt, link mark→unlink, non-link selection + prompt, cancelled prompts), image handling (prompt→setImage, cancelled prompt), v-model sync (emit on update, setContent on prop change, no-op when content matches), lifecycle (destroy on unmount)).
+Next: none — all 9 Goal components have spec coverage now.
 Gotchas: 
 - Link stub pattern from Blog.Index.spec.ts: `vi.mock('@inertiajs/vue3', async () => { const actual = await vi.importActual('@inertiajs/vue3'); return { ...actual, Link: { template: '<a :href="href"><slot /></a>', props: ['href'] } } })`
 - `$page.props` in templates needs `global.mocks.$page` in mount options (not mock of `usePage` alone)
@@ -27,3 +27,4 @@ Gotchas:
 6. PopularRestaurants — 33 tests, all pass
 7. Modal — 24 tests, all pass
 8. CardGallery — 39 tests, all pass
+9. BlogEditor — 33 tests, all pass
