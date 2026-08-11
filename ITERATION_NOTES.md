@@ -1,15 +1,16 @@
 # Iteration Notes
 
 ## Goal
-enforce code coverage thresholds in CI for both PHPUnit and vitest
+align the CI PHP version with production (php 8.4), or run both 8.4 and 8.5
 
 ## State
-- **Done this iteration**: Fixed the vitest artifact upload path in `ci.yml` from `coverage/vitest` (a non-existent subdirectory) to `coverage/` — `@vitest/coverage-v8` outputs directly into `coverage/`, so the old path would upload nothing. Verified vitest coverage passes all thresholds locally (72.61% stmts / 69.51% branches / 65.21% funcs / 73.05% lines).
-- **Next**: The Goal is complete — push to master and watch CI pass on both jobs.
-- **Gotchas**: Both phpunit and vitest output to `coverage/` but they run in separate CI jobs (separate runners), so no conflict. The vitest artifact captures the full coverage report directory including HTML report, clover.xml, and coverage-final.json.
+Changed ci.yml PHP version from 8.5 → 8.4 to align CI with production (dot).
+All 616 tests pass.
+
+Next: deploy.yml still has PHP 8.5 in both the quality gate step (line 38) and
+the deploy step (line 89). Those should also switch to 8.4 for consistency.
+The compose→tinker helper in AGENTS.md still says "PHP 8.3" — that's stale
+(the machine actually runs 8.5) and should be updated to match.
 
 ## Log
-- Iteration 1: Created CI workflow + vitest coverage config + `@vitest/coverage-v8` dependency
-- Iteration 2: Raised vitest thresholds to 70/65/60/70, moved into vitest.config.ts, simplified CI step
-- Iteration 3: Created Clover XML threshold enforcer script, wired into CI, verified against existing data
-- Iteration 4: Added `composer coverage` script for local coverage validation before push
+- Iteration 1: Changed `.github/workflows/ci.yml` php-version from 8.5 → 8.4.
