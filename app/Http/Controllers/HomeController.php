@@ -41,7 +41,10 @@ class HomeController extends Controller
         $city = $request->query('city');
         $state = $request->query('state');
 
-        return response()->json($this->getHomepageData($city, $state));
+        $data = $this->getHomepageData($city, $state);
+        unset($data['latestPosts']);
+
+        return response()->json($data);
     }
 
     /**

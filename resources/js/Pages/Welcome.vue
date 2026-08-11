@@ -89,7 +89,6 @@ interface HomepageData {
         restaurants_count: number
     }>
     popularRestaurants: Restaurant[]
-    latestPosts: BlogPost[]
     location: Location | null
 }
 

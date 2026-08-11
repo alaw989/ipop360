@@ -82,7 +82,6 @@ class HomeControllerTest extends TestCase
             'categories',
             'popularCuisines',
             'popularRestaurants',
-            'latestPosts',
             'location',
         ]);
         $response->assertJsonCount(1, 'categories');
@@ -247,7 +246,7 @@ class HomeControllerTest extends TestCase
         );
     }
 
-    public function test_api_data_includes_latest_posts(): void
+    public function test_api_data_excludes_latest_posts(): void
     {
         $user = User::factory()->create(['name' => 'Bob']);
         BlogPost::factory()->create([
@@ -259,14 +258,7 @@ class HomeControllerTest extends TestCase
         $response = $this->getJson('/api/homepage-data');
 
         $response->assertStatus(200)
-            ->assertJsonStructure([
-                'latestPosts' => [
-                    ['id', 'title', 'slug', 'excerpt', 'category', 'featured_image', 'published_at', 'is_featured', 'author'],
-                ],
-            ])
-            ->assertJsonCount(1, 'latestPosts')
-            ->assertJsonPath('latestPosts.0.title', 'API Post')
-            ->assertJsonPath('latestPosts.0.author.name', 'Bob');
+            ->assertJsonMissing(['latestPosts']);
     }
 
     public function test_landing_page_handles_no_posts(): void
@@ -284,6 +276,6 @@ class HomeControllerTest extends TestCase
         $response = $this->getJson('/api/homepage-data');
 
         $response->assertStatus(200)
-            ->assertJsonCount(0, 'latestPosts');
+            ->assertJsonMissing(['latestPosts']);
     }
 }
