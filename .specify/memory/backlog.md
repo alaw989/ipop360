@@ -113,18 +113,67 @@ with a zero baseline; pint clean; CI + deploy green on master.
 - **Goal:** `add vitest specs for the complex Vue components (Modal, CardGallery, BlogEditor, BlogPreview, SearchMap, DetailMap, HeroBanner, PopularRestaurants, RestaurantCardSkeleton)`
 - **Gate:** `npm run test`
 
-### 3. CI coverage enforcement
+### 2. CI coverage enforcement
 - `phpunit.xml` has no coverage config and CI never fails on coverage loss — the suite
   can regress silently between PRs. Add PHPUnit (xdebug) + vitest coverage thresholds to
   the quality gate.
 - **Goal:** `enforce code coverage thresholds in CI for both PHPUnit and vitest`
 - **Gate:** `composer test && npm run test`
 
-### 4. Align CI PHP with production
+### 3. Align CI PHP with production
 - CI runs `php-version: '8.5'` but the droplet runs `php8.4` (all artisan/fpm commands).
   Tests pass on a different PHP than prod. Either run both in CI or upgrade the droplet.
 - **Goal:** `align the CI PHP version with production (php 8.4), or run both 8.4 and 8.5`
 - **Gate:** `composer test`
+
+### 4. User roles: admin / editor / user ⬅ (blog/admin foundation)
+- `users` currently has a binary `is_admin` boolean. Replace it with a `role` enum column
+  (`admin` / `editor` / `user`) and migrate existing `is_admin = true` rows → `admin`.
+  Update `User::isAdmin()`, `EnsureUserIsAdmin` middleware (`admin` alias), the
+  `HandleInertiaRequests` auth share, and the frontend `User` type in
+  `resources/js/types/index.d.ts`. Unblocks goals 5 + 9.
+- **Goal:** `replace the is_admin boolean with a role column (admin/editor/user) on users`
+- **Gate:** `composer test`
+
+### 5. Blog editor permissions
+- Give `editor`-role users blog-writing ability: CRUD their **own** posts while admins
+  manage all. Guard the `/admin/blog` resource routes by role, auto-set `author_id` on
+  create, and scope drafts/published queries by editor ownership. Reuses the existing
+  `Admin/Blog/Edit.vue` WYSIWYG editor. Depends on goal 4 (roles).
+- **Goal:** `grant blog-writing permissions to editor-role users (CRUD own posts; admins manage all)`
+- **Gate:** `composer test`
+
+### 6. Featured blog section on homepage
+- The homepage already has a subtle `BlogPreview` (latest 3 posts, "View all" → `/blog`).
+  Replace it with a proper featured section: hero card for the latest post (featured
+  image + excerpt) plus a grid of recent posts. Data added to `HomeController`
+  (`getHomepageData()` + `/api/homepage-data`). Component: `resources/js/Components/BlogPreview.vue`,
+  wired into `Pages/Welcome.vue`.
+- **Goal:** `build a featured blog section on the homepage (hero post + grid)`
+- **Gate:** `npm run build`
+
+### 7. Blog archive page (upgrade /blog index)
+- Add a `category` string column to `blog_posts` (+ factory + admin editor field in
+  `Admin/Blog/Edit.vue`), then upgrade the public `/blog` (`Blog/Index.vue`) into a full
+  archive: month/year grouping, category filter chips, and search. If categories are
+  unwanted, scope can shrink to date grouping + search only.
+- **Goal:** `upgrade the blog index into an archive with date grouping, category filter, and search`
+- **Gate:** `composer test && npm run build`
+
+### 8. Admin dashboard basic counts
+- Surface clear counts on `Admin/Dashboard.vue`: total restaurants, cuisines, users, and
+  blog posts — alongside the existing data-quality/SerpApi/scrape cards. Backed by
+  `Admin/DashboardController` (`__invoke`).
+- **Goal:** `add restaurant, cuisine, user, and blog post counts to the admin dashboard overview`
+- **Gate:** `composer test`
+
+### 9. Post-login admin landing + nav discoverability
+- After login, redirect `admin`/`editor` users to `/admin` (dashboard) instead of the
+  stub `Dashboard.vue` ("You're logged in!"), so editors land where the blog editor
+  lives. Make the admin/blog links reachable from the admin nav after auth. Depends on
+  goal 4 (roles).
+- **Goal:** `redirect admin/editor users to the admin dashboard after login and make blog editing discoverable in nav`
+- **Gate:** `composer test && npm run build`
 
 ---
 
