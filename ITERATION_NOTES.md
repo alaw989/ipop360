@@ -1,19 +1,27 @@
 # Iteration Notes
 
 ## Goal
-replace the is_admin boolean with a role column (admin/editor/user) on users
+build a featured blog section on the homepage (hero post + grid)
 
 ## State
-- **Done**: Created migration `2026_08_10_000001_add_role_to_users_table.php` — adds `role` column (string, default 'user') to users table, migrates existing `is_admin = true` rows to `role = 'admin'`. Migration runs cleanly, all 10 BlogAdminTest + full suite passes.
-- **Done**: Updated User model — `#[Fillable]` now uses `'role'` instead of `'is_admin'`, removed boolean cast, `isAdmin()` now checks `$this->role === 'admin'`.
-- **Done**: Updated UserFactory — added `'role' => 'user'` to default state. Updated BlogAdminTest — uses `['role' => 'admin']` and `['role' => 'user']` instead of `['is_admin' => true/false]`.
-- **Done**: Hid `is_admin` from User model serialization (`#[Hidden]` attribute), updated `AuthenticatedLayout.vue` to use `role === 'admin'` instead of `is_admin === true`, updated `types/index.d.ts` to use `role?: string` instead of `is_admin?: boolean`.
-- **Done**: Created migration `2026_08_11_000001_drop_is_admin_from_users_table.php` — drops the `is_admin` column from users table. Removed `is_admin` from `#[Hidden]` attribute on User model (no longer needed since the column is gone). Zero remaining `is_admin` references in `app/` directory.
-- **Next**: None — the goal is fully achieved. `is_admin` is replaced by `role` (admin/editor/user) everywhere: DB, model, factory, tests, frontend, types, middleware.
-- **Gotchas**: None.
+Iteration 15: Verified mobile responsiveness at 375px + 1280px — hero `aspect-video`/`sm:aspect-[21/9]`, single-column grid → 2-column, `text-lg`/`sm:text-xl`, `line-clamp-4`/`sm:line-clamp-2`, badges wrap without overflow on mobile. Removed `latestPosts` from the `/api/homepage-data` API response (blog posts aren't location-scoped; the Inertia SSR render provides them). Updated HomeController::apiData to `unset($data['latestPosts'])`, updated 2 API tests (`test_api_data_excludes_latest_posts` uses `assertJsonMissing`, `test_api_data_handles_no_posts` uses `assertJsonMissing`), removed `latestPosts` from the API `assertJsonStructure` assertion, and removed `latestPosts` from the `HomepageData` interface in Welcome.vue (the `BlogPost` interface is kept for the props definition). All 646 backend + 956 frontend tests pass; pint clean; `npm run build` clean.
+
+### What's next
+- The featured blog section is complete. No remaining work for this goal.
 
 ## Log
-1. Added `role` column migration + data migration from `is_admin`
-2. Updated User model, factory, and BlogAdminTest to use `role` instead of `is_admin`
-3. Hid `is_admin` from User serialization, updated AuthenticatedLayout.vue + types/index.d.ts to use `role`
-4. Dropped `is_admin` column via migration, removed from `#[Hidden]` attribute — full replacement complete
+1. Rewrote `BlogPreview.vue` hero section: overlay layout with `absolute inset-0` image, gradient overlay, and white text positioned at bottom via `absolute inset-x-0 bottom-0`. aspect-video on mobile, sm:aspect-[21/9] for wider screens.
+2. Kept "No image" label via `sr-only` for accessibility. All 16 existing BlogPreview tests pass without modification.
+3. Replaced gradient-only no-image placeholder with `PenLine` icon + decorative text-line bars on a muted gradient background. Verified: `npm run test` (941 passed), `npm run build` (client + SSR clean).
+4. Added grid post decorative placeholder (scaled-down PenLine icon + text line bars on muted gradient). Made the `.aspect-video` wrapper always render (not conditional on having an image), keeping layout rhythm consistent. Added test for grid placeholder presence. Verified: `npm run test` (942 passed).
+5. Added author bylines on hero and grid cards: HomeController eager-loads `with('author:id,name')`, BlogPreview shows `User` icon + name after date (separated by `·` dot). Optional `author` field, conditionally rendered. 4 new vitest tests. All 946 frontend + 36 backend tests pass.
+6. Added category badge on hero and grid post cards: new nullable `category` column on blog_posts, selected in HomeController query, rendered as a Tag-icon pill badge above metadata on both hero (white translucent) and grid (primary-toned) cards. Welcome.vue interface updated for type compatibility. 4 new vitest tests. All 950 frontend tests + all blog backend tests pass; `npm run build` clean.
+7. Added category field to admin blog create/edit form (Admin/Blog/Edit.vue): BlogPost interface includes `category: string | null`, form data includes `category`, text input between excerpt and body. Backend BlogPostController::validated() accepts `category` as nullable string max:100. 4 new BlogAdminTest cases cover create, nullable, update, and max-length validation. All 26 blog admin tests pass; backend test suite and `npm run build` clean.
+8. Added `is_featured` boolean column (default false) via migration. BlogPost model: added to `$fillable`, `$casts` (boolean), and new `featured()` scope. BlogPostFactory: default `is_featured => false` + `featured()` state. All 635 backend + 950 frontend tests pass.
+9. Added `'is_featured' => ['boolean']` to BlogPostController::validated(). Tests: defaults to false on create, can be set true on create, can be updated. All 29 BlogAdminTest pass.
+10. HomeController: `->orderBy(is_featured, desc)->latest(published_at)` on blog query, added `is_featured` to columns + both BlogPost interfaces. `test_homepage_prioritizes_featured_posts` added. All 639 backend + 950 frontend tests pass.
+11. Added `is_featured` checkbox to Admin/Blog/Edit.vue: BlogPost interface includes `is_featured: boolean`, form data defaults to `false`, checkbox rendered between category and body fields. All 29 BlogAdminTest pass; `npm run build` clean.
+12. Added "Featured" badge column to Admin/Blog/Index.vue: BlogPost interface includes `is_featured`, table header + cell with Badge ("Featured" when true, em dash when false). 2 new vitest tests. All 952 frontend tests pass; `npm run build` clean.
+13. Added "Featured" badge to BlogPreview.vue hero and grid cards. Hero: amber-400/90 filled Star + "Featured" text, amber-950 on translucent bg. Grid: amber-100 bg with amber-800 text. Both use `Star` icon with `fill-current`. Badge wraps in a flex div with category badge for side-by-side layout. 4 new vitest tests (hero shows/hides, grid shows/hides). All 956 frontend tests pass; `npm run build` clean.
+14. Added 7 backend feature tests for homepage blog post flow (HomeControllerTest): passes latestPosts with full structure, excludes drafts, orders featured first, limits to 3, API endpoint includes latestPosts, handles zero posts (SSR + API). Updated existing API jsonStructure to include latestPosts. All 646 backend + 956 frontend tests pass; pint clean; `npm run build` clean.
+15. Verified mobile responsiveness at 375px and 1280px — all responsive classes apply correctly (hero aspect-video/21:9, grid single/2-col, text size, line-clamp). Removed `latestPosts` from `/api/homepage-data` response (not location-scoped). Updated `apiData` to `unset()`, changed 2 API tests to `assertJsonMissing`, removed `latestPosts` from `assertJsonStructure`. Removed `latestPosts` from `HomepageData` interface in Welcome.vue. All 646 backend + 956 frontend tests pass; pint clean; `npm run build` clean.

@@ -285,6 +285,127 @@ class BlogAdminTest extends TestCase
         $this->assertStringContainsString('<p>Hello', $post->body);
     }
 
+    public function test_category_can_be_set_on_create(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post('/admin/blog', [
+            'title' => 'Categorized Post',
+            'excerpt' => 'With category.',
+            'body' => '<p>Body</p>',
+            'category' => 'News',
+            'status' => 'draft',
+        ])->assertRedirect(route('admin.blog.index'));
+
+        $this->assertDatabaseHas('blog_posts', [
+            'title' => 'Categorized Post',
+            'category' => 'News',
+        ]);
+    }
+
+    public function test_category_is_nullable_on_create(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post('/admin/blog', [
+            'title' => 'Uncategorized Post',
+            'excerpt' => 'No category.',
+            'body' => '<p>Body</p>',
+            'status' => 'draft',
+        ])->assertRedirect(route('admin.blog.index'));
+
+        $post = BlogPost::where('title', 'Uncategorized Post')->first();
+        $this->assertNotNull($post);
+        $this->assertNull($post->category);
+    }
+
+    public function test_category_can_be_updated(): void
+    {
+        $admin = $this->admin();
+        $post = BlogPost::factory()->create([
+            'author_id' => $admin->id,
+            'category' => 'News',
+        ]);
+
+        $this->actingAs($admin)->put("/admin/blog/{$post->id}", [
+            'title' => $post->title,
+            'excerpt' => $post->excerpt,
+            'body' => $post->body,
+            'category' => 'Guide',
+            'status' => $post->status,
+        ])->assertRedirect();
+
+        $post->refresh();
+        $this->assertSame('Guide', $post->category);
+    }
+
+    public function test_category_validation_enforces_max_length(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post('/admin/blog', [
+            'title' => 'Too Long Category',
+            'excerpt' => 'Testing validation.',
+            'body' => '<p>Body</p>',
+            'category' => str_repeat('x', 101),
+            'status' => 'draft',
+        ])->assertSessionHasErrors(['category']);
+    }
+
+    public function test_is_featured_defaults_to_false_on_create(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post('/admin/blog', [
+            'title' => 'Regular Post',
+            'excerpt' => 'Not featured.',
+            'body' => '<p>Body</p>',
+            'status' => 'draft',
+        ])->assertRedirect(route('admin.blog.index'));
+
+        $post = BlogPost::where('title', 'Regular Post')->first();
+        $this->assertNotNull($post);
+        $this->assertFalse($post->is_featured);
+    }
+
+    public function test_is_featured_can_be_set_on_create(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post('/admin/blog', [
+            'title' => 'Featured Post',
+            'excerpt' => 'A featured post.',
+            'body' => '<p>Body</p>',
+            'is_featured' => true,
+            'status' => 'draft',
+        ])->assertRedirect(route('admin.blog.index'));
+
+        $this->assertDatabaseHas('blog_posts', [
+            'title' => 'Featured Post',
+            'is_featured' => true,
+        ]);
+    }
+
+    public function test_is_featured_can_be_updated(): void
+    {
+        $admin = $this->admin();
+        $post = BlogPost::factory()->create([
+            'author_id' => $admin->id,
+            'is_featured' => false,
+        ]);
+
+        $this->actingAs($admin)->put("/admin/blog/{$post->id}", [
+            'title' => $post->title,
+            'excerpt' => $post->excerpt,
+            'body' => $post->body,
+            'is_featured' => true,
+            'status' => $post->status,
+        ])->assertRedirect();
+
+        $post->refresh();
+        $this->assertTrue($post->is_featured);
+    }
+
     public function test_admin_can_delete_post(): void
     {
         $admin = $this->admin();

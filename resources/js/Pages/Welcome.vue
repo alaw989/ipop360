@@ -72,8 +72,11 @@ interface BlogPost {
     title: string
     slug: string
     excerpt: string
+    category: string | null
     featured_image: string | null
     published_at: string | null
+    is_featured: boolean
+    author?: { id: number; name: string } | null
 }
 
 interface HomepageData {
@@ -86,7 +89,6 @@ interface HomepageData {
         restaurants_count: number
     }>
     popularRestaurants: Restaurant[]
-    latestPosts: BlogPost[]
     location: Location | null
 }
 

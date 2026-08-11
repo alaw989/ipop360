@@ -120,8 +120,10 @@ class BlogPostController extends Controller
         $data = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'excerpt' => ['required', 'string', 'max:500'],
+            'category' => ['nullable', 'string', 'max:100'],
             'body' => ['required', 'string'],
             'featured_image' => ['nullable', 'string', 'max:2048'],
+            'is_featured' => ['boolean'],
             'status' => ['required', 'in:draft,published'],
         ]);
 

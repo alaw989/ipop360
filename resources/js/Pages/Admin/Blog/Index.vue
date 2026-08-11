@@ -14,6 +14,7 @@ interface BlogPost {
     slug: string
     excerpt: string
     status: string
+    is_featured: boolean
     featured_image: string | null
     published_at: string | null
     author: { name: string } | null
@@ -117,6 +118,7 @@ function destroy(post: BlogPost): void {
                             <tr class="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500">
                                 <th class="px-4 py-3 font-medium">Title</th>
                                 <th class="px-4 py-3 font-medium">Author</th>
+                                <th class="px-4 py-3 font-medium">Featured</th>
                                 <th class="px-4 py-3 font-medium">Status</th>
                                 <th class="px-4 py-3 font-medium">Published</th>
                                 <th class="px-4 py-3 text-right font-medium">Actions</th>
@@ -135,6 +137,10 @@ function destroy(post: BlogPost): void {
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-neutral-600">{{ post.author?.name ?? '—' }}</td>
+                                <td class="px-4 py-3">
+                                    <Badge v-if="post.is_featured" variant="default">Featured</Badge>
+                                    <span v-else class="text-neutral-400">—</span>
+                                </td>
                                 <td class="px-4 py-3">
                                     <Badge :variant="post.status === 'published' ? 'default' : 'secondary'">
                                         {{ post.status }}

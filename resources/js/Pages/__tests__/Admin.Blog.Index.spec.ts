@@ -56,6 +56,7 @@ interface BlogPost {
     slug: string
     excerpt: string
     status: string
+    is_featured: boolean
     featured_image: string | null
     published_at: string | null
     author: { name: string } | null
@@ -69,6 +70,7 @@ function makePost(overrides: Partial<BlogPost> = {}): BlogPost {
         slug: 'test-blog-post',
         excerpt: 'Test excerpt',
         status: 'published',
+        is_featured: false,
         featured_image: null,
         published_at: '2025-06-15T12:00:00.000000Z',
         author: { name: 'Admin User' },
@@ -182,6 +184,28 @@ describe('Admin Blog Index page', () => {
         expect(wrapper.text()).toContain('draft')
         const badges = wrapper.findAllComponents(stubs.Badge)
         expect(badges[0].props('variant')).toBe('secondary')
+    })
+
+    it('renders Featured badge when is_featured is true', () => {
+        const wrapper = mountComponent({
+            posts: {
+                data: [makePost({ is_featured: true })],
+                links: [],
+                total: 1,
+            },
+        })
+        expect(wrapper.text()).toContain('Featured')
+    })
+
+    it('renders em dash in featured column when is_featured is false', () => {
+        const wrapper = mountComponent({
+            posts: {
+                data: [makePost({ is_featured: false })],
+                links: [],
+                total: 1,
+            },
+        })
+        expect(wrapper.text()).toContain('—')
     })
 
     it('renders formatted published_at date', () => {

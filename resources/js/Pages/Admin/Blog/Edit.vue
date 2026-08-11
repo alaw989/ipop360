@@ -11,6 +11,8 @@ interface BlogPost {
     title: string
     slug: string
     excerpt: string
+    category: string | null
+    is_featured: boolean
     body: string
     featured_image: string | null
     status: string
@@ -27,6 +29,8 @@ const isEditing = computed(() => props.post !== null)
 const form = useForm({
     title: props.post?.title ?? '',
     excerpt: props.post?.excerpt ?? '',
+    category: props.post?.category ?? '',
+    is_featured: props.post?.is_featured ?? false,
     body: props.post?.body ?? '',
     featured_image: props.post?.featured_image ?? '',
     status: props.post?.status ?? 'draft',
@@ -73,6 +77,25 @@ function submit(): void {
                                     required
                                 />
                                 <p v-if="form.errors.excerpt" class="mt-1 text-sm text-red-600">{{ form.errors.excerpt }}</p>
+                            </div>
+
+                            <div>
+                                <label for="category" class="mb-1 block text-sm font-medium text-gray-700">
+                                    Category <span class="font-normal text-neutral-400">(optional)</span>
+                                </label>
+                                <Input id="category" v-model="form.category" type="text" placeholder="e.g. News, Guide, Review" maxlength="100" />
+                                <p v-if="form.errors.category" class="mt-1 text-sm text-red-600">{{ form.errors.category }}</p>
+                            </div>
+
+                            <div class="flex items-center gap-3">
+                                <input
+                                    id="is_featured"
+                                    v-model="form.is_featured"
+                                    type="checkbox"
+                                    class="h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary"
+                                />
+                                <label for="is_featured" class="text-sm font-medium text-gray-700">Featured post</label>
+                                <p v-if="form.errors.is_featured" class="text-sm text-red-600">{{ form.errors.is_featured }}</p>
                             </div>
 
                             <div>
