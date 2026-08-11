@@ -1,19 +1,17 @@
 # Iteration Notes
 
 ## Goal
-replace the is_admin boolean with a role column (admin/editor/user) on users
+build a featured blog section on the homepage (hero post + grid)
 
 ## State
-- **Done**: Created migration `2026_08_10_000001_add_role_to_users_table.php` — adds `role` column (string, default 'user') to users table, migrates existing `is_admin = true` rows to `role = 'admin'`. Migration runs cleanly, all 10 BlogAdminTest + full suite passes.
-- **Done**: Updated User model — `#[Fillable]` now uses `'role'` instead of `'is_admin'`, removed boolean cast, `isAdmin()` now checks `$this->role === 'admin'`.
-- **Done**: Updated UserFactory — added `'role' => 'user'` to default state. Updated BlogAdminTest — uses `['role' => 'admin']` and `['role' => 'user']` instead of `['is_admin' => true/false]`.
-- **Done**: Hid `is_admin` from User model serialization (`#[Hidden]` attribute), updated `AuthenticatedLayout.vue` to use `role === 'admin'` instead of `is_admin === true`, updated `types/index.d.ts` to use `role?: string` instead of `is_admin?: boolean`.
-- **Done**: Created migration `2026_08_11_000001_drop_is_admin_from_users_table.php` — drops the `is_admin` column from users table. Removed `is_admin` from `#[Hidden]` attribute on User model (no longer needed since the column is gone). Zero remaining `is_admin` references in `app/` directory.
-- **Next**: None — the goal is fully achieved. `is_admin` is replaced by `role` (admin/editor/user) everywhere: DB, model, factory, tests, frontend, types, middleware.
-- **Gotchas**: None.
+Iteration 1: Redesigned `BlogPreview.vue` from a flat 3-column card grid to a hero-post-plus-grid layout. The most recent post is now displayed as a prominent hero card (full-width on mobile, 3/2 split on md+ with larger image, title, excerpt, and "Read more" CTA). Remaining posts (up to 2) render in a 2-column grid below the hero. Hero posts without a featured image get a gradient placeholder. All 16 existing + new tests pass; `npm run build` passes (vue-tsc + client + SSR).
+
+### What's next
+- The hero card currently uses a simple gradient placeholder when no `featured_image` is set. Could add a default food/blog illustration or pattern.
+- Consider adding category/tag badges on hero post cards for visual richness.
+- The hero post layout could be enhanced with an overlay gradient on the image for better text readability.
 
 ## Log
-1. Added `role` column migration + data migration from `is_admin`
-2. Updated User model, factory, and BlogAdminTest to use `role` instead of `is_admin`
-3. Hid `is_admin` from User serialization, updated AuthenticatedLayout.vue + types/index.d.ts to use `role`
-4. Dropped `is_admin` column via migration, removed from `#[Hidden]` attribute — full replacement complete
+1. Rewrote `BlogPreview.vue`: hero post (first in array) with `md:grid-cols-5` split layout, gradient placeholder for missing images, "Read more" arrow link. Grid posts (posts.slice(1)) in `sm:grid-cols-2` below. Section header and "View all" link unchanged.
+2. Updated `BlogPreview.spec.ts`: 5 new tests for hero-specific behavior (hero position, "Read more", gradient placeholder, single-post no grid, grid post image count). All 16 tests pass.
+3. Verified: `npm run test` (941 passed), `npm run build` (client + SSR clean).
