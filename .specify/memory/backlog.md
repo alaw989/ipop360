@@ -159,18 +159,30 @@ with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP
 with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP 8.4**;
 **users have admin/editor/user roles**; CI + deploy green on master.
 
+## ✅ Done (2026-08-11 session)
+19. **Blog editor permissions** — PR #83 (hand-built, TDD): editor-role users CRUD their
+    **own** posts (incl. publishing); admins manage all. New `UserRole` enum
+    (`app/Enums/UserRole.php`, the flagged sub-task) — `canManageBlog()`/`canManageAllBlogPosts()`
+    helpers; `User` gained `isAdmin`/`isEditor`/`canManageBlog`/`canManageAllBlogPosts`.
+    `EnsureUserIsAdmin` → parameterized `EnsureUserHasRole` (`role:admin,editor` alias);
+    `/admin` dashboard stays `role:admin`, `/admin/blog` resource is `role:admin,editor`.
+    `BlogPostController` scopes `index` to own posts for editors and aborts 403 on
+    edit/update/destroy of others' posts. Frontend: Blog nav link for editors, per-row
+    Edit/Delete gated by ownership, `User.role` TS union. PHPUnit 631 (+15), vitest 937
+    (+9), PHPStan level 8 clean, pint clean, local coverage above thresholds.
+    **Note:** no `role` cast on the User model — Larastan infers `role` as `string` from
+    `#[Fillable]`; the enum is used via `UserRole::tryFrom($role)` compares instead.
+    Deployed + live-verified behaviorally (editor login → blog CRUD → public publish;
+    `/admin` 403; admin-dashboard route stays admin-only).
+
+**Current floor:** 631 PHPUnit tests + 937 vitest tests; PHPStan level 8 over `app/ + tests/`
+with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP 8.4**;
+**users have admin/editor/user roles; editors CRUD their own blog posts**;
+CI + deploy green on master.
+
 ## Next goals (in priority order)
 
-### 1. Blog editor permissions ⬅ NEXT
-- Give `editor`-role users blog-writing ability: CRUD their **own** posts while admins
-  manage all. Guard the `/admin/blog` resource routes by role, auto-set `author_id` on
-  create, and scope drafts/published queries by editor ownership. Reuses the existing
-  `Admin/Blog/Edit.vue` WYSIWYG editor. Roles foundation landed (goal 18, PR #82); a
-  `UserRole` enum (plain string compares today) is a candidate sub-task.
-- **Goal:** `grant blog-writing permissions to editor-role users (CRUD own posts; admins manage all)`
-- **Gate:** `composer test`
-
-### 2. Featured blog section on homepage
+### 1. Featured blog section on homepage
 - The homepage already has a subtle `BlogPreview` (latest 3 posts, "View all" → `/blog`).
   Replace it with a proper featured section: hero card for the latest post (featured
   image + excerpt) plus a grid of recent posts. Data added to `HomeController`
@@ -179,7 +191,7 @@ with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP
 - **Goal:** `build a featured blog section on the homepage (hero post + grid)`
 - **Gate:** `npm run build`
 
-### 3. Blog archive page (upgrade /blog index)
+### 2. Blog archive page (upgrade /blog index)
 - Add a `category` string column to `blog_posts` (+ factory + admin editor field in
   `Admin/Blog/Edit.vue`), then upgrade the public `/blog` (`Blog/Index.vue`) into a full
   archive: month/year grouping, category filter chips, and search. If categories are
@@ -187,14 +199,14 @@ with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP
 - **Goal:** `upgrade the blog index into an archive with date grouping, category filter, and search`
 - **Gate:** `composer test && npm run build`
 
-### 4. Admin dashboard basic counts
+### 3. Admin dashboard basic counts
 - Surface clear counts on `Admin/Dashboard.vue`: total restaurants, cuisines, users, and
   blog posts — alongside the existing data-quality/SerpApi/scrape cards. Backed by
   `Admin/DashboardController` (`__invoke`).
 - **Goal:** `add restaurant, cuisine, user, and blog post counts to the admin dashboard overview`
 - **Gate:** `composer test`
 
-### 5. Post-login admin landing + nav discoverability
+### 4. Post-login admin landing + nav discoverability
 - After login, redirect `admin`/`editor` users to `/admin` (dashboard) instead of the
   stub `Dashboard.vue` ("You're logged in!"), so editors land where the blog editor
   lives. Make the admin/blog links reachable from the admin nav after auth. Roles
@@ -202,7 +214,7 @@ with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP
 - **Goal:** `redirect admin/editor users to the admin dashboard after login and make blog editing discoverable in nav`
 - **Gate:** `composer test && npm run build`
 
-### 6. Homepage nav + hero polish
+### 5. Homepage nav + hero polish
 - Adopt the `AppLayout` top nav (brand left, links right: Browse/Leaderboard/Blog +
   Favorites/Dashboard/Login, admin links when admin) on the homepage instead of the
   sparse hero-only links floating in the slideshow. Tighten the hero: `min-h-screen` →
@@ -211,7 +223,7 @@ with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP
 - **Goal:** `adopt the AppLayout top nav on the homepage and tighten the hero banner while preserving the current Yelp-style design`
 - **Gate:** `npm run build`
 
-### 7. Homepage section rhythm + stats band
+### 6. Homepage section rhythm + stats band
 - Alternate section backgrounds (e.g. `bg-muted/40` bands) and consistent section
   headers (title, subtitle, "View all" CTA) across `CategoryGrid`, `PopularCuisines`,
   `PopularRestaurants`, `BlogPreview`. Add a slim stats/trust band under the hero
@@ -221,7 +233,7 @@ with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP
 - **Goal:** `add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design`
 - **Gate:** `npm run build`
 
-### 8. Homepage scroll-reveal motion
+### 7. Homepage scroll-reveal motion
 - Scroll-reveal animations for homepage sections via IntersectionObserver (reuse
   `resources/css/transitions.css`), honoring `prefers-reduced-motion`. Verify no
   regressions in `resources/js/Pages/__tests__/Welcome.spec.ts` (19 cases) and no
