@@ -4,9 +4,15 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle2, Clock, Globe, Image, Loader2, Newspaper, Share2, Utensils } from '@lucide/vue';
+import { AlertCircle, CheckCircle2, ChefHat, Clock, Globe, Image, Loader2, Newspaper, Share2, Users, Utensils } from '@lucide/vue';
 
 defineProps<{
+    entityCounts: {
+        restaurants: number;
+        cuisines: number;
+        users: number;
+        blog_posts: number;
+    };
     serpapiQuota: {
         calls_used: number;
         free_quota: number;
@@ -83,6 +89,60 @@ function gapBadgeVariant(gap: string): 'default' | 'secondary' | 'destructive' |
 
         <div class="py-12">
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+                <!-- Overview -->
+                <div class="mb-8">
+                    <h3 class="mb-4 text-lg font-semibold text-gray-900">Overview</h3>
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <Card>
+                            <CardHeader class="pb-2">
+                                <CardTitle class="text-sm font-medium text-muted-foreground">Restaurants</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div class="flex items-center gap-2">
+                                    <Utensils class="h-5 w-5 text-muted-foreground" />
+                                    <span class="text-2xl font-bold">{{ entityCounts.restaurants }}</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader class="pb-2">
+                                <CardTitle class="text-sm font-medium text-muted-foreground">Cuisines</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div class="flex items-center gap-2">
+                                    <ChefHat class="h-5 w-5 text-muted-foreground" />
+                                    <span class="text-2xl font-bold">{{ entityCounts.cuisines }}</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader class="pb-2">
+                                <CardTitle class="text-sm font-medium text-muted-foreground">Users</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div class="flex items-center gap-2">
+                                    <Users class="h-5 w-5 text-muted-foreground" />
+                                    <span class="text-2xl font-bold">{{ entityCounts.users }}</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader class="pb-2">
+                                <CardTitle class="text-sm font-medium text-muted-foreground">Blog Posts</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div class="flex items-center gap-2">
+                                    <Newspaper class="h-5 w-5 text-muted-foreground" />
+                                    <span class="text-2xl font-bold">{{ entityCounts.blog_posts }}</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+
                 <!-- SerpApi Quota -->
                 <div class="mb-8">
                     <h3 class="mb-4 text-lg font-semibold text-gray-900">SerpApi Quota</h3>

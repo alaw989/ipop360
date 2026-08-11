@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\BlogPost;
+use App\Models\Cuisine;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -29,6 +32,14 @@ class DashboardController extends Controller
             'circuit_breaker_tripped' => $serpapiCalls >= $circuitBreakerThreshold,
             'enrich_budget' => $enrichBudget,
             'enrich_budget_exhausted' => $serpapiCalls >= $enrichBudget,
+        ];
+
+        // Entity counts
+        $entityCounts = [
+            'restaurants' => Restaurant::count(),
+            'cuisines' => Cuisine::count(),
+            'users' => User::count(),
+            'blog_posts' => BlogPost::count(),
         ];
 
         // Scrape recency
@@ -88,6 +99,7 @@ class DashboardController extends Controller
         ];
 
         return Inertia::render('Admin/Dashboard', [
+            'entityCounts' => $entityCounts,
             'serpapiQuota' => $serpapiQuota,
             'scrapeHealth' => $scrapeHealth,
             'dataQuality' => $dataQuality,
