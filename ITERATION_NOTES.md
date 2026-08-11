@@ -4,11 +4,10 @@
 build a featured blog section on the homepage (hero post + grid)
 
 ## State
-Iteration 12: Added "Featured" badge column to Admin/Blog/Index.vue table. BlogPost interface includes `is_featured: boolean`; table header + cell show a "Featured" Badge when true or em dash when false. 2 new vitest tests (badge renders, em dash when false). All 952 frontend tests pass; `npm run build` clean.
+Iteration 13: Added "Featured" badge to BlogPreview.vue hero and grid cards. Hero: amber-400/90 filled Star + "Featured" text, amber-950 on translucent bg. Grid: amber-100 bg with amber-800 text. Both use `Star` icon with `fill-current`. Badge wraps in a flex div with category badge for side-by-side layout. 4 new vitest tests (hero shows/hides, grid shows/hides). All 956 frontend tests pass; `npm run build` clean.
 
 ### What's next
-- Frontend: render a "Featured" badge on hero/grid cards in BlogPreview.vue when `is_featured` is true.
-- Tests: BlogPreview.spec.ts for featured badge rendering.
+- The blog section on the homepage is functionally complete. Verify the full flow end-to-end: create a featured post in admin, confirm it appears with badge on homepage. Check mobile responsiveness.
 
 ## Log
 1. Rewrote `BlogPreview.vue` hero section: overlay layout with `absolute inset-0` image, gradient overlay, and white text positioned at bottom via `absolute inset-x-0 bottom-0`. aspect-video on mobile, sm:aspect-[21/9] for wider screens.

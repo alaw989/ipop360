@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
-import { ArrowRight, Calendar, PenLine, Tag, User } from '@lucide/vue'
+import { ArrowRight, Calendar, PenLine, Star, Tag, User } from '@lucide/vue'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface BlogPost {
@@ -73,13 +73,22 @@ function formatDate(value: string | null): string {
                 </div>
                 <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
                 <CardContent class="absolute inset-x-0 bottom-0 flex flex-col justify-end p-4 sm:p-6">
-                    <span
-                        v-if="heroPost.category"
-                        class="mb-2 inline-flex w-fit items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm"
-                    >
-                        <Tag class="h-3 w-3" />
-                        {{ heroPost.category }}
-                    </span>
+                    <div class="mb-2 flex flex-wrap items-center gap-1.5">
+                        <span
+                            v-if="heroPost.is_featured"
+                            class="inline-flex w-fit items-center gap-1 rounded-full bg-amber-400/90 px-2.5 py-0.5 text-xs font-semibold text-amber-950 backdrop-blur-sm"
+                        >
+                            <Star class="h-3 w-3 fill-current" />
+                            Featured
+                        </span>
+                        <span
+                            v-if="heroPost.category"
+                            class="inline-flex w-fit items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm"
+                        >
+                            <Tag class="h-3 w-3" />
+                            {{ heroPost.category }}
+                        </span>
+                    </div>
                     <p class="mb-2 flex items-center gap-1.5 text-xs text-white/80">
                         <Calendar class="h-3.5 w-3.5" />
                         {{ formatDate(heroPost.published_at) }}
@@ -130,13 +139,22 @@ function formatDate(value: string | null): string {
                         </div>
                     </div>
                     <CardContent class="p-5">
-                        <span
-                            v-if="post.category"
-                            class="mb-2 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
-                        >
-                            <Tag class="h-3 w-3" />
-                            {{ post.category }}
-                        </span>
+                        <div class="mb-2 flex flex-wrap items-center gap-1.5">
+                            <span
+                                v-if="post.is_featured"
+                                class="inline-flex w-fit items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800"
+                            >
+                                <Star class="h-3 w-3 fill-current" />
+                                Featured
+                            </span>
+                            <span
+                                v-if="post.category"
+                                class="inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
+                            >
+                                <Tag class="h-3 w-3" />
+                                {{ post.category }}
+                            </span>
+                        </div>
                         <p class="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Calendar class="h-3.5 w-3.5" />
                             {{ formatDate(post.published_at) }}

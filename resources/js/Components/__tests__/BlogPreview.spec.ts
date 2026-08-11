@@ -19,6 +19,7 @@ function makePost(overrides: Record<string, any> = {}) {
         featured_image: null,
         published_at: '2025-06-15T10:00:00.000000Z',
         author: { id: 99, name: 'Jane Doe' },
+        is_featured: false,
         ...overrides,
     }
 }
@@ -193,5 +194,33 @@ describe('BlogPreview', () => {
         const wrapper = mountComponent([makePost({ slug: 'delicious-tacos' })])
         const link = wrapper.find('a[href="/blog/delicious-tacos"]')
         expect(link.exists()).toBe(true)
+    })
+
+    it('renders a Featured badge on the hero post when is_featured is true', () => {
+        const wrapper = mountComponent([makePost({ is_featured: true })])
+        expect(wrapper.text()).toContain('Featured')
+    })
+
+    it('does not render a Featured badge on the hero post when is_featured is false', () => {
+        const wrapper = mountComponent([makePost({ is_featured: false })])
+        expect(wrapper.text()).not.toContain('Featured')
+    })
+
+    it('renders a Featured badge on grid posts when is_featured is true', () => {
+        const posts = [
+            makePost({ id: 1, title: 'Hero' }),
+            makePost({ id: 2, title: 'Grid', is_featured: true }),
+        ]
+        const wrapper = mountComponent(posts)
+        expect(wrapper.text()).toContain('Featured')
+    })
+
+    it('does not render a Featured badge on grid posts when is_featured is false', () => {
+        const posts = [
+            makePost({ id: 1, title: 'Hero', is_featured: false }),
+            makePost({ id: 2, title: 'Grid', is_featured: false }),
+        ]
+        const wrapper = mountComponent(posts)
+        expect(wrapper.text()).not.toContain('Featured')
     })
 })
