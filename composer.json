@@ -53,6 +53,11 @@
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"
         ],
+        "coverage": [
+            "@php artisan config:clear --ansi @no_additional_args",
+            "@php artisan test --coverage-clover=coverage/phpunit.xml",
+            "@php scripts/check-coverage.php coverage/phpunit.xml"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

@@ -4,11 +4,12 @@
 enforce code coverage thresholds in CI for both PHPUnit and vitest
 
 ## State
-- **Done this iteration**: Created `scripts/check-coverage.php` — a Clover XML threshold enforcer that parses the `<metrics>` element, computes statement/conditional/method coverage percentages, and exits non-zero if any fall below the configured thresholds (statements: 50%, conditionals: 45%, methods: 45%). Wired it into the PHPUnit CI job as a step right after `php artisan test --coverage-clover=coverage/phpunit.xml`. Verified it passes against the existing clover.xml (73% statements, 70% conditionals, 65% methods) and fails correctly when thresholds are raised above actuals.
-- **Next**: Both vitest and PHPUnit now have coverage enforcement in CI. The `composer test` script (`php artisan test`) does NOT generate coverage locally — it only runs tests. Consider adding a `composer coverage` script that runs `php artisan test --coverage-clover=coverage/phpunit.xml` followed by the check, so devs can validate locally before pushing. Alternatively, make the CI run include linting (pint --test) and typecheck (phpstan) steps in the phpunit job.
-- **Gotchas**: The script reads the first `<metrics>` element from `<coverage>/<project>/<metrics>`, which is the project-level total. Thresholds are passed as optional CLI args; defaults are 50/45/45. pcov not available locally; coverage enforcement is CI-only for now. The coverage/ directory is gitignored so the clover.xml won't appear in the repo.
+- **Done this iteration**: Added a `composer coverage` script to composer.json that runs `php artisan test --coverage-clover=coverage/phpunit.xml` followed by `php scripts/check-coverage.php coverage/phpunit.xml`, so devs can validate coverage thresholds locally before pushing (when pcov/xdebug is available). The existing `composer test` remains unchanged (tests only, no coverage generation).
+- **Next**: The coverage enforcement in CI is done for both PHPUnit (check-coverage.php step) and vitest (built-in thresholds in vitest.config.ts). Consider adding `vendor/bin/pint --test` and `./vendor/bin/phpstan analyse` as additional steps in the phpunit CI job so style + type checks gate merges alongside coverage.
+- **Gotchas**: pcov not available locally; `composer coverage` will fail with "No code coverage driver available" outside CI. The coverage/ directory is gitignored.
 
 ## Log
 - Iteration 1: Created CI workflow + vitest coverage config + `@vitest/coverage-v8` dependency
 - Iteration 2: Raised vitest thresholds to 70/65/60/70, moved into vitest.config.ts, simplified CI step
 - Iteration 3: Created Clover XML threshold enforcer script, wired into CI, verified against existing data
+- Iteration 4: Added `composer coverage` script for local coverage validation before push
