@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  phpunit:
+  quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -27,8 +27,22 @@ jobs:
           tools: composer:v2
           coverage: pcov
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
       - name: Install PHP dependencies (with dev)
         run: composer install
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build frontend
+        # Produces public/build/manifest.json — the Inertia view tests assert
+        # on rendered pages and fail with "Vite manifest not found" without it.
+        run: npm run build
 
       - name: Create empty .env for testing
         # CI has no .env (gitignored). Without it, booting the artisan kernel
@@ -44,6 +58,9 @@ jobs:
       - name: Enforce coverage thresholds
         run: php scripts/check-coverage.php coverage/phpunit.xml
 
+      - name: Run frontend tests with coverage (Vitest)
+        run: npx vitest run --coverage
+
       - name: Run Pint (lint check)
         run: vendor/bin/pint --test
 
@@ -56,29 +73,6 @@ jobs:
         with:
           name: phpunit-coverage
           path: coverage/phpunit.xml
-
-  vitest:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install Node dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
-
-      - name: Run frontend tests with coverage (Vitest)
-        run: npx vitest run --coverage
 
       - name: Upload Vitest coverage artifact
         uses: actions/upload-artifact@v4
