@@ -18,6 +18,7 @@ function makePost(overrides: Record<string, any> = {}) {
         excerpt: 'A test excerpt for the preview card.',
         featured_image: null,
         published_at: '2025-06-15T10:00:00.000000Z',
+        author: { id: 99, name: 'Jane Doe' },
         ...overrides,
     }
 }
@@ -136,6 +137,31 @@ describe('BlogPreview', () => {
         expect(wrapper.text()).not.toContain(', 2025')
         const calendarIcons = wrapper.findAll('svg')
         expect(calendarIcons.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('renders the author name on the hero post', () => {
+        const wrapper = mountComponent([makePost({ author: { id: 1, name: 'Alice' } })])
+        expect(wrapper.text()).toContain('Alice')
+    })
+
+    it('renders the author name on grid posts', () => {
+        const posts = [
+            makePost({ id: 1, title: 'Hero' }),
+            makePost({ id: 2, title: 'Grid', author: { id: 2, name: 'Bob' } }),
+        ]
+        const wrapper = mountComponent(posts)
+        expect(wrapper.text()).toContain('Bob')
+    })
+
+    it('does not render author when author is null', () => {
+        const wrapper = mountComponent([makePost({ author: null })])
+        expect(wrapper.text()).not.toContain('Jane Doe')
+        expect(wrapper.text()).not.toContain('Alice')
+    })
+
+    it('does not render author when author is undefined', () => {
+        const wrapper = mountComponent([makePost({ author: undefined })])
+        expect(wrapper.text()).not.toContain('Jane Doe')
     })
 
     it('links the hero card to /blog/:slug', () => {

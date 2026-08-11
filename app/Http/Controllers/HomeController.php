@@ -90,9 +90,10 @@ class HomeController extends Controller
             ->values();
 
         $latestPosts = BlogPost::published()
+            ->with('author:id,name')
             ->latest('published_at')
             ->limit(3)
-            ->get(['id', 'title', 'slug', 'excerpt', 'featured_image', 'published_at']);
+            ->get(['id', 'title', 'slug', 'excerpt', 'featured_image', 'published_at', 'author_id']);
 
         return [
             'categories' => $categories,

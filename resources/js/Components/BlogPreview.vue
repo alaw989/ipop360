@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
-import { ArrowRight, Calendar, PenLine } from '@lucide/vue'
+import { ArrowRight, Calendar, PenLine, User } from '@lucide/vue'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface BlogPost {
@@ -11,6 +11,7 @@ interface BlogPost {
     excerpt: string
     featured_image: string | null
     published_at: string | null
+    author?: { id: number; name: string } | null
 }
 
 const props = defineProps<{
@@ -73,6 +74,11 @@ function formatDate(value: string | null): string {
                     <p class="mb-2 flex items-center gap-1.5 text-xs text-white/80">
                         <Calendar class="h-3.5 w-3.5" />
                         {{ formatDate(heroPost.published_at) }}
+                        <template v-if="heroPost.author">
+                            <span aria-hidden="true" class="opacity-50">·</span>
+                            <User class="h-3.5 w-3.5" />
+                            {{ heroPost.author.name }}
+                        </template>
                     </p>
                     <h3 class="text-lg font-bold text-white sm:text-xl">{{ heroPost.title }}</h3>
                     <p class="mt-2 line-clamp-4 text-sm text-white/70 sm:line-clamp-2">{{ heroPost.excerpt }}</p>
@@ -118,6 +124,11 @@ function formatDate(value: string | null): string {
                         <p class="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Calendar class="h-3.5 w-3.5" />
                             {{ formatDate(post.published_at) }}
+                            <template v-if="post.author">
+                                <span aria-hidden="true" class="opacity-50">·</span>
+                                <User class="h-3.5 w-3.5" />
+                                {{ post.author.name }}
+                            </template>
                         </p>
                         <h3 class="font-semibold text-foreground group-hover:text-primary">{{ post.title }}</h3>
                         <p class="mt-2 line-clamp-3 text-sm text-muted-foreground">{{ post.excerpt }}</p>
