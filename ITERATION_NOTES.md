@@ -1,30 +1,12 @@
 # Iteration Notes
 
 ## Goal
-add vitest specs for the complex Vue components (Modal, CardGallery, BlogEditor, BlogPreview, SearchMap, DetailMap, HeroBanner, PopularRestaurants, RestaurantCardSkeleton)
+enforce code coverage thresholds in CI for both PHPUnit and vitest
 
 ## State
-Added: RestaurantCardSkeleton.spec.ts (7 tests), BlogPreview.spec.ts (11 tests), SearchMap.spec.ts (20 tests), DetailMap.spec.ts (18 tests), HeroBanner.spec.ts (18 tests), PopularRestaurants.spec.ts (33 tests), Modal.spec.ts (24 tests), CardGallery.spec.ts (39 tests), BlogEditor.spec.ts (33 tests — rendering (all 9 toolbar buttons, EditorContent, modelValue→useEditor), toolbar actions (bold/italic/headings/lists/blockquote chain calls), isActive styling (active class, attrs for headings), link handling (empty selection + prompt, link mark→unlink, non-link selection + prompt, cancelled prompts), image handling (prompt→setImage, cancelled prompt), v-model sync (emit on update, setContent on prop change, no-op when content matches), lifecycle (destroy on unmount)).
-Next: none — all 9 Goal components have spec coverage now.
-Gotchas: 
-- Link stub pattern from Blog.Index.spec.ts: `vi.mock('@inertiajs/vue3', async () => { const actual = await vi.importActual('@inertiajs/vue3'); return { ...actual, Link: { template: '<a :href="href"><slot /></a>', props: ['href'] } } })`
-- `$page.props` in templates needs `global.mocks.$page` in mount options (not mock of `usePage` alone)
-- `month: 'short'` produces abbreviated month ("Mar" not "March") in jsdom
-- Skeleton child component renders as `<div data-slot="skeleton">`
-- Leaflet dynamic import in SearchMap uses `await import('leaflet')` (module namespace, not default) — mock named exports: `vi.mock('leaflet', () => ({ map, tileLayer, divIcon, marker }))`. Also mock `leaflet/dist/leaflet.css` with empty object.
-- Mock map instance needs `removeLayer` for `clearMarkers()` called during restaurant watch.
-- Use `flushPromises()` + `$nextTick()` after mount to wait for async `onMounted` (import + map init).
-- Use `vi.useFakeTimers()` to suppress setInterval in components with slideshows
-- Modal: jsdom 29 lacks `HTMLDialogElement.prototype.showModal/close` — polyfill in beforeEach. Modal watch only fires on change, not initial mount — mount with `show: false` then `setProps({ show: true })` to test body overflow/dialog side effects. Two `.fixed.inset-0` elements (outer wrapper + backdrop); use `findAll(...)[1]` for backdrop click.
-- CardGallery: jsdom lacks `window.matchMedia` and `IntersectionObserver` — assign directly with `vi.fn(function() { ... })` (constructor-style) so `new IntersectionObserver(...)` works. Mock `useCardGallery` composable with real `ref()` objects for template unwrapping. Need `vi.useFakeTimers()` before mount to suppress animation timers.
+- **Done this iteration**: Created `.github/workflows/ci.yml` with two parallel jobs: `phpunit` (PHP 8.3 + pcov coverage, runs `php artisan test --coverage-clover`) and `vitest` (Node 20 + `@vitest/coverage-v8`, runs with 50% thresholds on all metrics). Added `@vitest/coverage-v8` to devDependencies and configured vitest coverage provider in `vitest.config.ts`. Workflow triggers on push/PR to master. Both jobs upload coverage artifacts.
+- **Next**: Add explicit coverage thresholds to `phpunit.xml` (PHPUnit 12 uses `<coverage><report>` with threshold elements, not CLI flags) and raise vitest thresholds beyond 50%. Then update the workflow to fail if thresholds aren't met.
+- **Gotchas**: PHPUnit 12 removed `--min` CLI flag for coverage — thresholds must be in phpunit.xml. pcov driver not available locally but works in CI via `shivammathur/setup-php@v2`. Vitest 4.x uses `coverage.thresholds.*` CLI flags which work fine.
 
 ## Log
-1. RestaurantCardSkeleton — 7 tests, all pass
-2. BlogPreview — 11 tests, all pass
-3. SearchMap — 20 tests, all pass
-4. DetailMap — 18 tests, all pass
-5. HeroBanner — 18 tests, all pass
-6. PopularRestaurants — 33 tests, all pass
-7. Modal — 24 tests, all pass
-8. CardGallery — 39 tests, all pass
-9. BlogEditor — 33 tests, all pass
+- Iteration 1: Created CI workflow + vitest coverage config + `@vitest/coverage-v8` dependency
