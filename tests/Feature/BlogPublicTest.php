@@ -75,6 +75,8 @@ class BlogPublicTest extends TestCase
         $response = $this->get('/')->assertOk();
 
         $html = $response->getContent();
+        $this->assertIsString($html);
+
         $featuredPos = strpos($html, 'Featured Post');
         $newerPos = strpos($html, 'Newer Regular');
         $regularPos = strpos($html, 'Regular Post');
