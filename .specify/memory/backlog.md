@@ -133,32 +133,37 @@ with a zero baseline; pint clean; CI + deploy green on master.
 with a zero baseline; pint clean; **CI enforces PHPUnit + vitest coverage thresholds**;
 CI + deploy green on master.
 
+## ✅ Done (2026-08-11 session)
+17. **Align CI PHP with production** — PR #81 (opencode-loop, 3 iterations, ALL_DONE
+    early): `php-version: '8.5'` → `'8.4'` in `ci.yml` + both steps of `deploy.yml`;
+    corrected stale `AGENTS.md` stack line (`PHP 8.3` → `PHP 8.4`). Config-only change —
+    local dev still runs 8.5, prod + CI now 8.4. CI green (both quality runs pass on 8.4);
+    deployed + live-verified (/, /api both 200).
+
+**Current floor:** 616 PHPUnit tests + 895 vitest tests; PHPStan level 8 over `app/ + tests/`
+with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP 8.4
+(matching prod)**; CI + deploy green on master.
+
 ## Next goals (in priority order)
 
-### 1. Align CI PHP with production ⬅ NEXT
-- CI runs `php-version: '8.5'` but the droplet runs `php8.4` (all artisan/fpm commands).
-  Tests pass on a different PHP than prod. Either run both in CI or upgrade the droplet.
-- **Goal:** `align the CI PHP version with production (php 8.4), or run both 8.4 and 8.5`
-- **Gate:** `composer test`
-
-### 2. User roles: admin / editor / user ⬅ (blog/admin foundation)
+### 1. User roles: admin / editor / user ⬅ NEXT
 - `users` currently has a binary `is_admin` boolean. Replace it with a `role` enum column
   (`admin` / `editor` / `user`) and migrate existing `is_admin = true` rows → `admin`.
   Update `User::isAdmin()`, `EnsureUserIsAdmin` middleware (`admin` alias), the
   `HandleInertiaRequests` auth share, and the frontend `User` type in
-  `resources/js/types/index.d.ts`. Unblocks goals 3 + 7.
+  `resources/js/types/index.d.ts`. Unblocks goals 2 + 6.
 - **Goal:** `replace the is_admin boolean with a role column (admin/editor/user) on users`
 - **Gate:** `composer test`
 
-### 3. Blog editor permissions
+### 2. Blog editor permissions
 - Give `editor`-role users blog-writing ability: CRUD their **own** posts while admins
   manage all. Guard the `/admin/blog` resource routes by role, auto-set `author_id` on
   create, and scope drafts/published queries by editor ownership. Reuses the existing
-  `Admin/Blog/Edit.vue` WYSIWYG editor. Depends on goal 2 (roles).
+  `Admin/Blog/Edit.vue` WYSIWYG editor. Depends on goal 1 (roles).
 - **Goal:** `grant blog-writing permissions to editor-role users (CRUD own posts; admins manage all)`
 - **Gate:** `composer test`
 
-### 4. Featured blog section on homepage
+### 3. Featured blog section on homepage
 - The homepage already has a subtle `BlogPreview` (latest 3 posts, "View all" → `/blog`).
   Replace it with a proper featured section: hero card for the latest post (featured
   image + excerpt) plus a grid of recent posts. Data added to `HomeController`
@@ -167,7 +172,7 @@ CI + deploy green on master.
 - **Goal:** `build a featured blog section on the homepage (hero post + grid)`
 - **Gate:** `npm run build`
 
-### 5. Blog archive page (upgrade /blog index)
+### 4. Blog archive page (upgrade /blog index)
 - Add a `category` string column to `blog_posts` (+ factory + admin editor field in
   `Admin/Blog/Edit.vue`), then upgrade the public `/blog` (`Blog/Index.vue`) into a full
   archive: month/year grouping, category filter chips, and search. If categories are
@@ -175,22 +180,22 @@ CI + deploy green on master.
 - **Goal:** `upgrade the blog index into an archive with date grouping, category filter, and search`
 - **Gate:** `composer test && npm run build`
 
-### 6. Admin dashboard basic counts
+### 5. Admin dashboard basic counts
 - Surface clear counts on `Admin/Dashboard.vue`: total restaurants, cuisines, users, and
   blog posts — alongside the existing data-quality/SerpApi/scrape cards. Backed by
   `Admin/DashboardController` (`__invoke`).
 - **Goal:** `add restaurant, cuisine, user, and blog post counts to the admin dashboard overview`
 - **Gate:** `composer test`
 
-### 7. Post-login admin landing + nav discoverability
+### 6. Post-login admin landing + nav discoverability
 - After login, redirect `admin`/`editor` users to `/admin` (dashboard) instead of the
   stub `Dashboard.vue` ("You're logged in!"), so editors land where the blog editor
   lives. Make the admin/blog links reachable from the admin nav after auth. Depends on
-  goal 2 (roles).
+  goal 1 (roles).
 - **Goal:** `redirect admin/editor users to the admin dashboard after login and make blog editing discoverable in nav`
 - **Gate:** `composer test && npm run build`
 
-### 8. Homepage nav + hero polish
+### 7. Homepage nav + hero polish
 - Adopt the `AppLayout` top nav (brand left, links right: Browse/Leaderboard/Blog +
   Favorites/Dashboard/Login, admin links when admin) on the homepage instead of the
   sparse hero-only links floating in the slideshow. Tighten the hero: `min-h-screen` →
@@ -199,7 +204,7 @@ CI + deploy green on master.
 - **Goal:** `adopt the AppLayout top nav on the homepage and tighten the hero banner while preserving the current Yelp-style design`
 - **Gate:** `npm run build`
 
-### 9. Homepage section rhythm + stats band
+### 8. Homepage section rhythm + stats band
 - Alternate section backgrounds (e.g. `bg-muted/40` bands) and consistent section
   headers (title, subtitle, "View all" CTA) across `CategoryGrid`, `PopularCuisines`,
   `PopularRestaurants`, `BlogPreview`. Add a slim stats/trust band under the hero
@@ -209,7 +214,7 @@ CI + deploy green on master.
 - **Goal:** `add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design`
 - **Gate:** `npm run build`
 
-### 10. Homepage scroll-reveal motion
+### 9. Homepage scroll-reveal motion
 - Scroll-reveal animations for homepage sections via IntersectionObserver (reuse
   `resources/css/transitions.css`), honoring `prefers-reduced-motion`. Verify no
   regressions in `resources/js/Pages/__tests__/Welcome.spec.ts` (19 cases) and no
