@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import AdminDashboard from '@/Pages/Admin/Dashboard.vue'
 
 const mockRoute = vi.fn((name: string) => {
@@ -21,12 +22,14 @@ vi.mock('@inertiajs/vue3', async () => {
 vi.mock('@lucide/vue', () => ({
     AlertCircle: { template: '<svg data-testid="alert-circle" />' },
     CheckCircle2: { template: '<svg data-testid="check-circle-2" />' },
+    ChefHat: { template: '<svg data-testid="chef-hat" />' },
     Clock: { template: '<svg data-testid="clock" />' },
     Globe: { template: '<svg data-testid="globe" />' },
     Image: { template: '<svg data-testid="image" />' },
     Loader2: { template: '<svg data-testid="loader-2" />' },
     Newspaper: { template: '<svg data-testid="newspaper" />' },
     Share2: { template: '<svg data-testid="share-2" />' },
+    Users: { template: '<svg data-testid="users" />' },
     Utensils: { template: '<svg data-testid="utensils" />' },
 }))
 
@@ -55,6 +58,13 @@ interface ScrapeHealth {
     last_social_scrape: string | null
     hours_since_social_scrape: number | null
     total_social_links: number
+}
+
+interface EntityCounts {
+    restaurants: number
+    cuisines: number
+    users: number
+    blog_posts: number
 }
 
 interface DataQuality {
@@ -90,6 +100,16 @@ function makeQuota(overrides: Partial<SerpApiQuota> = {}): SerpApiQuota {
     }
 }
 
+function makeEntityCounts(overrides: Partial<EntityCounts> = {}): EntityCounts {
+    return {
+        restaurants: 5500,
+        cuisines: 85,
+        users: 12,
+        blog_posts: 34,
+        ...overrides,
+    }
+}
+
 function makeScrapeHealth(overrides: Partial<ScrapeHealth> = {}): ScrapeHealth {
     return {
         last_social_scrape: '2025-06-15 02:00:00',
@@ -118,6 +138,7 @@ function makeDataQuality(overrides: Partial<DataQuality> = {}): DataQuality {
 function mountComponent(propsOverrides: Record<string, any> = {}) {
     return mount(AdminDashboard, {
         props: {
+            entityCounts: makeEntityCounts(),
             serpapiQuota: makeQuota(),
             scrapeHealth: makeScrapeHealth(),
             dataQuality: makeDataQuality(),
@@ -413,5 +434,46 @@ describe('Admin Dashboard page', () => {
         })
         const badges = wrapper.findAllComponents(stubs.Badge)
         expect(badges[0].props('variant')).toBe('secondary')
+    })
+
+    it('renders Overview section heading', () => {
+        const wrapper = mountComponent()
+        expect(wrapper.text()).toContain('Overview')
+    })
+
+    it('displays restaurant count in Overview', async () => {
+        const wrapper = mountComponent({
+            entityCounts: makeEntityCounts({ restaurants: 5500 }),
+        })
+        await nextTick()
+        expect(wrapper.text()).toContain('Restaurants')
+        expect(wrapper.text()).toContain('5500')
+    })
+
+    it('displays cuisine count in Overview', async () => {
+        const wrapper = mountComponent({
+            entityCounts: makeEntityCounts({ cuisines: 85 }),
+        })
+        await nextTick()
+        expect(wrapper.text()).toContain('Cuisines')
+        expect(wrapper.text()).toContain('85')
+    })
+
+    it('displays user count in Overview', async () => {
+        const wrapper = mountComponent({
+            entityCounts: makeEntityCounts({ users: 12 }),
+        })
+        await nextTick()
+        expect(wrapper.text()).toContain('Users')
+        expect(wrapper.text()).toContain('12')
+    })
+
+    it('displays blog post count in Overview', async () => {
+        const wrapper = mountComponent({
+            entityCounts: makeEntityCounts({ blog_posts: 34 }),
+        })
+        await nextTick()
+        expect(wrapper.text()).toContain('Blog Posts')
+        expect(wrapper.text()).toContain('34')
     })
 })
