@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BlogPost;
+use App\Models\User;
 use App\Services\HtmlSanitizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,11 +15,16 @@ class BlogPostController extends Controller
 {
     public function index(Request $request): Response
     {
+        $user = $request->user();
+
         $posts = BlogPost::with('author')
-            ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
-            ->latest()
-            ->paginate(20)
-            ->withQueryString();
+            ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status));
+
+        if ($user !== null && ! $user->canManageAllBlogPosts()) {
+            $posts->where('author_id', $user->id);
+        }
+
+        $posts = $posts->latest()->paginate(20)->withQueryString();
 
         return Inertia::render('Admin/Blog/Index', [
             'posts' => $posts,
@@ -55,8 +61,10 @@ class BlogPostController extends Controller
         return redirect()->route('admin.blog.index')->with('success', 'Blog post created.');
     }
 
-    public function edit(BlogPost $post): Response
+    public function edit(Request $request, BlogPost $post): Response
     {
+        $this->authorizePost($request->user(), $post);
+
         return Inertia::render('Admin/Blog/Edit', [
             'post' => $post->load('author'),
         ]);
@@ -64,6 +72,8 @@ class BlogPostController extends Controller
 
     public function update(Request $request, BlogPost $post, HtmlSanitizer $sanitizer): RedirectResponse
     {
+        $this->authorizePost($request->user(), $post);
+
         $data = $this->validated($request);
 
         $data['body'] = $sanitizer->sanitize($data['body']);
@@ -79,11 +89,25 @@ class BlogPostController extends Controller
         return redirect()->route('admin.blog.edit', $post)->with('success', 'Blog post updated.');
     }
 
-    public function destroy(BlogPost $post): RedirectResponse
+    public function destroy(Request $request, BlogPost $post): RedirectResponse
     {
+        $this->authorizePost($request->user(), $post);
+
         $post->delete();
 
         return redirect()->route('admin.blog.index')->with('success', 'Blog post deleted.');
+    }
+
+    /**
+     * Ensure the user may manage the given post.
+     *
+     * Admins manage all posts; editors manage only their own.
+     */
+    private function authorizePost(?User $user, BlogPost $post): void
+    {
+        if ($user !== null && ! $user->canManageAllBlogPosts() && $post->author_id !== $user->id) {
+            abort(403);
+        }
     }
 
     /**

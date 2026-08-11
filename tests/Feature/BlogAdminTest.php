@@ -13,22 +13,164 @@ class BlogAdminTest extends TestCase
 
     private function admin(): User
     {
-        return User::factory()->create(['role' => 'admin']);
+        return User::factory()->admin()->create();
+    }
+
+    private function editor(): User
+    {
+        return User::factory()->editor()->create();
     }
 
     public function test_non_admin_is_denied_admin_dashboard(): void
     {
-        $user = User::factory()->create(['role' => 'user']);
+        $user = User::factory()->user()->create();
 
         $this->actingAs($user)->get('/admin')->assertForbidden();
     }
 
     public function test_non_admin_is_denied_blog_admin_pages(): void
     {
-        $user = User::factory()->create(['role' => 'user']);
+        $user = User::factory()->user()->create();
 
         $this->actingAs($user)->get('/admin/blog')->assertForbidden();
         $this->actingAs($user)->get('/admin/blog/create')->assertForbidden();
+    }
+
+    public function test_editor_is_denied_admin_dashboard(): void
+    {
+        $this->actingAs($this->editor())->get('/admin')->assertForbidden();
+    }
+
+    public function test_editor_is_allowed_blog_admin_pages(): void
+    {
+        $editor = $this->editor();
+
+        $this->actingAs($editor)->get('/admin/blog')->assertOk();
+        $this->actingAs($editor)->get('/admin/blog/create')->assertOk();
+    }
+
+    public function test_editor_can_create_own_post(): void
+    {
+        $editor = $this->editor();
+
+        $this->actingAs($editor)->post('/admin/blog', [
+            'title' => 'Editor Draft',
+            'excerpt' => 'A draft by an editor.',
+            'body' => '<p>Body</p>',
+            'status' => 'draft',
+        ])->assertRedirect(route('admin.blog.index'));
+
+        $this->assertDatabaseHas('blog_posts', [
+            'title' => 'Editor Draft',
+            'author_id' => $editor->id,
+        ]);
+    }
+
+    public function test_editor_index_shows_only_own_posts(): void
+    {
+        $editor = $this->editor();
+        $other = $this->admin();
+        BlogPost::factory()->create(['author_id' => $other->id, 'title' => 'Admin Post']);
+        BlogPost::factory()->create(['author_id' => $editor->id, 'title' => 'Editor Post']);
+
+        $response = $this->actingAs($editor)->get('/admin/blog')->assertOk();
+
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/Blog/Index')
+            ->has('posts.data', 1)
+            ->where('posts.data.0.title', 'Editor Post'));
+    }
+
+    public function test_editor_can_open_edit_page_for_own_post(): void
+    {
+        $editor = $this->editor();
+        $post = BlogPost::factory()->create(['author_id' => $editor->id]);
+
+        $this->actingAs($editor)->get("/admin/blog/{$post->id}/edit")->assertOk();
+    }
+
+    public function test_editor_can_update_own_post(): void
+    {
+        $editor = $this->editor();
+        $post = BlogPost::factory()->create(['author_id' => $editor->id, 'title' => 'Original']);
+
+        $this->actingAs($editor)->put("/admin/blog/{$post->id}", [
+            'title' => 'Updated by Editor',
+            'excerpt' => 'New excerpt.',
+            'body' => '<p>New body</p>',
+            'status' => 'draft',
+        ])->assertRedirect();
+
+        $post->refresh();
+        $this->assertSame('Updated by Editor', $post->title);
+    }
+
+    public function test_editor_can_publish_own_draft(): void
+    {
+        $editor = $this->editor();
+        $post = BlogPost::factory()->draft()->create(['author_id' => $editor->id]);
+
+        $this->actingAs($editor)->put("/admin/blog/{$post->id}", [
+            'title' => $post->title,
+            'excerpt' => $post->excerpt,
+            'body' => $post->body,
+            'status' => 'published',
+        ])->assertRedirect();
+
+        $post->refresh();
+        $this->assertSame('published', $post->status);
+        $this->assertNotNull($post->published_at);
+    }
+
+    public function test_editor_can_delete_own_post(): void
+    {
+        $editor = $this->editor();
+        $post = BlogPost::factory()->create(['author_id' => $editor->id]);
+
+        $this->actingAs($editor)->delete("/admin/blog/{$post->id}")->assertRedirect();
+
+        $this->assertDatabaseMissing('blog_posts', ['id' => $post->id]);
+    }
+
+    public function test_editor_is_denied_editing_another_users_post(): void
+    {
+        $editor = $this->editor();
+        $post = BlogPost::factory()->create(['author_id' => $this->admin()->id]);
+
+        $this->actingAs($editor)->get("/admin/blog/{$post->id}/edit")->assertForbidden();
+    }
+
+    public function test_editor_is_denied_updating_another_users_post(): void
+    {
+        $editor = $this->editor();
+        $post = BlogPost::factory()->create(['author_id' => $this->admin()->id]);
+
+        $this->actingAs($editor)->put("/admin/blog/{$post->id}", [
+            'title' => 'Hijack',
+            'excerpt' => 'Hijack excerpt.',
+            'body' => '<p>Hijack</p>',
+            'status' => 'published',
+        ])->assertForbidden();
+    }
+
+    public function test_editor_is_denied_deleting_another_users_post(): void
+    {
+        $editor = $this->editor();
+        $post = BlogPost::factory()->create(['author_id' => $this->admin()->id]);
+
+        $this->actingAs($editor)->delete("/admin/blog/{$post->id}")->assertForbidden();
+
+        $this->assertDatabaseHas('blog_posts', ['id' => $post->id]);
+    }
+
+    public function test_admin_can_edit_and_delete_any_users_post(): void
+    {
+        $admin = $this->admin();
+        $post = BlogPost::factory()->create(['author_id' => $this->editor()->id]);
+
+        $this->actingAs($admin)->get("/admin/blog/{$post->id}/edit")->assertOk();
+        $this->actingAs($admin)->delete("/admin/blog/{$post->id}")->assertRedirect();
+        $this->assertDatabaseMissing('blog_posts', ['id' => $post->id]);
     }
 
     public function test_guest_is_redirected_from_admin(): void
