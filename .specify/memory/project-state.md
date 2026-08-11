@@ -2,22 +2,29 @@
 
 > Living snapshot for Claude (and humans) picking up this project. Read this
 > together with `constitution.md` and `backlog.md` at session start. Detailed
-> per-spec history lives in `history/`. Updated: 2026-08-10.
+> per-spec history lives in `history/`. Updated: 2026-08-11.
 
-## Latest (2026-08-10) — quality sprint via `opencode-loop`
-Seven PRs shipped and deployed this session (all live):
-- **#71** PHPStan **level 8** (16 loop iterations), baseline 345 → 2
-- **#72** dead-code / cruft sweep (20 loop iterations) — 57 files, +50/−1642
-- **#73** `LiveSearchService.search()` orchestration coverage (5 iterations, ALL_DONE early)
-- **#74** fix post-merge PHPStan level-8 failure (`assertIsFloat` on a cast float)
-- **#75** PHPStan level 8 **zero baseline** — deleted `phpstan-baseline.neon`
-- **#76** CI actions → Node-24 majors (checkout v5, setup-node v5, gitleaks v3) — zero annotations
-- **#77** page-level vitest for every remaining page (9 iterations, ALL_DONE early) — vitest 565 → **725**
+## Latest (2026-08-11) — coverage + blog/admin foundation via `opencode-loop`
+Five PRs shipped and deployed this session (all live-verified):
+- **#78** scheduled-command test coverage (7 loop iterations, ALL_DONE) — 7 new
+  `tests/Feature/` specs for the 7 artisan commands, PHPUnit 567 → **616** (+49). Fixed a
+  real Carbon 3 signed `diffInHours()` bug surfaced by `UptimeCanary` tests.
+- **#79** complex component vitest specs (9 iterations, ALL_DONE) — 9 new specs,
+  vitest 725 → **895** (+170). CardGallery needed `matchMedia`/`IntersectionObserver` stubs.
+- **#80** CI coverage enforcement (6 iterations, ALL_DONE) — PHPUnit clover via pcov +
+  `scripts/check-coverage.php` (stmts 50/methods 45; skips unmeasured metrics); vitest
+  `@vitest/coverage-v8` thresholds 70/65/60/70; `composer coverage`. Hand-fixed the
+  loop's split-job CI regression (restored single quality job + conventions).
+- **#81** CI PHP aligned to prod: `8.5` → `8.4` in ci.yml + deploy.yml; AGENTS.md `8.3`→`8.4`.
+- **#82** user roles foundation (4 iterations, ALL_DONE) — `is_admin` boolean → `role`
+  column (`admin`/`editor`/`user`) with data backfill; `isAdmin()` = `role === 'admin'`.
 
-**Current floor:** 567 PHPUnit + 725 vitest tests; PHPStan level 8 over `app/ + tests/`
-with a **zero baseline**; pint clean; CI + deploy green with zero annotations.
+**Current floor:** 616 PHPUnit + 895 vitest tests; PHPStan level 8 over `app/ + tests/`
+with a **zero baseline**; pint clean; **CI enforces PHPUnit + vitest coverage thresholds,
+runs PHP 8.4 (matching prod)**; users have `admin`/`editor`/`user` roles; CI + deploy
+green.
 
-**Next:** see `.specify/memory/backlog.md` (next goal = scheduled-command test coverage).
+**Next:** see `.specify/memory/backlog.md` (next goal = blog editor permissions).
 The rest of this file below is older historical context — the specs/ queue is no longer
 the work source; iteration goals come from `backlog.md`.
 
