@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { Calendar, ChevronRight } from '@lucide/vue'
+import { Calendar, ChevronRight, Search } from '@lucide/vue'
 import { useSeo } from '@/composables/useSeo'
 import { useBaseUrl } from '@/composables/useBaseUrl'
 import SeoMeta from '@/Components/SeoMeta.vue'
@@ -30,6 +30,7 @@ const props = defineProps<{
     categories: string[]
     filters: {
         category: string | null
+        search: string | null
     }
 }>()
 
@@ -79,6 +80,20 @@ const seoData = useSeo({
                     Restaurant insights, food trends, and dining guides.
                 </p>
             </header>
+
+            <form method="get" action="/blog" class="mb-8">
+                <input v-if="filters.category" type="hidden" name="category" :value="filters.category" />
+                <div class="relative max-w-md">
+                    <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                        type="text"
+                        name="search"
+                        :value="filters.search ?? ''"
+                        placeholder="Search posts…"
+                        class="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                </div>
+            </form>
 
             <nav v-if="categories.length > 0" class="mb-8 flex flex-wrap gap-2">
                 <Link
@@ -142,7 +157,8 @@ const seoData = useSeo({
             </div>
 
             <p v-else class="py-16 text-center text-muted-foreground">
-                No articles yet — check back soon.
+                <template v-if="filters.search">No posts match your search.</template>
+                <template v-else>No articles yet — check back soon.</template>
             </p>
 
             <nav v-if="posts.links.length > 3" class="mt-10 flex items-center justify-center gap-1">
