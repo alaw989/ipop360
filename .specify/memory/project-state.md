@@ -4,27 +4,41 @@
 > together with `constitution.md` and `backlog.md` at session start. Detailed
 > per-spec history lives in `history/`. Updated: 2026-08-11.
 
-## Latest (2026-08-11) — coverage + blog/admin foundation via `opencode-loop`
-Five PRs shipped and deployed this session (all live-verified):
-- **#78** scheduled-command test coverage (7 loop iterations, ALL_DONE) — 7 new
-  `tests/Feature/` specs for the 7 artisan commands, PHPUnit 567 → **616** (+49). Fixed a
-  real Carbon 3 signed `diffInHours()` bug surfaced by `UptimeCanary` tests.
-- **#79** complex component vitest specs (9 iterations, ALL_DONE) — 9 new specs,
-  vitest 725 → **895** (+170). CardGallery needed `matchMedia`/`IntersectionObserver` stubs.
-- **#80** CI coverage enforcement (6 iterations, ALL_DONE) — PHPUnit clover via pcov +
-  `scripts/check-coverage.php` (stmts 50/methods 45; skips unmeasured metrics); vitest
-  `@vitest/coverage-v8` thresholds 70/65/60/70; `composer coverage`. Hand-fixed the
-  loop's split-job CI regression (restored single quality job + conventions).
-- **#81** CI PHP aligned to prod: `8.5` → `8.4` in ci.yml + deploy.yml; AGENTS.md `8.3`→`8.4`.
-- **#82** user roles foundation (4 iterations, ALL_DONE) — `is_admin` boolean → `role`
-  column (`admin`/`editor`/`user`) with data backfill; `isAdmin()` = `role === 'admin'`.
+## Latest (2026-08-11, later) — blog foundation + search audit + loop process
+Six PRs shipped and deployed this session (all live-verified):
+- **#83** blog editor permissions — editor-role users CRUD their own posts, admins
+  manage all; `UserRole` enum (`admin`/`editor`/`user`); `EnsureUserIsAdmin` →
+  parameterized `EnsureUserHasRole` (`role:admin,editor`); ownership scoping in
+  `BlogPostController`. PHPUnit 631 (+15), vitest 937 (+9). Larastan types
+  `#[Fillable]` columns as `string` — no enum cast on `role`; use `tryFrom` compares.
+- **#84** featured blog section on the homepage (opencode-loop, 15 iters, ALL_DONE) —
+  magazine-style hero + grid in `BlogPreview.vue`; `is_featured` + `category` columns,
+  badges, author bylines. PHPUnit 646 (+15), vitest 956 (+19). Post-loop hand-fixes:
+  phpstan `assertIsString`, stray PNG cleanup.
+- **#85/#86/#87** blog archive page (opencode-loop `--pr`, 4 iters, ALL_DONE) —
+  `/blog` date grouping (month-year), `?category=` chips, `?search=` title/excerpt.
+  PHPUnit 655, vitest 968.
 
-**Current floor:** 616 PHPUnit + 895 vitest tests; PHPStan level 8 over `app/ + tests/`
+**Process change (binding):** backlog goals are ALWAYS executed via
+`opencode-loop` — never implemented directly (AGENTS.md + backlog.md). The loop now
+has a **`--pr` mode**: each iteration = own branch → PR → wait for CI-green →
+squash-merge to master. Fixed a `pr_wait_checks` bug post-run (merged before CI
+appeared; now waits 180s via `statusCheckRollup`, counts SKIPPED/NEUTRAL as green).
+
+**Search audit (diagnosed, goals queued in backlog #6–#10):** the Louisville
+jamaican search returned 0 because the SerpApi account is genuinely **exhausted**
+(429 "out of searches"; quota was assumed 250/mo but the plan is much smaller and
+failures were never counted), the Overpass name-regex fallback is broken (60s+ /
+504s on both mirrors), jamaican keywords lack bare `jerk`, and BizData is flaky
+(502, worsened by the ignored `query` param). Photon (free, ~2s, already a
+dependency) is the recommended replacement for the name fallback.
+
+**Current floor:** 655 PHPUnit + 968 vitest tests; PHPStan level 8 over `app/ + tests/`
 with a **zero baseline**; pint clean; **CI enforces PHPUnit + vitest coverage thresholds,
-runs PHP 8.4 (matching prod)**; users have `admin`/`editor`/`user` roles; CI + deploy
-green.
+runs PHP 8.4 (matching prod)**; users have `admin`/`editor`/`user` roles; blog has
+editor permissions + featured homepage section + archive index; CI + deploy green.
 
-**Next:** see `.specify/memory/backlog.md` (next goal = blog editor permissions).
+**Next:** see `.specify/memory/backlog.md` (next goal = **admin dashboard basic counts**).
 The rest of this file below is older historical context — the specs/ queue is no longer
 the work source; iteration goals come from `backlog.md`.
 
