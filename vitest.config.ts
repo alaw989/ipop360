@@ -25,5 +25,16 @@ export default defineConfig({
         include: ['resources/js/**/*.spec.ts'],
         clearMocks: true,
         restoreMocks: true,
+        coverage: {
+            provider: 'v8',
+            include: ['resources/js/**/*.{ts,vue}'],
+            exclude: ['resources/js/**/*.spec.ts', 'resources/js/**/*.d.ts'],
+            thresholds: {
+                statements: 70,
+                branches: 65,
+                functions: 60,
+                lines: 70,
+            },
+        },
     },
 });

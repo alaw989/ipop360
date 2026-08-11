@@ -1,4 +1,4 @@
-name: CI Quality Gate
+name: CI
 
 on:
   pull_request:
@@ -13,7 +13,7 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -25,6 +25,7 @@ jobs:
           php-version: '8.5'
           extensions: sqlite3, mbstring, xml, curl, bcmath, gd, zip, fileinfo
           tools: composer:v2
+          coverage: pcov
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -39,10 +40,9 @@ jobs:
         run: npm ci
 
       - name: Build frontend
+        # Produces public/build/manifest.json — the Inertia view tests assert
+        # on rendered pages and fail with "Vite manifest not found" without it.
         run: npm run build
-
-      - name: Run frontend tests (Vitest)
-        run: npm run test
 
       - name: Create empty .env for testing
         # CI has no .env (gitignored). Without it, booting the artisan kernel
@@ -52,8 +52,31 @@ jobs:
         # cp .env.example -- its empty APP_KEY= collides and breaks CSRF (419).
         run: touch .env
 
-      - name: Run tests
-        run: php artisan test
+      - name: Run tests with coverage
+        run: php artisan test --coverage-clover=coverage/phpunit.xml
+
+      - name: Enforce coverage thresholds
+        run: php scripts/check-coverage.php coverage/phpunit.xml
+
+      - name: Run frontend tests with coverage (Vitest)
+        run: npx vitest run --coverage
 
       - name: Run Pint (lint check)
         run: vendor/bin/pint --test
+
+      - name: Run PHPStan (static analysis)
+        run: ./vendor/bin/phpstan analyse
+
+      - name: Upload PHPUnit coverage artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phpunit-coverage
+          path: coverage/phpunit.xml
+
+      - name: Upload Vitest coverage artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vitest-coverage
+          path: coverage/
