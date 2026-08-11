@@ -4,8 +4,8 @@
 add vitest specs for the complex Vue components (Modal, CardGallery, BlogEditor, BlogPreview, SearchMap, DetailMap, HeroBanner, PopularRestaurants, RestaurantCardSkeleton)
 
 ## State
-Added: RestaurantCardSkeleton.spec.ts (7 tests), BlogPreview.spec.ts (11 tests), SearchMap.spec.ts (20 tests), DetailMap.spec.ts (18 tests), HeroBanner.spec.ts (18 tests), PopularRestaurants.spec.ts (33 tests), Modal.spec.ts (24 tests — render/slot visibility, default props, maxWidthClass for all 5 sizes, backdrop click close/closeable=false, Escape close when shown/not shown/non-Escape keys, body overflow toggling on show transitions, lifecycle keydown listener register+remove, dialog showModal/close methods, body overflow cleanup on unmount).
-Next: CardGallery.spec.ts or BlogEditor.spec.ts (from the remaining Goal components: CardGallery, BlogEditor)
+Added: RestaurantCardSkeleton.spec.ts (7 tests), BlogPreview.spec.ts (11 tests), SearchMap.spec.ts (20 tests), DetailMap.spec.ts (18 tests), HeroBanner.spec.ts (18 tests), PopularRestaurants.spec.ts (33 tests), Modal.spec.ts (24 tests), CardGallery.spec.ts (39 tests — rendering (gradient, scrim, hero img, slot, roundedClass, aspect), image attributes (eager/lazy, CLS dims, sizes, opacity), gallery controls visibility, chevron/tap click triggers, dots/counter, mouse events (enter/leave/move with galleryActive gating), non-hero image expansion, lifecycle (matchMedia, IntersectionObserver)).
+Next: BlogEditor.spec.ts (last remaining Goal component)
 Gotchas: 
 - Link stub pattern from Blog.Index.spec.ts: `vi.mock('@inertiajs/vue3', async () => { const actual = await vi.importActual('@inertiajs/vue3'); return { ...actual, Link: { template: '<a :href="href"><slot /></a>', props: ['href'] } } })`
 - `$page.props` in templates needs `global.mocks.$page` in mount options (not mock of `usePage` alone)
@@ -16,6 +16,7 @@ Gotchas:
 - Use `flushPromises()` + `$nextTick()` after mount to wait for async `onMounted` (import + map init).
 - Use `vi.useFakeTimers()` to suppress setInterval in components with slideshows
 - Modal: jsdom 29 lacks `HTMLDialogElement.prototype.showModal/close` — polyfill in beforeEach. Modal watch only fires on change, not initial mount — mount with `show: false` then `setProps({ show: true })` to test body overflow/dialog side effects. Two `.fixed.inset-0` elements (outer wrapper + backdrop); use `findAll(...)[1]` for backdrop click.
+- CardGallery: jsdom lacks `window.matchMedia` and `IntersectionObserver` — assign directly with `vi.fn(function() { ... })` (constructor-style) so `new IntersectionObserver(...)` works. Mock `useCardGallery` composable with real `ref()` objects for template unwrapping. Need `vi.useFakeTimers()` before mount to suppress animation timers.
 
 ## Log
 1. RestaurantCardSkeleton — 7 tests, all pass
@@ -25,3 +26,4 @@ Gotchas:
 5. HeroBanner — 18 tests, all pass
 6. PopularRestaurants — 33 tests, all pass
 7. Modal — 24 tests, all pass
+8. CardGallery — 39 tests, all pass
