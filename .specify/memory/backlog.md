@@ -115,39 +115,50 @@ with a zero baseline; pint clean; CI + deploy green on master.
 **Current floor:** 616 PHPUnit tests + 895 vitest tests; PHPStan level 8 over `app/ + tests/`
 with a zero baseline; pint clean; CI + deploy green on master.
 
+## ✅ Done (2026-08-11 session)
+16. **CI coverage enforcement** — PR #80 (opencode-loop, 6 iterations, ALL_DONE early):
+    PHPUnit coverage via pcov → `coverage/phpunit.xml` clover, enforced by
+    `scripts/check-coverage.php` (stmts 50% / methods 45%; conditionals auto-skipped —
+    pcov emits `conditionals="0"`). Vitest coverage via `@vitest/coverage-v8` with
+    thresholds 70/65/60/70 in `vitest.config.ts`. Added `composer coverage` local script.
+    Local verify: PHPUnit 76.27% stmts / 54.37% methods; vitest 72.61% stmts / 69.51%
+    branches / 65.21% funcs / 73.05% lines. **Hand-fixes after the loop:** the loop's
+    two-job split broke CI (phpunit job missing built manifest → 49 failures; vitest job
+    missing composer `vendor/` → ziggy TS2307) — restored the single quality job. Also
+    restored `checkout@v5`/`setup-node@v5` + node 22 + PHP 8.5 + `touch .env` + `npm run
+    build` (loop had regressed them), and gitignored the committed `coverage/` artifacts.
+    CI green; deployed + live-verified (/, /api both 200).
+
+**Current floor:** 616 PHPUnit tests + 895 vitest tests; PHPStan level 8 over `app/ + tests/`
+with a zero baseline; pint clean; **CI enforces PHPUnit + vitest coverage thresholds**;
+CI + deploy green on master.
+
 ## Next goals (in priority order)
 
-### 1. CI coverage enforcement ⬅ NEXT
-- `phpunit.xml` has no coverage config and CI never fails on coverage loss — the suite
-  can regress silently between PRs. Add PHPUnit (xdebug) + vitest coverage thresholds to
-  the quality gate.
-- **Goal:** `enforce code coverage thresholds in CI for both PHPUnit and vitest`
-- **Gate:** `composer test && npm run test`
-
-### 2. Align CI PHP with production
+### 1. Align CI PHP with production ⬅ NEXT
 - CI runs `php-version: '8.5'` but the droplet runs `php8.4` (all artisan/fpm commands).
   Tests pass on a different PHP than prod. Either run both in CI or upgrade the droplet.
 - **Goal:** `align the CI PHP version with production (php 8.4), or run both 8.4 and 8.5`
 - **Gate:** `composer test`
 
-### 3. User roles: admin / editor / user ⬅ (blog/admin foundation)
+### 2. User roles: admin / editor / user ⬅ (blog/admin foundation)
 - `users` currently has a binary `is_admin` boolean. Replace it with a `role` enum column
   (`admin` / `editor` / `user`) and migrate existing `is_admin = true` rows → `admin`.
   Update `User::isAdmin()`, `EnsureUserIsAdmin` middleware (`admin` alias), the
   `HandleInertiaRequests` auth share, and the frontend `User` type in
-  `resources/js/types/index.d.ts`. Unblocks goals 4 + 8.
+  `resources/js/types/index.d.ts`. Unblocks goals 3 + 7.
 - **Goal:** `replace the is_admin boolean with a role column (admin/editor/user) on users`
 - **Gate:** `composer test`
 
-### 4. Blog editor permissions
+### 3. Blog editor permissions
 - Give `editor`-role users blog-writing ability: CRUD their **own** posts while admins
   manage all. Guard the `/admin/blog` resource routes by role, auto-set `author_id` on
   create, and scope drafts/published queries by editor ownership. Reuses the existing
-  `Admin/Blog/Edit.vue` WYSIWYG editor. Depends on goal 3 (roles).
+  `Admin/Blog/Edit.vue` WYSIWYG editor. Depends on goal 2 (roles).
 - **Goal:** `grant blog-writing permissions to editor-role users (CRUD own posts; admins manage all)`
 - **Gate:** `composer test`
 
-### 5. Featured blog section on homepage
+### 4. Featured blog section on homepage
 - The homepage already has a subtle `BlogPreview` (latest 3 posts, "View all" → `/blog`).
   Replace it with a proper featured section: hero card for the latest post (featured
   image + excerpt) plus a grid of recent posts. Data added to `HomeController`
@@ -156,7 +167,7 @@ with a zero baseline; pint clean; CI + deploy green on master.
 - **Goal:** `build a featured blog section on the homepage (hero post + grid)`
 - **Gate:** `npm run build`
 
-### 6. Blog archive page (upgrade /blog index)
+### 5. Blog archive page (upgrade /blog index)
 - Add a `category` string column to `blog_posts` (+ factory + admin editor field in
   `Admin/Blog/Edit.vue`), then upgrade the public `/blog` (`Blog/Index.vue`) into a full
   archive: month/year grouping, category filter chips, and search. If categories are
@@ -164,22 +175,22 @@ with a zero baseline; pint clean; CI + deploy green on master.
 - **Goal:** `upgrade the blog index into an archive with date grouping, category filter, and search`
 - **Gate:** `composer test && npm run build`
 
-### 7. Admin dashboard basic counts
+### 6. Admin dashboard basic counts
 - Surface clear counts on `Admin/Dashboard.vue`: total restaurants, cuisines, users, and
   blog posts — alongside the existing data-quality/SerpApi/scrape cards. Backed by
   `Admin/DashboardController` (`__invoke`).
 - **Goal:** `add restaurant, cuisine, user, and blog post counts to the admin dashboard overview`
 - **Gate:** `composer test`
 
-### 8. Post-login admin landing + nav discoverability
+### 7. Post-login admin landing + nav discoverability
 - After login, redirect `admin`/`editor` users to `/admin` (dashboard) instead of the
   stub `Dashboard.vue` ("You're logged in!"), so editors land where the blog editor
   lives. Make the admin/blog links reachable from the admin nav after auth. Depends on
-  goal 3 (roles).
+  goal 2 (roles).
 - **Goal:** `redirect admin/editor users to the admin dashboard after login and make blog editing discoverable in nav`
 - **Gate:** `composer test && npm run build`
 
-### 9. Homepage nav + hero polish
+### 8. Homepage nav + hero polish
 - Adopt the `AppLayout` top nav (brand left, links right: Browse/Leaderboard/Blog +
   Favorites/Dashboard/Login, admin links when admin) on the homepage instead of the
   sparse hero-only links floating in the slideshow. Tighten the hero: `min-h-screen` →
@@ -188,7 +199,7 @@ with a zero baseline; pint clean; CI + deploy green on master.
 - **Goal:** `adopt the AppLayout top nav on the homepage and tighten the hero banner while preserving the current Yelp-style design`
 - **Gate:** `npm run build`
 
-### 10. Homepage section rhythm + stats band
+### 9. Homepage section rhythm + stats band
 - Alternate section backgrounds (e.g. `bg-muted/40` bands) and consistent section
   headers (title, subtitle, "View all" CTA) across `CategoryGrid`, `PopularCuisines`,
   `PopularRestaurants`, `BlogPreview`. Add a slim stats/trust band under the hero
@@ -198,7 +209,7 @@ with a zero baseline; pint clean; CI + deploy green on master.
 - **Goal:** `add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design`
 - **Gate:** `npm run build`
 
-### 11. Homepage scroll-reveal motion
+### 10. Homepage scroll-reveal motion
 - Scroll-reveal animations for homepage sections via IntersectionObserver (reuse
   `resources/css/transitions.css`), honoring `prefers-reduced-motion`. Verify no
   regressions in `resources/js/Pages/__tests__/Welcome.spec.ts` (19 cases) and no
