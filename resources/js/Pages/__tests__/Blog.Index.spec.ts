@@ -171,4 +171,39 @@ describe('Blog Index page', () => {
         expect(spans).toHaveLength(1)
         expect(spans[0].text()).toBe('...')
     })
+
+    it('groups posts by month and shows month headers', () => {
+        const wrapper = mountBlogIndex({
+            posts: {
+                data: [
+                    makeBlogPost({ id: 1, title: 'Jan Post', published_at: '2025-01-10T00:00:00.000000Z' }),
+                    makeBlogPost({ id: 2, title: 'Feb Post', published_at: '2025-02-15T00:00:00.000000Z' }),
+                ],
+                links: [],
+            },
+        })
+        const sections = wrapper.findAll('section')
+        expect(sections).toHaveLength(2)
+        expect(sections[0].text()).toContain('January 2025')
+        expect(sections[0].text()).toContain('Jan Post')
+        expect(sections[1].text()).toContain('February 2025')
+        expect(sections[1].text()).toContain('Feb Post')
+    })
+
+    it('merges posts from the same month into one group', () => {
+        const wrapper = mountBlogIndex({
+            posts: {
+                data: [
+                    makeBlogPost({ id: 1, title: 'First Jan Post', published_at: '2025-01-10T00:00:00.000000Z' }),
+                    makeBlogPost({ id: 2, title: 'Second Jan Post', published_at: '2025-01-20T00:00:00.000000Z' }),
+                ],
+                links: [],
+            },
+        })
+        const sections = wrapper.findAll('section')
+        expect(sections).toHaveLength(1)
+        expect(sections[0].text()).toContain('January 2025')
+        expect(sections[0].text()).toContain('First Jan Post')
+        expect(sections[0].text()).toContain('Second Jan Post')
+    })
 })
