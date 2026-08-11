@@ -4,10 +4,10 @@
 build a featured blog section on the homepage (hero post + grid)
 
 ## State
-Iteration 10: Updated HomeController blog query to `->orderBy('is_featured', 'desc')->latest('published_at')` so featured posts float to the top. Added `is_featured` to selected columns and to BlogPost interfaces in both BlogPreview.vue and Welcome.vue. Added `test_homepage_prioritizes_featured_posts` in BlogPublicTest verifying featured posts appear before non-featured in the HTML. All 639 backend + 950 frontend tests pass.
+Iteration 11: Added `is_featured` checkbox to Admin/Blog/Edit.vue (BlogPost interface, form data, and template field between category and body). `npm run build` clean; all 29 BlogAdminTest pass.
 
 ### What's next
-- Admin UI: add `is_featured` checkbox to Admin/Blog/Edit.vue, show featured badge in Admin/Blog/Index.vue.
+- Admin UI: show featured badge in Admin/Blog/Index.vue.
 - Frontend: render a "Featured" badge on hero/grid cards in BlogPreview.vue when `is_featured` is true.
 - Tests: BlogPreview.spec.ts for featured badge rendering.
 
@@ -22,3 +22,4 @@ Iteration 10: Updated HomeController blog query to `->orderBy('is_featured', 'de
 8. Added `is_featured` boolean column (default false) via migration. BlogPost model: added to `$fillable`, `$casts` (boolean), and new `featured()` scope. BlogPostFactory: default `is_featured => false` + `featured()` state. All 635 backend + 950 frontend tests pass.
 9. Added `'is_featured' => ['boolean']` to BlogPostController::validated(). Tests: defaults to false on create, can be set true on create, can be updated. All 29 BlogAdminTest pass.
 10. HomeController: `->orderBy(is_featured, desc)->latest(published_at)` on blog query, added `is_featured` to columns + both BlogPost interfaces. `test_homepage_prioritizes_featured_posts` added. All 639 backend + 950 frontend tests pass.
+11. Added `is_featured` checkbox to Admin/Blog/Edit.vue: BlogPost interface includes `is_featured: boolean`, form data defaults to `false`, checkbox rendered between category and body fields. All 29 BlogAdminTest pass; `npm run build` clean.
