@@ -4,7 +4,7 @@
 - Development must always be test driven: write or update tests first, then implement to make them pass.
 
 ## Stack
-- **Backend**: Laravel 13 + PHP 8.3
+- **Backend**: Laravel 13 + PHP 8.4
 - **Frontend**: Inertia 2 + Vue 3 + TypeScript + Tailwind 4 + Vite 8
 - **UI**: shadcn-vue (reka-nova style), lucide icons, Leaflet maps
 - **DB**: SQLite (dev/test), MySQL (prod)
