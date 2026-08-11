@@ -92,13 +92,27 @@ function formatDate(value: string | null): string {
                 class="group overflow-hidden transition-shadow hover:shadow-md"
             >
                 <Link :href="`/blog/${post.slug}`" class="block h-full">
-                    <div v-if="post.featured_image" class="aspect-video overflow-hidden bg-muted">
+                    <div class="aspect-video overflow-hidden bg-muted">
                         <img
+                            v-if="post.featured_image"
                             :src="post.featured_image"
                             :alt="post.title"
                             class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                             loading="lazy"
                         />
+                        <div
+                            v-else
+                            class="flex h-full items-center justify-center bg-gradient-to-br from-muted/50 via-muted/30 to-muted/10"
+                        >
+                            <div class="flex flex-col items-center gap-2 opacity-20">
+                                <PenLine class="h-10 w-10 text-foreground" />
+                                <div class="hidden w-20 space-y-1 sm:block">
+                                    <div class="h-0.5 w-full rounded-full bg-foreground" />
+                                    <div class="h-0.5 w-2/3 rounded-full bg-foreground" />
+                                </div>
+                            </div>
+                            <span class="sr-only">No image</span>
+                        </div>
                     </div>
                     <CardContent class="p-5">
                         <p class="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">

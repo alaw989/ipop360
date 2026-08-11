@@ -106,6 +106,16 @@ describe('BlogPreview', () => {
         expect(imgs[0].attributes('src')).toBe('/img/hero.jpg')
     })
 
+    it('renders a decorative placeholder in grid posts when no image', () => {
+        const posts = [
+            makePost({ id: 1, featured_image: '/img/hero.jpg' }),
+            makePost({ id: 2, featured_image: null, title: 'Placeholder Post' }),
+        ]
+        const wrapper = mountComponent(posts)
+        const gridPlaceholders = wrapper.findAll('.group .aspect-video .flex .opacity-20')
+        expect(gridPlaceholders).toHaveLength(1)
+    })
+
     it('renders the post title', () => {
         const wrapper = mountComponent([makePost({ title: 'My Blog Article' })])
         expect(wrapper.text()).toContain('My Blog Article')
