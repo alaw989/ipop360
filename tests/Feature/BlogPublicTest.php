@@ -64,6 +64,53 @@ class BlogPublicTest extends TestCase
             ->assertDontSee('Not On Homepage');
     }
 
+    public function test_index_can_filter_by_category(): void
+    {
+        BlogPost::factory()->create(['title' => 'Tech Article', 'category' => 'tech']);
+        BlogPost::factory()->create(['title' => 'Food Article', 'category' => 'food']);
+
+        $this->get('/blog?category=tech')
+            ->assertOk()
+            ->assertSee('Tech Article')
+            ->assertDontSee('Food Article');
+    }
+
+    public function test_index_ignores_case_in_category_filter(): void
+    {
+        BlogPost::factory()->create(['title' => 'Case Sensitive', 'category' => 'MyCategory']);
+
+        $this->get('/blog?category=mycategory')
+            ->assertOk()
+            ->assertSee('Case Sensitive');
+    }
+
+    public function test_index_passes_distinct_categories_to_view(): void
+    {
+        BlogPost::factory()->create(['category' => 'alpha']);
+        BlogPost::factory()->create(['category' => 'beta']);
+        BlogPost::factory()->create(['category' => 'alpha']); // duplicate
+
+        $response = $this->get('/blog')->assertOk();
+        $page = $response->inertiaProps();
+
+        $this->assertIsArray($page['categories']);
+        $this->assertCount(2, $page['categories']);
+        $this->assertContains('alpha', $page['categories']);
+        $this->assertContains('beta', $page['categories']);
+    }
+
+    public function test_index_excludes_null_categories_from_list(): void
+    {
+        BlogPost::factory()->create(['category' => 'only']);
+        BlogPost::factory()->create(['category' => null]);
+
+        $response = $this->get('/blog')->assertOk();
+        $page = $response->inertiaProps();
+
+        $this->assertCount(1, $page['categories']);
+        $this->assertSame('only', $page['categories'][0]);
+    }
+
     public function test_homepage_prioritizes_featured_posts(): void
     {
         Restaurant::factory()->count(3)->create();
