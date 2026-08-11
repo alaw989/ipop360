@@ -4,9 +4,9 @@
 enforce code coverage thresholds in CI for both PHPUnit and vitest
 
 ## State
-- **Done this iteration**: Added `vendor/bin/pint --test` and `./vendor/bin/phpstan analyse` as additional steps in the phpunit CI job so style + type checks gate merges alongside coverage. Fixed a pint violation in `scripts/check-coverage.php` (single_space_around_construct, concat_space, unary_operator_spaces, not_operator_with_successor_space, binary_operator_spaces) so the new pint gate passes cleanly.
-- **Next**: All CI gating steps are now wired: phpunit tests, coverage thresholds (check-coverage.php), pint style check, phpstan type analysis, vitest tests, and vitest coverage thresholds. The Goal is complete — verify end-to-end by pushing and watching a CI run succeed.
-- **Gotchas**: The artifact upload uses `if: always()` so coverage artifacts are uploaded even if preceding steps fail. Both pint and phpstan must pass before the artifact upload runs (no `if: always()` on those steps), so style/type failures block the pipeline.
+- **Done this iteration**: Fixed the vitest artifact upload path in `ci.yml` from `coverage/vitest` (a non-existent subdirectory) to `coverage/` — `@vitest/coverage-v8` outputs directly into `coverage/`, so the old path would upload nothing. Verified vitest coverage passes all thresholds locally (72.61% stmts / 69.51% branches / 65.21% funcs / 73.05% lines).
+- **Next**: The Goal is complete — push to master and watch CI pass on both jobs.
+- **Gotchas**: Both phpunit and vitest output to `coverage/` but they run in separate CI jobs (separate runners), so no conflict. The vitest artifact captures the full coverage report directory including HTML report, clover.xml, and coverage-final.json.
 
 ## Log
 - Iteration 1: Created CI workflow + vitest coverage config + `@vitest/coverage-v8` dependency

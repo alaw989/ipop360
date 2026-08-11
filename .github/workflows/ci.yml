@@ -53,4 +53,4 @@ jobs:
         if: always()
         with:
           name: vitest-coverage
-          path: coverage/vitest
+          path: coverage/
