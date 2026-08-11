@@ -72,8 +72,10 @@ interface BlogPost {
     title: string
     slug: string
     excerpt: string
+    category: string | null
     featured_image: string | null
     published_at: string | null
+    author?: { id: number; name: string } | null
 }
 
 interface HomepageData {

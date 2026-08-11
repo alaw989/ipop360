@@ -24,6 +24,7 @@ class BlogPost extends Model
         'title',
         'slug',
         'excerpt',
+        'category',
         'body',
         'featured_image',
         'status',

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
-import { ArrowRight, Calendar, PenLine, User } from '@lucide/vue'
+import { ArrowRight, Calendar, PenLine, Tag, User } from '@lucide/vue'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface BlogPost {
@@ -9,6 +9,7 @@ interface BlogPost {
     title: string
     slug: string
     excerpt: string
+    category: string | null
     featured_image: string | null
     published_at: string | null
     author?: { id: number; name: string } | null
@@ -71,6 +72,13 @@ function formatDate(value: string | null): string {
                 </div>
                 <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
                 <CardContent class="absolute inset-x-0 bottom-0 flex flex-col justify-end p-4 sm:p-6">
+                    <span
+                        v-if="heroPost.category"
+                        class="mb-2 inline-flex w-fit items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm"
+                    >
+                        <Tag class="h-3 w-3" />
+                        {{ heroPost.category }}
+                    </span>
                     <p class="mb-2 flex items-center gap-1.5 text-xs text-white/80">
                         <Calendar class="h-3.5 w-3.5" />
                         {{ formatDate(heroPost.published_at) }}
@@ -121,6 +129,13 @@ function formatDate(value: string | null): string {
                         </div>
                     </div>
                     <CardContent class="p-5">
+                        <span
+                            v-if="post.category"
+                            class="mb-2 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
+                        >
+                            <Tag class="h-3 w-3" />
+                            {{ post.category }}
+                        </span>
                         <p class="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Calendar class="h-3.5 w-3.5" />
                             {{ formatDate(post.published_at) }}

@@ -164,6 +164,31 @@ describe('BlogPreview', () => {
         expect(wrapper.text()).not.toContain('Jane Doe')
     })
 
+    it('renders the category badge on the hero post when category is set', () => {
+        const wrapper = mountComponent([makePost({ category: 'Reviews' })])
+        expect(wrapper.text()).toContain('Reviews')
+    })
+
+    it('renders the category badge on grid posts when category is set', () => {
+        const posts = [
+            makePost({ id: 1, title: 'Hero' }),
+            makePost({ id: 2, title: 'Grid', category: 'News' }),
+        ]
+        const wrapper = mountComponent(posts)
+        expect(wrapper.text()).toContain('News')
+    })
+
+    it('does not render a category badge when category is null', () => {
+        const wrapper = mountComponent([makePost({ category: null })])
+        expect(wrapper.text()).not.toContain('Reviews')
+        expect(wrapper.text()).not.toContain('News')
+    })
+
+    it('does not render a category badge when category is undefined', () => {
+        const wrapper = mountComponent([makePost({ category: undefined })])
+        expect(wrapper.text()).not.toContain('Reviews')
+    })
+
     it('links the hero card to /blog/:slug', () => {
         const wrapper = mountComponent([makePost({ slug: 'delicious-tacos' })])
         const link = wrapper.find('a[href="/blog/delicious-tacos"]')

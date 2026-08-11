@@ -20,6 +20,7 @@ class BlogPostFactory extends Factory
             'title' => $title,
             'slug' => Str::slug($title).'-'.Str::random(5),
             'excerpt' => fake()->paragraph(),
+            'category' => fake()->optional()->word(),
             'body' => '<h2>'.fake()->sentence().'</h2><p>'.fake()->paragraphs(3, true).'</p>',
             'featured_image' => fake()->optional()->imageUrl(),
             'status' => 'published',
