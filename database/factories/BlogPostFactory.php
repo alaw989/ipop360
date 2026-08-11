@@ -21,6 +21,7 @@ class BlogPostFactory extends Factory
             'slug' => Str::slug($title).'-'.Str::random(5),
             'excerpt' => fake()->paragraph(),
             'category' => fake()->optional()->word(),
+            'is_featured' => false,
             'body' => '<h2>'.fake()->sentence().'</h2><p>'.fake()->paragraphs(3, true).'</p>',
             'featured_image' => fake()->optional()->imageUrl(),
             'status' => 'published',
@@ -33,6 +34,13 @@ class BlogPostFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'status' => 'draft',
             'published_at' => null,
+        ]);
+    }
+
+    public function featured(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_featured' => true,
         ]);
     }
 }

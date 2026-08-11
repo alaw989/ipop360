@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
  * @property-read User $author
  *
  * @method static Builder|BlogPost published()
+ * @method static Builder|BlogPost featured()
  */
 class BlogPost extends Model
 {
@@ -25,6 +26,7 @@ class BlogPost extends Model
         'slug',
         'excerpt',
         'category',
+        'is_featured',
         'body',
         'featured_image',
         'status',
@@ -33,6 +35,7 @@ class BlogPost extends Model
 
     protected $casts = [
         'published_at' => 'datetime',
+        'is_featured' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -70,6 +73,15 @@ class BlogPost extends Model
     public function scopeDraft(Builder $query): Builder
     {
         return $query->where('status', 'draft');
+    }
+
+    /**
+     * @param  Builder<BlogPost>  $query
+     * @return Builder<BlogPost>
+     */
+    public function scopeFeatured(Builder $query): Builder
+    {
+        return $query->where('is_featured', true);
     }
 
     public function publish(): void
