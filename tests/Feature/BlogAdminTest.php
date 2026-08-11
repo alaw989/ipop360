@@ -13,19 +13,19 @@ class BlogAdminTest extends TestCase
 
     private function admin(): User
     {
-        return User::factory()->create(['is_admin' => true]);
+        return User::factory()->create(['role' => 'admin']);
     }
 
     public function test_non_admin_is_denied_admin_dashboard(): void
     {
-        $user = User::factory()->create(['is_admin' => false]);
+        $user = User::factory()->create(['role' => 'user']);
 
         $this->actingAs($user)->get('/admin')->assertForbidden();
     }
 
     public function test_non_admin_is_denied_blog_admin_pages(): void
     {
-        $user = User::factory()->create(['is_admin' => false]);
+        $user = User::factory()->create(['role' => 'user']);
 
         $this->actingAs($user)->get('/admin/blog')->assertForbidden();
         $this->actingAs($user)->get('/admin/blog/create')->assertForbidden();

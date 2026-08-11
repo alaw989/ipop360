@@ -1,17 +1,19 @@
 # Iteration Notes
 
 ## Goal
-align the CI PHP version with production (php 8.4), or run both 8.4 and 8.5
+replace the is_admin boolean with a role column (admin/editor/user) on users
 
 ## State
-Changed deploy.yml PHP versions from 8.5 → 8.4 in both the quality gate step
-and the deploy step. CI and Deploy workflows now both use 8.4 (matching prod).
-
-CI (ci.yml + deploy.yml) now uses PHP 8.4. AGENTS.md stack line updated to 8.4.
-Goal achieved — no remaining PHP version mismatches.
+- **Done**: Created migration `2026_08_10_000001_add_role_to_users_table.php` — adds `role` column (string, default 'user') to users table, migrates existing `is_admin = true` rows to `role = 'admin'`. Migration runs cleanly, all 10 BlogAdminTest + full suite passes.
+- **Done**: Updated User model — `#[Fillable]` now uses `'role'` instead of `'is_admin'`, removed boolean cast, `isAdmin()` now checks `$this->role === 'admin'`.
+- **Done**: Updated UserFactory — added `'role' => 'user'` to default state. Updated BlogAdminTest — uses `['role' => 'admin']` and `['role' => 'user']` instead of `['is_admin' => true/false]`.
+- **Done**: Hid `is_admin` from User model serialization (`#[Hidden]` attribute), updated `AuthenticatedLayout.vue` to use `role === 'admin'` instead of `is_admin === true`, updated `types/index.d.ts` to use `role?: string` instead of `is_admin?: boolean`.
+- **Done**: Created migration `2026_08_11_000001_drop_is_admin_from_users_table.php` — drops the `is_admin` column from users table. Removed `is_admin` from `#[Hidden]` attribute on User model (no longer needed since the column is gone). Zero remaining `is_admin` references in `app/` directory.
+- **Next**: None — the goal is fully achieved. `is_admin` is replaced by `role` (admin/editor/user) everywhere: DB, model, factory, tests, frontend, types, middleware.
+- **Gotchas**: None.
 
 ## Log
-- Iteration 1: Changed `.github/workflows/ci.yml` php-version from 8.5 → 8.4.
-- Iteration 2: Changed `.github/workflows/deploy.yml` php-version from 8.5 → 8.4
-  (both quality gate and deploy steps).
-- Iteration 3: Updated AGENTS.md stack line from PHP 8.3 → 8.4.
+1. Added `role` column migration + data migration from `is_admin`
+2. Updated User model, factory, and BlogAdminTest to use `role` instead of `is_admin`
+3. Hid `is_admin` from User serialization, updated AuthenticatedLayout.vue + types/index.d.ts to use `role`
+4. Dropped `is_admin` column via migration, removed from `#[Hidden]` attribute — full replacement complete

@@ -10,7 +10,7 @@ import { Link } from '@inertiajs/vue3';
 
 const showingNavigationDropdown = ref(false);
 
-const isAdmin = computed(() => usePage().props.auth?.user?.is_admin === true);
+const isAdmin = computed(() => usePage().props.auth?.user?.role === 'admin');
 </script>
 
 <template>
