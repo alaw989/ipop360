@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\BlogPost;
 use App\Models\Cuisine;
 use App\Models\CuisineCategory;
 use App\Models\Restaurant;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -80,6 +82,7 @@ class HomeControllerTest extends TestCase
             'categories',
             'popularCuisines',
             'popularRestaurants',
+            'latestPosts',
             'location',
         ]);
         $response->assertJsonCount(1, 'categories');
@@ -172,5 +175,115 @@ class HomeControllerTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertJsonCount(1, 'categories');
+    }
+
+    public function test_landing_page_passes_latest_posts(): void
+    {
+        $user = User::factory()->create(['name' => 'Alice']);
+        $post = BlogPost::factory()->create([
+            'title' => 'Best Tacos in Austin',
+            'slug' => 'best-tacos-in-austin',
+            'excerpt' => 'A guide to the top taco spots.',
+            'category' => 'Food Guides',
+            'is_featured' => true,
+            'author_id' => $user->id,
+        ]);
+
+        $response = $this->get('/');
+
+        $response->assertInertia(fn ($page) => $page
+            ->has('latestPosts', 1)
+            ->where('latestPosts.0.id', $post->id)
+            ->where('latestPosts.0.title', 'Best Tacos in Austin')
+            ->where('latestPosts.0.slug', 'best-tacos-in-austin')
+            ->where('latestPosts.0.excerpt', 'A guide to the top taco spots.')
+            ->where('latestPosts.0.category', 'Food Guides')
+            ->where('latestPosts.0.is_featured', true)
+            ->where('latestPosts.0.author.name', 'Alice')
+        );
+    }
+
+    public function test_landing_page_excludes_draft_posts(): void
+    {
+        BlogPost::factory()->create(['title' => 'Visible Post']);
+        BlogPost::factory()->draft()->create(['title' => 'Hidden Draft']);
+
+        $response = $this->get('/');
+
+        $response->assertInertia(fn ($page) => $page
+            ->has('latestPosts', 1)
+            ->where('latestPosts.0.title', 'Visible Post')
+        );
+    }
+
+    public function test_landing_page_orders_featured_posts_first(): void
+    {
+        BlogPost::factory()->create([
+            'title' => 'Regular Post',
+            'is_featured' => false,
+        ]);
+        BlogPost::factory()->create([
+            'title' => 'Featured Post',
+            'is_featured' => true,
+        ]);
+
+        $response = $this->get('/');
+
+        $response->assertInertia(fn ($page) => $page
+            ->has('latestPosts', 2)
+            ->where('latestPosts.0.title', 'Featured Post')
+            ->where('latestPosts.1.title', 'Regular Post')
+        );
+    }
+
+    public function test_landing_page_limits_to_three_posts(): void
+    {
+        BlogPost::factory()->count(5)->create();
+
+        $response = $this->get('/');
+
+        $response->assertInertia(fn ($page) => $page
+            ->has('latestPosts', 3)
+        );
+    }
+
+    public function test_api_data_includes_latest_posts(): void
+    {
+        $user = User::factory()->create(['name' => 'Bob']);
+        BlogPost::factory()->create([
+            'title' => 'API Post',
+            'slug' => 'api-post',
+            'author_id' => $user->id,
+        ]);
+
+        $response = $this->getJson('/api/homepage-data');
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'latestPosts' => [
+                    ['id', 'title', 'slug', 'excerpt', 'category', 'featured_image', 'published_at', 'is_featured', 'author'],
+                ],
+            ])
+            ->assertJsonCount(1, 'latestPosts')
+            ->assertJsonPath('latestPosts.0.title', 'API Post')
+            ->assertJsonPath('latestPosts.0.author.name', 'Bob');
+    }
+
+    public function test_landing_page_handles_no_posts(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->has('latestPosts', 0)
+        );
+    }
+
+    public function test_api_data_handles_no_posts(): void
+    {
+        $response = $this->getJson('/api/homepage-data');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(0, 'latestPosts');
     }
 }

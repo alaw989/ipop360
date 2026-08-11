@@ -4,10 +4,10 @@
 build a featured blog section on the homepage (hero post + grid)
 
 ## State
-Iteration 13: Added "Featured" badge to BlogPreview.vue hero and grid cards. Hero: amber-400/90 filled Star + "Featured" text, amber-950 on translucent bg. Grid: amber-100 bg with amber-800 text. Both use `Star` icon with `fill-current`. Badge wraps in a flex div with category badge for side-by-side layout. 4 new vitest tests (hero shows/hides, grid shows/hides). All 956 frontend tests pass; `npm run build` clean.
+Iteration 14: Added 7 backend feature tests for homepage blog post flow (HomeControllerTest). Covers: passes latestPosts with full structure (id, title, slug, excerpt, category, featured_image, published_at, is_featured, author name), excludes drafts, orders featured first, limits to 3, API endpoint includes latestPosts, handles zero posts (SSR + API). Also added `latestPosts` to existing API jsonStructure assertion. All 646 backend + 956 frontend tests pass; pint clean; `npm run build` passes.
 
 ### What's next
-- The blog section on the homepage is functionally complete. Verify the full flow end-to-end: create a featured post in admin, confirm it appears with badge on homepage. Check mobile responsiveness.
+- Verify mobile responsiveness of the blog section visually (browser check). Then the featured blog section is complete.
 
 ## Log
 1. Rewrote `BlogPreview.vue` hero section: overlay layout with `absolute inset-0` image, gradient overlay, and white text positioned at bottom via `absolute inset-x-0 bottom-0`. aspect-video on mobile, sm:aspect-[21/9] for wider screens.
@@ -22,3 +22,5 @@ Iteration 13: Added "Featured" badge to BlogPreview.vue hero and grid cards. Her
 10. HomeController: `->orderBy(is_featured, desc)->latest(published_at)` on blog query, added `is_featured` to columns + both BlogPost interfaces. `test_homepage_prioritizes_featured_posts` added. All 639 backend + 950 frontend tests pass.
 11. Added `is_featured` checkbox to Admin/Blog/Edit.vue: BlogPost interface includes `is_featured: boolean`, form data defaults to `false`, checkbox rendered between category and body fields. All 29 BlogAdminTest pass; `npm run build` clean.
 12. Added "Featured" badge column to Admin/Blog/Index.vue: BlogPost interface includes `is_featured`, table header + cell with Badge ("Featured" when true, em dash when false). 2 new vitest tests. All 952 frontend tests pass; `npm run build` clean.
+13. Added "Featured" badge to BlogPreview.vue hero and grid cards. Hero: amber-400/90 filled Star + "Featured" text, amber-950 on translucent bg. Grid: amber-100 bg with amber-800 text. Both use `Star` icon with `fill-current`. Badge wraps in a flex div with category badge for side-by-side layout. 4 new vitest tests (hero shows/hides, grid shows/hides). All 956 frontend tests pass; `npm run build` clean.
+14. Added 7 backend feature tests for homepage blog post flow (HomeControllerTest): passes latestPosts with full structure, excludes drafts, orders featured first, limits to 3, API endpoint includes latestPosts, handles zero posts (SSR + API). Updated existing API jsonStructure to include latestPosts. All 646 backend + 956 frontend tests pass; pint clean; `npm run build` clean.
