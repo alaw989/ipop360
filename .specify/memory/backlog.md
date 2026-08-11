@@ -199,18 +199,28 @@ with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP
 **users have admin/editor/user roles; editors CRUD their own blog posts**;
 CI + deploy green on master.
 
+## ✅ Done (2026-08-11 session)
+20. **Featured blog section on homepage** — PR #84 (opencode-loop, **15 iterations,
+    ALL_DONE on iter 15**): `BlogPreview.vue` rewritten to a magazine-style hero
+    (latest post: full-bleed 21:9 image, gradient overlay, white text, excerpt,
+    "Read more") + 2-column grid. Added `is_featured` (column + admin checkbox +
+    amber badge; featured sorts first) and nullable `category` (column + admin field +
+    pill badge). Author bylines eager-loaded. `HomeController` homepage data now
+    includes latest posts (featured-first, limit 3); `/api/homepage-data` trimmed.
+    PHPUnit 631 → **646** (+15), vitest 937 → **956** (+19). Post-loop hand-fixes:
+    phpstan `assertIsString` in BlogPublicTest (3 errors), removed a stray
+    `blog-mobile-375.png` the agent committed. Deployed + live-verified behaviorally
+    (temp-published a post on prod → hero + Featured badge + byline render; section
+    hides correctly when no published posts).
+
+**Current floor:** 646 PHPUnit tests + 956 vitest tests; PHPStan level 8 over `app/ + tests/`
+with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP 8.4**;
+**users have admin/editor/user roles; editors CRUD their own blog posts; homepage has a
+featured blog section**; CI + deploy green on master.
+
 ## Next goals (in priority order)
 
-### 1. Featured blog section on homepage ⬅ NEXT
-- The homepage already has a subtle `BlogPreview` (latest 3 posts, "View all" → `/blog`).
-  Replace it with a proper featured section: hero card for the latest post (featured
-  image + excerpt) plus a grid of recent posts. Data added to `HomeController`
-  (`getHomepageData()` + `/api/homepage-data`). Component: `resources/js/Components/BlogPreview.vue`,
-  wired into `Pages/Welcome.vue`.
-- **Goal:** `build a featured blog section on the homepage (hero post + grid)`
-- **Gate:** `npm run build`
-
-### 2. Blog archive page (upgrade /blog index)
+### 1. Blog archive page (upgrade /blog index) ⬅ NEXT
 - Add a `category` string column to `blog_posts` (+ factory + admin editor field in
   `Admin/Blog/Edit.vue`), then upgrade the public `/blog` (`Blog/Index.vue`) into a full
   archive: month/year grouping, category filter chips, and search. If categories are
@@ -218,14 +228,14 @@ CI + deploy green on master.
 - **Goal:** `upgrade the blog index into an archive with date grouping, category filter, and search`
 - **Gate:** `composer test && npm run build`
 
-### 3. Admin dashboard basic counts
+### 2. Admin dashboard basic counts
 - Surface clear counts on `Admin/Dashboard.vue`: total restaurants, cuisines, users, and
   blog posts — alongside the existing data-quality/SerpApi/scrape cards. Backed by
   `Admin/DashboardController` (`__invoke`).
 - **Goal:** `add restaurant, cuisine, user, and blog post counts to the admin dashboard overview`
 - **Gate:** `composer test`
 
-### 4. Post-login admin landing + nav discoverability
+### 3. Post-login admin landing + nav discoverability
 - After login, redirect `admin`/`editor` users to `/admin` (dashboard) instead of the
   stub `Dashboard.vue` ("You're logged in!"), so editors land where the blog editor
   lives. Make the admin/blog links reachable from the admin nav after auth. Roles
@@ -233,7 +243,7 @@ CI + deploy green on master.
 - **Goal:** `redirect admin/editor users to the admin dashboard after login and make blog editing discoverable in nav`
 - **Gate:** `composer test && npm run build`
 
-### 5. Homepage nav + hero polish
+### 4. Homepage nav + hero polish
 - Adopt the `AppLayout` top nav (brand left, links right: Browse/Leaderboard/Blog +
   Favorites/Dashboard/Login, admin links when admin) on the homepage instead of the
   sparse hero-only links floating in the slideshow. Tighten the hero: `min-h-screen` →
@@ -242,7 +252,7 @@ CI + deploy green on master.
 - **Goal:** `adopt the AppLayout top nav on the homepage and tighten the hero banner while preserving the current Yelp-style design`
 - **Gate:** `npm run build`
 
-### 6. Homepage section rhythm + stats band
+### 5. Homepage section rhythm + stats band
 - Alternate section backgrounds (e.g. `bg-muted/40` bands) and consistent section
   headers (title, subtitle, "View all" CTA) across `CategoryGrid`, `PopularCuisines`,
   `PopularRestaurants`, `BlogPreview`. Add a slim stats/trust band under the hero
@@ -252,7 +262,7 @@ CI + deploy green on master.
 - **Goal:** `add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design`
 - **Gate:** `npm run build`
 
-### 7. Homepage scroll-reveal motion
+### 6. Homepage scroll-reveal motion
 - Scroll-reveal animations for homepage sections via IntersectionObserver (reuse
   `resources/css/transitions.css`), honoring `prefers-reduced-motion`. Verify no
   regressions in `resources/js/Pages/__tests__/Welcome.spec.ts` (19 cases) and no
@@ -260,7 +270,7 @@ CI + deploy green on master.
 - **Goal:** `add prefers-reduced-motion-aware scroll-reveal animations to homepage sections`
 - **Gate:** `npm run build`
 
-### 8. SerpApi quota honesty
+### 7. SerpApi quota honesty
 - **Audit finding:** the SerpApi account is genuinely exhausted (429 "out of
   searches") but the app assumes a 250/mo quota, counts only SUCCESSFUL cached
   calls (failures never counted → the 80% circuit breaker at 200 never trips),
@@ -273,7 +283,7 @@ CI + deploy green on master.
 - **Goal:** `make SerpApi quota accounting honest — count all calls incl. failures, trip the circuit breaker early, and honor provider exhaustion on every failure path`
 - **Gate:** `composer test`
 
-### 9. Photon venue source
+### 8. Photon venue source
 - **Audit finding:** the Overpass name-regex fallback is broken (takes 60s+ /
   504s on both mirrors — too heavy for Overpass) and its keyword regex wouldn't
   match real names like "Jerk Pit". Add a free `PhotonVenueService` (geo-bias +
@@ -283,7 +293,7 @@ CI + deploy green on master.
 - **Goal:** `add a free Photon venue source to the live search and remove the broken Overpass name-regex fallback`
 - **Gate:** `composer test`
 
-### 10. Cuisine keyword lexicon fix
+### 9. Cuisine keyword lexicon fix
 - **Audit finding:** jamaican keywords are `jerk.chicken|jerk.pork|jerk.sauce`
   (dotted dish names) — no bare `jerk`, so "Jerk Pit" / "Jerk House Caribbean"
   never match the cuisine and get mis-classified/dropped. Add bare name tokens
@@ -292,7 +302,7 @@ CI + deploy green on master.
 - **Goal:** `fix the jamaican/caribbean cuisine keywords so real venue names like "Jerk Pit" match`
 - **Gate:** `composer test`
 
-### 11. Live-first search page
+### 10. Live-first search page
 - **Audit finding:** `/search` queries the DB, then on empty dispatches an async
   `EnrichSearchResults` job and returns a spinner — an 8×4s poll gamble that ends
   in a bare empty when live sources are thin. Make `/search` run the free-source
@@ -303,7 +313,7 @@ CI + deploy green on master.
 - **Goal:** `make the search page run a live search immediately when the DB has no results and show an honest empty state`
 - **Gate:** `composer test && npm run build`
 
-### 12. BizData resilience
+### 11. BizData resilience
 - **Audit finding:** BizData's upstream is flaky (intermittent 502 "fetch
   failed") and passing the ignored `query` param (always sent on scoped
   searches) can itself trigger the 502. Stop sending `query`; add a bounded
