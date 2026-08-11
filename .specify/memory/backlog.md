@@ -91,17 +91,22 @@ with a **zero baseline**; pint clean; CI + deploy green on master.
     workflows. Eliminates the "Node.js 20 is deprecated" Actions annotation — quality +
     deploy now run with zero annotations. CI green before merge; deployed + live (200).
 
+## ✅ Done (2026-08-10 session, continued)
+14. **Scheduled-command test coverage** — PR #78 (opencode-loop, 7 iterations, ALL_DONE
+    early): 7 new `tests/Feature/` specs — UpdateEngagement (4), GarbageCollectApiCache
+    (5), GenerateSitemap (6), ScoreRestaurants (5), UptimeCanary (6), ScrapeRestaurantSocialLinks
+    (11), VerifyRestaurantWebsites (12). PHPUnit 567 → **616** (+49). Also fixed a real Carbon 3
+    signed `diffInHours()` bug in `UptimeCanary`. Post-loop caught 20 PHPStan level-8 errors
+    (CI quality gate) in the new specs — fixed (PendingCommand union, `file_get_contents`
+    `string|false`, `fresh()` null, iterable type). CI green; deployed + live-verified
+    (/, /api both 200).
+
+**Current floor:** 616 PHPUnit tests + 725 vitest tests; PHPStan level 8 over `app/ + tests/`
+with a zero baseline; pint clean; CI + deploy green on master.
+
 ## Next goals (in priority order)
 
-### 1. Scheduled-command test coverage ⬅ NEXT
-- 7 artisan commands run daily/weekly in production but have **zero test references**:
-  `restaurants:update-engagement`, `seo:sitemap`, `restaurants:score`,
-  `uptime:canary`, `restaurants:scrape-social`, `apicache:gc`,
-  `restaurants:verify-websites`. All scheduled in `routes/console.php`; none tested.
-- **Goal:** `add unit coverage for the 7 scheduled artisan commands (UpdateEngagement, GenerateSitemap, ScoreRestaurants, UptimeCanary, ScrapeRestaurantSocialLinks, GarbageCollectApiCache, VerifyRestaurantWebsites)`
-- **Gate:** `composer test`
-
-### 2. Complex component vitest specs
+### 1. Complex component vitest specs ⬅ NEXT
 - 9 non-trivial Vue components still lack specs: `Modal`, `CardGallery`, `BlogEditor`,
   `BlogPreview`, `SearchMap`, `DetailMap`, `HeroBanner`, `PopularRestaurants`,
   `RestaurantCardSkeleton` (thin primitives like `InputLabel`/`BrandLogo` are not worth it).
