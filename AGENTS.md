@@ -150,13 +150,13 @@ To recover:
 
 ## Backlog workflow (binding)
 - Backlog goals (`.specify/memory/backlog.md`) are implemented EXCLUSIVELY via
-  `opencode-loop` — never implement a backlog goal directly. Start the loop on a
-  feature branch per the recipe in `backlog.md`, monitor
-  `logs/opencode-loop-<slug>.out`, then finish with the post-loop gates → PR →
-  merge → deploy → live-verify.
+  `opencode-loop` — never implement a backlog goal directly. Run the loop in
+  per-iteration PR mode (`--pr`) from master: each iteration ships as its own
+  branch → PR → CI-green → squash-merge, so master updates only via merged PRs.
+  Monitor `logs/opencode-loop-<slug>.out`, then finish with a live-verify.
 - Docs-only edits (memory bank, `history/`, `ITERATION_NOTES.md`, backlog
-  mark-done/renumbering) and the post-loop PR/merge/deploy/verify steps are done
-  directly — they are not loop work.
+  mark-done/renumbering) and the legacy-mode post-loop PR/merge/deploy/verify
+  steps are done directly — they are not loop work.
 
 ## PR workflow (binding)
 - Never push directly to master. Always PR.

@@ -8,22 +8,32 @@
 >
 > The loop lives at `~/.local/bin/opencode-loop` (globally installed).
 >
-> Loop recipe (proven across 5 shipped PRs):
+> Loop recipe — **per-iteration PR mode** (`--pr`; each iteration ships as its own
+> branch → PR → all-checks-pass → squash-merge, so master updates only via merged
+> PRs). Run from master (the base branch); the loop creates the per-iteration
+> branches itself:
 > ```bash
-> # create a feature branch first (loop refuses master/main/develop)
-> git checkout master && git pull origin master && git checkout -b feat/<goal-slug>
+> git checkout master && git pull origin master
 > setsid nohup opencode-loop 20 --goal "<goal text>" \
->   --check "<gate>" --model opencode-go/deepseek-v4-pro \
+>   --check "<gate>" --pr --model opencode-go/deepseek-v4-pro \
 >   > logs/opencode-loop-<slug>.out 2>&1 < /dev/null &
 > ```
+> Legacy single-branch mode (one pre-created `feat/<goal-slug>` branch, one PR per
+> goal, manual merge) still exists for interactive runs: create the branch, drop
+> `--pr`, finish with a manual PR. `--pr` requires the `gh` CLI and is the default
+> for backlog work.
+>
 > Then monitor `logs/opencode-loop-<slug>.out` (tail + grep the emoji status
-> lines). When the loop signals done: run `pint`, `composer test`, `npm run build`,
-> push, PR, merge, verify live — then mark the item ✅ here.
+> lines). In `--pr` mode the loop runs `pint`/`composer test`/`npm run build` via
+> `--check` and waits for CI green on every PR before merging — the post-loop gate
+> shrinks to a final live-verify. In legacy mode, run the gates yourself after the
+> loop signals done, then push, PR, merge, verify live — and mark the item ✅ here.
 >
 > **NOT loop work** (done directly, no loop): docs/memory-bank edits (this file,
 > `.specify/memory/history/`, `ITERATION_NOTES.md`), backlog mark-done/renumbering,
-> and the post-loop gates → PR → merge → deploy → verify steps. Any code change
-> that implements a backlog goal goes through the loop.
+> the legacy-mode post-loop gates → PR → merge → deploy → verify steps, and the
+> live-verify after a `--pr` run. Any code change that implements a backlog goal
+> goes through the loop.
 
 ---
 
