@@ -175,6 +175,33 @@ with a zero baseline; pint clean; CI + deploy green on master.
 - **Goal:** `redirect admin/editor users to the admin dashboard after login and make blog editing discoverable in nav`
 - **Gate:** `composer test && npm run build`
 
+### 10. Homepage nav + hero polish
+- Adopt the `AppLayout` top nav (brand left, links right: Browse/Leaderboard/Blog +
+  Favorites/Dashboard/Login, admin links when admin) on the homepage instead of the
+  sparse hero-only links floating in the slideshow. Tighten the hero: `min-h-screen` →
+  `min-h-[80vh]`, make the logo a home link. **No city quick-chips** (declined). Keeps
+  the Yelp-style look — polish, not redesign.
+- **Goal:** `adopt the AppLayout top nav on the homepage and tighten the hero banner while preserving the current Yelp-style design`
+- **Gate:** `npm run build`
+
+### 11. Homepage section rhythm + stats band
+- Alternate section backgrounds (e.g. `bg-muted/40` bands) and consistent section
+  headers (title, subtitle, "View all" CTA) across `CategoryGrid`, `PopularCuisines`,
+  `PopularRestaurants`, `BlogPreview`. Add a slim stats/trust band under the hero
+  ("X restaurants · Y cuisines · Z cities") from `HomeController` data. Upgrade the
+  `PopularCuisines` text list → clickable pill chips with counts, and add per-category
+  counts to `CategoryGrid`. Preserves Yelp-style look (gentle tone alternation + chips).
+- **Goal:** `add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design`
+- **Gate:** `npm run build`
+
+### 12. Homepage scroll-reveal motion
+- Scroll-reveal animations for homepage sections via IntersectionObserver (reuse
+  `resources/css/transitions.css`), honoring `prefers-reduced-motion`. Verify no
+  regressions in `resources/js/Pages/__tests__/Welcome.spec.ts` (19 cases) and no
+  overflow/layout shift.
+- **Goal:** `add prefers-reduced-motion-aware scroll-reveal animations to homepage sections`
+- **Gate:** `npm run build`
+
 ---
 
 ## Getting started (for the next session)
