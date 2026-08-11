@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -36,7 +37,31 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return UserRole::tryFrom($this->role) === UserRole::Admin;
+    }
+
+    /**
+     * Determine whether the user is an editor.
+     */
+    public function isEditor(): bool
+    {
+        return UserRole::tryFrom($this->role) === UserRole::Editor;
+    }
+
+    /**
+     * Determine whether the user may manage blog posts.
+     */
+    public function canManageBlog(): bool
+    {
+        return UserRole::tryFrom($this->role)?->canManageBlog() ?? false;
+    }
+
+    /**
+     * Determine whether the user may manage every blog post (vs only their own).
+     */
+    public function canManageAllBlogPosts(): bool
+    {
+        return UserRole::tryFrom($this->role)?->canManageAllBlogPosts() ?? false;
     }
 
     /**

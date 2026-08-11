@@ -14,7 +14,9 @@ const mockRoute = vi.fn((name: string, params?: any) => {
 })
 
 const { mockUsePage } = vi.hoisted(() => ({
-    mockUsePage: vi.fn(() => ({ props: {} })),
+    mockUsePage: vi.fn(() => ({
+        props: { auth: { user: { id: 1, name: 'Admin User', role: 'admin' } } },
+    })),
 }))
 
 vi.mock('@inertiajs/vue3', async () => {
@@ -49,6 +51,7 @@ const stubs = {
 
 interface BlogPost {
     id: number
+    author_id: number | null
     title: string
     slug: string
     excerpt: string
@@ -61,6 +64,7 @@ interface BlogPost {
 function makePost(overrides: Partial<BlogPost> = {}): BlogPost {
     return {
         id: 1,
+        author_id: 1,
         title: 'Test Blog Post',
         slug: 'test-blog-post',
         excerpt: 'Test excerpt',
@@ -97,6 +101,9 @@ function mountComponent(propsOverrides: Record<string, any> = {}) {
 describe('Admin Blog Index page', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mockUsePage.mockReturnValue({
+            props: { auth: { user: { id: 1, name: 'Admin User', role: 'admin' } } },
+        })
     })
 
     it('renders the page heading', () => {
@@ -319,5 +326,61 @@ describe('Admin Blog Index page', () => {
         mockUsePage.mockReturnValue({ props: {} })
         const wrapper = mountComponent()
         expect(wrapper.find('.bg-emerald-50').exists()).toBe(false)
+    })
+
+    it('shows Edit and Delete for own posts when current user is an editor', () => {
+        mockUsePage.mockReturnValue({
+            props: { auth: { user: { id: 7, name: 'Editor User', role: 'editor' } } },
+        })
+        const wrapper = mountComponent({
+            posts: {
+                data: [makePost({ id: 10, author_id: 7 })],
+                links: [],
+                total: 1,
+            },
+        })
+        expect(wrapper.find('a[href="/admin/blog/10/edit"]').exists()).toBe(true)
+        expect(wrapper.find('button[title="Delete"]').exists()).toBe(true)
+    })
+
+    it('hides Edit and Delete for another users posts when current user is an editor', () => {
+        mockUsePage.mockReturnValue({
+            props: { auth: { user: { id: 7, name: 'Editor User', role: 'editor' } } },
+        })
+        const wrapper = mountComponent({
+            posts: {
+                data: [makePost({ id: 10, author_id: 99 })],
+                links: [],
+                total: 1,
+            },
+        })
+        expect(wrapper.find('a[href="/admin/blog/10/edit"]').exists()).toBe(false)
+        expect(wrapper.find('button[title="Delete"]').exists()).toBe(false)
+    })
+
+    it('shows Edit and Delete for every post when current user is an admin', () => {
+        const wrapper = mountComponent({
+            posts: {
+                data: [makePost({ id: 10, author_id: 99 }), makePost({ id: 11, author_id: 7 })],
+                links: [],
+                total: 2,
+            },
+        })
+        expect(wrapper.find('a[href="/admin/blog/10/edit"]').exists()).toBe(true)
+        expect(wrapper.find('a[href="/admin/blog/11/edit"]').exists()).toBe(true)
+        expect(wrapper.findAll('button[title="Delete"]').length).toBe(2)
+    })
+
+    it('hides Edit and Delete for all posts when not authenticated', () => {
+        mockUsePage.mockReturnValue({ props: {} })
+        const wrapper = mountComponent({
+            posts: {
+                data: [makePost()],
+                links: [],
+                total: 1,
+            },
+        })
+        expect(wrapper.find('a[href="/admin/blog/1/edit"]').exists()).toBe(false)
+        expect(wrapper.find('button[title="Delete"]').exists()).toBe(false)
     })
 })

@@ -11,6 +11,7 @@ import { Link } from '@inertiajs/vue3';
 const showingNavigationDropdown = ref(false);
 
 const isAdmin = computed(() => usePage().props.auth?.user?.role === 'admin');
+const canManageBlog = computed(() => ['admin', 'editor'].includes(usePage().props.auth?.user?.role ?? ''));
 </script>
 
 <template>
@@ -50,7 +51,7 @@ const isAdmin = computed(() => usePage().props.auth?.user?.role === 'admin');
                                     Admin
                                 </NavLink>
                                 <NavLink
-                                    v-if="isAdmin"
+                                    v-if="canManageBlog"
                                     :href="route('admin.blog.index')"
                                     :active="route().current('admin.blog.*')"
                                 >
@@ -171,7 +172,7 @@ const isAdmin = computed(() => usePage().props.auth?.user?.role === 'admin');
                             Admin
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
-                            v-if="isAdmin"
+                            v-if="canManageBlog"
                             :href="route('admin.blog.index')"
                             :active="route().current('admin.blog.*')"
                         >

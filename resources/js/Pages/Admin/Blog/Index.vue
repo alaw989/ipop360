@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import type { PageProps } from '@/types'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
@@ -9,6 +9,7 @@ import { Calendar, Eye, FileText, Pencil, Plus, Trash2, X } from '@lucide/vue'
 
 interface BlogPost {
     id: number
+    author_id: number | null
     title: string
     slug: string
     excerpt: string
@@ -29,6 +30,13 @@ defineProps<{
 
 const page = usePage<PageProps<{ flash?: { success?: string } }>>()
 const successFlash = ref<string | null>(page.props.flash?.success ?? null)
+
+const authUser = computed(() => usePage().props.auth?.user)
+const isAdmin = computed(() => authUser.value?.role === 'admin')
+
+function canManagePost(post: BlogPost): boolean {
+    return isAdmin.value || post.author_id === authUser.value?.id
+}
 
 function formatDate(value: string | null): string {
     if (!value) return '—'
@@ -149,6 +157,7 @@ function destroy(post: BlogPost): void {
                                             <Eye class="h-4 w-4" />
                                         </Link>
                                         <Link
+                                            v-if="canManagePost(post)"
                                             :href="route('admin.blog.edit', post.id)"
                                             title="Edit"
                                             class="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
@@ -156,6 +165,7 @@ function destroy(post: BlogPost): void {
                                             <Pencil class="h-4 w-4" />
                                         </Link>
                                         <button
+                                            v-if="canManagePost(post)"
                                             type="button"
                                             title="Delete"
                                             class="rounded p-1.5 text-neutral-500 hover:bg-red-50 hover:text-red-600"

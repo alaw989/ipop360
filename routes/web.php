@@ -41,11 +41,14 @@ Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('/', AdminDashboardController::class)->name('dashboard');
-    Route::resource('blog', AdminBlogPostController::class)
-        ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
-        ->parameters(['blog' => 'post']);
+Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', AdminDashboardController::class)->middleware('role:admin')->name('dashboard');
+
+    Route::middleware('role:admin,editor')->group(function () {
+        Route::resource('blog', AdminBlogPostController::class)
+            ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
+            ->parameters(['blog' => 'post']);
+    });
 });
 
 Route::middleware('auth')->group(function () {
