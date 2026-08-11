@@ -47,26 +47,25 @@ function formatDate(value: string | null): string {
             v-if="heroPost"
             class="group mb-6 overflow-hidden transition-shadow hover:shadow-md"
         >
-            <Link :href="`/blog/${heroPost.slug}`" class="block md:grid md:grid-cols-5">
-                <div class="aspect-video overflow-hidden bg-muted md:col-span-3 md:aspect-auto md:h-full">
-                    <img
-                        v-if="heroPost.featured_image"
-                        :src="heroPost.featured_image"
-                        :alt="heroPost.title"
-                        class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div v-else class="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-                        <span class="text-sm font-medium text-primary/40">No image</span>
-                    </div>
+            <Link :href="`/blog/${heroPost.slug}`" class="relative block aspect-video overflow-hidden sm:aspect-[21/9]">
+                <img
+                    v-if="heroPost.featured_image"
+                    :src="heroPost.featured_image"
+                    :alt="heroPost.title"
+                    class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+                <div v-else class="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5">
+                    <span class="sr-only">No image</span>
                 </div>
-                <CardContent class="flex flex-col justify-center p-6 md:col-span-2">
-                    <p class="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                <CardContent class="absolute inset-x-0 bottom-0 flex flex-col justify-end p-4 sm:p-6">
+                    <p class="mb-2 flex items-center gap-1.5 text-xs text-white/80">
                         <Calendar class="h-3.5 w-3.5" />
                         {{ formatDate(heroPost.published_at) }}
                     </p>
-                    <h3 class="text-xl font-bold text-foreground group-hover:text-primary">{{ heroPost.title }}</h3>
-                    <p class="mt-3 line-clamp-4 text-sm text-muted-foreground">{{ heroPost.excerpt }}</p>
-                    <span class="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary group-hover:underline">
+                    <h3 class="text-lg font-bold text-white sm:text-xl">{{ heroPost.title }}</h3>
+                    <p class="mt-2 line-clamp-4 text-sm text-white/70 sm:line-clamp-2">{{ heroPost.excerpt }}</p>
+                    <span class="mt-3 inline-flex items-center gap-1 text-sm font-medium text-white/90 group-hover:underline sm:mt-4">
                         Read more
                         <ArrowRight class="h-3.5 w-3.5" />
                     </span>

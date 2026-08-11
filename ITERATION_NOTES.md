@@ -4,14 +4,13 @@
 build a featured blog section on the homepage (hero post + grid)
 
 ## State
-Iteration 1: Redesigned `BlogPreview.vue` from a flat 3-column card grid to a hero-post-plus-grid layout. The most recent post is now displayed as a prominent hero card (full-width on mobile, 3/2 split on md+ with larger image, title, excerpt, and "Read more" CTA). Remaining posts (up to 2) render in a 2-column grid below the hero. Hero posts without a featured image get a gradient placeholder. All 16 existing + new tests pass; `npm run build` passes (vue-tsc + client + SSR).
+Iteration 2: Enhanced the hero post layout with a dark overlay gradient for text readability. The hero card now renders as a full-bleed image (21:9 aspect on sm+, 16:9 on mobile) with the text content overlaid at the bottom. A `bg-gradient-to-t from-black/70 via-black/30 to-transparent` overlay ensures white text remains legible on any image. The side-by-side grid layout (image left, text right) was replaced with this magazine-style overlay. When no featured image is present, the gradient placeholder fills the hero area and the "No image" label is kept for screen readers only (`sr-only`). All 941 tests pass; `npm run build` passes.
 
 ### What's next
-- The hero card currently uses a simple gradient placeholder when no `featured_image` is set. Could add a default food/blog illustration or pattern.
+- The hero card no-image placeholder could use a default food/blog illustration or pattern instead of just a gradient.
 - Consider adding category/tag badges on hero post cards for visual richness.
-- The hero post layout could be enhanced with an overlay gradient on the image for better text readability.
 
 ## Log
-1. Rewrote `BlogPreview.vue`: hero post (first in array) with `md:grid-cols-5` split layout, gradient placeholder for missing images, "Read more" arrow link. Grid posts (posts.slice(1)) in `sm:grid-cols-2` below. Section header and "View all" link unchanged.
-2. Updated `BlogPreview.spec.ts`: 5 new tests for hero-specific behavior (hero position, "Read more", gradient placeholder, single-post no grid, grid post image count). All 16 tests pass.
+1. Rewrote `BlogPreview.vue` hero section: overlay layout with `absolute inset-0` image, gradient overlay, and white text positioned at bottom via `absolute inset-x-0 bottom-0`. aspect-video on mobile, sm:aspect-[21/9] for wider screens.
+2. Kept "No image" label via `sr-only` for accessibility. All 16 existing BlogPreview tests pass without modification.
 3. Verified: `npm run test` (941 passed), `npm run build` (client + SSR clean).
