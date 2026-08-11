@@ -11,6 +11,7 @@ interface BlogPost {
     title: string
     slug: string
     excerpt: string
+    category: string | null
     body: string
     featured_image: string | null
     status: string
@@ -27,6 +28,7 @@ const isEditing = computed(() => props.post !== null)
 const form = useForm({
     title: props.post?.title ?? '',
     excerpt: props.post?.excerpt ?? '',
+    category: props.post?.category ?? '',
     body: props.post?.body ?? '',
     featured_image: props.post?.featured_image ?? '',
     status: props.post?.status ?? 'draft',
@@ -73,6 +75,14 @@ function submit(): void {
                                     required
                                 />
                                 <p v-if="form.errors.excerpt" class="mt-1 text-sm text-red-600">{{ form.errors.excerpt }}</p>
+                            </div>
+
+                            <div>
+                                <label for="category" class="mb-1 block text-sm font-medium text-gray-700">
+                                    Category <span class="font-normal text-neutral-400">(optional)</span>
+                                </label>
+                                <Input id="category" v-model="form.category" type="text" placeholder="e.g. News, Guide, Review" maxlength="100" />
+                                <p v-if="form.errors.category" class="mt-1 text-sm text-red-600">{{ form.errors.category }}</p>
                             </div>
 
                             <div>
