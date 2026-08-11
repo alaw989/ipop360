@@ -4,10 +4,9 @@
 build a featured blog section on the homepage (hero post + grid)
 
 ## State
-Iteration 11: Added `is_featured` checkbox to Admin/Blog/Edit.vue (BlogPost interface, form data, and template field between category and body). `npm run build` clean; all 29 BlogAdminTest pass.
+Iteration 12: Added "Featured" badge column to Admin/Blog/Index.vue table. BlogPost interface includes `is_featured: boolean`; table header + cell show a "Featured" Badge when true or em dash when false. 2 new vitest tests (badge renders, em dash when false). All 952 frontend tests pass; `npm run build` clean.
 
 ### What's next
-- Admin UI: show featured badge in Admin/Blog/Index.vue.
 - Frontend: render a "Featured" badge on hero/grid cards in BlogPreview.vue when `is_featured` is true.
 - Tests: BlogPreview.spec.ts for featured badge rendering.
 
@@ -23,3 +22,4 @@ Iteration 11: Added `is_featured` checkbox to Admin/Blog/Edit.vue (BlogPost inte
 9. Added `'is_featured' => ['boolean']` to BlogPostController::validated(). Tests: defaults to false on create, can be set true on create, can be updated. All 29 BlogAdminTest pass.
 10. HomeController: `->orderBy(is_featured, desc)->latest(published_at)` on blog query, added `is_featured` to columns + both BlogPost interfaces. `test_homepage_prioritizes_featured_posts` added. All 639 backend + 950 frontend tests pass.
 11. Added `is_featured` checkbox to Admin/Blog/Edit.vue: BlogPost interface includes `is_featured: boolean`, form data defaults to `false`, checkbox rendered between category and body fields. All 29 BlogAdminTest pass; `npm run build` clean.
+12. Added "Featured" badge column to Admin/Blog/Index.vue: BlogPost interface includes `is_featured`, table header + cell with Badge ("Featured" when true, em dash when false). 2 new vitest tests. All 952 frontend tests pass; `npm run build` clean.
