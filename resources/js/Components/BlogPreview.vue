@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
-import { ArrowRight, Calendar } from '@lucide/vue'
+import { ArrowRight, Calendar, PenLine } from '@lucide/vue'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface BlogPost {
@@ -54,7 +54,18 @@ function formatDate(value: string | null): string {
                     :alt="heroPost.title"
                     class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
-                <div v-else class="absolute inset-0 bg-gradient-to-br from-primary/10 to-primary/5">
+                <div
+                    v-else
+                    class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted/50 via-muted/30 to-muted/10"
+                >
+                    <div class="flex flex-col items-center gap-3 opacity-20">
+                        <PenLine class="h-16 w-16 text-foreground sm:h-20 sm:w-20" />
+                        <div class="hidden w-32 space-y-1.5 sm:block">
+                            <div class="h-1 w-full rounded-full bg-foreground" />
+                            <div class="h-1 w-3/4 rounded-full bg-foreground" />
+                            <div class="h-1 w-1/2 rounded-full bg-foreground" />
+                        </div>
+                    </div>
                     <span class="sr-only">No image</span>
                 </div>
                 <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
