@@ -148,6 +148,16 @@ To recover:
 4. Verify with `php artisan tinker --execute="echo DB::table('restaurants')->count();"` — should show 4636 rows.
 5. Restart the dev server: `composer dev`
 
+## Backlog workflow (binding)
+- Backlog goals (`.specify/memory/backlog.md`) are implemented EXCLUSIVELY via
+  `opencode-loop` — never implement a backlog goal directly. Start the loop on a
+  feature branch per the recipe in `backlog.md`, monitor
+  `logs/opencode-loop-<slug>.out`, then finish with the post-loop gates → PR →
+  merge → deploy → live-verify.
+- Docs-only edits (memory bank, `history/`, `ITERATION_NOTES.md`, backlog
+  mark-done/renumbering) and the post-loop PR/merge/deploy/verify steps are done
+  directly — they are not loop work.
+
 ## PR workflow (binding)
 - Never push directly to master. Always PR.
 - Before opening a PR: `composer test` → `vendor/bin/pint --test` → `npm run build` — all must pass.

@@ -1,8 +1,12 @@
 # iPop360 — Backlog (opencode-loop goals)
 
-> When the user says *"let's get to work on the next item in the backlog with the
-> opencode-loop"*, run the **first unfinished item** below with the documented
-> command. The loop lives at `~/.local/bin/opencode-loop` (globally installed).
+> ⚠️ **Binding rule: backlog goals are ALWAYS executed via `opencode-loop` — never
+> implemented directly.** This file is the loop's work queue. When work starts on
+> this backlog, run the **first unfinished item** below through the loop on its own
+> feature branch; finish with the documented post-loop steps, then mark the item ✅
+> here.
+>
+> The loop lives at `~/.local/bin/opencode-loop` (globally installed).
 >
 > Loop recipe (proven across 5 shipped PRs):
 > ```bash
@@ -10,11 +14,16 @@
 > git checkout master && git pull origin master && git checkout -b feat/<goal-slug>
 > setsid nohup opencode-loop 20 --goal "<goal text>" \
 >   --check "<gate>" --model opencode-go/deepseek-v4-pro \
-#   > logs/opencode-loop-<slug>.out 2>&1 < /dev/null &
+>   > logs/opencode-loop-<slug>.out 2>&1 < /dev/null &
 > ```
 > Then monitor `logs/opencode-loop-<slug>.out` (tail + grep the emoji status
-> lines). When done: run `pint`, `composer test`, `npm run build`, push, PR,
-> merge, verify live — then mark the item ✅ here.
+> lines). When the loop signals done: run `pint`, `composer test`, `npm run build`,
+> push, PR, merge, verify live — then mark the item ✅ here.
+>
+> **NOT loop work** (done directly, no loop): docs/memory-bank edits (this file,
+> `.specify/memory/history/`, `ITERATION_NOTES.md`), backlog mark-done/renumbering,
+> and the post-loop gates → PR → merge → deploy → verify steps. Any code change
+> that implements a backlog goal goes through the loop.
 
 ---
 
@@ -182,7 +191,7 @@ CI + deploy green on master.
 
 ## Next goals (in priority order)
 
-### 1. Featured blog section on homepage
+### 1. Featured blog section on homepage ⬅ NEXT
 - The homepage already has a subtle `BlogPreview` (latest 3 posts, "View all" → `/blog`).
   Replace it with a proper featured section: hero card for the latest post (featured
   image + excerpt) plus a grid of recent posts. Data added to `HomeController`
@@ -240,6 +249,57 @@ CI + deploy green on master.
   overflow/layout shift.
 - **Goal:** `add prefers-reduced-motion-aware scroll-reveal animations to homepage sections`
 - **Gate:** `npm run build`
+
+### 8. SerpApi quota honesty
+- **Audit finding:** the SerpApi account is genuinely exhausted (429 "out of
+  searches") but the app assumes a 250/mo quota, counts only SUCCESSFUL cached
+  calls (failures never counted → the 80% circuit breaker at 200 never trips),
+  and skips the provider-exhausted flag on pool timeouts/throwables — so every
+  cold search fires a doomed call. Count EVERY live SerpApi call (success +
+  failure) in a 30d window via a new `serpapi_call_logs` table (used by the
+  circuit breaker AND the enrichment budget); set the exhaustion flag on all
+  failure paths (incl. pool throwables/timeouts); gate `allowLiveSerpApiFetch()`
+  on it; lower `SERPAPI_FREE_QUOTA` default to the real plan (env-overridable).
+- **Goal:** `make SerpApi quota accounting honest — count all calls incl. failures, trip the circuit breaker early, and honor provider exhaustion on every failure path`
+- **Gate:** `composer test`
+
+### 9. Photon venue source
+- **Audit finding:** the Overpass name-regex fallback is broken (takes 60s+ /
+  504s on both mirrors — too heavy for Overpass) and its keyword regex wouldn't
+  match real names like "Jerk Pit". Add a free `PhotonVenueService` (geo-bias +
+  `osm_tag=amenity:restaurant|fast_food|cafe|bar|…`, ~2s, already a dependency)
+  to the live-search pool for scoped searches; remove the broken Overpass
+  name-regex fallback (`applyOverpassNameFallback` + read-path `fetchByNameRaw`).
+- **Goal:** `add a free Photon venue source to the live search and remove the broken Overpass name-regex fallback`
+- **Gate:** `composer test`
+
+### 10. Cuisine keyword lexicon fix
+- **Audit finding:** jamaican keywords are `jerk.chicken|jerk.pork|jerk.sauce`
+  (dotted dish names) — no bare `jerk`, so "Jerk Pit" / "Jerk House Caribbean"
+  never match the cuisine and get mis-classified/dropped. Add bare name tokens
+  (`jerk`, `caribbean`, `irie`, `pattie`) to the jamaican/caribbean entries; add
+  a guard test so dotted dish keywords can't silently break name matching.
+- **Goal:** `fix the jamaican/caribbean cuisine keywords so real venue names like "Jerk Pit" match`
+- **Gate:** `composer test`
+
+### 11. Live-first search page
+- **Audit finding:** `/search` queries the DB, then on empty dispatches an async
+  `EnrichSearchResults` job and returns a spinner — an 8×4s poll gamble that ends
+  in a bare empty when live sources are thin. Make `/search` run the free-source
+  live search SYNCHRONOUSLY when the DB is empty (mirror `/api/restaurants`),
+  persist + return results in the first response; add a relevance guard so
+  weak/unrelated DB rows trigger a live refresh; surface an honest "limited
+  coverage in this area" state instead of a bare empty.
+- **Goal:** `make the search page run a live search immediately when the DB has no results and show an honest empty state`
+- **Gate:** `composer test && npm run build`
+
+### 12. BizData resilience
+- **Audit finding:** BizData's upstream is flaky (intermittent 502 "fetch
+  failed") and passing the ignored `query` param (always sent on scoped
+  searches) can itself trigger the 502. Stop sending `query`; add a bounded
+  live retry so a flaky response doesn't zero out the source.
+- **Goal:** `stop passing BizData's ignored query param and add a bounded live retry for its flaky upstream`
+- **Gate:** `composer test`
 
 ---
 
