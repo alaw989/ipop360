@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Restaurant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\PendingCommand;
@@ -116,7 +117,7 @@ class VerifyRestaurantWebsitesCommandTest extends TestCase
         ]);
 
         Http::fake([
-            'example.com' => fn () => throw new \Illuminate\Http\Client\ConnectionException('timeout'),
+            'example.com' => fn () => throw new ConnectionException('timeout'),
         ]);
 
         /** @var PendingCommand $command */
