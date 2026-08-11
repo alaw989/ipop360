@@ -4,9 +4,9 @@
 enforce code coverage thresholds in CI for both PHPUnit and vitest
 
 ## State
-- **Done this iteration**: Added a `composer coverage` script to composer.json that runs `php artisan test --coverage-clover=coverage/phpunit.xml` followed by `php scripts/check-coverage.php coverage/phpunit.xml`, so devs can validate coverage thresholds locally before pushing (when pcov/xdebug is available). The existing `composer test` remains unchanged (tests only, no coverage generation).
-- **Next**: The coverage enforcement in CI is done for both PHPUnit (check-coverage.php step) and vitest (built-in thresholds in vitest.config.ts). Consider adding `vendor/bin/pint --test` and `./vendor/bin/phpstan analyse` as additional steps in the phpunit CI job so style + type checks gate merges alongside coverage.
-- **Gotchas**: pcov not available locally; `composer coverage` will fail with "No code coverage driver available" outside CI. The coverage/ directory is gitignored.
+- **Done this iteration**: Added `vendor/bin/pint --test` and `./vendor/bin/phpstan analyse` as additional steps in the phpunit CI job so style + type checks gate merges alongside coverage. Fixed a pint violation in `scripts/check-coverage.php` (single_space_around_construct, concat_space, unary_operator_spaces, not_operator_with_successor_space, binary_operator_spaces) so the new pint gate passes cleanly.
+- **Next**: All CI gating steps are now wired: phpunit tests, coverage thresholds (check-coverage.php), pint style check, phpstan type analysis, vitest tests, and vitest coverage thresholds. The Goal is complete — verify end-to-end by pushing and watching a CI run succeed.
+- **Gotchas**: The artifact upload uses `if: always()` so coverage artifacts are uploaded even if preceding steps fail. Both pint and phpstan must pass before the artifact upload runs (no `if: always()` on those steps), so style/type failures block the pipeline.
 
 ## Log
 - Iteration 1: Created CI workflow + vitest coverage config + `@vitest/coverage-v8` dependency

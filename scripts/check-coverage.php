@@ -9,9 +9,9 @@ if (! $cloverPath || ! file_exists($cloverPath)) {
 }
 
 $thresholds = [
-    'statements'   => (int) ($argv[2] ?? 50),
+    'statements' => (int) ($argv[2] ?? 50),
     'conditionals' => (int) ($argv[3] ?? 45),
-    'methods'      => (int) ($argv[4] ?? 45),
+    'methods' => (int) ($argv[4] ?? 45),
 ];
 
 $xml = simplexml_load_file($cloverPath);
@@ -25,32 +25,32 @@ $metrics = $xml->project->metrics;
 $attrs = $metrics->attributes();
 
 $totals = [
-    'statements'   => (int) $attrs['statements'],
-    'covered'      => (int) $attrs['coveredstatements'],
+    'statements' => (int) $attrs['statements'],
+    'covered' => (int) $attrs['coveredstatements'],
     'conditionals' => (int) $attrs['conditionals'],
     'covered_cond' => (int) $attrs['coveredconditionals'],
-    'methods'      => (int) $attrs['methods'],
+    'methods' => (int) $attrs['methods'],
     'covered_meth' => (int) $attrs['coveredmethods'],
 ];
 
 $actual = [
-    'statements'   => $totals['statements'] > 0 ? round(($totals['covered'] / $totals['statements']) * 100, 2) : 0,
+    'statements' => $totals['statements'] > 0 ? round(($totals['covered'] / $totals['statements']) * 100, 2) : 0,
     'conditionals' => $totals['conditionals'] > 0 ? round(($totals['covered_cond'] / $totals['conditionals']) * 100, 2) : 0,
-    'methods'      => $totals['methods'] > 0 ? round(($totals['covered_meth'] / $totals['methods']) * 100, 2) : 0,
+    'methods' => $totals['methods'] > 0 ? round(($totals['covered_meth'] / $totals['methods']) * 100, 2) : 0,
 ];
 
 echo "\n┌──────────────────────────────┐\n";
-echo  "│  PHPUnit Coverage Thresholds │\n";
-echo  "├──────────┬────────┬──────────┤\n";
-echo  "│ Metric   │ Actual │ Required │\n";
-echo  "├──────────┼────────┼──────────┤\n";
+echo "│  PHPUnit Coverage Thresholds │\n";
+echo "├──────────┬────────┬──────────┤\n";
+echo "│ Metric   │ Actual │ Required │\n";
+echo "├──────────┼────────┼──────────┤\n";
 
 $failed = false;
 
 foreach (['statements', 'conditionals', 'methods'] as $metric) {
     $label = str_pad(ucfirst($metric), 8);
-    $actualStr = str_pad($actual[$metric] . '%', 6);
-    $requiredStr = str_pad($thresholds[$metric] . '%', 8);
+    $actualStr = str_pad($actual[$metric].'%', 6);
+    $requiredStr = str_pad($thresholds[$metric].'%', 8);
     $status = $actual[$metric] >= $thresholds[$metric] ? "\033[32m✓\033[0m" : "\033[31m✗\033[0m";
     echo "│ {$label} │ {$actualStr} │ {$requiredStr} │ {$status}\n";
     if ($actual[$metric] < $thresholds[$metric]) {
