@@ -94,4 +94,14 @@ describe('PopularCuisines', () => {
         })
         expect(wrapper.findAll('a')).toHaveLength(0)
     })
+
+    it('renders cuisine links as pill-shaped chips', () => {
+        const wrapper = mount(PopularCuisines, { props: defaultProps, global: { stubs } })
+        const links = wrapper.findAll('a')
+        expect(links.length).toBeGreaterThan(0)
+        for (const link of links) {
+            expect(link.classes()).toContain('rounded-full')
+            expect(link.classes()).toContain('border')
+        }
+    })
 })

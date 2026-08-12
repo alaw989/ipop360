@@ -51,12 +51,12 @@ const hasMore = computed(() => props.cuisines.length > initialLimit)
             </div>
         </div>
         <template v-else>
-            <div class="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+            <div class="flex flex-wrap gap-2">
                 <a
                     v-for="cuisine in visibleCuisines"
                     :key="cuisine.id"
                     :href="cuisineHref(cuisine.slug)"
-                    class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    class="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm text-foreground transition-all hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-sm"
                 >
                     <span class="text-base">{{ cuisine.icon }}</span>
                     <span>{{ cuisine.name }}</span>
