@@ -55,6 +55,13 @@ describe('CategoryGrid', () => {
         expect(mexicanLink).toContain('Mexican')
     })
 
+    it('renders the section as a muted full-width band', () => {
+        const wrapper = mount(CategoryGrid, { props: defaultProps, global: { stubs } })
+        const section = wrapper.find('section')
+        expect(section.classes()).toContain('bg-muted/50')
+        expect(section.classes()).toContain('w-full')
+    })
+
     it('renders category links as pill-shaped chips', () => {
         const wrapper = mount(CategoryGrid, { props: defaultProps, global: { stubs } })
         const links = wrapper.findAll('a')

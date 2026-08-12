@@ -42,6 +42,13 @@ describe('BlogPreview', () => {
         expect(wrapper.text()).toContain('Guides, trends, and dining insights')
     })
 
+    it('renders the section as a plain (background) full-width band', () => {
+        const wrapper = mountComponent()
+        const section = wrapper.find('section')
+        expect(section.classes()).toContain('bg-background')
+        expect(section.classes()).toContain('w-full')
+    })
+
     it('renders a "View all" link pointing to /blog', () => {
         const wrapper = mountComponent()
         const link = wrapper.find('a[href="/blog"]')

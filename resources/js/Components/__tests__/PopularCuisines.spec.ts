@@ -95,6 +95,13 @@ describe('PopularCuisines', () => {
         expect(wrapper.findAll('a')).toHaveLength(0)
     })
 
+    it('renders the section as a plain (background) full-width band', () => {
+        const wrapper = mount(PopularCuisines, { props: defaultProps, global: { stubs } })
+        const section = wrapper.find('section')
+        expect(section.classes()).toContain('bg-background')
+        expect(section.classes()).toContain('w-full')
+    })
+
     it('renders cuisine links as pill-shaped chips', () => {
         const wrapper = mount(PopularCuisines, { props: defaultProps, global: { stubs } })
         const links = wrapper.findAll('a')

@@ -83,6 +83,13 @@ describe('PopularRestaurants', () => {
         expect(wrapper.find('h2').text()).toContain('Trending restaurants')
     })
 
+    it('renders the section as a muted full-width band', () => {
+        const wrapper = mountComponent()
+        const section = wrapper.find('section')
+        expect(section.classes()).toContain('bg-muted/50')
+        expect(section.classes()).toContain('w-full')
+    })
+
     it('shows city in heading when city prop is provided', () => {
         const wrapper = mountComponent({ city: 'Austin' })
         expect(wrapper.find('h2').text()).toContain(' in Austin')
