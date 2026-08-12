@@ -107,6 +107,23 @@ describe('TopNav', () => {
         expect(wrapper.find('nav').classes()).not.toContain('sticky')
     })
 
+    it('is opaque by default (card background)', () => {
+        const wrapper = mountNav(null)
+        expect(wrapper.find('nav').classes()).toContain('bg-card/80')
+    })
+
+    it('is transparent when the transparent prop is true', () => {
+        const wrapper = mountNav(null, true, true)
+        expect(wrapper.find('nav').classes()).not.toContain('bg-card/80')
+        expect(wrapper.find('nav').classes()).not.toContain('border-border')
+    })
+
+    it('uses light link styling in transparent mode', () => {
+        const wrapper = mountNav(null, true, true)
+        const browse = wrapper.findAll('a[href="/restaurants"]')[0]
+        expect(browse.classes()).toContain('text-white/80')
+    })
+
     it('renders a mobile menu toggle button', () => {
         const wrapper = mountNav(null)
         expect(wrapper.find('[data-testid="menu-toggle"]').exists()).toBe(true)

@@ -323,10 +323,12 @@ function dismissLoadMoreError() {
 </script>
 
 <template>
-    <div class="flex min-h-screen flex-col bg-background">
-        <!-- Shared AppLayout top nav; non-sticky on the homepage so the results
-             phase keeps StickySearchBar as its single sticky bar (spec-063). -->
-        <TopNav :sticky="false" />
+    <div class="relative flex min-h-screen flex-col bg-background">
+        <!-- Shared AppLayout top nav; transparent over the hero slideshow in the
+             idle homepage phase (solid in-flow in results so links stay legible
+             over content), non-sticky so the results phase keeps StickySearchBar
+             as its single sticky bar (spec-063). -->
+        <TopNav :sticky="false" :transparent="phase === 'idle'" />
 
         <SeoMeta :seoData="seoData" />
 
