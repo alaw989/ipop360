@@ -238,16 +238,22 @@ with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP
 **users have admin/editor/user roles; editors CRUD their own blog posts; homepage has a
 featured blog section; /blog is a grouped/filtered/searchable archive**; CI + deploy green.
 
+## ✅ Done (2026-08-11 session, continued)
+22. **Admin dashboard basic counts** — PR #88 (opencode-loop `--pr` mode, **1 iteration,
+    ALL_DONE on iter 1**): `Admin/DashboardController` now passes `entityCounts`
+    (restaurants, cuisines, users, blog_posts); `Admin/Dashboard.vue` renders a new
+    Overview section with 4 count cards; `Admin.Dashboard.spec.ts` updated. Deployed +
+    live-verified (counts on droplet: 7969 restaurants, 59 cuisines, 7 users, 1 post).
+
+**Current floor:** 646 PHPUnit tests + 956 vitest tests; PHPStan level 8 over `app/ + tests/`
+with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP 8.4**;
+**users have admin/editor/user roles; editors CRUD their own blog posts; homepage has a
+featured blog section; /blog is a grouped/filtered/searchable archive; admin dashboard
+shows entity counts**; CI + deploy green.
+
 ## Next goals (in priority order)
 
-### 1. Admin dashboard basic counts ⬅ NEXT
-- Surface clear counts on `Admin/Dashboard.vue`: total restaurants, cuisines, users, and
-  blog posts — alongside the existing data-quality/SerpApi/scrape cards. Backed by
-  `Admin/DashboardController` (`__invoke`).
-- **Goal:** `add restaurant, cuisine, user, and blog post counts to the admin dashboard overview`
-- **Gate:** `composer test`
-
-### 2. Post-login admin landing + nav discoverability
+### 1. Post-login admin landing + nav discoverability ⬅ NEXT
 - After login, redirect `admin`/`editor` users to `/admin` (dashboard) instead of the
   stub `Dashboard.vue` ("You're logged in!"), so editors land where the blog editor
   lives. Make the admin/blog links reachable from the admin nav after auth. Roles
@@ -255,7 +261,7 @@ featured blog section; /blog is a grouped/filtered/searchable archive**; CI + de
 - **Goal:** `redirect admin/editor users to the admin dashboard after login and make blog editing discoverable in nav`
 - **Gate:** `composer test && npm run build`
 
-### 3. Homepage nav + hero polish
+### 2. Homepage nav + hero polish
 - Adopt the `AppLayout` top nav (brand left, links right: Browse/Leaderboard/Blog +
   Favorites/Dashboard/Login, admin links when admin) on the homepage instead of the
   sparse hero-only links floating in the slideshow. Tighten the hero: `min-h-screen` →
@@ -264,7 +270,7 @@ featured blog section; /blog is a grouped/filtered/searchable archive**; CI + de
 - **Goal:** `adopt the AppLayout top nav on the homepage and tighten the hero banner while preserving the current Yelp-style design`
 - **Gate:** `npm run build`
 
-### 4. Homepage section rhythm + stats band
+### 3. Homepage section rhythm + stats band
 - Alternate section backgrounds (e.g. `bg-muted/40` bands) and consistent section
   headers (title, subtitle, "View all" CTA) across `CategoryGrid`, `PopularCuisines`,
   `PopularRestaurants`, `BlogPreview`. Add a slim stats/trust band under the hero
@@ -274,7 +280,7 @@ featured blog section; /blog is a grouped/filtered/searchable archive**; CI + de
 - **Goal:** `add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design`
 - **Gate:** `npm run build`
 
-### 5. Homepage scroll-reveal motion
+### 4. Homepage scroll-reveal motion
 - Scroll-reveal animations for homepage sections via IntersectionObserver (reuse
   `resources/css/transitions.css`), honoring `prefers-reduced-motion`. Verify no
   regressions in `resources/js/Pages/__tests__/Welcome.spec.ts` (19 cases) and no
@@ -282,7 +288,7 @@ featured blog section; /blog is a grouped/filtered/searchable archive**; CI + de
 - **Goal:** `add prefers-reduced-motion-aware scroll-reveal animations to homepage sections`
 - **Gate:** `npm run build`
 
-### 6. SerpApi quota honesty
+### 5. SerpApi quota honesty
 - **Audit finding:** the SerpApi account is genuinely exhausted (429 "out of
   searches") but the app assumes a 250/mo quota, counts only SUCCESSFUL cached
   calls (failures never counted → the 80% circuit breaker at 200 never trips),
@@ -295,7 +301,7 @@ featured blog section; /blog is a grouped/filtered/searchable archive**; CI + de
 - **Goal:** `make SerpApi quota accounting honest — count all calls incl. failures, trip the circuit breaker early, and honor provider exhaustion on every failure path`
 - **Gate:** `composer test`
 
-### 7. Photon venue source
+### 6. Photon venue source
 - **Audit finding:** the Overpass name-regex fallback is broken (takes 60s+ /
   504s on both mirrors — too heavy for Overpass) and its keyword regex wouldn't
   match real names like "Jerk Pit". Add a free `PhotonVenueService` (geo-bias +
@@ -305,7 +311,7 @@ featured blog section; /blog is a grouped/filtered/searchable archive**; CI + de
 - **Goal:** `add a free Photon venue source to the live search and remove the broken Overpass name-regex fallback`
 - **Gate:** `composer test`
 
-### 8. Cuisine keyword lexicon fix
+### 7. Cuisine keyword lexicon fix
 - **Audit finding:** jamaican keywords are `jerk.chicken|jerk.pork|jerk.sauce`
   (dotted dish names) — no bare `jerk`, so "Jerk Pit" / "Jerk House Caribbean"
   never match the cuisine and get mis-classified/dropped. Add bare name tokens
@@ -314,7 +320,7 @@ featured blog section; /blog is a grouped/filtered/searchable archive**; CI + de
 - **Goal:** `fix the jamaican/caribbean cuisine keywords so real venue names like "Jerk Pit" match`
 - **Gate:** `composer test`
 
-### 9. Live-first search page
+### 8. Live-first search page
 - **Audit finding:** `/search` queries the DB, then on empty dispatches an async
   `EnrichSearchResults` job and returns a spinner — an 8×4s poll gamble that ends
   in a bare empty when live sources are thin. Make `/search` run the free-source
@@ -325,7 +331,7 @@ featured blog section; /blog is a grouped/filtered/searchable archive**; CI + de
 - **Goal:** `make the search page run a live search immediately when the DB has no results and show an honest empty state`
 - **Gate:** `composer test && npm run build`
 
-### 10. BizData resilience
+### 9. BizData resilience
 - **Audit finding:** BizData's upstream is flaky (intermittent 502 "fetch
   failed") and passing the ignored `query` param (always sent on scoped
   searches) can itself trigger the 502. Stop sending `query`; add a bounded
