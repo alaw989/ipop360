@@ -265,7 +265,19 @@ CI + deploy green.
 
 ## Next goals (in priority order)
 
-### 1. Homepage nav + hero polish ⬅ NEXT
+### 1. Assign user roles via artisan ⬅ NEXT
+- Roles are currently set only by manual tinker/DB edits — no command, UI, or
+  seeder path promotes a user to `editor` or `admin`. Add a
+  `user:role <email> admin|editor|user` artisan command: validates the role
+  against the `UserRole` enum, errors on unknown role / missing user, prints
+  the before→after role. Keeps `users.role` string column (no roles table —
+  deliberate: 3 mutually-exclusive roles, enum already wired through
+  `EnsureUserHasRole` + `User::canManage*`). Tests: happy path, role
+  validation, unknown email, idempotent re-assign.
+- **Goal:** `add a user:role artisan command to assign admin/editor/user roles by email`
+- **Gate:** `composer test`
+
+### 2. Homepage nav + hero polish
 - Adopt the `AppLayout` top nav (brand left, links right: Browse/Leaderboard/Blog +
   Favorites/Dashboard/Login, admin links when admin) on the homepage instead of the
   sparse hero-only links floating in the slideshow. Tighten the hero: `min-h-screen` →
@@ -274,7 +286,7 @@ CI + deploy green.
 - **Goal:** `adopt the AppLayout top nav on the homepage and tighten the hero banner while preserving the current Yelp-style design`
 - **Gate:** `npm run build`
 
-### 2. Homepage section rhythm + stats band
+### 3. Homepage section rhythm + stats band
 - Alternate section backgrounds (e.g. `bg-muted/40` bands) and consistent section
   headers (title, subtitle, "View all" CTA) across `CategoryGrid`, `PopularCuisines`,
   `PopularRestaurants`, `BlogPreview`. Add a slim stats/trust band under the hero
@@ -284,7 +296,7 @@ CI + deploy green.
 - **Goal:** `add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design`
 - **Gate:** `npm run build`
 
-### 3. Homepage scroll-reveal motion
+### 4. Homepage scroll-reveal motion
 - Scroll-reveal animations for homepage sections via IntersectionObserver (reuse
   `resources/css/transitions.css`), honoring `prefers-reduced-motion`. Verify no
   regressions in `resources/js/Pages/__tests__/Welcome.spec.ts` (19 cases) and no
@@ -292,7 +304,7 @@ CI + deploy green.
 - **Goal:** `add prefers-reduced-motion-aware scroll-reveal animations to homepage sections`
 - **Gate:** `npm run build`
 
-### 4. SerpApi quota honesty
+### 5. SerpApi quota honesty
 - **Audit finding:** the SerpApi account is genuinely exhausted (429 "out of
   searches") but the app assumes a 250/mo quota, counts only SUCCESSFUL cached
   calls (failures never counted → the 80% circuit breaker at 200 never trips),
@@ -305,7 +317,7 @@ CI + deploy green.
 - **Goal:** `make SerpApi quota accounting honest — count all calls incl. failures, trip the circuit breaker early, and honor provider exhaustion on every failure path`
 - **Gate:** `composer test`
 
-### 5. Photon venue source
+### 6. Photon venue source
 - **Audit finding:** the Overpass name-regex fallback is broken (takes 60s+ /
   504s on both mirrors — too heavy for Overpass) and its keyword regex wouldn't
   match real names like "Jerk Pit". Add a free `PhotonVenueService` (geo-bias +
@@ -315,7 +327,7 @@ CI + deploy green.
 - **Goal:** `add a free Photon venue source to the live search and remove the broken Overpass name-regex fallback`
 - **Gate:** `composer test`
 
-### 6. Cuisine keyword lexicon fix
+### 7. Cuisine keyword lexicon fix
 - **Audit finding:** jamaican keywords are `jerk.chicken|jerk.pork|jerk.sauce`
   (dotted dish names) — no bare `jerk`, so "Jerk Pit" / "Jerk House Caribbean"
   never match the cuisine and get mis-classified/dropped. Add bare name tokens
@@ -324,7 +336,7 @@ CI + deploy green.
 - **Goal:** `fix the jamaican/caribbean cuisine keywords so real venue names like "Jerk Pit" match`
 - **Gate:** `composer test`
 
-### 7. Live-first search page
+### 8. Live-first search page
 - **Audit finding:** `/search` queries the DB, then on empty dispatches an async
   `EnrichSearchResults` job and returns a spinner — an 8×4s poll gamble that ends
   in a bare empty when live sources are thin. Make `/search` run the free-source
@@ -335,13 +347,24 @@ CI + deploy green.
 - **Goal:** `make the search page run a live search immediately when the DB has no results and show an honest empty state`
 - **Gate:** `composer test && npm run build`
 
-### 8. BizData resilience
+### 9. BizData resilience
 - **Audit finding:** BizData's upstream is flaky (intermittent 502 "fetch
   failed") and passing the ignored `query` param (always sent on scoped
   searches) can itself trigger the 502. Stop sending `query`; add a bounded
   live retry so a flaky response doesn't zero out the source.
 - **Goal:** `stop passing BizData's ignored query param and add a bounded live retry for its flaky upstream`
 - **Gate:** `composer test`
+
+### 10. Admin Users page
+- No UI exists to change a user's role — admins must SSH + tinker. Add an
+  `/admin/users` page (admin-only): list users (name, email, role, joined),
+  promote/demote `user`/`editor`/`admin` via a role selector, with a confirm
+  on demoting yourself / removing the last admin guard. Backed by a small
+  `Admin/UserController` (index + update role). Uses the same `EnsureUserHasRole`
+  middleware + `UserRole` enum. Reuses the `user:role` command's validation
+  logic (shared rule or service). Tests: access control, role update, guards.
+- **Goal:** `add an admin users page to manage user roles in the UI`
+- **Gate:** `composer test && npm run build`
 
 ---
 
