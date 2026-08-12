@@ -81,6 +81,11 @@ describe('TopNav', () => {
         expect(wrapper.findAll('a[href="/leaderboard"]').length).toBeGreaterThan(0)
     })
 
+    it('always shows Browse link', () => {
+        const wrapper = mountNav(null)
+        expect(wrapper.findAll('a[href="/restaurants"]').length).toBeGreaterThan(0)
+    })
+
     it('shows Login link for unauthenticated visitors', () => {
         const wrapper = mountNav(null)
         expect(wrapper.findAll('a[href="/login"]').length).toBeGreaterThan(0)

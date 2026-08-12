@@ -29,6 +29,12 @@ const canManageBlog = computed(() => ['admin', 'editor'].includes(usePage().prop
 
                 <div class="flex items-center gap-4">
                     <Link
+                        href="/restaurants"
+                        class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                        Browse
+                    </Link>
+                    <Link
                         href="/leaderboard"
                         class="text-sm text-muted-foreground hover:text-primary transition-colors"
                     >
