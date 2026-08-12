@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
 import { Menu, X } from '@lucide/vue'
 import BrandLogo from '@/Components/BrandLogo.vue'
@@ -16,14 +16,38 @@ const props = withDefaults(defineProps<Props>(), {
 const canManageBlog = computed(() => ['admin', 'editor'].includes(usePage().props.auth?.user?.role ?? ''))
 
 const mobileMenuOpen = ref(false)
+const navEl = ref<HTMLElement | null>(null)
 
 function closeMobileMenu() {
     mobileMenuOpen.value = false
 }
+
+function onEscape(event: KeyboardEvent) {
+    if (event.key === 'Escape' && mobileMenuOpen.value) {
+        closeMobileMenu()
+    }
+}
+
+function onClickOutside(event: PointerEvent) {
+    if (mobileMenuOpen.value && navEl.value && !navEl.value.contains(event.target as Node)) {
+        closeMobileMenu()
+    }
+}
+
+onMounted(() => {
+    document.addEventListener('keydown', onEscape)
+    document.addEventListener('pointerdown', onClickOutside)
+})
+
+onUnmounted(() => {
+    document.removeEventListener('keydown', onEscape)
+    document.removeEventListener('pointerdown', onClickOutside)
+})
 </script>
 
 <template>
     <nav
+        ref="navEl"
         class="border-b border-border bg-card/80 backdrop-blur-sm z-50"
         :class="props.sticky ? 'sticky top-0' : undefined"
     >

@@ -154,4 +154,39 @@ describe('TopNav', () => {
         await wrapper.find('[data-testid="mobile-menu"] a[href="/login"]').trigger('click')
         expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
     })
+
+    it('closes the mobile menu when the Escape key is pressed', async () => {
+        const wrapper = mountNav(null)
+        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
+        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(true)
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+        await wrapper.vm.$nextTick()
+        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
+    })
+
+    it('keeps the mobile menu open when Escape is pressed while closed', async () => {
+        const wrapper = mountNav(null)
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+        await wrapper.vm.$nextTick()
+        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
+    })
+
+    it('closes the mobile menu when clicking outside the nav', async () => {
+        const wrapper = mountNav(null)
+        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
+        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(true)
+        document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+        await wrapper.vm.$nextTick()
+        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
+    })
+
+    it('does not close the mobile menu when clicking inside it', async () => {
+        const wrapper = mountNav(null)
+        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
+        const menu = wrapper.find('[data-testid="mobile-menu"]')
+        expect(menu.exists()).toBe(true)
+        menu.trigger('pointerdown')
+        await wrapper.vm.$nextTick()
+        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(true)
+    })
 })
