@@ -17,16 +17,24 @@ BlogPreview) into the wrapper in `Welcome.vue`.
   `ScrollReveal` stub added to `Pages/__tests__/Welcome.spec.ts`.
 - Verified: `npm run test` (1026 pass) and `npm run build` (exit 0).
 
+### Iteration: per-section stagger delay
+Added a progressive `:delay` stagger (0/80/160/240/320ms) to the five
+ScrollReveal wrappers in `Welcome.vue` so above-the-fold sections cascade in
+instead of revealing simultaneously. The stub now renders `data-delay` and a
+new `scroll-reveal stagger` test asserts the ordered delays.
+- Verified: `npm run test` (1027 pass).
+
 ### Next
-- Add a per-section `delay` stagger in Welcome.vue so above-the-fold sections
-  cascade in (e.g. 0/80/160ms) instead of revealing simultaneously.
-- Consider a JS-side reduced-motion guard to skip observing entirely (cosmetic;
-  CSS already covers the visual). Optional.
+- Consider a JS-side reduced-motion guard in ScrollReveal.vue to skip observing
+  entirely (cosmetic; CSS already covers the visual). Optional.
 
 ### Gotchas
 - `ScrollReveal` reveals immediately when `typeof window.IntersectionObserver
   === 'undefined'` (SSR is fine — `onMounted` only runs client-side).
 - In tests, DOM updates after the observer callback are async — assert post-
   reveal classes/styles after `await nextTick()`.
+- The stagger `:delay` is an inline `transition-delay` applied only when
+  revealed (`.scroll-reveal--visible` + `delay`). Below-the-fold sections also
+  wait their delay after scrolling into view, so keep the step small (80ms).
 
 ## Log

@@ -382,13 +382,15 @@ function dismissLoadMoreError() {
                 />
             </Transition>
 
-            <!-- Yelp-style homepage sections — only in idle phase, no transition needed -->
+            <!-- Yelp-style homepage sections — only in idle phase, no transition needed.
+                 Each section staggers its reveal (80ms step) so above-the-fold
+                 sections cascade in instead of snapping into view simultaneously. -->
             <template v-if="phase === 'idle'">
-                <ScrollReveal>
+                <ScrollReveal :delay="0">
                     <StatsBand :stats="stats" />
                 </ScrollReveal>
 
-                <ScrollReveal>
+                <ScrollReveal :delay="80">
                     <CategoryGrid
                         :categories="categories"
                         :loading="dataLoading"
@@ -397,7 +399,7 @@ function dismissLoadMoreError() {
                     />
                 </ScrollReveal>
 
-                <ScrollReveal>
+                <ScrollReveal :delay="160">
                     <PopularCuisines
                         :cuisines="popularCuisines"
                         :city="effectiveLocation?.city ?? null"
@@ -407,7 +409,7 @@ function dismissLoadMoreError() {
                     />
                 </ScrollReveal>
 
-                <ScrollReveal>
+                <ScrollReveal :delay="240">
                     <PopularRestaurants
                         :restaurants="popularRestaurants"
                         :city="effectiveLocation?.city ?? null"
@@ -415,7 +417,7 @@ function dismissLoadMoreError() {
                     />
                 </ScrollReveal>
 
-                <ScrollReveal>
+                <ScrollReveal :delay="320">
                     <BlogPreview :posts="props.latestPosts" />
                 </ScrollReveal>
             </template>

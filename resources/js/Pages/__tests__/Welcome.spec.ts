@@ -146,7 +146,7 @@ const stubs = {
     },
     ScrollReveal: {
         props: ['delay', 'threshold'],
-        template: '<div class="scroll-reveal-stub"><slot /></div>',
+        template: '<div class="scroll-reveal-stub" :data-delay="delay"><slot /></div>',
     },
     CategoryGrid: {
         props: ['categories', 'loading', 'lat', 'lng'],
@@ -357,6 +357,14 @@ describe('Welcome', () => {
         it('renders AppFooter', () => {
             const wrapper = mountWelcome()
             expect(wrapper.find('.app-footer-stub').exists()).toBe(true)
+        })
+    })
+
+    describe('scroll-reveal stagger', () => {
+        it('staggers the idle-phase sections so they cascade in', () => {
+            const wrapper = mountWelcome()
+            const delays = wrapper.findAll('.scroll-reveal-stub').map(n => n.attributes('data-delay'))
+            expect(delays).toEqual(['0', '80', '160', '240', '320'])
         })
     })
 
