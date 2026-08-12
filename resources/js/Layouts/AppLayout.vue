@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Link, usePage } from '@inertiajs/vue3';
 import BrandLogo from '@/Components/BrandLogo.vue';
 import AppFooter from '@/Components/AppFooter.vue';
 import { Badge } from '@/components/ui/badge';
+
+const canManageBlog = computed(() => ['admin', 'editor'].includes(usePage().props.auth?.user?.role ?? ''));
 </script>
 
 <template>
@@ -43,7 +46,14 @@ import { Badge } from '@/components/ui/badge';
                             Dashboard
                         </Link>
                         <Link
-                            v-else
+                            v-if="canManageBlog"
+                            :href="route('admin.blog.index')"
+                            class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                        >
+                            Manage Blog
+                        </Link>
+                        <Link
+                            v-else-if="!$page.props.auth?.user"
                             href="/login"
                             class="text-sm text-muted-foreground hover:text-foreground transition-colors"
                         >

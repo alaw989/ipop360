@@ -1,17 +1,21 @@
 # Iteration Notes
 
 ## Goal
-add restaurant, cuisine, user, and blog post counts to the admin dashboard overview
+redirect admin/editor users to the admin dashboard after login and make blog editing discoverable in nav
 
 ## State
-**Last change**: Added entity count cards (Restaurants, Cuisines, Users, Blog Posts) to the admin dashboard Overview section.
-- Controller: `DashboardController` now passes `entityCounts` prop with counts from four models.
-- Vue: New "Overview" section with 4 Card components (Utensils/ChefHat/Users/Newspaper icons) rendered before SerpApi Quota.
-- Tests: 5 new vitest tests + ChefHat/Users icon mocks added.
-
-**Next**: (none — Goal achieved: restaurant, cuisine, user, and blog post counts now appear on the admin dashboard)
-
-**Gotchas**: Restaurant count now appears in both the Overview section and the Data Quality "Total" card. This is intentional per the Goal's request to show all four counts together.
+- **Done**: Goal fully achieved — login redirects admin/editor users to admin areas, and blog editing is discoverable from both `AuthenticatedLayout` (existing "Blog" nav link) and the public `AppLayout` (new "Manage Blog" nav link for admin/editor users).
+- **Next**: None — goal complete.
+- **Gotchas**: Editor cannot access `/admin` dashboard (route guarded by `role:admin`), so editors redirect to `admin.blog.index` instead. The public `AppLayout` "Manage Blog" link uses `route('admin.blog.index')` and won't render for editors who don't have that route accessible (though it does render since the Ziggy route definition exists — the server middleware would still block access at request time).
 
 ## Log
-1. Added entityCounts (restaurants, cuisines, users, blog_posts) to admin dashboard overview
+### Iteration 2 — Public nav "Manage Blog" link
+- Added `canManageBlog` computed to `AppLayout.vue` checking `usePage().props.auth?.user?.role`.
+- Added a "Manage Blog" link (`route('admin.blog.index')`) in the public `AppLayout` nav, shown only when user is admin or editor.
+- Created `AppLayout.spec.ts` with 7 tests: shows for admin/editor, hides for user/guest, plus public link sanity checks.
+- All 982 frontend tests + 656 PHP tests pass. Build (`vue-tsc && vite build && vite build --ssr`) succeeds.
+
+### Iteration 1 — Role-based login redirect
+- Modified `AuthenticatedSessionController::store()` to redirect admins and editors to their respective admin areas instead of the generic dashboard.
+- Added `test_admin_users_are_redirected_to_admin_dashboard_after_login` and `test_editor_users_are_redirected_to_blog_management_after_login` to `AuthenticationTest`.
+- All 21 auth tests pass.
