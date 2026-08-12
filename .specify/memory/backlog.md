@@ -263,21 +263,24 @@ homepage has a featured blog section; /blog is a grouped/filtered/searchable arc
 admin dashboard shows entity counts; admin/editor users land in admin after login**;
 CI + deploy green.
 
+## ✅ Done (2026-08-11 session, continued)
+24. **Assign user roles via artisan** — PR #90 (opencode-loop legacy mode, **1 iteration,
+    ALL_DONE on iter 1**): `user:role <email> admin|editor|user` command validates the
+    role against the `UserRole` enum, errors on unknown role / missing email, prints the
+    before→after role. 6 tests in `UserRoleCommandTest` (assign admin/editor/user,
+    invalid role, unknown email, reassign). Post-loop hand-fixes: pint formatting +
+    PHPStan null-safety on `$user->fresh()` (one line `refresh()` instead of `?->`).
+    PHPUnit 662. Keeps `users.role` string column (no roles table). Deployed +
+    live-verified (command registered + error paths verified on the droplet).
+
+**Current floor:** 662 PHPUnit tests + 982 vitest tests; PHPStan level 8 over
+`app/ + tests/` with a zero baseline; pint clean; **CI enforces coverage thresholds and
+runs PHP 8.4**; **users have admin/editor/user roles assignable via `user:role`**;
+CI + deploy green.
+
 ## Next goals (in priority order)
 
-### 1. Assign user roles via artisan ⬅ NEXT
-- Roles are currently set only by manual tinker/DB edits — no command, UI, or
-  seeder path promotes a user to `editor` or `admin`. Add a
-  `user:role <email> admin|editor|user` artisan command: validates the role
-  against the `UserRole` enum, errors on unknown role / missing user, prints
-  the before→after role. Keeps `users.role` string column (no roles table —
-  deliberate: 3 mutually-exclusive roles, enum already wired through
-  `EnsureUserHasRole` + `User::canManage*`). Tests: happy path, role
-  validation, unknown email, idempotent re-assign.
-- **Goal:** `add a user:role artisan command to assign admin/editor/user roles by email`
-- **Gate:** `composer test`
-
-### 2. Homepage nav + hero polish
+### 1. Homepage nav + hero polish ⬅ NEXT
 - Adopt the `AppLayout` top nav (brand left, links right: Browse/Leaderboard/Blog +
   Favorites/Dashboard/Login, admin links when admin) on the homepage instead of the
   sparse hero-only links floating in the slideshow. Tighten the hero: `min-h-screen` →
@@ -286,7 +289,7 @@ CI + deploy green.
 - **Goal:** `adopt the AppLayout top nav on the homepage and tighten the hero banner while preserving the current Yelp-style design`
 - **Gate:** `npm run build`
 
-### 3. Homepage section rhythm + stats band
+### 2. Homepage section rhythm + stats band
 - Alternate section backgrounds (e.g. `bg-muted/40` bands) and consistent section
   headers (title, subtitle, "View all" CTA) across `CategoryGrid`, `PopularCuisines`,
   `PopularRestaurants`, `BlogPreview`. Add a slim stats/trust band under the hero
@@ -296,7 +299,7 @@ CI + deploy green.
 - **Goal:** `add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design`
 - **Gate:** `npm run build`
 
-### 4. Homepage scroll-reveal motion
+### 3. Homepage scroll-reveal motion
 - Scroll-reveal animations for homepage sections via IntersectionObserver (reuse
   `resources/css/transitions.css`), honoring `prefers-reduced-motion`. Verify no
   regressions in `resources/js/Pages/__tests__/Welcome.spec.ts` (19 cases) and no
@@ -304,7 +307,7 @@ CI + deploy green.
 - **Goal:** `add prefers-reduced-motion-aware scroll-reveal animations to homepage sections`
 - **Gate:** `npm run build`
 
-### 5. SerpApi quota honesty
+### 4. SerpApi quota honesty
 - **Audit finding:** the SerpApi account is genuinely exhausted (429 "out of
   searches") but the app assumes a 250/mo quota, counts only SUCCESSFUL cached
   calls (failures never counted → the 80% circuit breaker at 200 never trips),
@@ -317,7 +320,7 @@ CI + deploy green.
 - **Goal:** `make SerpApi quota accounting honest — count all calls incl. failures, trip the circuit breaker early, and honor provider exhaustion on every failure path`
 - **Gate:** `composer test`
 
-### 6. Photon venue source
+### 5. Photon venue source
 - **Audit finding:** the Overpass name-regex fallback is broken (takes 60s+ /
   504s on both mirrors — too heavy for Overpass) and its keyword regex wouldn't
   match real names like "Jerk Pit". Add a free `PhotonVenueService` (geo-bias +
@@ -327,7 +330,7 @@ CI + deploy green.
 - **Goal:** `add a free Photon venue source to the live search and remove the broken Overpass name-regex fallback`
 - **Gate:** `composer test`
 
-### 7. Cuisine keyword lexicon fix
+### 6. Cuisine keyword lexicon fix
 - **Audit finding:** jamaican keywords are `jerk.chicken|jerk.pork|jerk.sauce`
   (dotted dish names) — no bare `jerk`, so "Jerk Pit" / "Jerk House Caribbean"
   never match the cuisine and get mis-classified/dropped. Add bare name tokens
