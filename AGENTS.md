@@ -153,10 +153,20 @@ To recover:
   `opencode-loop` — never implement a backlog goal directly. Run the loop in
   **legacy single-branch mode** (the only mode; `--pr` was removed 2026-08-11) on a
   pre-created `feat/<goal-slug>` branch: each iteration is one committed change,
-  the loop never pushes or opens PRs. After it signals done, run the gates
-  (`pint` → `composer test` → `npm run build`), push, **create ONE PR and stop to
-  notify the operator** before merging. Monitor `logs/opencode-loop-<slug>.out`,
-  then finish with a deploy + live-verify.
+  the loop never pushes or opens PRs. Monitor `logs/opencode-loop-<slug>.out`.
+- **Local-first, operator-gated deploy (binding):** looping sessions run LOCALLY.
+  Stack goal branches on top of each other (goal N branches off goal N−1's local
+  branch). After EVERY goal's loop signals done, harden on the branch before
+  stacking the next: `pint --test` → `composer test` → `npm run test` →
+  `./vendor/bin/phpstan analyse` → `npm run build` → coverage pre-check
+  (`composer coverage` + `npx vitest run --coverage`) — fix anything red, no debt
+  carries forward. Do NOT push, open PRs, or deploy until the operator says so;
+  multiple goals may land locally before any ship. Deploy is always operator-gated.
+- **Shipping (operator says so):** each goal ships as its OWN PR — **one major
+  feature per PR**, never a combined mega-PR. Push the branch, run the full gate,
+  **create ONE PR and stop to notify the operator** before merging. Merge in
+  sequence (stacked order), then deploy + live-verify.
+- Backlog ✅ marks happen at MERGE time, never during local looping.
 - Docs-only edits (memory bank, `history/`, `ITERATION_NOTES.md`, backlog
   mark-done/renumbering) and the post-loop PR/merge/deploy/verify steps are done
   directly — they are not loop work.

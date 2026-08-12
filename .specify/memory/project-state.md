@@ -23,8 +23,16 @@ Six PRs shipped and deployed this session (all live-verified):
 `opencode-loop` — never implemented directly (AGENTS.md + backlog.md). The loop runs in
 **legacy single-branch mode** (the ONLY mode; the former `--pr` per-iteration PR
 lifecycle was removed 2026-08-11): one `feat/<goal-slug>` branch, one commit per
-iteration, never pushes/PRs — the operator creates ONE PR after the loop finishes and
-stops to notify before merging.
+iteration, never pushes/PRs.
+
+**Local-first, operator-gated deploy (binding, 2026-08-12):** looping runs happen
+LOCALLY — goal branches are stacked on each other (goal N branches off goal N−1's local
+branch) and hardened after EVERY goal (pint → composer test → npm run test → phpstan →
+npm run build → coverage pre-check) before stacking the next. No push / PR / deploy
+until the operator says so; multiple goals can land locally before anything ships.
+Shipping is always operator-gated and **one major feature per PR** — create ONE PR,
+stop to notify before merging, merge in stacked order, then deploy + live-verify.
+Backlog ✅ marks happen at merge time, never during local looping.
 
 **Search audit (diagnosed, goals queued in backlog #4–#8):** the Louisville
 jamaican search returned 0 because the SerpApi account is genuinely **exhausted**
