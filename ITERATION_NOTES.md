@@ -22,10 +22,24 @@ Done so far:
   `bg-background`. Each `<section>` is now a `w-full` band wrapping an inner
   `max-w-7xl` container. Added a "full-width band" assertion per spec (test-first).
   Full frontend suite now 1010 tests, all green; `npm run build` passes.
+- Homepage stats band: added `stats` (`restaurants` active count, `cuisines`
+  count, `cities` distinct non-null active city count) to HomeController's
+  `getHomepageData` return (flows to both Inertia render and `/api/homepage-data`).
+  New `StatsBand.vue` (full-width `bg-background` band, 3-col grid of
+  number+icon+label using UtensilsCrossed/ChefHat/MapPin, `toLocaleString`
+  formatting) rendered first in the idle sections block of Welcome.vue, ahead of
+  CategoryGrid (keeps the muted/background alternation intact). `stats` is a ref
+  refreshed by `fetchHomepageData`. Added StatsBand.spec.ts (5 tests), 2 Welcome
+  stats-band tests, and 2 backend tests (landing passes stats + api returns
+  stats); extended the api structure assertion with `stats`. Full frontend suite
+  now 1017 tests, all green; HomeControllerTest 18 passed; Pint + `npm run build`
+  clean.
 
 Next:
-- Homepage stats band — new stats strip (e.g. restaurants/cuisines/cities counts);
-  needs HomeController data + Welcome wiring + frontend/backend tests.
+- Goal complete: all three sub-goals (cuisine pills, category pills, section
+  rhythm, stats band) are done. Remaining polish (if any) could be: add a
+  city-scoped variant of the stats band, or tighten the band's copy/icons, but
+  no required work remains.
 
 Gotchas:
 - PopularCuisines skeleton/empty/href tests rely on `<a>` counts and `button` for
@@ -42,3 +56,4 @@ Gotchas:
 - Iteration 1: PopularCuisines cuisine links → pill chips + spec coverage (test-first).
 - Iteration 2: CategoryGrid card tiles → pill chips + spec coverage (test-first).
 - Iteration 3: Section background rhythm — alternating muted/background full-width bands (test-first).
+- Iteration 4: Homepage stats band — HomeController `stats` + StatsBand.vue + Welcome wiring + tests (test-first).

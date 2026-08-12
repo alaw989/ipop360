@@ -160,6 +160,10 @@ const stubs = {
         props: ['posts'],
         template: '<div class="blog-preview-stub" />',
     },
+    StatsBand: {
+        props: ['stats'],
+        template: '<div class="stats-band-stub"><span class="restaurant-stat">{{ stats.restaurants }}</span><span class="cuisine-stat">{{ stats.cuisines }}</span><span class="city-stat">{{ stats.cities }}</span></div>',
+    },
     ResultsGrid: {
         props: ['phase', 'restaurants', 'resultCount', 'sort', 'sortOptions', 'nextPageUrl', 'searchError', 'loadMoreError', 'lat', 'lng', 'selectedCuisine', 'shouldStagger', 'isResorting'],
         emits: ['update:sort', 'resort', 'loadMore', 'resetToIdle', 'dismissLoadMoreError', 'search'],
@@ -220,6 +224,7 @@ function defaultProps(overrides: Record<string, unknown> = {}) {
         latestPosts: [makeBlogPost()],
         location: null,
         fallbackCoords: null,
+        stats: { restaurants: 100, cuisines: 50, cities: 20 },
         ...overrides,
     }
 }
@@ -343,6 +348,20 @@ describe('Welcome', () => {
         it('renders AppFooter', () => {
             const wrapper = mountWelcome()
             expect(wrapper.find('.app-footer-stub').exists()).toBe(true)
+        })
+    })
+
+    describe('stats band', () => {
+        it('renders StatsBand', () => {
+            const wrapper = mountWelcome()
+            expect(wrapper.find('.stats-band-stub').exists()).toBe(true)
+        })
+
+        it('passes stats counts to StatsBand', () => {
+            const wrapper = mountWelcome({ stats: { restaurants: 321, cuisines: 45, cities: 12 } })
+            expect(wrapper.find('.restaurant-stat').text()).toBe('321')
+            expect(wrapper.find('.cuisine-stat').text()).toBe('45')
+            expect(wrapper.find('.city-stat').text()).toBe('12')
         })
     })
 
