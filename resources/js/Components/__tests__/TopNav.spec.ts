@@ -106,4 +106,52 @@ describe('TopNav', () => {
         const wrapper = mountNav(null, false)
         expect(wrapper.find('nav').classes()).not.toContain('sticky')
     })
+
+    it('renders a mobile menu toggle button', () => {
+        const wrapper = mountNav(null)
+        expect(wrapper.find('[data-testid="menu-toggle"]').exists()).toBe(true)
+    })
+
+    it('keeps the mobile menu collapsed by default', () => {
+        const wrapper = mountNav(null)
+        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
+    })
+
+    it('opens the mobile menu when the toggle is clicked', async () => {
+        const wrapper = mountNav(null)
+        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
+        const menu = wrapper.find('[data-testid="mobile-menu"]')
+        expect(menu.exists()).toBe(true)
+        expect(menu.findAll('a[href="/login"]').length).toBeGreaterThan(0)
+    })
+
+    it('renders auth-dependent links inside the mobile menu', async () => {
+        const wrapper = mountNav('user')
+        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
+        const menu = wrapper.find('[data-testid="mobile-menu"]')
+        expect(menu.findAll('a[href="/favorites"]').length).toBeGreaterThan(0)
+        expect(menu.findAll('a[href="/dashboard"]').length).toBeGreaterThan(0)
+    })
+
+    it('renders the Manage Blog link inside the mobile menu for admins', async () => {
+        const wrapper = mountNav('admin')
+        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
+        const menu = wrapper.find('[data-testid="mobile-menu"]')
+        expect(menu.findAll('a[href="/admin/blog"]').length).toBeGreaterThan(0)
+    })
+
+    it('closes the mobile menu when the toggle is clicked again', async () => {
+        const wrapper = mountNav(null)
+        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
+        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
+        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
+    })
+
+    it('closes the mobile menu when a nav link is clicked', async () => {
+        const wrapper = mountNav(null)
+        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
+        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(true)
+        await wrapper.find('[data-testid="mobile-menu"] a[href="/login"]').trigger('click')
+        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
+    })
 })
