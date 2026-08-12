@@ -36,8 +36,8 @@ class AuthenticatedSessionController extends Controller
         $user = $request->user();
 
         $fallback = match (true) {
-            $user->isAdmin() => route('admin.dashboard', absolute: false),
-            $user->isEditor() => route('admin.blog.index', absolute: false),
+            $user !== null && $user->isAdmin() => route('admin.dashboard', absolute: false),
+            $user !== null && $user->isEditor() => route('admin.blog.index', absolute: false),
             default => route('dashboard', absolute: false),
         };
 
