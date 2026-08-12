@@ -37,6 +37,12 @@ Other hand-fixes this session:
   with `grep -n "^### "` and renumber + fix cross-refs after each completion.
 
 ## Lessons / gotchas
+- **`--pr` mode removed (2026-08-11, after PR #89):** the per-iteration PR lifecycle was
+  deleted from the harness (`~/.local/bin/opencode-loop`, 568 → 372 lines) — the `--pr`
+  flag now errors as an unknown argument. Legacy single-branch mode is the ONLY mode:
+  one `feat/<goal-slug>` branch, one commit per iteration, operator creates ONE PR at
+  the end and stops to notify before merging. Docs updated in `AGENTS.md`, `backlog.md`,
+  `project-state.md`.
 - **`opencode-loop` stops early on ALL_DONE** — most goals finished in 3–9 iterations,
   well under the 20 cap. The cap doesn't need raising per-goal; there is no multi-goal
   chaining in the harness, so each backlog item is its own loop run on its own branch.

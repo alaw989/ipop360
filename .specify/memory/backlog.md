@@ -8,32 +8,28 @@
 >
 > The loop lives at `~/.local/bin/opencode-loop` (globally installed).
 >
-> Loop recipe — **per-iteration PR mode** (`--pr`; each iteration ships as its own
-> branch → PR → all-checks-pass → squash-merge, so master updates only via merged
-> PRs). Run from master (the base branch); the loop creates the per-iteration
-> branches itself:
+> Loop recipe — **legacy single-branch mode** (the ONLY mode; `--pr` was removed
+> 2026-08-11 — the harness rejects the flag). One pre-created `feat/<goal-slug>`
+> branch, one commit per iteration, one PR per goal created by the operator after
+> the loop finishes:
 > ```bash
-> git checkout master && git pull origin master
+> git checkout master && git pull origin master && git checkout -b feat/<goal-slug>
 > setsid nohup opencode-loop 20 --goal "<goal text>" \
->   --check "<gate>" --pr --model opencode-go/deepseek-v4-pro \
+>   --check "<gate>" --model opencode-go/deepseek-v4-pro \
 >   > logs/opencode-loop-<slug>.out 2>&1 < /dev/null &
 > ```
-> Legacy single-branch mode (one pre-created `feat/<goal-slug>` branch, one PR per
-> goal, manual merge) still exists for interactive runs: create the branch, drop
-> `--pr`, finish with a manual PR. `--pr` requires the `gh` CLI and is the default
-> for backlog work.
 >
 > Then monitor `logs/opencode-loop-<slug>.out` (tail + grep the emoji status
-> lines). In `--pr` mode the loop runs `pint`/`composer test`/`npm run build` via
-> `--check` and waits for CI green on every PR before merging — the post-loop gate
-> shrinks to a final live-verify. In legacy mode, run the gates yourself after the
-> loop signals done, then push, PR, merge, verify live — and mark the item ✅ here.
+> lines). The loop commits each accepted iteration and stops on ALL_DONE or cap;
+> it never pushes or opens PRs. After it signals done, run the gates yourself
+> (`pint` → `composer test` → `npm run build`), push the branch, **create ONE PR
+> and stop to notify the operator** — then merge → deploy → live-verify and mark
+> the item ✅ here.
 >
 > **NOT loop work** (done directly, no loop): docs/memory-bank edits (this file,
 > `.specify/memory/history/`, `ITERATION_NOTES.md`), backlog mark-done/renumbering,
-> the legacy-mode post-loop gates → PR → merge → deploy → verify steps, and the
-> live-verify after a `--pr` run. Any code change that implements a backlog goal
-> goes through the loop.
+> and the post-loop gates → PR → merge → deploy → verify steps. Any code change
+> that implements a backlog goal goes through the loop.
 
 ---
 
@@ -251,17 +247,25 @@ with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP
 featured blog section; /blog is a grouped/filtered/searchable archive; admin dashboard
 shows entity counts**; CI + deploy green.
 
+## ✅ Done (2026-08-11 session, continued)
+23. **Post-login admin landing + nav discoverability** — PR #89 (opencode-loop legacy
+    mode, **2 iterations, ALL_DONE on iter 2**): `AuthenticatedSessionController::store`
+    now redirects admins → `admin.dashboard`, editors → `admin.blog.index`, users →
+    `dashboard` (unchanged); public `AppLayout` gains a "Manage Blog" link for
+    admin/editor users. 2 new auth redirect tests + `AppLayout.spec.ts`. Post-loop
+    hand-fix: PHPStan null-guard on `$request->user()` in the login `match` (2 errors).
+    PHPUnit 656, vitest 982. Deployed + live-verified (/, /api 200).
+
+**Current floor:** 656 PHPUnit tests + 982 vitest tests; PHPStan level 8 over
+`app/ + tests/` with a zero baseline; pint clean; **CI enforces coverage thresholds and
+runs PHP 8.4**; **users have admin/editor/user roles; editors CRUD their own blog posts;
+homepage has a featured blog section; /blog is a grouped/filtered/searchable archive;
+admin dashboard shows entity counts; admin/editor users land in admin after login**;
+CI + deploy green.
+
 ## Next goals (in priority order)
 
-### 1. Post-login admin landing + nav discoverability ⬅ NEXT
-- After login, redirect `admin`/`editor` users to `/admin` (dashboard) instead of the
-  stub `Dashboard.vue` ("You're logged in!"), so editors land where the blog editor
-  lives. Make the admin/blog links reachable from the admin nav after auth. Roles
-  foundation landed (goal 18, PR #82).
-- **Goal:** `redirect admin/editor users to the admin dashboard after login and make blog editing discoverable in nav`
-- **Gate:** `composer test && npm run build`
-
-### 2. Homepage nav + hero polish
+### 1. Homepage nav + hero polish ⬅ NEXT
 - Adopt the `AppLayout` top nav (brand left, links right: Browse/Leaderboard/Blog +
   Favorites/Dashboard/Login, admin links when admin) on the homepage instead of the
   sparse hero-only links floating in the slideshow. Tighten the hero: `min-h-screen` →
@@ -270,7 +274,7 @@ shows entity counts**; CI + deploy green.
 - **Goal:** `adopt the AppLayout top nav on the homepage and tighten the hero banner while preserving the current Yelp-style design`
 - **Gate:** `npm run build`
 
-### 3. Homepage section rhythm + stats band
+### 2. Homepage section rhythm + stats band
 - Alternate section backgrounds (e.g. `bg-muted/40` bands) and consistent section
   headers (title, subtitle, "View all" CTA) across `CategoryGrid`, `PopularCuisines`,
   `PopularRestaurants`, `BlogPreview`. Add a slim stats/trust band under the hero
@@ -280,7 +284,7 @@ shows entity counts**; CI + deploy green.
 - **Goal:** `add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design`
 - **Gate:** `npm run build`
 
-### 4. Homepage scroll-reveal motion
+### 3. Homepage scroll-reveal motion
 - Scroll-reveal animations for homepage sections via IntersectionObserver (reuse
   `resources/css/transitions.css`), honoring `prefers-reduced-motion`. Verify no
   regressions in `resources/js/Pages/__tests__/Welcome.spec.ts` (19 cases) and no
@@ -288,7 +292,7 @@ shows entity counts**; CI + deploy green.
 - **Goal:** `add prefers-reduced-motion-aware scroll-reveal animations to homepage sections`
 - **Gate:** `npm run build`
 
-### 5. SerpApi quota honesty
+### 4. SerpApi quota honesty
 - **Audit finding:** the SerpApi account is genuinely exhausted (429 "out of
   searches") but the app assumes a 250/mo quota, counts only SUCCESSFUL cached
   calls (failures never counted → the 80% circuit breaker at 200 never trips),
@@ -301,7 +305,7 @@ shows entity counts**; CI + deploy green.
 - **Goal:** `make SerpApi quota accounting honest — count all calls incl. failures, trip the circuit breaker early, and honor provider exhaustion on every failure path`
 - **Gate:** `composer test`
 
-### 6. Photon venue source
+### 5. Photon venue source
 - **Audit finding:** the Overpass name-regex fallback is broken (takes 60s+ /
   504s on both mirrors — too heavy for Overpass) and its keyword regex wouldn't
   match real names like "Jerk Pit". Add a free `PhotonVenueService` (geo-bias +
@@ -311,7 +315,7 @@ shows entity counts**; CI + deploy green.
 - **Goal:** `add a free Photon venue source to the live search and remove the broken Overpass name-regex fallback`
 - **Gate:** `composer test`
 
-### 7. Cuisine keyword lexicon fix
+### 6. Cuisine keyword lexicon fix
 - **Audit finding:** jamaican keywords are `jerk.chicken|jerk.pork|jerk.sauce`
   (dotted dish names) — no bare `jerk`, so "Jerk Pit" / "Jerk House Caribbean"
   never match the cuisine and get mis-classified/dropped. Add bare name tokens
@@ -320,7 +324,7 @@ shows entity counts**; CI + deploy green.
 - **Goal:** `fix the jamaican/caribbean cuisine keywords so real venue names like "Jerk Pit" match`
 - **Gate:** `composer test`
 
-### 8. Live-first search page
+### 7. Live-first search page
 - **Audit finding:** `/search` queries the DB, then on empty dispatches an async
   `EnrichSearchResults` job and returns a spinner — an 8×4s poll gamble that ends
   in a bare empty when live sources are thin. Make `/search` run the free-source
@@ -331,7 +335,7 @@ shows entity counts**; CI + deploy green.
 - **Goal:** `make the search page run a live search immediately when the DB has no results and show an honest empty state`
 - **Gate:** `composer test && npm run build`
 
-### 9. BizData resilience
+### 8. BizData resilience
 - **Audit finding:** BizData's upstream is flaky (intermittent 502 "fetch
   failed") and passing the ignored `query` param (always sent on scoped
   searches) can itself trigger the 502. Stop sending `query`; add a bounded

@@ -20,12 +20,13 @@ Six PRs shipped and deployed this session (all live-verified):
   PHPUnit 655, vitest 968.
 
 **Process change (binding):** backlog goals are ALWAYS executed via
-`opencode-loop` — never implemented directly (AGENTS.md + backlog.md). The loop now
-has a **`--pr` mode**: each iteration = own branch → PR → wait for CI-green →
-squash-merge to master. Fixed a `pr_wait_checks` bug post-run (merged before CI
-appeared; now waits 180s via `statusCheckRollup`, counts SKIPPED/NEUTRAL as green).
+`opencode-loop` — never implemented directly (AGENTS.md + backlog.md). The loop runs in
+**legacy single-branch mode** (the ONLY mode; the former `--pr` per-iteration PR
+lifecycle was removed 2026-08-11): one `feat/<goal-slug>` branch, one commit per
+iteration, never pushes/PRs — the operator creates ONE PR after the loop finishes and
+stops to notify before merging.
 
-**Search audit (diagnosed, goals queued in backlog #6–#10):** the Louisville
+**Search audit (diagnosed, goals queued in backlog #4–#8):** the Louisville
 jamaican search returned 0 because the SerpApi account is genuinely **exhausted**
 (429 "out of searches"; quota was assumed 250/mo but the plan is much smaller and
 failures were never counted), the Overpass name-regex fallback is broken (60s+ /

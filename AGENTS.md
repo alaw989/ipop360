@@ -151,12 +151,15 @@ To recover:
 ## Backlog workflow (binding)
 - Backlog goals (`.specify/memory/backlog.md`) are implemented EXCLUSIVELY via
   `opencode-loop` — never implement a backlog goal directly. Run the loop in
-  per-iteration PR mode (`--pr`) from master: each iteration ships as its own
-  branch → PR → CI-green → squash-merge, so master updates only via merged PRs.
-  Monitor `logs/opencode-loop-<slug>.out`, then finish with a live-verify.
+  **legacy single-branch mode** (the only mode; `--pr` was removed 2026-08-11) on a
+  pre-created `feat/<goal-slug>` branch: each iteration is one committed change,
+  the loop never pushes or opens PRs. After it signals done, run the gates
+  (`pint` → `composer test` → `npm run build`), push, **create ONE PR and stop to
+  notify the operator** before merging. Monitor `logs/opencode-loop-<slug>.out`,
+  then finish with a deploy + live-verify.
 - Docs-only edits (memory bank, `history/`, `ITERATION_NOTES.md`, backlog
-  mark-done/renumbering) and the legacy-mode post-loop PR/merge/deploy/verify
-  steps are done directly — they are not loop work.
+  mark-done/renumbering) and the post-loop PR/merge/deploy/verify steps are done
+  directly — they are not loop work.
 
 ## PR workflow (binding)
 - Never push directly to master. Always PR.
