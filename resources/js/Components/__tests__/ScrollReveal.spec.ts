@@ -88,6 +88,38 @@ describe('ScrollReveal', () => {
         expect(observers).toHaveLength(0)
     })
 
+    it('reveals immediately and skips observing when reduced motion is preferred', async () => {
+        vi.stubGlobal('matchMedia', vi.fn().mockImplementation((query: string) => ({
+            matches: query.includes('prefers-reduced-motion'),
+            media: query,
+            onchange: null,
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        })))
+        const wrapper = mountReveal()
+        await nextTick()
+        expect(wrapper.find('.scroll-reveal--visible').exists()).toBe(true)
+        expect(observers).toHaveLength(0)
+    })
+
+    it('still observes when reduced motion is not preferred', () => {
+        vi.stubGlobal('matchMedia', vi.fn().mockImplementation((query: string) => ({
+            matches: false,
+            media: query,
+            onchange: null,
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        })))
+        mountReveal()
+        expect(observers).toHaveLength(1)
+    })
+
     it('disconnects the observer on unmount', () => {
         const wrapper = mountReveal()
         wrapper.unmount()

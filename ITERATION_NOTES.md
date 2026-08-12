@@ -24,13 +24,26 @@ instead of revealing simultaneously. The stub now renders `data-delay` and a
 new `scroll-reveal stagger` test asserts the ordered delays.
 - Verified: `npm run test` (1027 pass).
 
+### Iteration: JS reduced-motion guard
+Added a `window.matchMedia('(prefers-reduced-motion: reduce)')` check to
+`ScrollReveal.vue`'s `onMounted`: reduced-motion users are marked revealed
+immediately and no IntersectionObserver is created (CSS in transitions.css
+still forces the section visible). Two new tests in `ScrollReveal.spec.ts`
+cover the skip-observing path and the still-observes fallback (matchMedia
+stubbed via `vi.stubGlobal`, since jsdom provides no `matchMedia`).
+- Verified: `npm run test` (1029 pass).
+
 ### Next
-- Consider a JS-side reduced-motion guard in ScrollReveal.vue to skip observing
-  entirely (cosmetic; CSS already covers the visual). Optional.
+- Goal is functionally complete: stagger + reduced-motion-aware reveal are
+  in. Remaining ideas are polish only (e.g. re-fire on viewport resize) —
+  none are required.
 
 ### Gotchas
 - `ScrollReveal` reveals immediately when `typeof window.IntersectionObserver
   === 'undefined'` (SSR is fine — `onMounted` only runs client-side).
+- jsdom has no `matchMedia`, so the guard's `typeof window.matchMedia ===
+  'function'` check keeps the default observe path in tests unless a stub is
+  injected via `vi.stubGlobal('matchMedia', ...)`.
 - In tests, DOM updates after the observer callback are async — assert post-
   reveal classes/styles after `await nextTick()`.
 - The stagger `:delay` is an inline `transition-delay` applied only when

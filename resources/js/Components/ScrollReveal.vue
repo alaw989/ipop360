@@ -25,9 +25,18 @@ function reveal() {
 
 onMounted(() => {
     // No observer available (legacy browser / test env): show the content.
-    // Reduced-motion is handled purely in CSS (transitions.css) — the section
-    // renders visible immediately there regardless of this class.
     if (!root.value || typeof window.IntersectionObserver === 'undefined') {
+        revealed.value = true
+        return
+    }
+
+    // Reduced-motion: transitions.css already forces .scroll-reveal visible
+    // with no transition, so skip creating an observer entirely and mark
+    // revealed immediately (no per-section IO to spin up for these users).
+    if (
+        typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
         revealed.value = true
         return
     }
