@@ -55,13 +55,30 @@ describe('CategoryGrid', () => {
         expect(mexicanLink).toContain('Mexican')
     })
 
+    it('renders the section as a muted full-width band', () => {
+        const wrapper = mount(CategoryGrid, { props: defaultProps, global: { stubs } })
+        const section = wrapper.find('section')
+        expect(section.classes()).toContain('bg-muted/50')
+        expect(section.classes()).toContain('w-full')
+    })
+
+    it('renders category links as pill-shaped chips', () => {
+        const wrapper = mount(CategoryGrid, { props: defaultProps, global: { stubs } })
+        const links = wrapper.findAll('a')
+        expect(links).toHaveLength(2)
+        for (const link of links) {
+            expect(link.classes()).toContain('rounded-full')
+            expect(link.classes()).toContain('border')
+        }
+    })
+
     it('renders 8 skeletons while loading and no category links', () => {
         const wrapper = mount(CategoryGrid, {
             props: { ...defaultProps, loading: true },
             global: { stubs },
         })
         expect(wrapper.findAll('a')).toHaveLength(0)
-        expect(wrapper.findAll('[class*="grid"] > div')).toHaveLength(8)
+        expect(wrapper.findAll('[data-testid="category-skeleton"]')).toHaveLength(8)
     })
 
     it('renders empty grid when no categories given', () => {
@@ -77,7 +94,7 @@ describe('CategoryGrid', () => {
             props: { ...defaultProps, loading: true },
             global: { stubs },
         })
-        const skeletonDivs = wrapper.findAll('[class*="flex"]')
+        const skeletonDivs = wrapper.findAll('[data-testid="category-skeleton"]')
         expect(skeletonDivs).toHaveLength(8)
     })
 })

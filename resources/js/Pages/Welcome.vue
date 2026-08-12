@@ -14,6 +14,7 @@ import CategoryGrid from '@/Components/CategoryGrid.vue'
 import PopularCuisines from '@/Components/PopularCuisines.vue'
 import PopularRestaurants from '@/Components/PopularRestaurants.vue'
 import BlogPreview from '@/Components/BlogPreview.vue'
+import StatsBand from '@/Components/StatsBand.vue'
 // Lazy-load the results tree (ResultsGrid + RestaurantCard + CardGallery + …) so
 // it isn't on the idle homepage entry chunk — it renders only in the results
 // phase (spec-061 bundle diet).
@@ -91,6 +92,13 @@ interface HomepageData {
     }>
     popularRestaurants: Restaurant[]
     location: Location | null
+    stats: Stats
+}
+
+interface Stats {
+    restaurants: number
+    cuisines: number
+    cities: number
 }
 
 const props = defineProps<{
@@ -106,6 +114,7 @@ const props = defineProps<{
     latestPosts: BlogPost[]
     location: Location | null
     fallbackCoords: { lat: number; lng: number } | null
+    stats: Stats
 }>()
 
 // Phase machine
@@ -181,6 +190,7 @@ const categories = ref<Category[]>(props.categories)
 const bannerCategories = ref<Category[]>(props.categories)
 const popularCuisines = ref<HomepageData['popularCuisines']>(props.popularCuisines)
 const popularRestaurants = ref<HomepageData['popularRestaurants']>(props.popularRestaurants)
+const stats = ref<Stats>(props.stats)
 const dataLoading = ref(false)
 
 // Tracks the actual location scope of the data shown (may differ from the
@@ -216,6 +226,7 @@ function fetchHomepageData(city: string | null, state: string | null) {
             popularCuisines.value = data.popularCuisines
             popularRestaurants.value = data.popularRestaurants
             effectiveLocation.value = data.location
+            stats.value = data.stats
         })
         .catch(err => {
             if (err instanceof DOMException && err.name === 'AbortError') return
@@ -370,6 +381,8 @@ function dismissLoadMoreError() {
 
             <!-- Yelp-style homepage sections — only in idle phase, no transition needed -->
             <template v-if="phase === 'idle'">
+                <StatsBand :stats="stats" />
+
                 <CategoryGrid
                     :categories="categories"
                     :loading="dataLoading"

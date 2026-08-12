@@ -83,9 +83,45 @@ class HomeControllerTest extends TestCase
             'popularCuisines',
             'popularRestaurants',
             'location',
+            'stats',
         ]);
         $response->assertJsonCount(1, 'categories');
         $response->assertJsonCount(1, 'popularRestaurants');
+    }
+
+    public function test_landing_page_passes_stats(): void
+    {
+        Cuisine::factory()->create();
+        Restaurant::factory()->count(3)->create(['city' => 'Austin', 'state' => 'TX', 'is_active' => true]);
+        Restaurant::factory()->create(['city' => 'Dallas', 'state' => 'TX', 'is_active' => true]);
+        Restaurant::factory()->create(['city' => 'Dallas', 'state' => 'TX', 'is_active' => false]);
+
+        $response = $this->get('/');
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('stats.restaurants', 4)
+            ->where('stats.cuisines', 1)
+            ->where('stats.cities', 2)
+        );
+    }
+
+    public function test_api_data_returns_stats(): void
+    {
+        Cuisine::factory()->count(2)->create();
+        foreach (['Austin', 'Dallas', 'Houston', 'Miami', 'Denver'] as $city) {
+            Restaurant::factory()->create(['city' => $city, 'is_active' => true]);
+        }
+
+        $response = $this->getJson('/api/homepage-data');
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'stats' => [
+                'restaurants' => 5,
+                'cuisines' => 2,
+                'cities' => 5,
+            ],
+        ]);
     }
 
     public function test_api_data_scopes_to_city(): void

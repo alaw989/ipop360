@@ -1,18 +1,63 @@
 # Iteration Notes
 
 ## Goal
-adopt the AppLayout top nav on the homepage and tighten the hero banner while preserving the current Yelp-style design
+add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design
 
 ## State
-Extracted the AppLayout top nav into a reusable `resources/js/Components/TopNav.vue` (a `sticky` prop, default true) and adopted it on the homepage:
-`Welcome.vue` renders `<TopNav :sticky="false" />` above the hero; `AppLayout.vue` now just composes `<TopNav />` + footer. `HeroBanner.vue` lost its redundant floating links (Blog/Favorites/Dashboard/Login) and got tightened: `min-h-screen` → `min-h-[80vh]`, and the hero logo is now a plain home link (was `@click.prevent="$emit('search')"`). TDD: new `TopNav.spec.ts` (10 cases), `HeroBanner.spec.ts` nav tests moved/rewritten, `Welcome.spec.ts` asserts the top nav renders.
+Done so far:
+- Cuisine pills (PopularCuisines.vue): converted the plain text cuisine links into
+  pill-shaped chips (`rounded-full border bg-card`, flex-wrap layout). Added a
+  vitest assertion (`PopularCuisines.spec.ts`) that each cuisine link is a pill
+  (`rounded-full` + `border`). Full frontend suite (1005 tests) + `vue-tsc` pass.
+- Category pills (CategoryGrid.vue): converted the card tiles into pill-shaped
+  chips matching the cuisine pills (`rounded-full border bg-card`, flex-wrap,
+  `v-if` on the icon span so null icons render nothing). Updated the skeleton
+  markup to pill-shaped and tagged items with `data-testid="category-skeleton"`,
+  then rewrote the two skeleton assertions (previously `[class*="grid"] > div`
+  and `[class*="flex"]` counts) to use the testid, and added a "category links
+  are pill-shaped" assertion. Full frontend suite now 1006 tests, all green.
+- Section background rhythm: restructured all four homepage sections into
+  full-width bands with alternating backgrounds — CategoryGrid `bg-muted/50`,
+  PopularCuisines `bg-background`, PopularRestaurants `bg-muted/50`, BlogPreview
+  `bg-background`. Each `<section>` is now a `w-full` band wrapping an inner
+  `max-w-7xl` container. Added a "full-width band" assertion per spec (test-first).
+  Full frontend suite now 1010 tests, all green; `npm run build` passes.
+- Homepage stats band: added `stats` (`restaurants` active count, `cuisines`
+  count, `cities` distinct non-null active city count) to HomeController's
+  `getHomepageData` return (flows to both Inertia render and `/api/homepage-data`).
+  New `StatsBand.vue` (full-width `bg-background` band, 3-col grid of
+  number+icon+label using UtensilsCrossed/ChefHat/MapPin, `toLocaleString`
+  formatting) rendered first in the idle sections block of Welcome.vue, ahead of
+  CategoryGrid (keeps the muted/background alternation intact). `stats` is a ref
+  refreshed by `fetchHomepageData`. Added StatsBand.spec.ts (5 tests), 2 Welcome
+  stats-band tests, and 2 backend tests (landing passes stats + api returns
+  stats); extended the api structure assertion with `stats`. Full frontend suite
+  now 1017 tests, all green; HomeControllerTest 18 passed; Pint + `npm run build`
+  clean.
 
-**Next**: The entire goal is now met and verified end-to-end — nav adopted on homepage (non-sticky, `TopNav :sticky="false"`), hero tightened to `min-h-[80vh]` with the hero logo a plain home link, Browse/Leaderboard/Blog + auth/admin links present, mobile collapse menu with Escape + outside-click dismiss, `Welcome.spec.ts` asserting the shared nav renders. Remaining decision: TopNav on homepage stays non-sticky in the results phase so `StickySearchBar` keeps its `sticky top-0` single-bar role (no stacking conflict — leave as-is). Next realistic step is the post-loop workflow: run gates (`pint` → `composer test` → `npm run build`), push `feat/homepage-nav-hero`, open ONE PR, and stop to notify the operator.
+Next:
+- Goal complete: all three sub-goals (cuisine pills, category pills, section
+  rhythm, stats band) are done. Remaining polish (if any) could be: add a
+  city-scoped variant of the stats band, or tighten the band's copy/icons, but
+  no required work remains.
 
-**Gotchas**: `Welcome.spec.ts` must stub `TopNav` (the real one needs `usePage()` + `route()` which the Welcome spec doesn't mock). TopNav's mobile menu is controlled purely by a local `ref` (no `usePage` reads inside the toggle handler — the pieces that need `$page`/`route` are plain template conditionals, so the existing spec mocks suffice). JSDOM/CSS can't compute Tailwind's `md:` breakpoint, so the responsive split is asserted via the `data-testid` menu-toggle/panel presence plus the classes — done in `TopNav.spec.ts`; live device-width checks via Playwright confirmed scrollWidth 375 == viewport 375 on mobile (was 377+). SSR build (`vite build --ssr`) handles the `<Menu>`/`<X>` icons fine. Escape + outside-click handlers attach `document` listeners in `onMounted` and clean up in `onUnmounted`; the pointerdown close on `document.body` in jsdom must wait a microtask for Vue to flush the `v-if` (tests use `$nextTick`).
+Gotchas:
+- PopularCuisines skeleton/empty/href tests rely on `<a>` counts and `button` for
+  "Show more" — keep those selectors stable when touching the template.
+- CategoryGrid skeleton tests now key off `[data-testid="category-skeleton"]` (8
+  items) and assert pills via `rounded-full` + `border` on each `<a>`. Icon span
+  is `v-if`-gated so `icon: null` renders no emoji (no "null" text leak).
+- The four homepage sections now follow the pattern `<section class="w-full bg-*
+  py-12"><div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">…</div></section>`.
+  BlogPreview keeps its `v-if="posts.length > 0"` on the section; its bottom-only
+  `pb-12` was normalized to `py-12` to match the band rhythm.
 
 ## Log
-- **Iteration 1**: Extracted `AppLayout` top nav → reusable `TopNav.vue` (adds `sticky` prop); adopted it on the homepage as non-sticky above the hero; tightened hero (`min-h-[80vh]`), removed the hero's float-in-slideshow links (now covered by TopNav), made hero logo a plain home link. AppLayout now composes the shared component (all other pages unchanged in behaviour as verified by its passing spec). Added `TopNav.spec.ts` (10 cases), rewrote the moved HeroBanner nav assertions, extended `Welcome.spec.ts`. `npm run test` 992/992 pass; `npm run build` gate green.
-- **Iteration 2**: Added the missing **Browse** link (`/restaurants`) to the shared `TopNav.vue` — leftmost of the right-hand links, matching the goal spec ("Browse/Leaderboard/Blog") and the footer's existing Browse link. TDD: new `TopNav.spec.ts` case "always shows Browse link" (red first, then green). `npm run test` 993/993 pass.
-- **Iteration 3**: Made `TopNav.vue` mobile-responsive — the 4-6 inline links (up to ~605px wide with all admin/editor links) overflowed a 375px viewport (measured scrollWidth 377 → 605). Added a collapse menu below `md`: a hamburger `<Menu>`/`<X>` toggle (`data-testid="menu-toggle"`, `aria-expanded`) reveals a vertical panel (`data-testid="mobile-menu"`) with the same links (auto-closes on link click); desktop inline links unchanged. TDD: 7 new `TopNav.spec.ts` cases (toggle renders, closed by default, opens, auth/admin links inside, toggle-again closes, link-click closes). `npm run test` 1000/1000 pass; `npm run build` green. Live-verified via Playwright: 375px → no nav OR page overflow, mobile menu opens with all links; 1280px → inline nav + hidden toggle; `/restaurants` (AppLayout page) clean at 375px.
-- **Iteration 4**: Added keyboard/pointer dismissal to the mobile collapse menu — `Escape` closes it, and `pointerdown` on a target outside the nav closes it (document-level listeners attached in `onMounted`, removed in `onUnmounted`; the nav roots the reach check via `ref="navEl"`). TDD: 4 new `TopNav.spec.ts` cases (Escape closes, Escape while closed stays closed, outside-click closes, inside-click stays open). `npm run test` 1004/1004 pass; `npm run build` green. Live-verified via Playwright at 375px: Escape closes menu (aria-expanded false), outside pointerdown closes it after Vue flush; also confirmed no nav/page overflow at 320px and content fits at `min-h-[80vh]` on short viewports.
+- Iteration 5 (final verification): confirmed all three sub-goals are complete and
+  green — section band alternation (CategoryGrid/PopularRestaurants `bg-muted/50`,
+  PopularCuisines/BlogPreview `bg-background`), stats band (HomeController `stats`
+  → StatsBand.vue → Welcome), and cuisine/category pills. Frontend 1017 tests +
+  HomeControllerTest 18 passed. Goal fully achieved.
+- Iteration 2: CategoryGrid card tiles → pill chips + spec coverage (test-first).
+- Iteration 3: Section background rhythm — alternating muted/background full-width bands (test-first).
+- Iteration 4: Homepage stats band — HomeController `stats` + StatsBand.vue + Welcome wiring + tests (test-first).

@@ -99,12 +99,19 @@ class HomeController extends Controller
             ->limit(3)
             ->get(['id', 'title', 'slug', 'excerpt', 'category', 'featured_image', 'published_at', 'author_id', 'is_featured']);
 
+        $stats = [
+            'restaurants' => Restaurant::active()->count(),
+            'cuisines' => Cuisine::count(),
+            'cities' => Restaurant::active()->whereNotNull('city')->distinct()->count('city'),
+        ];
+
         return [
             'categories' => $categories,
             'popularCuisines' => $popularCuisines,
             'popularRestaurants' => $popularRestaurants,
             'latestPosts' => $latestPosts,
             'location' => $effectiveLocation,
+            'stats' => $stats,
         ];
     }
 
