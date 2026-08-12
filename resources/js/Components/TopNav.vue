@@ -1,0 +1,75 @@
+<script setup lang="ts">
+import { computed } from 'vue';
+import { Link, usePage } from '@inertiajs/vue3';
+import BrandLogo from '@/Components/BrandLogo.vue';
+import { Badge } from '@/components/ui/badge';
+
+interface Props {
+    sticky?: boolean
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    sticky: true,
+})
+
+const canManageBlog = computed(() => ['admin', 'editor'].includes(usePage().props.auth?.user?.role ?? ''));
+</script>
+
+<template>
+    <nav
+        class="border-b border-border bg-card/80 backdrop-blur-sm z-50"
+        :class="props.sticky ? 'sticky top-0' : undefined"
+    >
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex h-16 items-center justify-between">
+                <Link href="/" class="flex items-center gap-2" aria-label="iPop360 home">
+                    <BrandLogo class="text-[2.25rem]" />
+                    <Badge variant="outline" class="text-xs">Beta</Badge>
+                </Link>
+
+                <div class="flex items-center gap-4">
+                    <Link
+                        href="/leaderboard"
+                        class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                        Leaderboard
+                    </Link>
+                    <Link
+                        href="/blog"
+                        class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                        Blog
+                    </Link>
+                    <Link
+                        v-if="$page.props.auth?.user"
+                        href="/favorites"
+                        class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                        Favorites
+                    </Link>
+                    <Link
+                        v-if="$page.props.auth?.user"
+                        href="/dashboard"
+                        class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        Dashboard
+                    </Link>
+                    <Link
+                        v-if="canManageBlog"
+                        :href="route('admin.blog.index')"
+                        class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                        Manage Blog
+                    </Link>
+                    <Link
+                        v-else-if="!$page.props.auth?.user"
+                        href="/login"
+                        class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        Login
+                    </Link>
+                </div>
+            </div>
+        </div>
+    </nav>
+</template>

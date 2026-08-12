@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { X } from '@lucide/vue'
 import JsonLd from '@/Components/JsonLd.vue'
 import AppFooter from '@/Components/AppFooter.vue'
+import TopNav from '@/Components/TopNav.vue'
 import HeroBanner from '@/Components/HeroBanner.vue'
 import StickySearchBar from '@/Components/StickySearchBar.vue'
 import CategoryGrid from '@/Components/CategoryGrid.vue'
@@ -312,6 +313,10 @@ function dismissLoadMoreError() {
 
 <template>
     <div class="flex min-h-screen flex-col bg-background">
+        <!-- Shared AppLayout top nav; non-sticky on the homepage so the results
+             phase keeps StickySearchBar as its single sticky bar (spec-063). -->
+        <TopNav :sticky="false" />
+
         <SeoMeta :seoData="seoData" />
 
         <!-- Structured data — Inertia <Head> drops <script> tags, so inject via JsonLd -->
