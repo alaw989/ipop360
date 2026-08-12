@@ -144,6 +144,10 @@ const stubs = {
         emits: ['refineSearch'],
         template: '<div class="sticky-search-bar-stub" />',
     },
+    ScrollReveal: {
+        props: ['delay', 'threshold'],
+        template: '<div class="scroll-reveal-stub"><slot /></div>',
+    },
     CategoryGrid: {
         props: ['categories', 'loading', 'lat', 'lng'],
         template: '<div class="category-grid-stub" />',

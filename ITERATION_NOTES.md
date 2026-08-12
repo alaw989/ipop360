@@ -1,63 +1,32 @@
 # Iteration Notes
 
 ## Goal
-add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design
+add prefers-reduced-motion-aware scroll-reveal animations to homepage sections
 
 ## State
-Done so far:
-- Cuisine pills (PopularCuisines.vue): converted the plain text cuisine links into
-  pill-shaped chips (`rounded-full border bg-card`, flex-wrap layout). Added a
-  vitest assertion (`PopularCuisines.spec.ts`) that each cuisine link is a pill
-  (`rounded-full` + `border`). Full frontend suite (1005 tests) + `vue-tsc` pass.
-- Category pills (CategoryGrid.vue): converted the card tiles into pill-shaped
-  chips matching the cuisine pills (`rounded-full border bg-card`, flex-wrap,
-  `v-if` on the icon span so null icons render nothing). Updated the skeleton
-  markup to pill-shaped and tagged items with `data-testid="category-skeleton"`,
-  then rewrote the two skeleton assertions (previously `[class*="grid"] > div`
-  and `[class*="flex"]` counts) to use the testid, and added a "category links
-  are pill-shaped" assertion. Full frontend suite now 1006 tests, all green.
-- Section background rhythm: restructured all four homepage sections into
-  full-width bands with alternating backgrounds — CategoryGrid `bg-muted/50`,
-  PopularCuisines `bg-background`, PopularRestaurants `bg-muted/50`, BlogPreview
-  `bg-background`. Each `<section>` is now a `w-full` band wrapping an inner
-  `max-w-7xl` container. Added a "full-width band" assertion per spec (test-first).
-  Full frontend suite now 1010 tests, all green; `npm run build` passes.
-- Homepage stats band: added `stats` (`restaurants` active count, `cuisines`
-  count, `cities` distinct non-null active city count) to HomeController's
-  `getHomepageData` return (flows to both Inertia render and `/api/homepage-data`).
-  New `StatsBand.vue` (full-width `bg-background` band, 3-col grid of
-  number+icon+label using UtensilsCrossed/ChefHat/MapPin, `toLocaleString`
-  formatting) rendered first in the idle sections block of Welcome.vue, ahead of
-  CategoryGrid (keeps the muted/background alternation intact). `stats` is a ref
-  refreshed by `fetchHomepageData`. Added StatsBand.spec.ts (5 tests), 2 Welcome
-  stats-band tests, and 2 backend tests (landing passes stats + api returns
-  stats); extended the api structure assertion with `stats`. Full frontend suite
-  now 1017 tests, all green; HomeControllerTest 18 passed; Pint + `npm run build`
-  clean.
+Added a reusable `ScrollReveal.vue` wrapper (Components/) with a one-shot
+IntersectionObserver that toggles a `scroll-reveal--visible` class, plus CSS in
+`resources/css/transitions.css` (`.scroll-reveal` hidden + 24px lift → visible
+over 500ms). Reduced-motion awareness is handled in CSS: the existing
+`@media (prefers-reduced-motion: reduce)` block forces `.scroll-reveal` to
+`opacity:1; transform:none; transition:none`. Wired the five idle-phase homepage
+sections (StatsBand, CategoryGrid, PopularCuisines, PopularRestaurants,
+BlogPreview) into the wrapper in `Welcome.vue`.
 
-Next:
-- Goal complete: all three sub-goals (cuisine pills, category pills, section
-  rhythm, stats band) are done. Remaining polish (if any) could be: add a
-  city-scoped variant of the stats band, or tighten the band's copy/icons, but
-  no required work remains.
+- Tests: new `Components/__tests__/ScrollReveal.spec.ts` (9 tests) + a
+  `ScrollReveal` stub added to `Pages/__tests__/Welcome.spec.ts`.
+- Verified: `npm run test` (1026 pass) and `npm run build` (exit 0).
 
-Gotchas:
-- PopularCuisines skeleton/empty/href tests rely on `<a>` counts and `button` for
-  "Show more" — keep those selectors stable when touching the template.
-- CategoryGrid skeleton tests now key off `[data-testid="category-skeleton"]` (8
-  items) and assert pills via `rounded-full` + `border` on each `<a>`. Icon span
-  is `v-if`-gated so `icon: null` renders no emoji (no "null" text leak).
-- The four homepage sections now follow the pattern `<section class="w-full bg-*
-  py-12"><div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">…</div></section>`.
-  BlogPreview keeps its `v-if="posts.length > 0"` on the section; its bottom-only
-  `pb-12` was normalized to `py-12` to match the band rhythm.
+### Next
+- Add a per-section `delay` stagger in Welcome.vue so above-the-fold sections
+  cascade in (e.g. 0/80/160ms) instead of revealing simultaneously.
+- Consider a JS-side reduced-motion guard to skip observing entirely (cosmetic;
+  CSS already covers the visual). Optional.
+
+### Gotchas
+- `ScrollReveal` reveals immediately when `typeof window.IntersectionObserver
+  === 'undefined'` (SSR is fine — `onMounted` only runs client-side).
+- In tests, DOM updates after the observer callback are async — assert post-
+  reveal classes/styles after `await nextTick()`.
 
 ## Log
-- Iteration 5 (final verification): confirmed all three sub-goals are complete and
-  green — section band alternation (CategoryGrid/PopularRestaurants `bg-muted/50`,
-  PopularCuisines/BlogPreview `bg-background`), stats band (HomeController `stats`
-  → StatsBand.vue → Welcome), and cuisine/category pills. Frontend 1017 tests +
-  HomeControllerTest 18 passed. Goal fully achieved.
-- Iteration 2: CategoryGrid card tiles → pill chips + spec coverage (test-first).
-- Iteration 3: Section background rhythm — alternating muted/background full-width bands (test-first).
-- Iteration 4: Homepage stats band — HomeController `stats` + StatsBand.vue + Welcome wiring + tests (test-first).
