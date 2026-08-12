@@ -339,7 +339,7 @@ CI + deploy green.
 - **Goal:** `fix the jamaican/caribbean cuisine keywords so real venue names like "Jerk Pit" match`
 - **Gate:** `composer test`
 
-### 8. Live-first search page
+### 7. Live-first search page
 - **Audit finding:** `/search` queries the DB, then on empty dispatches an async
   `EnrichSearchResults` job and returns a spinner — an 8×4s poll gamble that ends
   in a bare empty when live sources are thin. Make `/search` run the free-source
@@ -350,7 +350,7 @@ CI + deploy green.
 - **Goal:** `make the search page run a live search immediately when the DB has no results and show an honest empty state`
 - **Gate:** `composer test && npm run build`
 
-### 9. BizData resilience
+### 8. BizData resilience
 - **Audit finding:** BizData's upstream is flaky (intermittent 502 "fetch
   failed") and passing the ignored `query` param (always sent on scoped
   searches) can itself trigger the 502. Stop sending `query`; add a bounded
@@ -358,7 +358,7 @@ CI + deploy green.
 - **Goal:** `stop passing BizData's ignored query param and add a bounded live retry for its flaky upstream`
 - **Gate:** `composer test`
 
-### 10. Admin Users page
+### 9. Admin Users page
 - No UI exists to change a user's role — admins must SSH + tinker. Add an
   `/admin/users` page (admin-only): list users (name, email, role, joined),
   promote/demote `user`/`editor`/`admin` via a role selector, with a confirm
