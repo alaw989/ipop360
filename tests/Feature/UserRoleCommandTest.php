@@ -24,7 +24,7 @@ class UserRoleCommandTest extends TestCase
             ->expectsOutputToContain("User {$user->email} assigned role: admin");
         $command->run();
 
-        $this->assertSame('admin', $user->fresh()->role);
+        $this->assertSame('admin', $user->fresh()?->role);
     }
 
     public function test_assigns_editor_role_to_existing_user(): void
@@ -40,7 +40,7 @@ class UserRoleCommandTest extends TestCase
             ->expectsOutputToContain("User {$user->email} assigned role: editor");
         $command->run();
 
-        $this->assertSame('editor', $user->fresh()->role);
+        $this->assertSame('editor', $user->fresh()?->role);
     }
 
     public function test_assigns_user_role_to_existing_user(): void
@@ -56,7 +56,7 @@ class UserRoleCommandTest extends TestCase
             ->expectsOutputToContain("User {$user->email} assigned role: user");
         $command->run();
 
-        $this->assertSame('user', $user->fresh()->role);
+        $this->assertSame('user', $user->fresh()?->role);
     }
 
     public function test_rejects_invalid_role(): void
@@ -98,7 +98,7 @@ class UserRoleCommandTest extends TestCase
             ->expectsOutputToContain("User {$user->email} assigned role: editor");
         $command->run();
 
-        $this->assertSame('editor', $user->fresh()->role);
+        $this->assertSame('editor', $user->fresh()?->role);
 
         // Reassign again to user
         /** @var PendingCommand $command2 */
@@ -110,6 +110,8 @@ class UserRoleCommandTest extends TestCase
             ->expectsOutputToContain("User {$user->email} assigned role: user");
         $command2->run();
 
-        $this->assertSame('user', $user->fresh()->role);
+        $user->refresh();
+
+        $this->assertSame('user', $user->role);
     }
 }

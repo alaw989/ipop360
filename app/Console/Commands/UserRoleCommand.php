@@ -17,7 +17,7 @@ class UserRoleCommand extends Command
     public function handle(): int
     {
         $email = $this->argument('email');
-        $role  = $this->argument('role');
+        $role = $this->argument('role');
 
         $userRole = UserRole::tryFrom($role);
 
@@ -40,7 +40,7 @@ class UserRoleCommand extends Command
         $user->role = $userRole->value;
         $user->save();
 
-        $this->info("User {$user->email} assigned role: {$userRole->value}" . ($oldRole !== $userRole->value ? " (was: {$oldRole})" : ''));
+        $this->info("User {$user->email} assigned role: {$userRole->value}".($oldRole !== $userRole->value ? " (was: {$oldRole})" : ''));
 
         return Command::SUCCESS;
     }
