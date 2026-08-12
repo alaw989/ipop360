@@ -14,7 +14,6 @@ vi.mock('@inertiajs/vue3', async () => {
     return {
         ...actual as any,
         Link: { template: '<a :href="href"><slot /></a>', props: ['href'] },
-        usePage: () => ({ props: { auth: { user: null } } }),
     }
 })
 
@@ -52,7 +51,6 @@ interface MountOptions {
     categories?: any[]
     location?: { city: string | null; state: string | null }
     detectingLocation?: boolean
-    authUser?: any
 }
 
 function mountComponent(options: MountOptions = {}) {
@@ -61,11 +59,6 @@ function mountComponent(options: MountOptions = {}) {
             categories: options.categories ?? makeCategories(),
             location: options.location ?? { city: 'Austin', state: 'TX' },
             detectingLocation: options.detectingLocation ?? false,
-        },
-        global: {
-            mocks: {
-                $page: { props: { auth: { user: options.authUser ?? null } } },
-            },
         },
     })
 }
@@ -84,25 +77,12 @@ describe('HeroBanner', () => {
         expect(wrapper.find('section').exists()).toBe(true)
     })
 
-    it('renders a Blog nav link pointing to /blog', () => {
+    it('does not render any top-nav links (nav moved to TopNav)', () => {
         const wrapper = mountComponent()
-        const blogLink = wrapper.find('a[href="/blog"]')
-        expect(blogLink.exists()).toBe(true)
-        expect(blogLink.text()).toBe('Blog')
-    })
-
-    it('renders Login link (not Favorites/Dashboard) when user is not authenticated', () => {
-        const wrapper = mountComponent({ authUser: null })
-        expect(wrapper.find('a[href="/login"]').exists()).toBe(true)
+        expect(wrapper.find('a[href="/leaderboard"]').exists()).toBe(false)
+        expect(wrapper.find('a[href="/login"]').exists()).toBe(false)
         expect(wrapper.find('a[href="/favorites"]').exists()).toBe(false)
         expect(wrapper.find('a[href="/dashboard"]').exists()).toBe(false)
-    })
-
-    it('renders Favorites and Dashboard links (not Login) when user is authenticated', () => {
-        const wrapper = mountComponent({ authUser: { id: 1, name: 'Test' } })
-        expect(wrapper.find('a[href="/favorites"]').exists()).toBe(true)
-        expect(wrapper.find('a[href="/dashboard"]').exists()).toBe(true)
-        expect(wrapper.find('a[href="/login"]').exists()).toBe(false)
     })
 
     it('renders the BrandLogo component', () => {

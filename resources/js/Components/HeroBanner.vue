@@ -105,7 +105,7 @@ function onDetect() {
 </script>
 
 <template>
-    <section class="relative flex min-h-screen flex-col overflow-hidden">
+    <section class="relative flex min-h-[80vh] flex-col overflow-hidden">
         <!-- Background slideshow -->
         <div class="absolute inset-0">
             <div
@@ -130,47 +130,14 @@ function onDetect() {
 
         <!-- Content layer -->
         <div class="relative z-10 flex flex-1 flex-col">
-            <!-- Nav bar -->
-            <nav class="flex items-center justify-end px-4 py-3 sm:px-6">
-                <div class="flex items-center gap-3">
-                    <Link
-                        href="/blog"
-                        class="text-sm text-white/80 hover:text-white transition-colors"
-                    >
-                        Blog
-                    </Link>
-                    <Link
-                        v-if="$page.props.auth?.user"
-                        href="/favorites"
-                        class="text-sm text-white/80 hover:text-white transition-colors"
-                    >
-                        Favorites
-                    </Link>
-                    <Link
-                        v-if="$page.props.auth?.user"
-                        href="/dashboard"
-                        class="text-sm text-white/80 hover:text-white transition-colors"
-                    >
-                        Dashboard
-                    </Link>
-                    <Link
-                        v-else
-                        href="/login"
-                        class="text-sm text-white/80 hover:text-white transition-colors"
-                    >
-                        Login
-                    </Link>
-                </div>
-            </nav>
-
             <!-- Centered hero content -->
             <div class="flex flex-1 flex-col items-center justify-center px-4 pb-20">
                 <div class="w-full max-w-4xl text-center">
-                    <!-- Logo -->
-                    <a href="/" class="mb-6 inline-flex items-center gap-2" aria-label="iPop360 home" @click.prevent="$emit('search')">
+                    <!-- Logo (home link — the AppLayout TopNav owns the in-hero links now) -->
+                    <Link href="/" class="mb-6 inline-flex items-center gap-2" aria-label="iPop360 home">
                         <BrandLogo class="text-[6rem] text-white sm:text-[8rem]" />
                         <Badge variant="outline" class="text-xs text-white border-white/50">Beta</Badge>
-                    </a>
+                    </Link>
 
                     <!-- Dynamic sentence -->
                     <h2 class="flex flex-wrap items-center justify-center gap-x-2 text-2xl font-medium leading-relaxed text-white sm:text-3xl">

@@ -129,6 +129,10 @@ vi.mock('@/composables/usePersistedLocation', () => ({
 const stubs = {
     SeoMeta: { template: '<div />' },
     JsonLd: { template: '<div />' },
+    TopNav: {
+        props: ['sticky'],
+        template: '<nav class="top-nav-stub" data-testid="top-nav" />',
+    },
     AppFooter: { template: '<footer class="app-footer-stub">Footer</footer>' },
     HeroBanner: {
         props: ['categories', 'location', 'detectingLocation'],
@@ -250,6 +254,18 @@ beforeEach(() => {
 })
 
 describe('Welcome', () => {
+    describe('top nav', () => {
+        it('renders the AppLayout top nav on the homepage', () => {
+            const wrapper = mountWelcome()
+            expect(wrapper.find('[data-testid="top-nav"]').exists()).toBe(true)
+        })
+
+        it('renders the top nav as non-sticky to keep StickySearchBar in charge during results', () => {
+            const wrapper = mountWelcome()
+            expect(wrapper.find('[data-testid="top-nav"]').attributes('sticky')).toBeUndefined()
+        })
+    })
+
     describe('hero', () => {
         it('renders accessible h1 heading', () => {
             const wrapper = mountWelcome()
