@@ -53,7 +53,11 @@ Gotchas:
   `pb-12` was normalized to `py-12` to match the band rhythm.
 
 ## Log
-- Iteration 1: PopularCuisines cuisine links → pill chips + spec coverage (test-first).
+- Iteration 5 (final verification): confirmed all three sub-goals are complete and
+  green — section band alternation (CategoryGrid/PopularRestaurants `bg-muted/50`,
+  PopularCuisines/BlogPreview `bg-background`), stats band (HomeController `stats`
+  → StatsBand.vue → Welcome), and cuisine/category pills. Frontend 1017 tests +
+  HomeControllerTest 18 passed. Goal fully achieved.
 - Iteration 2: CategoryGrid card tiles → pill chips + spec coverage (test-first).
 - Iteration 3: Section background rhythm — alternating muted/background full-width bands (test-first).
 - Iteration 4: Homepage stats band — HomeController `stats` + StatsBand.vue + Welcome wiring + tests (test-first).
