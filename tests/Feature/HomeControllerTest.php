@@ -22,6 +22,15 @@ class HomeControllerTest extends TestCase
         $response->assertInertia(fn ($page) => $page->component('Welcome'));
     }
 
+    public function test_root_view_is_no_js_by_default_and_swaps_to_js_for_progressive_enhancement(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertSee('class="no-js"', false);
+        $response->assertSee("document.documentElement.classList.replace('no-js', 'js')", false);
+    }
+
     public function test_landing_page_passes_categories_to_view(): void
     {
         $category = CuisineCategory::factory()->create([

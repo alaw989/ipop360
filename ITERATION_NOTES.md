@@ -33,10 +33,22 @@ cover the skip-observing path and the still-observes fallback (matchMedia
 stubbed via `vi.stubGlobal`, since jsdom provides no `matchMedia`).
 - Verified: `npm run test` (1029 pass).
 
+### Iteration: no-JS progressive-enhancement fallback
+The `.scroll-reveal` hidden state (`opacity:0`) is now gated behind a `.js`
+class on `<html>` so homepage sections are never stuck invisible when JS is
+disabled or fails. `app.blade.php` starts `<html class="no-js">` and an inline
+head script swaps it to `js` before first paint; `transitions.css` scopes the
+hidden/visible rules to `.js .scroll-reveal` and the reduced-motion override to
+`.js .scroll-reveal` (matched specificity so it still wins in the cascade).
+Added `test_root_view_is_no_js_by_default_and_swaps_to_js_for_progressive_enhancement`
+to `HomeControllerTest.php`.
+- Verified: `php artisan test` (665 pass), `npm run test` (1029 pass),
+  `vendor/bin/pint --test`, `npm run build` (exit 0).
+
 ### Next
-- Goal is functionally complete: stagger + reduced-motion-aware reveal are
-  in. Remaining ideas are polish only (e.g. re-fire on viewport resize) —
-  none are required.
+- Goal is fully achieved: stagger + reduced-motion-aware reveal + no-JS
+  fallback are all in. Remaining ideas are polish only (e.g. re-fire on
+  viewport resize) — none are required.
 
 ### Gotchas
 - `ScrollReveal` reveals immediately when `typeof window.IntersectionObserver
