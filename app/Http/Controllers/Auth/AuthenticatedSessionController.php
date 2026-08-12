@@ -33,7 +33,15 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $user = $request->user();
+
+        $fallback = match (true) {
+            $user->isAdmin() => route('admin.dashboard', absolute: false),
+            $user->isEditor() => route('admin.blog.index', absolute: false),
+            default => route('dashboard', absolute: false),
+        };
+
+        return redirect()->intended($fallback);
     }
 
     /**
