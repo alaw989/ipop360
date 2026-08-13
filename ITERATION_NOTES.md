@@ -1,40 +1,38 @@
 # Iteration Notes
 
 ## Goal
-add a free Photon venue source to the live search and remove the broken Overpass name-regex fallback
+stop passing BizData's ignored query param and add a bounded live retry for its flaky upstream
 
 ## State
-Done this iteration: removed the ENRICHMENT name-regex fallback — deleted
-`RestaurantEnrichmentService::consumeOverpassResponses` (folded its call site in
-`fetchAndNormalizeAllSources` into a direct `$this->overpass->consumePoolResponses`
-call) and the already-dead `normalizeOverpassWithFallback`. Then deleted the three
-now-unreferenced name-regex methods from `OverpassService` — `fetchByNameRaw`,
-`searchByName`, `executeSearchByName` — plus the three `OverpassServiceTest` cases
-that exercised them. Photon remains the name-based recall path in both live search
-and enrichment. `composer test` 677 passed, pint + phpstan clean.
+Done both halves of the goal in one pass:
 
-Next: consider adding Photon to `UptimeCanary`/`QuotaStatusCommand` source lists for
-observability parity (Photon is a live source now but isn't in the canary/quota
-health surface). Also `OverpassService::fetchRaw()` (the cuisine raw fetch, NOT the
-name path) appears unused since the pool refactor — candidate for a follow-up
-cleanup, but out of scope for the name-regex goal.
+1. **Stop sending the ignored `query` param** — removed `'query' => $cuisine` from all
+   three BizData request builders in `app/Services/BizDataApiService.php`:
+   `search()`, `fetchRaw()`, and `poolRequestsFor()` (the `query` param is ignored
+   by the upstream and can itself trigger the 502).
+2. **Bounded live retry** — `poolRequestsFor()` now fans out to N identical GETs on
+   the live read path (`read_path` context) and `consumePoolResponses()` takes the
+   first success, mirroring the Overpass multi-mirror idiom. N is bounded by the new
+   `live_search.bizdata_attempts` config (env `LIVE_SEARCH_BIZDATA_ATTEMPTS`, default
+   2; set 1 to disable). Enrichment (`read_path=false`) keeps a single attempt — its
+   next scheduled run retries naturally.
 
-Gotchas:
-- `OverpassService::fetchRaw` still exists and is cuisine-based (not name-regex);
-  grep shows no callers, so it may be dead code to remove later.
-- Photon API: no `radius` param (geofence via `bbox`); `q` is REQUIRED and
-  text-matches names (unscoped falls back to `q=restaurant`); repeated
-  `osm_tag=amenity:*` params (OR union, not comma-separated); no phone/website/
-  cuisine tags exposed.
+Tests: added `test_does_not_send_ignored_query_param` (Feature) and
+`test_pool_requests_never_send_the_ignored_query_param` +
+`test_pool_requests_fan_out_on_the_live_read_path_only` (Unit); updated
+`test_sends_correct_query_parameters` to drop the `query=japanese` assertion.
+`composer test` 680 passed, Pint clean, PHPStan 0 errors.
+
+**Next (possible follow-ups, not required by the goal):**
+- The cache key (`cacheKeyFor`) still includes `$cuisine`, so scoped searches cache
+  byte-identical BizData responses under separate keys (harmless but redundant). Could
+  drop `$cuisine` from the key now that the upstream ignores it — but that changes the
+  key contract shared with `LiveSearchService`/`RestaurantEnrichmentService`, so left
+  for a future iteration.
+
+**Gotchas:**
+- The retry is concurrent fan-out (not sequential backoff), because the codebase
+  reserves blocking sequential retries for the enrichment path (see Socrata's "live
+  path drops the 3x exponential-backoff retry" comment) to bound live wall time.
 
 ## Log
-- [1] Added PhotonService + wired into live search (config + tests). `composer test`
-  681 passed, pint + phpstan clean. Verified live: `q=mexican` bbox'd to Mobile, AL
-  returns real restaurants.
-- [2] Removed the live-search Overpass name-regex fallback (`applyOverpassNameFallback`
-  + call site + test + stub). `composer test` 680 passed, pint + phpstan clean.
-  Enrichment's name-regex fallback (`fetchByNameRaw`) remains — next decision.
-- [3] Removed the enrichment name-regex fallback (`consumeOverpassResponses` +
-  dead `normalizeOverpassWithFallback`) and deleted `OverpassService`'s
-  `fetchByNameRaw`/`searchByName`/`executeSearchByName` + their three tests.
-  `composer test` 677 passed, pint + phpstan clean.

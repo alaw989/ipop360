@@ -183,8 +183,29 @@ class BizDataApiServiceTest extends TestCase
             return str_contains($url, 'location=37.7749%2C-122.4194')
                 && str_contains($url, 'category=restaurant')
                 && str_contains($url, 'radius_km=10')
-                && str_contains($url, 'limit=100')
-                && str_contains($url, 'query=japanese');
+                && str_contains($url, 'limit=100');
+        });
+    }
+
+    public function test_does_not_send_ignored_query_param(): void
+    {
+        // BizData ignores its `query` param entirely (returns all nearby
+        // restaurants), and sending it on scoped searches can trigger the
+        // upstream 502. It must never be sent.
+        Http::fake([
+            'bizdata-web.vercel.app/*' => Http::response(
+                $this->fakeBizDataResponse([
+                    $this->makeBusiness('Test', 37.7749, -122.4194),
+                ]),
+                200
+            ),
+        ]);
+
+        $service = new BizDataApiService;
+        $service->search(37.7749, -122.4194, 'japanese');
+
+        Http::assertSent(function ($request) {
+            return ! str_contains($request->url(), 'query=');
         });
     }
 }

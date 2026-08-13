@@ -32,7 +32,6 @@ class BizDataApiService
                     'category' => 'restaurant',
                     'radius_km' => $radius,
                     'limit' => $limit,
-                    'query' => $cuisine,
                 ]);
 
             if ($response->failed()) {
@@ -142,7 +141,6 @@ class BizDataApiService
                     'category' => 'restaurant',
                     'radius_km' => $radius,
                     'limit' => $limit,
-                    'query' => $cuisine,
                 ]);
 
             if ($response->failed()) {
@@ -198,20 +196,28 @@ class BizDataApiService
 
     /**
      * Build the concurrent-pool request(s) for the live read path.
-     * BizData issues a single GET; returned as an array for a uniform interface.
-     */
-    /**
+     * BizData issues a single GET (no `query` param — its upstream ignores it);
+     * on the live read path it fans out to N concurrent attempts (default 2) and
+     * consumes the first success, so a flaky upstream 502 doesn't zero out the
+     * source. Enrichment keeps a single attempt.
+     *
      * @param  array<string, mixed>  $context
      * @return array<int, RequestSpec>
      */
     public function poolRequestsFor(float $lat, float $lng, ?string $cuisine = null, array $context = []): array
     {
-        $timeout = ($context['read_path'] ?? false)
+        $readPath = $context['read_path'] ?? false;
+        $timeout = $readPath
             ? (float) config('restaurant-finder.live_search.http_timeout', 8.0)
             : 15.0;
 
-        return [
-            new RequestSpec(
+        $attempts = $readPath
+            ? max(1, (int) config('restaurant-finder.live_search.bizdata_attempts', 2))
+            : 1;
+
+        $specs = [];
+        for ($i = 0; $i < $attempts; $i++) {
+            $specs[] = new RequestSpec(
                 method: 'GET',
                 url: $this->baseUrl.'/api/businesses',
                 query: [
@@ -219,11 +225,12 @@ class BizDataApiService
                     'category' => 'restaurant',
                     'radius_km' => 25,
                     'limit' => 50,
-                    'query' => $cuisine,
                 ],
                 timeout: $timeout,
-            ),
-        ];
+            );
+        }
+
+        return $specs;
     }
 
     /**

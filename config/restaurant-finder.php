@@ -362,6 +362,13 @@ return [
         // Default per-request timeout for the simple sources (BizData, SerpApi).
         'http_timeout' => (float) env('LIVE_SEARCH_HTTP_TIMEOUT', 8.0),
 
+        // BizData is free (no quota) but its upstream is flaky (intermittent 502
+        // "fetch failed"). The live read path issues this many concurrent
+        // attempts (default 2) and consumes the first success, so a single flaky
+        // response doesn't zero out the source. Enrichment keeps a single attempt
+        // (its next scheduled run retries naturally). Bounded — set 1 to disable.
+        'bizdata_attempts' => (int) env('LIVE_SEARCH_BIZDATA_ATTEMPTS', 2),
+
         // Radius for the DB path's nearby() scope. When persisted restaurants
         // exist within this radius, they're returned directly (no live search).
         // Raise this to return more DB-served results at larger distances.
