@@ -32,11 +32,11 @@ const stubs = {
     Badge: { template: '<span><slot /></span>' },
 }
 
-function mountNav(role: 'admin' | 'editor' | 'user' | null, sticky = true) {
+function mountNav(role: 'admin' | 'editor' | 'user' | null, sticky = true, transparent = false) {
     const user = role ? { id: 1, name: 'Test User', email: 'test@example.com', role } : null
     mockUsePage.mockReturnValue({ props: { auth: { user } } })
     return mount(TopNav, {
-        props: { sticky },
+        props: { sticky, transparent },
         global: {
             stubs,
             mocks: { $page: { props: { auth: { user } } } },
