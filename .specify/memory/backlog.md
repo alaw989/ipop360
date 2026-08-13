@@ -299,27 +299,35 @@ CI + deploy green.
 runs PHP 8.4**; **users have admin/editor/user roles assignable via `user:role`;
 homepage has a shared top nav**; CI + deploy green.
 
+## ✅ Done (2026-08-13 session)
+26. **Homepage section rhythm + stats band** — PR #92 (opencode-loop legacy, 5 iterations,
+    ALL_DONE): alternating section background bands, `StatsBand.vue` under the hero
+    (restaurants/cuisines/cities from HomeController), cuisine + category pill chips.
+    15 files +533/−271. PHPUnit 664, vitest 1017. Merged + deployed + live-verified.
+27. **Homepage scroll-reveal motion** — PR #94 (opencode-loop legacy, 4 iterations,
+    ALL_DONE): `ScrollReveal.vue` wrapper (one-shot IntersectionObserver) + CSS in
+    transitions.css, reduced-motion-aware via `@media (prefers-reduced-motion: reduce)`;
+    wired into the 5 idle homepage sections. PHPUnit 665, vitest 1033. Rebased on master
+    after the nav-transparency fix merged; merged + deployed + live-verified.
+28. **Transparent top nav over the homepage hero** — PR #93 (direct feedback fix on PR
+    #91's nav): `TopNav` gained a `transparent` prop — `absolute inset-x-0 top-0
+    bg-transparent` + white/light links over the dark hero in the idle phase, solid
+    `bg-card/80` in results/regular pages (AppLayout unchanged). Merged + deployed +
+    live-verified.
+29. **PR #62 closed as superseded** (2026-08-07, branch `fix/phpstan-photo-scraper`):
+    its 3 service test files are all covered on master in evolved form — HtmlSanitizerTest
+    (10 tests), AiEnrichmentServiceTest (11, larger than #62's 7), LiveVenuePersister via
+    LiveVenuePersisterAwardTest + EnrichSearchResultsTest. Branch was 311 commits behind
+    master and conflicting; no rebase value.
+
+**Current floor:** 665 PHPUnit tests + 1033 vitest tests; PHPStan level 8 over
+`app/ + tests/` with a zero baseline; pint clean; **CI enforces coverage thresholds and
+runs PHP 8.4**; **homepage has section rhythm, stats band, pills, scroll-reveal motion,
+and a transparent top nav over the hero**; CI + deploy green.
+
 ## Next goals (in priority order)
 
-### 1. Homepage section rhythm + stats band ⬅ NEXT
-- Alternate section backgrounds (e.g. `bg-muted/40` bands) and consistent section
-  headers (title, subtitle, "View all" CTA) across `CategoryGrid`, `PopularCuisines`,
-  `PopularRestaurants`, `BlogPreview`. Add a slim stats/trust band under the hero
-  ("X restaurants · Y cuisines · Z cities") from `HomeController` data. Upgrade the
-  `PopularCuisines` text list → clickable pill chips with counts, and add per-category
-  counts to `CategoryGrid`. Preserves Yelp-style look (gentle tone alternation + chips).
-- **Goal:** `add section background rhythm, a homepage stats band, and cuisine/category pills while preserving the Yelp-style design`
-- **Gate:** `npm run build`
-
-### 2. Homepage scroll-reveal motion
-- Scroll-reveal animations for homepage sections via IntersectionObserver (reuse
-  `resources/css/transitions.css`), honoring `prefers-reduced-motion`. Verify no
-  regressions in `resources/js/Pages/__tests__/Welcome.spec.ts` (19 cases) and no
-  overflow/layout shift.
-- **Goal:** `add prefers-reduced-motion-aware scroll-reveal animations to homepage sections`
-- **Gate:** `npm run build`
-
-### 3. SerpApi quota honesty
+### 1. SerpApi quota honesty ⬅ NEXT
 - **Audit finding:** the SerpApi account is genuinely exhausted (429 "out of
   searches") but the app assumes a 250/mo quota, counts only SUCCESSFUL cached
   calls (failures never counted → the 80% circuit breaker at 200 never trips),
@@ -332,7 +340,7 @@ homepage has a shared top nav**; CI + deploy green.
 - **Goal:** `make SerpApi quota accounting honest — count all calls incl. failures, trip the circuit breaker early, and honor provider exhaustion on every failure path`
 - **Gate:** `composer test`
 
-### 4. Photon venue source
+### 2. Photon venue source
 - **Audit finding:** the Overpass name-regex fallback is broken (takes 60s+ /
   504s on both mirrors — too heavy for Overpass) and its keyword regex wouldn't
   match real names like "Jerk Pit". Add a free `PhotonVenueService` (geo-bias +
@@ -342,7 +350,7 @@ homepage has a shared top nav**; CI + deploy green.
 - **Goal:** `add a free Photon venue source to the live search and remove the broken Overpass name-regex fallback`
 - **Gate:** `composer test`
 
-### 5. Cuisine keyword lexicon fix
+### 3. Cuisine keyword lexicon fix
 - **Audit finding:** jamaican keywords are `jerk.chicken|jerk.pork|jerk.sauce`
   (dotted dish names) — no bare `jerk`, so "Jerk Pit" / "Jerk House Caribbean"
   never match the cuisine and get mis-classified/dropped. Add bare name tokens
@@ -351,7 +359,7 @@ homepage has a shared top nav**; CI + deploy green.
 - **Goal:** `fix the jamaican/caribbean cuisine keywords so real venue names like "Jerk Pit" match`
 - **Gate:** `composer test`
 
-### 6. Live-first search page
+### 4. Live-first search page
 - **Audit finding:** `/search` queries the DB, then on empty dispatches an async
   `EnrichSearchResults` job and returns a spinner — an 8×4s poll gamble that ends
   in a bare empty when live sources are thin. Make `/search` run the free-source
@@ -362,7 +370,7 @@ homepage has a shared top nav**; CI + deploy green.
 - **Goal:** `make the search page run a live search immediately when the DB has no results and show an honest empty state`
 - **Gate:** `composer test && npm run build`
 
-### 7. BizData resilience
+### 5. BizData resilience
 - **Audit finding:** BizData's upstream is flaky (intermittent 502 "fetch
   failed") and passing the ignored `query` param (always sent on scoped
   searches) can itself trigger the 502. Stop sending `query`; add a bounded
@@ -370,7 +378,7 @@ homepage has a shared top nav**; CI + deploy green.
 - **Goal:** `stop passing BizData's ignored query param and add a bounded live retry for its flaky upstream`
 - **Gate:** `composer test`
 
-### 8. Admin Users page
+### 6. Admin Users page
 - No UI exists to change a user's role — admins must SSH + tinker. Add an
   `/admin/users` page (admin-only): list users (name, email, role, joined),
   promote/demote `user`/`editor`/`admin` via a role selector, with a confirm
