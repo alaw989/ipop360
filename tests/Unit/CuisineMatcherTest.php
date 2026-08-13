@@ -240,6 +240,46 @@ class CuisineMatcherTest extends TestCase
         $this->assertTrue($this->matcher->matchesEvidence('Taste Of India', 'indian'));
         $this->assertTrue($this->matcher->matchesEvidence('Bombay Palace', 'indian'));
         $this->assertTrue($this->matcher->matchesEvidence('Texas de Brazil', 'brazilian'));
+        $this->assertTrue($this->matcher->matchesEvidence('Jerk Pit', 'jamaican'));
+        $this->assertTrue($this->matcher->matchesEvidence('Jerk Hut', 'jamaican'));
+        $this->assertTrue($this->matcher->matchesEvidence('Jamaica House', 'jamaican'));
+        $this->assertTrue($this->matcher->matchesEvidence('Jamaica Mi Hungry', 'jamaican'));
+        $this->assertTrue($this->matcher->matchesEvidence('Caribbean Grill', 'jamaican'));
+        $this->assertTrue($this->matcher->matchesEvidence('Caribbean Grill', 'trinidadian'));
+        $this->assertTrue($this->matcher->matchesEvidence('Puerto Rico Restaurant', 'puerto-rican'));
+        $this->assertTrue($this->matcher->matchesEvidence('Las Delicias De Puerto Rico', 'puerto-rican'));
+        $this->assertTrue($this->matcher->matchesEvidence("Coquito's", 'puerto-rican'));
+        $this->assertTrue($this->matcher->matchesEvidence('Jibaritos y Más', 'puerto-rican'));
+        $this->assertTrue($this->matcher->matchesEvidence('Toston & Melao', 'puerto-rican'));
+        $this->assertTrue($this->matcher->matchesEvidence('The Pastele Shop', 'puerto-rican'));
+        $this->assertTrue($this->matcher->matchesEvidence('Pasteles', 'puerto-rican'));
+        $this->assertTrue($this->matcher->matchesEvidence('JERK HUT ISLAND GRILLE & BEACH CLUB', 'trinidadian'));
+        $this->assertTrue($this->matcher->matchesEvidence('14 Parishes', 'jamaican'));
+        $this->assertTrue($this->matcher->matchesEvidence('Irie Mon Cafe', 'jamaican'));
+        $this->assertTrue($this->matcher->matchesEvidence('876 Jamrock Restaurant', 'jamaican'));
+        $this->assertTrue($this->matcher->matchesEvidence('D Coal Pot', 'trinidadian'));
+        $this->assertFalse($this->matcher->matchesEvidence('Banh Mi Boys - Metairie', 'jamaican'));
+        $this->assertFalse($this->matcher->matchesEvidence('Coal Fired Pizza', 'trinidadian'));
+    }
+
+    /**
+     * "All Caribbean" must match venues named with the category word itself
+     * (e.g. "Caribbean Grill"), not just member-cuisine dish terms. Mirrors the
+     * "african" convention: the shared regional word is repeated across every
+     * member cuisine so the umbrella ON set carries it.
+     */
+    public function test_caribbean_category_scope_includes_caribbean_keyword(): void
+    {
+        $scope = $this->matcher->resolveScope(null, 'caribbean');
+
+        $this->assertTrue($scope->isScoped());
+        $this->assertSame(
+            ['jamaican', 'puerto-rican', 'trinidadian', 'haitian'],
+            $scope->targetSlugs
+        );
+        $this->assertContains('caribbean', $scope->onKeywords);
+        $this->assertContains('jerk', $scope->onKeywords);
+        $this->assertSame('Caribbean', $scope->queryTerm);
     }
 
     public function test_venue_matches_cuisine_checks_name_types_and_description(): void
