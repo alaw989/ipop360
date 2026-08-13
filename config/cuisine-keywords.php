@@ -105,10 +105,10 @@ return [
         'kenyan' => ['kenyan', 'african', 'nyama.choma', 'ugali', 'sukuma', 'irio', 'chapati', 'mandazi', 'githeri', 'nyama'],
 
         // ── Caribbean ──────────────────────────────────────────────────────
-        'jamaican' => ['jamaican', 'ackee', 'saltfish', 'curry.goat', 'patties', 'escovitch', 'jerk.chicken', 'jerk.pork', 'jerk.sauce'],
-        'puerto-rican' => ['puerto.rican', 'boricua', 'mofongo', 'arroz.con.gandules', 'lechon', 'tostones', 'pastelon', 'tembleque', 'asopao'],
-        'trinidadian' => ['trinidadian', 'trini', 'roti', 'doubles', 'callaloo', 'pelau', 'bake.and.shark', 'pholourie'],
-        'haitian' => ['haitian', 'griot', 'legim', 'diri', 'pikliz', 'tasso'],
+        'jamaican' => ['jamaican', 'jamaica', 'caribbean', 'jerk', 'ackee', 'saltfish', 'curry.goat', 'patties', 'escovitch', 'jerk.chicken', 'jerk.pork', 'jerk.sauce', '14.parish', 'irie.mon', 'jamrock'],
+        'puerto-rican' => ['puerto.rican', 'puerto.rico', 'caribbean', 'boricua', 'mofongo', 'arroz.con.gandules', 'lechon', 'tostones', 'toston', 'pastelon', 'pastele', 'tembleque', 'asopao', 'coquito', 'jibarito'],
+        'trinidadian' => ['trinidadian', 'caribbean', 'trini', 'roti', 'doubles', 'callaloo', 'pelau', 'bake.and.shark', 'pholourie', 'jerk', 'coal.pot'],
+        'haitian' => ['haitian', 'caribbean', 'griot', 'legim', 'diri', 'pikliz', 'tasso'],
 
         // ── Oceanian ───────────────────────────────────────────────────────
         'australian' => ['australian', 'aussie', 'meat.pie', 'barramundi', 'lamington', 'vegemite', 'bush.tucker'],
