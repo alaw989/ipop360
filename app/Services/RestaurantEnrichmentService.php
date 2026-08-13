@@ -296,14 +296,14 @@ class RestaurantEnrichmentService
 
             // Each source's consumer expects its canonical cuisine string: the
             // humanized query term for query-style sources, the slug for Overpass
-            // (its config lookup + keywordsFor() name-fallback are slug-keyed).
+            // (its cuisine config lookup is slug-keyed).
             $consumeCuisine = $label === 'overpass' ? $cuisine->slug : $queryTerm;
 
             $normalized = match ($label) {
                 'bizdata' => $this->bizData->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
                 'serpapi' => $this->serpApiService->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
                 'socrata' => $this->socrataService->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
-                'overpass' => $this->consumeOverpassResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
+                'overpass' => $this->overpass->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
                 default => [],
             };
 
@@ -332,62 +332,6 @@ class RestaurantEnrichmentService
     private function buildCacheKey(string $label, float $lat, float $lng, string $cuisine): string
     {
         return "{$label}:".md5(serialize(compact('lat', 'lng', 'cuisine')));
-    }
-
-    /**
-     * Consume Overpass responses with name-based fallback if no results.
-     * Overpass needs special handling because of the fallback path.
-     *
-     * @param  array<int, Response|\Throwable>  $responses
-     * @return array<int, array<string, mixed>>
-     */
-    private function consumeOverpassResponses(array $responses, float $lat, float $lng, string $cuisine, string $cacheKey): array
-    {
-        $normalized = $this->overpass->consumePoolResponses($responses, $lat, $lng, $cuisine, $cacheKey);
-
-        // If no results, try name-based fallback
-        if (empty($normalized)) {
-            $keywords = $this->cuisineMatcher->keywordsFor([$cuisine]);
-            if (! empty($keywords)) {
-                $nameRaw = $this->overpass->fetchByNameRaw($lat, $lng, $keywords);
-                if ($nameRaw !== null) {
-                    $elements = $nameRaw['data'];
-                    $normalized = $this->overpass->normalizeRaw($elements, $lat, $lng);
-                }
-            }
-        }
-
-        return $normalized;
-    }
-
-    /**
-     * Normalize Overpass results with name-based fallback if cuisine query yields nothing.
-     *
-     * @param  array<int, mixed>  $data
-     * @return array<int, array<string, mixed>>
-     */
-    private function normalizeOverpassWithFallback(array $data, float $lat, float $lng, string $cuisine): array
-    {
-        $normalized = $this->overpass->normalizeRaw($data, $lat, $lng);
-
-        if (! empty($normalized)) {
-            return $normalized;
-        }
-
-        // Try name-based fallback
-        $keywords = $this->cuisineMatcher->keywordsFor([$cuisine]);
-        if (empty($keywords)) {
-            return [];
-        }
-
-        $nameRaw = $this->overpass->fetchByNameRaw($lat, $lng, $keywords);
-        if ($nameRaw === null) {
-            return [];
-        }
-
-        $nameElements = $nameRaw['data'];
-
-        return $this->overpass->normalizeRaw($nameElements, $lat, $lng);
     }
 
     /**

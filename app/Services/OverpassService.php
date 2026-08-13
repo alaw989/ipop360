@@ -64,30 +64,6 @@ class OverpassService
     }
 
     /**
-     * Search by name regex directly in Overpass query instead of PHP filtering.
-     *
-     * @param  array<int, string>  $keywords
-     * @return array<int, array<string, mixed>>
-     */
-    public function searchByName(float $lat, float $lng, array $keywords, int $radius = 25000, int $limit = 50): array
-    {
-        $cacheKey = 'overpass_name:'.md5(serialize(compact('lat', 'lng', 'keywords', 'radius', 'limit')));
-
-        $cached = ExternalApiCache::findByKey($cacheKey);
-        if ($cached !== null) {
-            return $cached;
-        }
-
-        $results = $this->executeSearchByName($lat, $lng, $keywords, $radius, $limit);
-
-        ExternalApiCache::storeByKey($cacheKey, $results, now()->addHours(
-            (int) config('restaurant-finder.cache.overpass_ttl_hours', 24)
-        ));
-
-        return $results;
-    }
-
-    /**
      * Fetch raw OSM elements for a cuisine search, without normalization.
      * Returns ['cached' => bool, 'data' => array] or null on failure.
      *
@@ -159,88 +135,6 @@ class OverpassService
     }
 
     /**
-     * Fetch raw OSM elements for a name search, without normalization.
-     * Returns ['cached' => bool, 'data' => array] or null on failure.
-     *
-     * @param  array<int, string>  $keywords
-     * @param  array<string, mixed>  $context
-     * @return array{cached: bool, data: array<int, mixed>}|null
-     */
-    public function fetchByNameRaw(float $lat, float $lng, array $keywords, int $radius = 25000, int $limit = 50, array $context = []): ?array
-    {
-        // Live read path: bound to a single mirror + single radius + the tight
-        // live timeout so a cache-cold cuisine search can never exceed nginx's
-        // gateway limit. The enrichment path (no read_path) keeps the full
-        // 3-radii x 3-mirror fan-out with its generous 30s timeout. The cache
-        // key is context-independent, so both paths share one cache.
-        $readPath = (bool) ($context['read_path'] ?? false);
-
-        $amenities = $this->amenityRegex();
-        $cacheKey = 'overpass_name:'.md5(serialize(compact('lat', 'lng', 'keywords', 'radius', 'limit', 'amenities')));
-
-        $cached = ExternalApiCache::findByKey($cacheKey);
-        if ($cached !== null) {
-            return ['cached' => true, 'data' => $cached];
-        }
-
-        $pattern = implode('|', array_map(fn ($k) => str_replace('\\.', '.', preg_quote($k, '/')), $keywords));
-
-        $clientTimeout = $readPath
-            ? (float) config('restaurant-finder.live_search.overpass_timeout', 10.0)
-            : 30.0;
-        $serverTimeout = $readPath ? max(1, (int) ceil($clientTimeout)) : 25;
-        $radii = $readPath ? [static::RADII[0]] : static::RADII;
-        // Live path: try the first two mirrors serially (the canonical mirror
-        // IP-bans the prod droplet, so the fallback mirror must be reachable).
-        $mirrors = $readPath ? array_slice($this->mirrors, 0, 2) : $this->mirrors;
-
-        foreach ($radii as $r) {
-            if ($r < $radius) {
-                continue;
-            }
-
-            $query = "[out:json][timeout:{$serverTimeout}];\n"
-                ."(\n"
-                .'  node'.$this->amenityFilter()."[\"name\"~\"{$pattern}\",i](around:{$r},{$lat},{$lng});\n"
-                .'  way'.$this->amenityFilter()."[\"name\"~\"{$pattern}\",i](around:{$r},{$lat},{$lng});\n"
-                .'  rel'.$this->amenityFilter()."[\"name\"~\"{$pattern}\",i](around:{$r},{$lat},{$lng});\n"
-                .");\n"
-                ."out body center {$limit};";
-
-            foreach ($mirrors as $mirror) {
-                try {
-                    $response = Http::timeout($clientTimeout)
-                        ->asForm()
-                        ->withHeaders(['User-Agent' => 'iPop360/1.0'])
-                        ->post($mirror, ['data' => $query]);
-
-                    if ($response->failed()) {
-                        continue;
-                    }
-
-                    $data = $response->json();
-                    $elements = $data['elements'] ?? [];
-
-                    ExternalApiCache::storeByKey($cacheKey, $elements, now()->addHours(
-                        (int) config('restaurant-finder.cache.overpass_ttl_hours', 24)
-                    ));
-
-                    return ['cached' => false, 'data' => $elements];
-                } catch (\Throwable $e) {
-                    Log::warning('Overpass name-regex mirror failed, trying next', [
-                        'mirror' => $mirror,
-                        'message' => $e->getMessage(),
-                    ]);
-
-                    continue;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * @return array<int, array<string, mixed>>
      */
     private function executeSearch(float $lat, float $lng, ?string $cuisine, int $radius, int $limit): array
@@ -298,61 +192,6 @@ class OverpassService
             'lng' => $lng,
             'cuisine' => $cuisine,
         ]);
-
-        return [];
-    }
-
-    /**
-     * @param  array<int, string>  $keywords
-     * @return array<int, array<string, mixed>>
-     */
-    private function executeSearchByName(float $lat, float $lng, array $keywords, int $radius, int $limit): array
-    {
-        $pattern = implode('|', array_map(fn ($k) => str_replace('\\.', '.', preg_quote($k, '/')), $keywords));
-
-        foreach (static::RADII as $r) {
-            if ($r < $radius) {
-                continue;
-            }
-
-            $query = "[out:json][timeout:25];\n"
-                ."(\n"
-                .'  node'.$this->amenityFilter()."[\"name\"~\"{$pattern}\",i](around:{$r},{$lat},{$lng});\n"
-                .'  way'.$this->amenityFilter()."[\"name\"~\"{$pattern}\",i](around:{$r},{$lat},{$lng});\n"
-                .'  rel'.$this->amenityFilter()."[\"name\"~\"{$pattern}\",i](around:{$r},{$lat},{$lng});\n"
-                .");\n"
-                ."out body center {$limit};";
-
-            foreach ($this->mirrors as $mirror) {
-                try {
-                    $response = Http::timeout(30)
-                        ->asForm()
-                        ->withHeaders(['User-Agent' => 'iPop360/1.0'])
-                        ->post($mirror, ['data' => $query]);
-
-                    if ($response->failed()) {
-                        continue;
-                    }
-
-                    $data = $response->json();
-                    $elements = $data['elements'] ?? [];
-                    $results = $this->normalizeResults($elements, $lat, $lng);
-
-                    if (count($results) >= 5 || $r === static::RADII[array_key_last(static::RADII)]) {
-                        return $results;
-                    }
-
-                    break;
-                } catch (\Throwable $e) {
-                    Log::warning('Overpass name-regex mirror failed, trying next', [
-                        'mirror' => $mirror,
-                        'message' => $e->getMessage(),
-                    ]);
-
-                    continue;
-                }
-            }
-        }
 
         return [];
     }
@@ -646,8 +485,7 @@ class OverpassService
      * Build the concurrent-pool request for the live read path. The live path
      * uses the FIRST mirror and FIRST radius only (25000m, matching the cache
      * key) with a tighter client timeout — instead of the full 3 mirrors x 3
-     * radii fan-out enrichment performs. The name-regex fallback stays a
-     * separate serial step driven by LiveSearchService.
+     * radii fan-out enrichment performs.
      *
      * @param  array<string, mixed>  $context
      * @return array<int, RequestSpec>
