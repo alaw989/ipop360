@@ -28,6 +28,8 @@ return [
         'admin.blog.edit',
         'admin.blog.update',
         'admin.blog.destroy',
+        'admin.users.index',
+        'admin.users.update',
         'login',
         'logout',
         'password.confirm',

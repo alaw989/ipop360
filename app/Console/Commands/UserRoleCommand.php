@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Enums\UserRole;
 use App\Models\User;
+use App\Services\UserRoleService;
 use Illuminate\Console\Command;
 
 class UserRoleCommand extends Command
@@ -22,7 +23,7 @@ class UserRoleCommand extends Command
         $userRole = UserRole::tryFrom($role);
 
         if ($userRole === null) {
-            $valid = implode('|', array_map(fn (UserRole $r) => $r->value, UserRole::cases()));
+            $valid = implode('|', UserRoleService::validValues());
             $this->error("Invalid role: \"{$role}\". Valid roles: {$valid}");
 
             return Command::FAILURE;
@@ -32,6 +33,12 @@ class UserRoleCommand extends Command
 
         if ($user === null) {
             $this->error("User not found with email: {$email}");
+
+            return Command::FAILURE;
+        }
+
+        if (UserRoleService::wouldRemoveLastAdmin($user, $userRole)) {
+            $this->error("Cannot remove the last admin: {$user->email} is the only remaining administrator.");
 
             return Command::FAILURE;
         }

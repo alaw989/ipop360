@@ -25,6 +25,7 @@ const mockRoute = vi.fn((name?: string, params?: unknown): any => {
         dashboard: '/dashboard',
         'admin.dashboard': '/admin',
         'admin.blog.index': '/admin/blog',
+        'admin.users.index': '/admin/users',
         'profile.edit': '/profile',
         logout: '/logout',
     }
@@ -32,7 +33,7 @@ const mockRoute = vi.fn((name?: string, params?: unknown): any => {
 })
 
 const stubs = {
-    ApplicationLogo: { template: '<svg data-testid="logo" />' },
+    BrandLogo: { template: '<svg data-testid="logo" />' },
     Dropdown: { template: '<div class="dropdown"><slot name="trigger" /><slot name="content" /></div>' },
     DropdownLink: { template: '<a :href="href" class="dropdown-link"><slot /></a>', props: ['href'] },
     NavLink: { template: '<a :href="href" class="nav-link"><slot /></a>', props: ['href', 'active'] },
@@ -79,6 +80,12 @@ describe('AuthenticatedLayout nav', () => {
         expect(mountLayout('admin').findAll('a[href="/admin"]').length).toBeGreaterThan(0)
         expect(mountLayout('editor').findAll('a[href="/admin"]').length).toBe(0)
         expect(mountLayout('user').findAll('a[href="/admin"]').length).toBe(0)
+    })
+
+    it('shows the Users link only for admin users', () => {
+        expect(mountLayout('admin').findAll('a[href="/admin/users"]').length).toBeGreaterThan(0)
+        expect(mountLayout('editor').findAll('a[href="/admin/users"]').length).toBe(0)
+        expect(mountLayout('user').findAll('a[href="/admin/users"]').length).toBe(0)
     })
 
     it('always shows Dashboard and Profile links', () => {

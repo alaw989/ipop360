@@ -78,12 +78,20 @@ function gapBadgeVariant(gap: string): 'default' | 'secondary' | 'destructive' |
         <template #header>
             <div class="flex items-center justify-between">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800">Admin Dashboard</h2>
-                <Button as-child size="sm">
-                    <Link :href="route('admin.blog.index')">
-                        <Newspaper class="mr-1 h-4 w-4" />
-                        Manage Blog
-                    </Link>
-                </Button>
+                <div class="flex items-center gap-2">
+                    <Button as-child size="sm" variant="outline">
+                        <Link :href="route('admin.users.index')">
+                            <Users class="mr-1 h-4 w-4" />
+                            Manage Users
+                        </Link>
+                    </Button>
+                    <Button as-child size="sm">
+                        <Link :href="route('admin.blog.index')">
+                            <Newspaper class="mr-1 h-4 w-4" />
+                            Manage Blog
+                        </Link>
+                    </Button>
+                </div>
             </div>
         </template>
 
