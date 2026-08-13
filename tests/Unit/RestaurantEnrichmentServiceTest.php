@@ -16,7 +16,9 @@ use App\Services\SerpApiService;
 use App\Services\SocrataOpenDataService;
 use App\Services\VenuePipeline;
 use App\Services\WikidataService;
+use GuzzleHttp\Psr7\Response as PsrResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Config;
 use Mockery;
 use Mockery\MockInterface;
@@ -31,7 +33,7 @@ class RestaurantEnrichmentServiceTest extends TestCase
      * Only the throttling / quota-guard contract under test is exercised, so
      * none of the 11 collaborators' real (network/DB) paths are ever hit.
      */
-    private function makeService(): RestaurantEnrichmentService
+    private function makeService(?callable $configureSerpApi = null): RestaurantEnrichmentService
     {
         /** @var OverpassService&MockInterface $overpass */
         $overpass = Mockery::mock(OverpassService::class)->shouldIgnoreMissing();
@@ -61,6 +63,10 @@ class RestaurantEnrichmentServiceTest extends TestCase
         $serpApiService->shouldReceive('cacheKeyFor')->andReturn('unused:combo-key');
         // humanize drives the cache key; defer to a stable value.
         $cuisineMatcher->shouldReceive('humanize')->andReturn('taco');
+
+        if ($configureSerpApi !== null) {
+            $configureSerpApi($serpApiService);
+        }
 
         return new RestaurantEnrichmentService(
             $overpass, $bizData, $serpApiService, $socrataService, $wikidata,
@@ -148,6 +154,39 @@ class RestaurantEnrichmentServiceTest extends TestCase
     }
 
     /**
+     * Honest quota accounting: a FAILED outbound SerpApi call (500) still burns
+     * quota, so it must be visible to countRealSerpApiCallsLast30Days() and trip
+     * the enrichment monthly-budget guard EARLY. Drives the empty row through the
+     * real service failure path (consumePoolResponses) rather than inserting it.
+     */
+    public function test_failed_call_counts_toward_monthly_budget_guard(): void
+    {
+        Config::set('restaurant-finder.cities', ['Mobile' => [30.69, -88.04]]);
+        Config::set('restaurant-finder.cuisines', ['Taco']);
+        Config::set('restaurant-finder.enrich.monthly_budget', 1);
+
+        Cuisine::factory()->create(['slug' => 'taco', 'name' => 'Taco']);
+
+        // One FAILED call through the real failure path records an empty row.
+        $serpApi = app(SerpApiService::class);
+        $serpApi->consumePoolResponses(
+            [new Response(new PsrResponse(500, [], 'boom'))],
+            30.69,
+            -88.04,
+            'taco',
+            $serpApi->cacheKeyFor(30.69, -88.04, 'taco'),
+        );
+
+        $this->assertSame(1, ExternalApiCache::stats()['serpapi_calls_last_30d']);
+
+        $result = $this->makeService()->enrichAllCitiesThrottled();
+
+        $this->assertTrue($result['quota_exhausted']);
+        $this->assertSame(0, $result['real_calls_made']);
+        $this->assertSame(0, $result['total_processed']);
+    }
+
+    /**
      * Per-run cap guard: with quota intact but the per-run cap already met
      * (0), the run stops without enriching and flags per_run_cap_reached.
      */
@@ -167,5 +206,32 @@ class RestaurantEnrichmentServiceTest extends TestCase
         $this->assertFalse($result['quota_exhausted']);
         $this->assertSame(0, $result['real_calls_made']);
         $this->assertSame(0, $result['total_processed']);
+    }
+
+    /**
+     * Honest quota accounting: when SerpApi has flagged the account exhausted
+     * (429 "out of searches"), throttled enrichment must honor the 24h flag and
+     * stop BEFORE attempting a live fetch — it must not count phantom "real
+     * calls" for combos where poolRequestsFor() would silently issue nothing.
+     */
+    public function test_stops_when_provider_exhausted(): void
+    {
+        Config::set('restaurant-finder.cities', ['Mobile' => [30.69, -88.04]]);
+        Config::set('restaurant-finder.cuisines', ['Taco']);
+        // Budgets far above the grid so neither the monthly nor per-run cap fires
+        // first — the provider-exhaustion flag must be what stops the run.
+        Config::set('restaurant-finder.enrich.monthly_budget', 1000);
+        Config::set('restaurant-finder.enrich.per_run_cap', 1000);
+
+        Cuisine::factory()->create(['slug' => 'taco', 'name' => 'Taco']);
+
+        $result = $this->makeService(
+            fn ($mock) => $mock->shouldReceive('isProviderExhausted')->andReturn(true)
+        )->enrichAllCitiesThrottled();
+
+        $this->assertTrue($result['quota_exhausted']);
+        $this->assertSame(0, $result['real_calls_made']);
+        $this->assertSame(0, $result['total_processed']);
+        $this->assertFalse($result['per_run_cap_reached']);
     }
 }

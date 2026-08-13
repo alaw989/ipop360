@@ -891,6 +891,21 @@ class RestaurantEnrichmentService
                 continue;
             }
 
+            // Honest quota accounting: when SerpApi has flagged the account
+            // exhausted (429 "out of searches"), no live call can succeed for the
+            // retry window. Stop the run instead of attempting fetches that would
+            // only 429 — and instead of counting phantom "real calls" for combos
+            // where poolRequestsFor() silently issued no outbound request.
+            if ($this->serpApiService->isProviderExhausted()) {
+                $quotaExhausted = true;
+                Log::channel('enrichment')->info('SerpApi provider exhausted; stopping throttled enrichment', [
+                    'city' => $cityName,
+                    'cuisine' => $cuisine->name,
+                ]);
+
+                break;
+            }
+
             if ($realCallsThisMonth >= $monthlyBudget) {
                 $quotaExhausted = true;
                 Log::channel('enrichment')->info('Monthly budget exhausted, stopping enrichment', [
