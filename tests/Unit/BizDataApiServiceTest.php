@@ -176,4 +176,29 @@ class BizDataApiServiceTest extends TestCase
         $this->assertNotSame($a, $this->service->cacheKeyFor(40.7128, -74.0060, null, 25, 50));
         $this->assertStringStartsWith('bizdata:', $a);
     }
+
+    public function test_pool_requests_never_send_the_ignored_query_param(): void
+    {
+        $specs = $this->service->poolRequestsFor(40.7128, -74.0060, 'pizza', ['read_path' => true]);
+
+        $this->assertCount(2, $specs);
+        foreach ($specs as $spec) {
+            $this->assertArrayNotHasKey('query', $spec->query);
+        }
+    }
+
+    public function test_pool_requests_fan_out_on_the_live_read_path_only(): void
+    {
+        // Bounded live retry: the flaky upstream gets N concurrent attempts
+        // (default 2) on the read path, but enrichment keeps a single attempt.
+        $live = $this->service->poolRequestsFor(40.7128, -74.0060, 'pizza', ['read_path' => true]);
+        $enrich = $this->service->poolRequestsFor(40.7128, -74.0060, 'pizza', ['read_path' => false]);
+
+        $this->assertCount(2, $live);
+        $this->assertCount(1, $enrich);
+
+        // All attempts are the same GET against the same endpoint.
+        $this->assertSame($live[0]->url, $live[1]->url);
+        $this->assertSame($live[0]->query, $live[1]->query);
+    }
 }

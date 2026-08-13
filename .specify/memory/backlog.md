@@ -325,52 +325,45 @@ homepage has a shared top nav**; CI + deploy green.
 runs PHP 8.4**; **homepage has section rhythm, stats band, pills, scroll-reveal motion,
 and a transparent top nav over the hero**; CI + deploy green.
 
+## ✅ Done (2026-08-13 session, continued — search/coverage backlog)
+
+30. **SerpApi quota honesty** — PR #96 (opencode-loop legacy, 5 iterations,
+    ALL_DONE): `recordFailedCall()` counts EVERY failed call (429/5xx + pool
+    `\Throwable`) as an empty cache row across `search`/`fetchRaw`/
+    `consumePoolResponses` → they count toward the 30d quota so the circuit
+    breaker trips early; `fetchRaw` gained exhaustion detection; enrichment's
+    throttled caller breaks with `quota_exhausted`; `search()`/`fetchRaw()`
+    skip live calls when exhausted (cached results still serve free). PHPUnit
+    665→674. Merged + deployed + live-verified (/, /api 200).
+31. **Photon venue source** — PR #97 (opencode-loop legacy, 3 iterations,
+    ALL_DONE): new free `PhotonService` (keyless OSM text-search, `bbox`
+    geofence, `osm_tag=amenity:*` filter) wired as the 5th live-search source;
+    removed the broken Overpass name-regex fallback everywhere
+    (`applyOverpassNameFallback`, `consumeOverpassResponses`,
+    `fetchByNameRaw`/`searchByName`/`executeSearchByName` + tests). PHPUnit
+    674→677. Rebased off master pre-PR. Merged + deployed + live-verified.
+32. **Cuisine keyword lexicon fix** — PR #98 (opencode-loop legacy, 13
+    iterations, ALL_DONE): bare name tokens (`jerk`, `caribbean`, `irie`,
+    `pattie`, …) + `coal.pot` (trinidadian, with negative guard vs "Coal Fired
+    Pizza") so real venue names like "Jerk Pit" match. Independent DB re-audit:
+    0 remaining Caribbean misses across all 4 Caribbean cuisines. PHPUnit
+    677→678 (21 CuisineMatcherTest cases). Rebased off master pre-PR.
+33. **Live-first search page** — PR #99 (opencode-loop legacy, 5 iterations,
+    ALL_DONE): `/search` runs the free-source live search SYNCHRONOUSLY when
+    the DB is empty (mirror `/api/restaurants`), persists via evidence-gated
+    `LiveVenuePersister` + re-queries; relevance guard refreshes on weak rows;
+    honest "limited coverage" empty state; deleted `EnrichSearchResults` job.
+    PHPUnit 678→682. Stacked on PR #98 (merge #98 first).
+
+**Current floor:** 682 PHPUnit tests + 1034 vitest tests; PHPStan level 8 over
+`app/ + tests/` with a zero baseline; pint clean; **CI enforces coverage
+thresholds and runs PHP 8.4**; **search covers: honest SerpApi quota accounting,
+free Photon source (Overpass name-regex fallback removed), real-name Caribbean
+cuisine matching, and a synchronous live-first search page**; CI + deploy green.
+
 ## Next goals (in priority order)
 
-### 1. SerpApi quota honesty ⬅ NEXT
-- **Audit finding:** the SerpApi account is genuinely exhausted (429 "out of
-  searches") but the app assumes a 250/mo quota, counts only SUCCESSFUL cached
-  calls (failures never counted → the 80% circuit breaker at 200 never trips),
-  and skips the provider-exhausted flag on pool timeouts/throwables — so every
-  cold search fires a doomed call. Count EVERY live SerpApi call (success +
-  failure) in a 30d window via a new `serpapi_call_logs` table (used by the
-  circuit breaker AND the enrichment budget); set the exhaustion flag on all
-  failure paths (incl. pool throwables/timeouts); gate `allowLiveSerpApiFetch()`
-  on it; lower `SERPAPI_FREE_QUOTA` default to the real plan (env-overridable).
-- **Goal:** `make SerpApi quota accounting honest — count all calls incl. failures, trip the circuit breaker early, and honor provider exhaustion on every failure path`
-- **Gate:** `composer test`
-
-### 2. Photon venue source
-- **Audit finding:** the Overpass name-regex fallback is broken (takes 60s+ /
-  504s on both mirrors — too heavy for Overpass) and its keyword regex wouldn't
-  match real names like "Jerk Pit". Add a free `PhotonVenueService` (geo-bias +
-  `osm_tag=amenity:restaurant|fast_food|cafe|bar|…`, ~2s, already a dependency)
-  to the live-search pool for scoped searches; remove the broken Overpass
-  name-regex fallback (`applyOverpassNameFallback` + read-path `fetchByNameRaw`).
-- **Goal:** `add a free Photon venue source to the live search and remove the broken Overpass name-regex fallback`
-- **Gate:** `composer test`
-
-### 3. Cuisine keyword lexicon fix
-- **Audit finding:** jamaican keywords are `jerk.chicken|jerk.pork|jerk.sauce`
-  (dotted dish names) — no bare `jerk`, so "Jerk Pit" / "Jerk House Caribbean"
-  never match the cuisine and get mis-classified/dropped. Add bare name tokens
-  (`jerk`, `caribbean`, `irie`, `pattie`) to the jamaican/caribbean entries; add
-  a guard test so dotted dish keywords can't silently break name matching.
-- **Goal:** `fix the jamaican/caribbean cuisine keywords so real venue names like "Jerk Pit" match`
-- **Gate:** `composer test`
-
-### 4. Live-first search page
-- **Audit finding:** `/search` queries the DB, then on empty dispatches an async
-  `EnrichSearchResults` job and returns a spinner — an 8×4s poll gamble that ends
-  in a bare empty when live sources are thin. Make `/search` run the free-source
-  live search SYNCHRONOUSLY when the DB is empty (mirror `/api/restaurants`),
-  persist + return results in the first response; add a relevance guard so
-  weak/unrelated DB rows trigger a live refresh; surface an honest "limited
-  coverage in this area" state instead of a bare empty.
-- **Goal:** `make the search page run a live search immediately when the DB has no results and show an honest empty state`
-- **Gate:** `composer test && npm run build`
-
-### 5. BizData resilience
+### 1. BizData resilience ⬅ NEXT
 - **Audit finding:** BizData's upstream is flaky (intermittent 502 "fetch
   failed") and passing the ignored `query` param (always sent on scoped
   searches) can itself trigger the 502. Stop sending `query`; add a bounded
@@ -378,7 +371,7 @@ and a transparent top nav over the hero**; CI + deploy green.
 - **Goal:** `stop passing BizData's ignored query param and add a bounded live retry for its flaky upstream`
 - **Gate:** `composer test`
 
-### 6. Admin Users page
+### 2. Admin Users page
 - No UI exists to change a user's role — admins must SSH + tinker. Add an
   `/admin/users` page (admin-only): list users (name, email, role, joined),
   promote/demote `user`/`editor`/`admin` via a role selector, with a confirm
