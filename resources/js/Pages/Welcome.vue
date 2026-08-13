@@ -9,6 +9,7 @@ import JsonLd from '@/Components/JsonLd.vue'
 import AppFooter from '@/Components/AppFooter.vue'
 import TopNav from '@/Components/TopNav.vue'
 import HeroBanner from '@/Components/HeroBanner.vue'
+import ScrollReveal from '@/Components/ScrollReveal.vue'
 import StickySearchBar from '@/Components/StickySearchBar.vue'
 import CategoryGrid from '@/Components/CategoryGrid.vue'
 import PopularCuisines from '@/Components/PopularCuisines.vue'
@@ -381,32 +382,44 @@ function dismissLoadMoreError() {
                 />
             </Transition>
 
-            <!-- Yelp-style homepage sections — only in idle phase, no transition needed -->
+            <!-- Yelp-style homepage sections — only in idle phase, no transition needed.
+                 Each section staggers its reveal (80ms step) so above-the-fold
+                 sections cascade in instead of snapping into view simultaneously. -->
             <template v-if="phase === 'idle'">
-                <StatsBand :stats="stats" />
+                <ScrollReveal :delay="0">
+                    <StatsBand :stats="stats" />
+                </ScrollReveal>
 
-                <CategoryGrid
-                    :categories="categories"
-                    :loading="dataLoading"
-                    :lat="lat"
-                    :lng="lng"
-                />
+                <ScrollReveal :delay="80">
+                    <CategoryGrid
+                        :categories="categories"
+                        :loading="dataLoading"
+                        :lat="lat"
+                        :lng="lng"
+                    />
+                </ScrollReveal>
 
-                <PopularCuisines
-                    :cuisines="popularCuisines"
-                    :city="effectiveLocation?.city ?? null"
-                    :loading="dataLoading"
-                    :lat="lat"
-                    :lng="lng"
-                />
+                <ScrollReveal :delay="160">
+                    <PopularCuisines
+                        :cuisines="popularCuisines"
+                        :city="effectiveLocation?.city ?? null"
+                        :loading="dataLoading"
+                        :lat="lat"
+                        :lng="lng"
+                    />
+                </ScrollReveal>
 
-                <PopularRestaurants
-                    :restaurants="popularRestaurants"
-                    :city="effectiveLocation?.city ?? null"
-                    :loading="dataLoading"
-                />
+                <ScrollReveal :delay="240">
+                    <PopularRestaurants
+                        :restaurants="popularRestaurants"
+                        :city="effectiveLocation?.city ?? null"
+                        :loading="dataLoading"
+                    />
+                </ScrollReveal>
 
-                <BlogPreview :posts="props.latestPosts" />
+                <ScrollReveal :delay="320">
+                    <BlogPreview :posts="props.latestPosts" />
+                </ScrollReveal>
             </template>
 
             <!-- Results area (all non-idle phases) -->

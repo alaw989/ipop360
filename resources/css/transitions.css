@@ -176,6 +176,27 @@
         animation: cardEnter 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
         animation-delay: calc(min(var(--rank, 1) - 1, 8) * 28ms);
     }
+
+    /* Scroll-reveal: homepage sections fade + rise in as they scroll into the
+       viewport. The ScrollReveal wrapper toggles `--visible` via a one-shot
+       IntersectionObserver once ~15% of the section is on screen, then
+       disconnects. Content starts hidden (opacity 0 + 24px lift) and settles
+       in place; the reduced-motion block below forces it visible with no
+       movement for prefers-reduced-motion users.
+       Gated behind `.js` (set by an inline script in app.blade.php) so the
+       hidden state is only applied when JavaScript is actually running — with
+       JS disabled/failed the sections stay fully visible instead of being
+       stuck at opacity:0. */
+    .js .scroll-reveal {
+        opacity: 0;
+        transform: translateY(24px);
+        transition: opacity 500ms cubic-bezier(0.16, 1, 0.3, 1),
+                    transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .js .scroll-reveal--visible {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 /* Respect the user's motion preference: neutralize the entire choreography
@@ -212,5 +233,10 @@
     .state-swap-leave-to {
         opacity: 0;
         transform: none;
+    }
+    .js .scroll-reveal {
+        opacity: 1;
+        transform: none;
+        transition: none;
     }
 }
