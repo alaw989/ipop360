@@ -146,7 +146,7 @@ onUnmounted(() => {
                 <!-- Mobile menu toggle -->
                 <button
                     type="button"
-                    class="flex h-10 w-10 items-center justify-center rounded-md transition-colors"
+                    class="flex h-10 w-10 items-center justify-center rounded-md transition-colors md:hidden"
                     :class="props.transparent
                         ? 'text-white/80 hover:bg-white/10 hover:text-white'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'"

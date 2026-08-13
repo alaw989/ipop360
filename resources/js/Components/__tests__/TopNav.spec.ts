@@ -129,6 +129,11 @@ describe('TopNav', () => {
         expect(wrapper.find('[data-testid="menu-toggle"]').exists()).toBe(true)
     })
 
+    it('hides the menu toggle on desktop (md:hidden)', () => {
+        const wrapper = mountNav(null)
+        expect(wrapper.find('[data-testid="menu-toggle"]').classes()).toContain('md:hidden')
+    })
+
     it('keeps the mobile menu collapsed by default', () => {
         const wrapper = mountNav(null)
         expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
