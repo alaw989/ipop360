@@ -21,6 +21,7 @@ class LiveSearchService
         private BizDataApiService $bizDataService,
         private SerpApiService $serpApiService,
         private SocrataOpenDataService $socrataService,
+        private PhotonService $photonService,
         private PopularityScoreService $scoreService,
         private CuisineMatcher $cuisineMatcher,
         private VenuePipeline $venuePipeline,
@@ -121,6 +122,7 @@ class LiveSearchService
             'serpapi' => $this->serpApiService,
             'socrata' => $this->socrataService,
             'overpass' => $this->overpassService,
+            'photon' => $this->photonService,
         ];
 
         // Per-source cuisine string derived from the ONE resolved scope.
@@ -217,13 +219,6 @@ class LiveSearchService
             } catch (\Throwable $e) {
                 Log::warning("LiveSearch {$label} consume failed", ['message' => $e->getMessage()]);
             }
-        }
-
-        // Overpass name-regex fallback — serial and conditional, as before:
-        // only when the cuisine-tagged Overpass query returned nothing. Skipped in
-        // cache-only mode (it performs a live fetch we must not trigger).
-        if (! $cacheOnly) {
-            $merged = $this->applyOverpassNameFallback($merged, $lat, $lng, $scope->onKeywords);
         }
 
         return $merged;
@@ -419,52 +414,9 @@ class LiveSearchService
             'serpapi' => $this->serpApiService->normalizeRaw($cached, $lat, $lng),
             'socrata' => $this->socrataService->normalizeRaw($cached, $lat, $lng),
             'overpass' => $this->overpassService->normalizeRaw($cached, $lat, $lng),
+            'photon' => $this->photonService->normalizeRaw($cached, $lat, $lng),
             default => [],
         };
-    }
-
-    /**
-     * Overpass name-regex fallback: when the cuisine-tagged query yields no
-     * venues, re-query OSM scanning restaurant names for cuisine keywords
-     * (many OSM restaurants lack a cuisine tag). Serial and conditional — runs
-     * only after the pool resolves and only if Overpass produced nothing. On the
-     * read path it is BOUNDED (one mirror, one radius, the live timeout) so a
-     * cache-cold search can't blow past the gateway limit; the enrichment path
-     * keeps the full fan-out.
-     *
-     * @param  array<int, array<string, mixed>>  $merged
-     * @param  array<int, string>  $keywords
-     * @return array<int, array<string, mixed>>
-     */
-    private function applyOverpassNameFallback(array $merged, float $lat, float $lng, array $keywords): array
-    {
-        // Generic restaurant keywords keep broad recall (untagged restaurants
-        // are classified downstream). On a SCOPED search, union in the scope's
-        // own on-cuisine keywords (e.g. pho/saigon/vietnamese) so named-but-
-        // untagged OSM places like "Pho 813" are actually found — the generic
-        // list alone misses every cuisine-named venue. The downstream cuisine-
-        // relevance and confidence filters still classify what comes back.
-        $keywords = array_values(array_unique(array_merge(
-            ['restaurant', 'cafe', 'grill', 'pizza', 'kitchen', 'bar', 'diner', 'bistro', 'sushi', 'taco', 'burger', 'thai', 'italian', 'mexican', 'chinese', 'japanese', 'indian', 'breakfast', 'lunch', 'dinner'],
-            $keywords
-        )));
-
-        foreach ($merged as $r) {
-            if (($r['source'] ?? null) === 'overpass') {
-                return $merged; // cuisine query already produced Overpass venues
-            }
-        }
-
-        try {
-            $nameRaw = $this->overpassService->fetchByNameRaw($lat, $lng, $keywords, context: ['read_path' => true]);
-            if ($nameRaw !== null) {
-                $merged = array_merge($merged, $this->overpassService->normalizeRaw($nameRaw['data'], $lat, $lng));
-            }
-        } catch (\Throwable $e) {
-            Log::warning('Overpass name fallback failed', ['message' => $e->getMessage()]);
-        }
-
-        return $merged;
     }
 
     /**

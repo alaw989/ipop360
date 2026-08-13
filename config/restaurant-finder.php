@@ -466,6 +466,7 @@ return [
         'overpass_ttl_hours' => (int) env('OVERPASS_CACHE_TTL_HOURS', 24),
         'bizdata_ttl_hours' => (int) env('BIZDATA_CACHE_TTL_HOURS', 24),
         'socrata_ttl_hours' => (int) env('SOCRATA_CACHE_TTL_HOURS', 24),
+        'photon_ttl_hours' => (int) env('PHOTON_CACHE_TTL_HOURS', 24),
 
         // TTL applied when a source returns an EMPTY result set (a 200 with no
         // rows, or a normalized []). Without this, an empty response was cached
@@ -509,6 +510,26 @@ return [
                 'https://lz4.overpass-api.de/api/interpreter',
                 'https://overpass.kumi.systems/api/interpreter',
             ])))))),
+        ],
+
+        'photon' => [
+            // Photon (Komoot) — free, keyless OSM text search. Its `q` text-
+            // matches venue NAMES, giving cuisine-scoped searches the name-based
+            // recall the (removed) Overpass name-regex fallback tried to provide
+            // ("Pho 813", "Vietnamese Bistro") without the fragile regex query.
+            // Geofenced via bbox, filtered to food amenities via osm_tag.
+            'base_url' => env('PHOTON_BASE_URL', 'https://photon.komoot.io/api/'),
+
+            // Food-establishment amenity values, each sent as a repeated
+            // osm_tag=amenity:* param (Photon ORs repeated params; it rejects the
+            // comma-separated union form). Comma-separated, env-overridable.
+            'amenities' => array_filter(array_map('trim', explode(',', env('PHOTON_AMENITIES',
+                'restaurant,fast_food,cafe,bar,pub,biergarten,ice_cream'
+            )))),
+
+            // Geofence radius (km) → bbox, and result limit.
+            'radius_km' => (int) env('PHOTON_RADIUS_KM', 25),
+            'limit' => (int) env('PHOTON_LIMIT', 30),
         ],
     ],
 

@@ -317,58 +317,6 @@ class OverpassServiceTest extends TestCase
         $this->assertStringContainsString('vietnamese', $body);
     }
 
-    public function test_name_search_uses_regex_query_instead_of_php_filter(): void
-    {
-        $elements = [];
-        for ($i = 0; $i < 6; $i++) {
-            $elements[] = $this->makeNode('Place', 37.7749, -122.4194, $i + 1);
-        }
-
-        Http::fake([
-            'overpass-api.de/*' => Http::response(['elements' => $elements], 200),
-        ]);
-
-        $service = new OverpassService;
-        $service->searchByName(37.7749, -122.4194, ['sushi', 'ramen']);
-
-        $recorded = Http::recorded();
-        $this->assertCount(1, $recorded);
-        $entry = $recorded[0] ?? null;
-        $this->assertNotNull($entry);
-        $body = urldecode($entry[0]->body());
-        $this->assertStringContainsString('["name"~"', $body);
-        $this->assertStringContainsString('sushi', $body);
-        $this->assertStringContainsString('ramen', $body);
-        $this->assertStringContainsString('out body center', $body);
-    }
-
-    public function test_name_search_retries_when_few_results(): void
-    {
-        $callCount = 0;
-
-        Http::fake(function ($request) use (&$callCount) {
-            $callCount++;
-            $elements = [$this->makeNode('Only Match', 37.7749, -122.4194, 1)];
-            if ($callCount >= 2) {
-                $elements = [
-                    $this->makeNode('Match 1', 37.7749, -122.4194, 1),
-                    $this->makeNode('Match 2', 37.7849, -122.4094, 2),
-                    $this->makeNode('Match 3', 37.7949, -122.3994, 3),
-                    $this->makeNode('Match 4', 37.8049, -122.3894, 4),
-                    $this->makeNode('Match 5', 37.8149, -122.3794, 5),
-                ];
-            }
-
-            return Http::response(['elements' => $elements], 200);
-        });
-
-        $service = new OverpassService;
-        $results = $service->searchByName(37.7749, -122.4194, ['match']);
-
-        $this->assertGreaterThanOrEqual(5, count($results));
-        $this->assertSame(2, $callCount);
-    }
-
     public function test_caches_search_results(): void
     {
         $elements = [];
@@ -437,26 +385,5 @@ class OverpassServiceTest extends TestCase
 
         $this->assertCount(6, $results);
         $this->assertSame('Fallback', $results[0]['name']);
-    }
-
-    public function test_fetch_by_name_raw_live_path_is_bounded_to_two_mirrors(): void
-    {
-        // The live read path must NOT do the 3-radii x 3-mirror fan-out the
-        // enrichment path does. Every mirror "fails"; the read path should fire
-        // exactly TWO requests (first two mirrors, first radius) then bail —
-        // bounding a cache-cold cuisine search well under the gateway timeout
-        // while still falling through when the canonical mirror IP-bans prod.
-        Http::fake([
-            'overpass-api.de/*' => Http::response(null, 500),
-            'maps.mail.ru/*' => Http::response(null, 500),
-            'lz4.overpass-api.de/*' => Http::response(null, 500),
-            'overpass.kumi.systems/*' => Http::response(null, 500),
-        ]);
-
-        $service = new OverpassService;
-        $result = $service->fetchByNameRaw(37.7749, -122.4194, ['chinese', 'dragon'], context: ['read_path' => true]);
-
-        $this->assertNull($result);
-        Http::assertSentCount(2);
     }
 }
