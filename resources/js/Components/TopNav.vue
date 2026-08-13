@@ -7,10 +7,12 @@ import { Badge } from '@/components/ui/badge'
 
 interface Props {
     sticky?: boolean
+    transparent?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
     sticky: true,
+    transparent: false,
 })
 
 const canManageBlog = computed(() => ['admin', 'editor'].includes(usePage().props.auth?.user?.role ?? ''))
@@ -48,61 +50,94 @@ onUnmounted(() => {
 <template>
     <nav
         ref="navEl"
-        class="border-b border-border bg-card/80 backdrop-blur-sm z-50"
-        :class="props.sticky ? 'sticky top-0' : undefined"
+        class="z-50"
+        :class="[
+            props.transparent
+                ? 'absolute inset-x-0 top-0 bg-transparent'
+                : 'border-b border-border bg-card/80 backdrop-blur-sm',
+            props.sticky ? 'sticky top-0' : undefined,
+        ]"
     >
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="flex h-16 items-center justify-between">
                 <Link href="/" class="flex items-center gap-2" aria-label="iPop360 home">
-                    <BrandLogo class="text-[2.25rem]" />
-                    <Badge variant="outline" class="text-xs">Beta</Badge>
+                    <BrandLogo
+                        class="text-[2.25rem]"
+                        :class="props.transparent ? 'text-white' : undefined"
+                    />
+                    <Badge
+                        variant="outline"
+                        class="text-xs"
+                        :class="props.transparent ? 'border-white/50 text-white' : undefined"
+                    >Beta</Badge>
                 </Link>
 
                 <!-- Desktop links -->
                 <div class="hidden items-center gap-4 md:flex">
                     <Link
                         href="/restaurants"
-                        class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                        class="text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:text-white'
+                            : 'text-muted-foreground hover:text-primary'"
                     >
                         Browse
                     </Link>
                     <Link
                         href="/leaderboard"
-                        class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                        class="text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:text-white'
+                            : 'text-muted-foreground hover:text-primary'"
                     >
                         Leaderboard
                     </Link>
                     <Link
                         href="/blog"
-                        class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                        class="text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:text-white'
+                            : 'text-muted-foreground hover:text-primary'"
                     >
                         Blog
                     </Link>
                     <Link
                         v-if="$page.props.auth?.user"
                         href="/favorites"
-                        class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                        class="text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:text-white'
+                            : 'text-muted-foreground hover:text-primary'"
                     >
                         Favorites
                     </Link>
                     <Link
                         v-if="$page.props.auth?.user"
                         href="/dashboard"
-                        class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        class="text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:text-white'
+                            : 'text-muted-foreground hover:text-foreground'"
                     >
                         Dashboard
                     </Link>
                     <Link
                         v-if="canManageBlog"
                         :href="route('admin.blog.index')"
-                        class="text-sm text-muted-foreground hover:text-primary transition-colors"
+                        class="text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:text-white'
+                            : 'text-muted-foreground hover:text-primary'"
                     >
                         Manage Blog
                     </Link>
                     <Link
                         v-else-if="!$page.props.auth?.user"
                         href="/login"
-                        class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        class="text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:text-white'
+                            : 'text-muted-foreground hover:text-foreground'"
                     >
                         Login
                     </Link>
@@ -111,7 +146,10 @@ onUnmounted(() => {
                 <!-- Mobile menu toggle -->
                 <button
                     type="button"
-                    class="flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors md:hidden"
+                    class="flex h-10 w-10 items-center justify-center rounded-md transition-colors"
+                    :class="props.transparent
+                        ? 'text-white/80 hover:bg-white/10 hover:text-white'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
                     :aria-label="mobileMenuOpen ? 'Close menu' : 'Open menu'"
                     :aria-expanded="mobileMenuOpen"
                     data-testid="menu-toggle"
@@ -124,26 +162,40 @@ onUnmounted(() => {
         </div>
 
         <!-- Mobile menu -->
-        <div v-if="mobileMenuOpen" class="border-t border-border md:hidden" data-testid="mobile-menu">
+        <div
+            v-if="mobileMenuOpen"
+            class="md:hidden"
+            :class="props.transparent ? 'bg-black/40 backdrop-blur-sm' : 'border-t border-border'"
+            data-testid="mobile-menu"
+        >
             <div class="mx-auto max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
                 <div class="flex flex-col pb-2">
                     <Link
                         href="/restaurants"
-                        class="rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary transition-colors"
+                        class="rounded-md px-2 py-2 text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
+                            : 'text-muted-foreground hover:bg-muted hover:text-primary'"
                         @click="closeMobileMenu"
                     >
                         Browse
                     </Link>
                     <Link
                         href="/leaderboard"
-                        class="rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary transition-colors"
+                        class="rounded-md px-2 py-2 text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
+                            : 'text-muted-foreground hover:bg-muted hover:text-primary'"
                         @click="closeMobileMenu"
                     >
                         Leaderboard
                     </Link>
                     <Link
                         href="/blog"
-                        class="rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary transition-colors"
+                        class="rounded-md px-2 py-2 text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
+                            : 'text-muted-foreground hover:bg-muted hover:text-primary'"
                         @click="closeMobileMenu"
                     >
                         Blog
@@ -151,7 +203,10 @@ onUnmounted(() => {
                     <Link
                         v-if="$page.props.auth?.user"
                         href="/favorites"
-                        class="rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary transition-colors"
+                        class="rounded-md px-2 py-2 text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
+                            : 'text-muted-foreground hover:bg-muted hover:text-primary'"
                         @click="closeMobileMenu"
                     >
                         Favorites
@@ -159,7 +214,10 @@ onUnmounted(() => {
                     <Link
                         v-if="$page.props.auth?.user"
                         href="/dashboard"
-                        class="rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        class="rounded-md px-2 py-2 text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
                         @click="closeMobileMenu"
                     >
                         Dashboard
@@ -167,7 +225,10 @@ onUnmounted(() => {
                     <Link
                         v-if="canManageBlog"
                         :href="route('admin.blog.index')"
-                        class="rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-primary transition-colors"
+                        class="rounded-md px-2 py-2 text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
+                            : 'text-muted-foreground hover:bg-muted hover:text-primary'"
                         @click="closeMobileMenu"
                     >
                         Manage Blog
@@ -175,7 +236,10 @@ onUnmounted(() => {
                     <Link
                         v-else-if="!$page.props.auth?.user"
                         href="/login"
-                        class="rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        class="rounded-md px-2 py-2 text-sm transition-colors"
+                        :class="props.transparent
+                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
                         @click="closeMobileMenu"
                     >
                         Login

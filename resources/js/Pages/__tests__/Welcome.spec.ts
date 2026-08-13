@@ -130,8 +130,8 @@ const stubs = {
     SeoMeta: { template: '<div />' },
     JsonLd: { template: '<div />' },
     TopNav: {
-        props: ['sticky'],
-        template: '<nav class="top-nav-stub" data-testid="top-nav" />',
+        props: ['sticky', 'transparent'],
+        template: '<nav class="top-nav-stub" data-testid="top-nav" :sticky="sticky" :transparent="transparent" />',
     },
     AppFooter: { template: '<footer class="app-footer-stub">Footer</footer>' },
     HeroBanner: {
@@ -267,7 +267,12 @@ describe('Welcome', () => {
 
         it('renders the top nav as non-sticky to keep StickySearchBar in charge during results', () => {
             const wrapper = mountWelcome()
-            expect(wrapper.find('[data-testid="top-nav"]').attributes('sticky')).toBeUndefined()
+            expect(wrapper.find('[data-testid="top-nav"]').attributes('sticky')).toBe('false')
+        })
+
+        it('renders the top nav as transparent so it overlays the hero slideshow', () => {
+            const wrapper = mountWelcome()
+            expect(wrapper.find('[data-testid="top-nav"]').attributes('transparent')).toBeDefined()
         })
     })
 

@@ -32,11 +32,11 @@ const stubs = {
     Badge: { template: '<span><slot /></span>' },
 }
 
-function mountNav(role: 'admin' | 'editor' | 'user' | null, sticky = true) {
+function mountNav(role: 'admin' | 'editor' | 'user' | null, sticky = true, transparent = false) {
     const user = role ? { id: 1, name: 'Test User', email: 'test@example.com', role } : null
     mockUsePage.mockReturnValue({ props: { auth: { user } } })
     return mount(TopNav, {
-        props: { sticky },
+        props: { sticky, transparent },
         global: {
             stubs,
             mocks: { $page: { props: { auth: { user } } } },
@@ -105,6 +105,23 @@ describe('TopNav', () => {
     it('is not sticky when the sticky prop is false', () => {
         const wrapper = mountNav(null, false)
         expect(wrapper.find('nav').classes()).not.toContain('sticky')
+    })
+
+    it('is opaque by default (card background)', () => {
+        const wrapper = mountNav(null)
+        expect(wrapper.find('nav').classes()).toContain('bg-card/80')
+    })
+
+    it('is transparent when the transparent prop is true', () => {
+        const wrapper = mountNav(null, true, true)
+        expect(wrapper.find('nav').classes()).not.toContain('bg-card/80')
+        expect(wrapper.find('nav').classes()).not.toContain('border-border')
+    })
+
+    it('uses light link styling in transparent mode', () => {
+        const wrapper = mountNav(null, true, true)
+        const browse = wrapper.findAll('a[href="/restaurants"]')[0]
+        expect(browse.classes()).toContain('text-white/80')
     })
 
     it('renders a mobile menu toggle button', () => {
