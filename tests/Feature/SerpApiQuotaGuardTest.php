@@ -155,6 +155,35 @@ class SerpApiQuotaGuardTest extends TestCase
         );
     }
 
+    /**
+     * Honest quota accounting end-to-end: a FAILED outbound SerpApi call (500)
+     * now records an empty cache row, and that row must count toward
+     * `serpapi_calls_last_30d` so the live-read circuit breaker trips EARLY —
+     * not after silently under-counting the failure. Mirrors the manual-row
+     * breaker test but drives the row through the real service failure path.
+     */
+    public function test_failed_call_trips_circuit_breaker_early(): void
+    {
+        // free_quota=1, fraction=1.0 → breaker trips at ceil(1) = 1 prior call.
+        Config::set('restaurant-finder.serpapi.free_quota', 1);
+        Config::set('restaurant-finder.serpapi.circuit_breaker_fraction', 1.0);
+
+        // Record ONE failed call via the real fetchRaw() failure path (a 500),
+        // which writes an empty row under a DIFFERENT key than the live search.
+        Http::fake(['serpapi.com/*' => Http::response(['error' => 'boom'], 500)]);
+        $this->assertNull(app(SerpApiService::class)->fetchRaw(30.69, -88.04, 'vietnamese'));
+        $this->assertSame(1, ExternalApiCache::stats()['serpapi_calls_last_30d']);
+
+        // Live search at a cache-cold location must now skip SerpApi entirely.
+        $this->fakeSources();
+        $before = ExternalApiCache::where('source', 'serpapi')->count();
+
+        $this->getJson('/api/restaurants?lat=40.75&lng=-74.05&cuisine=italian');
+
+        $after = ExternalApiCache::where('source', 'serpapi')->count();
+        $this->assertSame($before, $after, 'the counted failure must trip the circuit breaker (no live SerpApi fetch)');
+    }
+
     public function test_per_ip_limiter_skips_serpapi_after_hourly_cap(): void
     {
         Config::set('restaurant-finder.serpapi.live_misses_per_hour', 2);

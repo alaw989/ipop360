@@ -84,6 +84,26 @@ class SerpApiService
     }
 
     /**
+     * Record a real outbound SerpApi call that FAILED so quota accounting stays
+     * honest. Failed calls still burn (or attempt) quota at SerpApi, but the old
+     * code only wrote cache rows on success — so 429/5xx/connection failures were
+     * invisible to `serpapi_calls_last_30d` and the circuit breaker tripped late.
+     *
+     * Writing an empty row under the same cache key also briefly self-heals: the
+     * empty data gets the short empty_retry_hours TTL (see storeByKey), so a
+     * transient failure isn't retried for the full source TTL, but still counts
+     * toward the 30-day quota via `fetched_at`.
+     */
+    private function recordFailedCall(string $cacheKey): void
+    {
+        ExternalApiCache::storeByKey(
+            $cacheKey,
+            [],
+            now()->addHours((int) config('restaurant-finder.cache.serpapi_ttl_hours', 720))
+        );
+    }
+
+    /**
      * Search Google Maps for restaurants via SerpApi.
      * Returns normalized restaurant data.
      *
@@ -102,6 +122,13 @@ class SerpApiService
             return $cached;
         }
 
+        // Honor provider exhaustion: a flagged account ("out of searches") can't
+        // return anything live for the retry window. Serve nothing instead of
+        // firing a doomed call (consistent with poolRequestsFor).
+        if ($this->isProviderExhausted()) {
+            return [];
+        }
+
         try {
             $response = Http::timeout(15)
                 ->get('https://serpapi.com/search', [
@@ -114,6 +141,7 @@ class SerpApiService
 
             if ($response->failed()) {
                 $this->detectProviderExhaustion($response);
+                $this->recordFailedCall($cacheKey);
                 Log::warning('SerpApi request failed', [
                     'status' => $response->status(),
                     'lat' => $lat,
@@ -132,6 +160,7 @@ class SerpApiService
 
             return $results;
         } catch (\Throwable $e) {
+            $this->recordFailedCall($cacheKey);
             Log::warning('SerpApi threw exception', [
                 'message' => $e->getMessage(),
                 'lat' => $lat,
@@ -161,6 +190,13 @@ class SerpApiService
             return ['cached' => true, 'data' => $cached];
         }
 
+        // Honor provider exhaustion: a flagged account ("out of searches") can't
+        // return anything live for the retry window. Serve nothing instead of
+        // firing a doomed call (consistent with poolRequestsFor).
+        if ($this->isProviderExhausted()) {
+            return null;
+        }
+
         try {
             $response = Http::timeout(15)
                 ->get('https://serpapi.com/search', [
@@ -172,6 +208,8 @@ class SerpApiService
                 ]);
 
             if ($response->failed()) {
+                $this->detectProviderExhaustion($response);
+                $this->recordFailedCall($cacheKey);
                 Log::warning('SerpApi request failed', [
                     'status' => $response->status(),
                     'lat' => $lat,
@@ -188,6 +226,7 @@ class SerpApiService
 
             return ['cached' => false, 'data' => $localResults];
         } catch (\Throwable $e) {
+            $this->recordFailedCall($cacheKey);
             Log::warning('SerpApi threw exception', [
                 'message' => $e->getMessage(),
                 'lat' => $lat,
@@ -293,11 +332,15 @@ class SerpApiService
     {
         foreach ($responses as $response) {
             if ($response instanceof \Throwable) {
+                $this->recordFailedCall($cacheKey);
+
                 continue;
             }
 
             $localResults = $this->parsePoolResponse($response, $lat, $lng);
             if ($localResults === null) {
+                $this->recordFailedCall($cacheKey);
+
                 continue;
             }
 
