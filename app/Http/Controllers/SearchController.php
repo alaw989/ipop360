@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\SortsRestaurantQueries;
 use App\Http\Resources\RestaurantResource;
-use App\Jobs\EnrichSearchResults;
 use App\Models\Cuisine;
 use App\Models\CuisineCategory;
 use App\Models\Restaurant;
@@ -12,10 +11,8 @@ use App\Services\GeolocationService;
 use App\Services\LiveSearchService;
 use App\Services\LiveVenuePersister;
 use App\Services\PopularityScoreService;
-use App\Services\RestaurantValidationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -26,7 +23,6 @@ class SearchController extends Controller
     public function __construct(
         private GeolocationService $geolocationService,
         private LiveSearchService $liveSearchService,
-        private RestaurantValidationService $restaurantValidation,
         private LiveVenuePersister $venuePersister,
     ) {}
 
@@ -114,27 +110,27 @@ class SearchController extends Controller
 
         $restaurants = $query->paginate(20)->withQueryString();
 
-        $enriching = false;
-
         if ($restaurants->isEmpty() && $coords !== null) {
-            $enrichKey = 'enriching:'.md5(implode(':', [
-                $coords['lat'], $coords['lng'], $cuisineSlug ?? '', $categorySlug ?? '', $distanceKm,
-            ]));
+            // Run the live search synchronously (mirrors apiIndex) so results
+            // appear immediately instead of waiting for the async enrichment
+            // job + frontend polling. Persist the venues with evidence-gated
+            // cuisine tags, then re-query the now-populated DB so rows flow
+            // through the standard RestaurantResource pipeline with real ids.
+            $liveResults = $this->liveSearchService->search(
+                $coords['lat'],
+                $coords['lng'],
+                $cuisineSlug,
+                $categorySlug,
+                false, // cacheOnly
+                $sort,
+                (float) $distanceKm,
+            );
 
-            if (! Cache::has($enrichKey)) {
-                Cache::put($enrichKey, true, 60);
+            if (! empty($liveResults)) {
+                $this->venuePersister->persistTaggedVenues($liveResults, $cuisineSlug, $categorySlug, $coords['lat'], $coords['lng']);
 
-                EnrichSearchResults::dispatch(
-                    $coords['lat'],
-                    $coords['lng'],
-                    $cuisineSlug,
-                    $categorySlug,
-                    $sort,
-                    (float) $distanceKm,
-                );
+                $restaurants = $query->paginate(20)->withQueryString();
             }
-
-            $enriching = true;
         }
 
         $items = $restaurants->getCollection();
@@ -177,7 +173,6 @@ class SearchController extends Controller
             'categorySlug' => $categorySlug,
             'filterOptions' => $filterOptions,
             'hasCoords' => $coords !== null,
-            'enriching' => $enriching,
         ]);
     }
 
@@ -200,17 +195,5 @@ class SearchController extends Controller
         }
 
         return $this->applyRestaurantSort($query, $sort, $hasCoords);
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $results
-     * @param  int[]  $cuisineIds
-     * @param  array<string, mixed>|null  $defaultLocation
-     */
-    private function persistLiveResults(array $results, array $cuisineIds = [], ?array $defaultLocation = null): void
-    {
-        foreach ($results as $venue) {
-            $this->venuePersister->persist($venue, $cuisineIds, $defaultLocation);
-        }
     }
 }

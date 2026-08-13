@@ -3,10 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Restaurant;
+use App\Services\CuisineMatcher;
+use App\Services\GeolocationService;
 use App\Services\LiveVenuePersister;
 use App\Services\RestaurantValidationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Mockery;
 use Tests\TestCase;
 
 /**
@@ -23,8 +26,13 @@ class LiveVenuePersisterAwardTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $geo = Mockery::mock(GeolocationService::class);
+
         $this->persister = new LiveVenuePersister(
-            app(RestaurantValidationService::class)
+            app(RestaurantValidationService::class),
+            app(CuisineMatcher::class),
+            $geo,
         );
     }
 

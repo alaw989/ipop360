@@ -9,14 +9,16 @@ use Illuminate\Support\Facades\Log;
 /**
  * Upsert a live-search venue array into the restaurants table, keyed by
  * google_place_id then slug (spec-104 audit: previously duplicated across
- * RestaurantController, SearchController, EnrichSearchResults, and a variant
- * in FavoriteController). Synthetic negative CRC32 ids are replaced with real
+ * RestaurantController, SearchController, and a variant in FavoriteController).
+ * Synthetic negative CRC32 ids are replaced with real
  * auto-increment ids so engagement tracking, detail pages, and lookups work.
  */
 class LiveVenuePersister
 {
     public function __construct(
         private RestaurantValidationService $restaurantValidation,
+        private CuisineMatcher $cuisineMatcher,
+        private GeolocationService $geolocationService,
     ) {}
 
     /**
@@ -102,6 +104,69 @@ class LiveVenuePersister
             'created' => $created,
             'venue' => $venue,
         ];
+    }
+
+    /**
+     * Persist a batch of live-search venues with evidence-gated cuisine tags.
+     * The candidate tag set is the searched cuisine, or (for a category search)
+     * every member cuisine. The live search is
+     * recall-protective (ambiguous venues are kept, ranked low), so only venues
+     * carrying positive evidence for a candidate are tagged, plus any OSM
+     * cuisine tags already carried on the venue row resolved to real ids.
+     *
+     * @param  array<int, array<string, mixed>>  $results
+     * @return array{created: int, updated: int}
+     */
+    public function persistTaggedVenues(
+        array $results,
+        ?string $cuisineSlug,
+        ?string $categorySlug,
+        float $lat,
+        float $lng,
+    ): array {
+        $candidateSlugs = [];
+        if ($cuisineSlug) {
+            $candidateSlugs = [$cuisineSlug];
+        } elseif ($categorySlug) {
+            $candidateSlugs = Cuisine::whereHas(
+                'category',
+                fn ($q) => $q->where('slug', $categorySlug)
+            )->pluck('slug')->all();
+        }
+
+        $slugToId = Cuisine::pluck('id', 'slug')->all();
+        $defaultLocation = $this->geolocationService->reverseGeocode($lat, $lng);
+
+        $created = 0;
+        $updated = 0;
+
+        foreach ($results as $venue) {
+            $ids = [];
+            foreach ($candidateSlugs as $slug) {
+                if ($this->cuisineMatcher->venueMatchesCuisine($venue, $slug)) {
+                    $ids[] = $slugToId[$slug] ?? null;
+                }
+            }
+
+            foreach (($venue['cuisines'] ?? []) as $venueCuisine) {
+                $slug = strtolower((string) ($venueCuisine['slug'] ?? ''));
+                if ($slug !== '' && isset($slugToId[$slug])) {
+                    $ids[] = $slugToId[$slug];
+                }
+            }
+
+            $ids = array_values(array_unique(array_filter($ids)));
+
+            $result = $this->persist($venue, $ids, $defaultLocation);
+
+            if ($result['created']) {
+                $created++;
+            } else {
+                $updated++;
+            }
+        }
+
+        return ['created' => $created, 'updated' => $updated];
     }
 
     /**
