@@ -58,7 +58,7 @@ row with no data scores **0.0**.
 | `social_links_count` | **0.20** | website social scrape | only when links found (>0) |
 | `proximity` | **0.15** | User coordinates | live search only (`distance` present) |
 | `pageviews_count` | **0.10** | engagement | only when views exist (>0) |
-| `has_award` | **0.05** | Wikidata (free) | **yes** (`false` is a legitimate signal) |
+| `has_award` | **0.05** | Wikidata (free) | only when `true` (a false award drops out) |
 | `cuisine_match` | **0.50** | live scoped-search stamp | only on cuisine-scoped live search |
 | `data_completeness` | **0.05** | field coverage | **yes** (always computable) |
 | `social_link_clicks_count` / `menu_click_count` | 0.05 each | engagement | only when clicks exist (>0) |
@@ -79,7 +79,10 @@ this weight now has a path to fire for real traffic.
 spec-104 rebalance (data-driven, verified on live data): `social_links_count`
 raised 0.10→0.20 so the 76% unrated cohort differentiates (spread 2× wider);
 `has_award` trimmed 0.10→0.05 because it reads 0 for the whole population and
-was taxing every score. Rated stays above unrated (no overlap).
+was taxing every score. Rated stays above unrated on average (mean gap 0.29),
+but the old "no overlap" guarantee no longer strictly holds: ~1.6% of unrated
+venues with heavy social links score above the lowest-rated venue (see
+`docs/ranking-audit-2026-08.md`).
 
 ## Bayesian quality
 
@@ -146,10 +149,11 @@ signal's weight is only counted when the restaurant has a value for it (and, for
 paid signals, when a key is configured). The active weights are renormalized so
 they sum to 1.0 across whatever is present.
 
-- `has_award = false` **stays active** — `false` is a legitimate signal ("no
-  Wikidata award record found") and earns its 0.0 contribution. Today every row
-  in the population has `has_award = false`, so this always-active-zero absorbs
-  10–20% of weight that no row ever collects.
+- `has_award` is **active only when `true`** — a `false`/0 award means "no
+  award" and drops out of the active set, so its 0.05 weight is redistributed
+  to the signals that actually fire instead of taxing every row (spec-104
+  audit: 0% of the corpus is awarded, so the old always-active-zero was pure
+  dead weight).
 - `data_completeness` is **always active** — a 0 ratio is a valid measurement.
 - Engagement + social signals use **log_count**, so a value of 0 is treated as
   "no data" and drops the signal entirely (never a penalizing 0).

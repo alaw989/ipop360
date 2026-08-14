@@ -242,7 +242,9 @@ return [
     |    (PopularityScoreService::calculateBreakdownWithAggregates). Signals whose
     |    data is absent (no rating, 0 engagement clicks, 0 social links) drop out
     |    and their weight is redistributed.
-    |  - Always active: data_completeness + has_award.
+    |  - Always active: data_completeness only. has_award activates only when a
+    |    venue actually has one (false/0 drops out — see isPresent()'s boolean
+    |    branch), so its 0.05 no longer taxes rows with no award.
     |  - quality (SerpApi rating, Bayesian-shrunk) renormalizes to ~0.70 for a
     |    rated venue with no engagement/social — it leads the ranking by design.
     |  - cuisine_match 0.50 is stamped ONLY by live scoped searches
@@ -253,7 +255,8 @@ return [
     |    total 0.40 and only activate once clicks exist; engagement was fixed in
     |    spec-104 to actually fire (previously only 5 rows had any).
     |  - has_award (Wikidata Michelin) reads 0 for the current population; the
-    |    weekly restaurants:refresh-awards backfill keeps it populated.
+    |    weekly restaurants:refresh-awards backfill keeps it populated. Until a
+    |    real award exists it stays out of the active set entirely.
     |  - In the persisted (no-coords) score proximity is NEVER active — it applies
     |    only to geolocated live search, where scopeNearby supplies `distance`.
     */
@@ -276,8 +279,10 @@ return [
             // was raised 0.10->0.20 to differentiate the 76% unrated cohort
             // (previously clumped at 0.10-0.30, sd 0.036). has_award trimmed
             // 0.10->0.05 because it reads 0 for the whole population (dead weight
-            // that taxes every score). Verified: keeps rated>unrated (gap 0.13,
-            // no overlap), widens unrated spread to sd 0.046.
+            // that taxes every score). Verified: rated stays above unrated on
+            // average (mean gap 0.29); the old "no overlap" guarantee has a small
+            // exception — ~1.6% of link-rich unrated venues score above the
+            // lowest-rated venue (see docs/ranking-audit-2026-08.md).
             'social_links_count' => env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.20),
             'website_clicks_count' => env('RANK_WEIGHT_WEBSITE_CLICKS', 0.20),
             'pageviews_count' => env('RANK_WEIGHT_PAGEVIEWS', 0.10),
