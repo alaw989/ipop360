@@ -201,4 +201,38 @@ class BizDataApiServiceTest extends TestCase
         $this->assertSame($live[0]->url, $live[1]->url);
         $this->assertSame($live[0]->query, $live[1]->query);
     }
+
+    public function test_read_path_requests_the_config_driven_live_limit(): void
+    {
+        // The always-live read path asks BizData for more rows than enrichment
+        // (75 vs 50 by default), so the merged union isn't starved of free rows.
+        $live = $this->service->poolRequestsFor(40.7128, -74.0060, 'pizza', ['read_path' => true]);
+        $enrich = $this->service->poolRequestsFor(40.7128, -74.0060, 'pizza', ['read_path' => false]);
+
+        $this->assertSame(75, $live[0]->query['limit']);
+        $this->assertSame(50, $enrich[0]->query['limit']);
+    }
+
+    public function test_read_path_limit_is_env_overridable(): void
+    {
+        config(['restaurant-finder.sources.bizdata.live_limit' => 100]);
+
+        $live = $this->service->poolRequestsFor(40.7128, -74.0060, 'pizza', ['read_path' => true]);
+
+        $this->assertSame(100, $live[0]->query['limit']);
+    }
+
+    public function test_cache_key_without_limit_uses_the_read_path_limit(): void
+    {
+        // The read path computes its cache key WITHOUT an explicit limit (the
+        // three-arg form LiveSearchService calls). The key must bake in the
+        // config-driven live_limit so it matches the limit-75 fetch and cannot
+        // collide with an enrichment-path (limit-50) cache entry.
+        $readKey = $this->service->cacheKeyFor(40.7128, -74.0060, 'pizza');
+        $explicit75 = $this->service->cacheKeyFor(40.7128, -74.0060, 'pizza', 25, 75);
+        $explicit50 = $this->service->cacheKeyFor(40.7128, -74.0060, 'pizza', 25, 50);
+
+        $this->assertSame($explicit75, $readKey);
+        $this->assertNotSame($explicit50, $readKey);
+    }
 }

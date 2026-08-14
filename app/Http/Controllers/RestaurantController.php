@@ -10,14 +10,15 @@ use App\Models\CuisineCategory;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use App\Services\GeolocationService;
-use App\Services\LiveSearchService;
 use App\Services\LiveVenuePersister;
 use App\Services\PopularityScoreService;
 use App\Services\RestaurantValidationService;
+use App\Services\UnifiedSearchService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -29,9 +30,9 @@ class RestaurantController extends Controller
 
     public function __construct(
         private GeolocationService $geolocationService,
-        private LiveSearchService $liveSearchService,
         private RestaurantValidationService $restaurantValidation,
         private LiveVenuePersister $venuePersister,
+        private UnifiedSearchService $unifiedSearch,
     ) {}
 
     /**
@@ -123,6 +124,11 @@ class RestaurantController extends Controller
         $distanceKm = isset($validated['distance']) ? (float) $validated['distance'] : null;
         $cuisineName = null;
 
+        // A cuisine/category slug is a single string; an array query param
+        // (?cuisine[]=x) is malformed and treated as absent.
+        $cuisineSlug = is_string($cuisineSlug) ? $cuisineSlug : null;
+        $categorySlug = is_string($categorySlug) ? $categorySlug : null;
+
         // Cuisine takes precedence. For a cuisine scope, derive the parent
         // category slug from the DB (used by the page for navigation). For a
         // category scope ("All <Category>"), resolve its display name. The
@@ -155,21 +161,35 @@ class RestaurantController extends Controller
             }
         }
 
+        // Unified merged search: with coords, ALWAYS run the live free-source
+        // search, merge the persisted DB rows, and rank the union in one pass
+        // (parity with apiIndex and the /search page). Without coords, serve the
+        // DB-only Eloquent list below.
+        if ($coords !== null) {
+            $restaurants = $this->mergedBrowsePaginator(
+                $request,
+                $coords,
+                $cuisineSlug,
+                $categorySlug,
+                $sort,
+                $distanceKm,
+            );
+
+            return Inertia::render('Restaurants/Index', [
+                'restaurants' => $restaurants,
+                'filters' => $request->only(['cuisine', 'category', 'lat', 'lng', 'sort', 'distance']),
+                'cuisineName' => $cuisineName,
+                'categorySlug' => $categorySlug,
+            ]);
+        }
+
+        // DB-only path (no geolocation available).
         // Build the shared query with cuisine/category filtering
         /** @var Builder<Restaurant> $query */
-        $query = $this->buildRestaurantQuery($request)
-            ->when(
-                $coords !== null,
-                function ($query) use ($coords, $distanceKm) {
-                    assert($coords !== null);
+        $query = $this->buildRestaurantQuery($request)->active();
 
-                    return $query->nearby($coords['lat'], $coords['lng'], $distanceKm);
-                }
-            )
-            ->active();
-
-        // Apply sorting based on the selected mode
-        $query = $this->applySortMode($query, $sort, $coords !== null);
+        // Apply sorting based on the selected mode (no coords → nearest falls back).
+        $query = $this->applySortMode($query, $sort, false);
 
         $restaurants = $query->paginate(20)->withQueryString();
 
@@ -200,6 +220,82 @@ class RestaurantController extends Controller
             'cuisineName' => $cuisineName,
             'categorySlug' => $categorySlug,
         ]);
+    }
+
+    /**
+     * Build an Inertia-ready paginator for the browse page from the unified
+     * merged-search union — parity with apiIndex's paginatedUnionResponse, but
+     * shaped as a LengthAwarePaginator for Inertia instead of a JSON envelope.
+     * Page 1 snapshots the full user-sorted union under browse_page:{...}; pages
+     * 2+ slice that snapshot (deterministic, no re-search). Each shown row is
+     * also snapshotted under preview:{slug} for the detail page.
+     *
+     * @param  array{lat: float, lng: float}  $coords
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    private function mergedBrowsePaginator(
+        Request $request,
+        array $coords,
+        ?string $cuisineSlug,
+        ?string $categorySlug,
+        string $sort,
+        ?float $distanceKm,
+    ): LengthAwarePaginator {
+        $paginate = filter_var(config('restaurant-finder.live_search.paginate', true), FILTER_VALIDATE_BOOL);
+        $perPage = (int) config('restaurant-finder.live_search.page_size', 20);
+        $page = max(1, (int) $request->query('page', '1'));
+
+        $pageKey = 'browse_page:'.md5(serialize([
+            'lat' => $coords['lat'],
+            'lng' => $coords['lng'],
+            'cuisine' => $cuisineSlug,
+            'category' => $categorySlug,
+            'sort' => $sort,
+            'distance' => $distanceKm,
+        ]));
+
+        if ($paginate && $page > 1) {
+            // Pages 2+: serve from the page-1 snapshot. If it expired mid-
+            // pagination, return an empty page rather than re-burning the search.
+            $snapshotted = ExternalApiCache::findByKey($pageKey);
+            $results = is_array($snapshotted) ? $snapshotted : [];
+        } else {
+            $results = $this->unifiedSearch->search(
+                $coords['lat'],
+                $coords['lng'],
+                $cuisineSlug,
+                $categorySlug,
+                $sort,
+                $distanceKm,
+            );
+
+            if ($paginate) {
+                ExternalApiCache::storeByKey(
+                    $pageKey,
+                    $results,
+                    now()->addMinutes((int) config('restaurant-finder.live_search.page_snapshot_minutes', 10))
+                );
+            }
+        }
+
+        $total = count($results);
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $effectivePage = $paginate ? min($page, $lastPage) : 1;
+        $slice = $paginate
+            ? array_slice($results, ($effectivePage - 1) * $perPage, $perPage)
+            : $results;
+
+        $this->snapshotLiveResults($slice);
+
+        $data = LiveRestaurantResource::collection($slice)->resolve();
+
+        return new LengthAwarePaginator(
+            collect($data),
+            $total,
+            $paginate ? $perPage : $total,
+            $effectivePage,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
     }
 
     public function show(Restaurant $restaurant): InertiaResponse
@@ -286,101 +382,40 @@ class RestaurantController extends Controller
             }
         }
 
-        // Build the shared query with cuisine/category filtering
-        /** @var Builder<Restaurant> $query */
-        $query = $this->buildRestaurantQuery($request)
-            ->when(
-                $coords !== null,
-                function ($query) use ($coords, $distanceKm) {
-                    assert($coords !== null);
-
-                    return $query->nearby($coords['lat'], $coords['lng'], $distanceKm);
-                }
-            )
-            ->active();
-
-        // Apply sorting based on the selected mode
-        $query = $this->applySortMode($query, $sort, $coords !== null);
-
-        $restaurants = $query->paginate(20)->withQueryString();
-
-        if ($restaurants->isEmpty() && $coords !== null) {
-            // spec-068: paginate the live result set. Page 1 runs the (cache-warm,
-            // zero-quota) live search and snapshots the full user-sorted set under
-            // live_page:{coords+cuisine+category+sort}; pages 2+ slice that snapshot
-            // (deterministic across pages, no re-search). The frontend's loadMore()
-            // already consumes next_page_url, so this is backend-only.
+        // Unified merged search: ALWAYS run the live free-source search, merge
+        // the persisted DB rows into it, and rank the union by popularity score
+        // in one pass (UnifiedSearchService). Needs coords to run the live geo
+        // search; without them fall through to the DB-only list (parity with
+        // index(), which serves persisted rows when the client has no location).
+        if ($coords !== null) {
             $paginate = filter_var(config('restaurant-finder.live_search.paginate', true), FILTER_VALIDATE_BOOL);
-            $perPage = (int) config('restaurant-finder.live_search.page_size', 20);
             $page = max(1, (int) $request->query('page', '1'));
 
-            $pageKey = 'live_page:'.md5(serialize([
-                'lat' => $coords['lat'],
-                'lng' => $coords['lng'],
-                'cuisine' => $cuisineSlug,
-                'category' => $categorySlug,
-                'sort' => $sort,
-            ]));
-
-            if ($paginate && $page > 1) {
-                // Pages 2+: serve from the page-1 snapshot. If it expired mid-
-                // pagination, return an empty page (the frontend surfaces its
-                // "couldn't load more" state) rather than re-burning the search.
-                $snapshotted = ExternalApiCache::findByKey($pageKey);
-                $liveResults = is_array($snapshotted) ? $snapshotted : [];
-            } else {
-                $liveResults = $this->liveSearchService->search(
+            // Pages 2+ (when paginating) slice the page-1 snapshot — the merged
+            // search must NOT re-run here (it would re-burn the live sources and
+            // re-rank a fresh union, breaking deterministic pagination).
+            $union = [];
+            if (! $paginate || $page <= 1) {
+                $union = $this->unifiedSearch->search(
                     $coords['lat'],
                     $coords['lng'],
                     $cuisineSlug,
                     $categorySlug,
-                    false, // cacheOnly
-                    $sort,  // spec-069 4B: sort happens inside search(), before the bound
+                    $sort,
                     $distanceKm,
                 );
-
-                // Persist all live results to the restaurants table so engagement
-                // tracking, favorites, and future lookups have real DB rows.
-                // The returned array has synthetic negative IDs replaced with real
-                // auto-increment IDs from the persisted rows.
-                $liveResults = $this->persistLiveResults($liveResults);
-
-                if ($paginate) {
-                    ExternalApiCache::storeByKey(
-                        $pageKey,
-                        $liveResults,
-                        now()->addMinutes((int) config('restaurant-finder.live_search.page_snapshot_minutes', 10))
-                    );
-                }
             }
 
-            $total = count($liveResults);
-            $lastPage = max(1, (int) ceil($total / $perPage));
-            $effectivePage = $paginate ? min($page, $lastPage) : 1;
-            $slice = $paginate
-                ? array_slice($liveResults, ($effectivePage - 1) * $perPage, $perPage)
-                : $liveResults;
-
-            // Snapshot each SHOWN result under preview:{slug} so the detail page
-            // (/restaurants/preview/{slug}) can render it without re-running the
-            // live search (zero quota, no restaurants write). See spec-040.
-            $this->snapshotLiveResults($slice);
-
-            $hasNext = $paginate && $effectivePage < $lastPage;
-
-            return response()->json([
-                'data' => LiveRestaurantResource::collection($slice)->resolve(),
-                'current_page' => $effectivePage,
-                'last_page' => $lastPage,
-                'per_page' => $paginate ? $perPage : $total,
-                'total' => $total,
-                'next_page_url' => $hasNext ? $request->fullUrlWithQuery(['page' => $effectivePage + 1]) : null,
-                'prev_page_url' => null,
-                'from' => $total ? ($effectivePage - 1) * $perPage + 1 : null,
-                'to' => $total ? min($effectivePage * $perPage, $total) : null,
-                'is_live' => true,
-            ]);
+            return $this->paginatedUnionResponse($request, $union, $coords, $cuisineSlug, $categorySlug, $sort);
         }
+
+        // DB-only path (no geolocation available).
+        $query = $this->buildRestaurantQuery($request)->active();
+
+        // Apply sorting based on the selected mode (no coords → nearest falls back).
+        $query = $this->applySortMode($query, $sort, false);
+
+        $restaurants = $query->paginate(20)->withQueryString();
 
         $items = $restaurants->getCollection();
         $allItems = $items; // Keep for score_breakdown fallback
@@ -413,26 +448,80 @@ class RestaurantController extends Controller
     }
 
     /**
-     * Persist live search results to the restaurants table.
+     * Paginate a unified merged-search union (the full DB + live result set from
+     * UnifiedSearchService) and shape the JSON envelope. Page 1 snapshots the
+     * full user-sorted union under union_page:{coords+cuisine+category+sort};
+     * pages 2+ slice that snapshot (deterministic, no re-search) — same contract
+     * as spec-068, generalized to the merged union. Each shown row is also
+     * snapshotted under preview:{slug} for the detail page.
      *
-     * Each venue array is upserted by google_place_id or slug. Synthetic
-     * negative CRC32 IDs are replaced with real auto-increment DB IDs so
-     * engagement tracking, detail pages, and future lookups all work.
-     * Only cuisine IDs that exist in the cuisines table are attached.
-     *
-     * @param  array<array<string, mixed>>  $results
-     * @return array<array<string, mixed>>
+     * @param  array<int, array<string, mixed>>  $union
+     * @param  array{lat: float, lng: float}  $coords
      */
-    private function persistLiveResults(array $results): array
-    {
-        return array_map(function (array $venue) {
-            $result = $this->venuePersister->persist(
-                $venue,
-                $this->venuePersister->knownCuisineIds($venue)
-            );
+    private function paginatedUnionResponse(
+        Request $request,
+        array $union,
+        array $coords,
+        ?string $cuisineSlug,
+        ?string $categorySlug,
+        string $sort,
+    ): JsonResponse {
+        $paginate = filter_var(config('restaurant-finder.live_search.paginate', true), FILTER_VALIDATE_BOOL);
+        $perPage = (int) config('restaurant-finder.live_search.page_size', 20);
+        $page = max(1, (int) $request->query('page', '1'));
 
-            return $result['venue'];
-        }, $results);
+        $pageKey = 'union_page:'.md5(serialize([
+            'lat' => $coords['lat'],
+            'lng' => $coords['lng'],
+            'cuisine' => $cuisineSlug,
+            'category' => $categorySlug,
+            'sort' => $sort,
+        ]));
+
+        if ($paginate && $page > 1) {
+            // Pages 2+: serve from the page-1 snapshot. If it expired mid-
+            // pagination, return an empty page (the frontend surfaces its
+            // "couldn't load more" state) rather than re-burning the search.
+            $snapshotted = ExternalApiCache::findByKey($pageKey);
+            $results = is_array($snapshotted) ? $snapshotted : [];
+        } else {
+            $results = $union;
+
+            if ($paginate) {
+                ExternalApiCache::storeByKey(
+                    $pageKey,
+                    $results,
+                    now()->addMinutes((int) config('restaurant-finder.live_search.page_snapshot_minutes', 10))
+                );
+            }
+        }
+
+        $total = count($results);
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $effectivePage = $paginate ? min($page, $lastPage) : 1;
+        $slice = $paginate
+            ? array_slice($results, ($effectivePage - 1) * $perPage, $perPage)
+            : $results;
+
+        // Snapshot each SHOWN result under preview:{slug} so the detail page
+        // (/restaurants/preview/{slug}) can render it without re-running the
+        // live search (zero quota, no restaurants write). See spec-040.
+        $this->snapshotLiveResults($slice);
+
+        $hasNext = $paginate && $effectivePage < $lastPage;
+
+        return response()->json([
+            'data' => LiveRestaurantResource::collection($slice)->resolve(),
+            'current_page' => $effectivePage,
+            'last_page' => $lastPage,
+            'per_page' => $paginate ? $perPage : $total,
+            'total' => $total,
+            'next_page_url' => $hasNext ? $request->fullUrlWithQuery(['page' => $effectivePage + 1]) : null,
+            'prev_page_url' => null,
+            'from' => $total ? ($effectivePage - 1) * $perPage + 1 : null,
+            'to' => $total ? min($effectivePage * $perPage, $total) : null,
+            'is_live' => true,
+        ]);
     }
 
     public function leaderboard(Request $request): InertiaResponse

@@ -170,6 +170,24 @@ CI + deploy green on master.
 with a zero baseline; pint clean; **CI enforces coverage thresholds and runs PHP 8.4
 (matching prod)**; CI + deploy green on master.
 
+## ✅ Done (2026-08-13 session, continued — PRs #100/#101)
+34. **BizData resilience** — PR #100 (opencode-loop legacy, ALL_DONE): stopped
+    passing BizData's ignored `query` param (it can trigger the 502) and added a
+    bounded live retry (`live_search.bizdata_attempts`, default 2) on the read
+    path only. Merged + deployed + live-verified.
+35. **Admin Users page** — PR #101 (opencode-loop legacy, ALL_DONE): `/admin/users`
+    admin-only page listing users with a role selector (promote/demote
+    user/editor/admin), self-demote confirm + last-admin guard via new
+    `UserRoleService` (shared with the `user:role` command); Ziggy exposes
+    `admin.users.index`/`admin.users.update`; admin layout logo swapped to
+    `BrandLogo`. PHPUnit 682→691. Merged + deployed + live-verified.
+
+**Current floor:** 691 PHPUnit tests + 1056 vitest tests; PHPStan level 8 over
+`app/ + tests/` with a zero baseline; pint clean; **CI enforces coverage
+thresholds and runs PHP 8.4**; **search covers: honest SerpApi quota accounting,
+free Photon source, real-name Caribbean cuisine matching, synchronous live-first
+search page, BizData resilience, and an admin users page**; CI + deploy green.
+
 ## ✅ Done (2026-08-11 session)
 18. **User roles: admin / editor / user** — PR #82 (opencode-loop, 4 iterations, ALL_DONE):
     migration `2026_08_10_000001` adds `role` string (default `user`) + backfills
@@ -363,24 +381,40 @@ cuisine matching, and a synchronous live-first search page**; CI + deploy green.
 
 ## Next goals (in priority order)
 
-### 1. BizData resilience ⬅ NEXT
-- **Audit finding:** BizData's upstream is flaky (intermittent 502 "fetch
-  failed") and passing the ignored `query` param (always sent on scoped
-  searches) can itself trigger the 502. Stop sending `query`; add a bounded
-  live retry so a flaky response doesn't zero out the source.
-- **Goal:** `stop passing BizData's ignored query param and add a bounded live retry for its flaky upstream`
-- **Gate:** `composer test`
-
-### 2. Admin Users page
-- No UI exists to change a user's role — admins must SSH + tinker. Add an
-  `/admin/users` page (admin-only): list users (name, email, role, joined),
-  promote/demote `user`/`editor`/`admin` via a role selector, with a confirm
-  on demoting yourself / removing the last admin guard. Backed by a small
-  `Admin/UserController` (index + update role). Uses the same `EnsureUserHasRole`
-  middleware + `UserRole` enum. Reuses the `user:role` command's validation
-  logic (shared rule or service). Tests: access control, role update, guards.
-- **Goal:** `add an admin users page to manage user roles in the UI`
+### 1. Unified merged search ⬅ NEXT
+- **Audit finding:** both search endpoints (`/search`, `/api/restaurants`) are
+  DB-first — the live free-source API search runs ONLY when the DB returns zero
+  rows. So a city/cuisine with even one stale DB row never sees fresh venues from
+  the 4 free unlimited sources (BizData, Overpass, Photon, Socrata), and DB + live
+  results are never ranked together. Goal: for ANY city × cuisine, ALWAYS run the
+  live search (cache-first; SerpApi stays behind its existing circuit breaker /
+  per-IP limiter / thundering-herd lock so it never exhausts), merge persisted DB
+  rows into it (DB row wins as base, live overlays rating/price/photo/website/
+  description/place_types; match by google_place_id → slug → phone-last-10 →
+  fuzzy name + 200m via `VenuePipeline::venuesMatch`), score the merged union in
+  ONE pass (`PopularityScoreService`), stamp `cuisine_match` on DB rows too (else
+  the 0.50 weight renormalizes away and DB rows are unfairly inflated), raise
+  result caps (`live_search.max_results` 60→150; Photon 30→50; Overpass/BizData
+  50→75), add a per-IP cold-miss limiter for the free sources (mirror SerpApi's),
+  and serve via the existing pagination snapshot. Both controllers delegate to a
+  new `UnifiedSearchService`. Tests: merger unit tests (match keys, precedence,
+  overlay), endpoint feature tests (DB + live co-present, ranked together, guards
+  respected), update `SearchControllerTest` / `LiveSearchScoringTest` that lock in
+  DB-only behavior.
+- **Goal:** `unified merged search: always run live free-source search, merge DB rows, rank the union by popularity score, raise result caps, guard free-source cold misses`
 - **Gate:** `composer test && npm run build`
+
+### 2. Data-driven popularity-score audit + rebalance
+- **Audit finding:** score weights are tuned by reading the code, not measured
+  against the live DB. `has_award` (0.05, always-active) reads 0 for the whole
+  population; `quality` (0.35) vanishes entirely on an exhausted/no-key SerpApi
+  deploy; the unrated cohort clumps at 0.10–0.30. Goal: add a `ranking:audit`
+  diagnostic (signal activation %, score distribution/clumping, dead-weight
+  detection, quality coverage), document findings in `docs/ranking-metrics.md`,
+  rebalance weights (config + `PopularityScoreService::DEFAULT_WEIGHTS` together),
+  pin with tests, re-run audit to show spread improvement.
+- **Goal:** `data-driven popularity-score audit: add ranking:audit diagnostic, document findings, rebalance weights with tests locking the change`
+- **Gate:** `composer test && ./vendor/bin/phpstan analyse`
 
 ---
 

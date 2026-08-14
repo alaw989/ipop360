@@ -84,7 +84,7 @@ class LiveSearchService
 
         // spec-081: when enough cuisine-confident results exist, drop ambiguous
         // venues so a scoped search doesn't show Mediterranean/burger places.
-        $results = $this->filterByCuisineConfidence($results, $scope);
+        $results = $this->venuePipeline->filterByCuisineConfidence($results, $scope);
 
         // Bound the list: drop the weak tail and cap the count (scored + sorted).
         $results = $this->boundResults($results);
@@ -200,6 +200,14 @@ class LiveSearchService
                 $merged,
                 $this->fetchSerpApiUnderLock($lat, $lng, $queryCuisine, $keys['serpapi'], $serpApiSpecs)
             );
+        }
+
+        // Unified-merged-search: the always-live path fires the free sources on
+        // EVERY request, so guard their cache-miss fetch behind a per-IP hourly
+        // limiter (mirrors allowLiveSerpApiFetch(); free sources carry no quota
+        // so there is no circuit breaker). Warm-cache requests never reach here.
+        if (! empty($toFetch) && ! $this->allowLiveFreeSourceFetch()) {
+            $toFetch = [];
         }
 
         // PASS 2 — pool the remaining (free) sources concurrently. Unlocked —
@@ -322,6 +330,42 @@ class LiveSearchService
 
             RateLimiter::hit($key, 3600);
         }
+
+        return true;
+    }
+
+    /**
+     * Unified-merged-search: should the live read path make outbound FREE-source
+     * calls right now? Mirrors allowLiveSerpApiFetch()'s per-IP hourly limiter
+     * (the free sources have no quota, so there is no circuit breaker — only an
+     * abuse guard bounding how many DISTINCT cache-miss fetches a single client
+     * can trigger per hour, protecting the server's outbound calls and the free
+     * sources' own IP bans). Null IP (CLI/artisan/unit tests) → skipped.
+     */
+    private function allowLiveFreeSourceFetch(): bool
+    {
+        if (! config('restaurant-finder.free_sources.read_path_guard', true)) {
+            return true;
+        }
+
+        $ip = request()?->ip();
+        if ($ip === null) {
+            return true;
+        }
+
+        $maxPerHour = (int) config('restaurant-finder.free_sources.live_misses_per_hour', 60);
+        $key = "free_source_live_miss:{$ip}";
+
+        if (RateLimiter::tooManyAttempts($key, $maxPerHour)) {
+            Log::info('Free-source per-IP live-miss limit reached', [
+                'ip' => $ip,
+                'max_per_hour' => $maxPerHour,
+            ]);
+
+            return false;
+        }
+
+        RateLimiter::hit($key, 3600);
 
         return true;
     }
@@ -486,61 +530,6 @@ class LiveSearchService
         usort($results, fn ($a, $b) => $b['popularity_score'] <=> $a['popularity_score']);
 
         return $results;
-    }
-
-    /**
-     * spec-081: on a cuisine-scoped search, when enough confident matches exist
-     * (cuisine_match >= confidence_threshold), drop the rest so wrong-cuisine
-     * venues don't pollute the result list. When there aren't enough confident
-     * venues, keep everything (padding mode) — this prevents returning too few
-     * results for obscure cuisines or small towns.
-     *
-     * Unscoped searches pass through unchanged (no cuisine_match to judge).
-     *
-     * @param  array<int, array<string, mixed>>  $results
-     * @return array<int, array<string, mixed>>
-     */
-    private function filterByCuisineConfidence(array $results, CuisineScope $scope): array
-    {
-        if (! $scope->isScoped()) {
-            return $results;
-        }
-
-        $threshold = (float) config('restaurant-finder.ranking.cuisine_confidence.confidence_threshold', 0.3);
-        $minResults = (int) config('restaurant-finder.ranking.cuisine_confidence.min_confident_results', 2);
-
-        $unfiltered = config('restaurant-finder.filters.cuisine_unfiltered_sources', ['bizdata']);
-        $unfilteredSet = array_flip(array_map('strtolower', $unfiltered));
-
-        $confident = [];
-        foreach ($results as $result) {
-            $cuisineMatch = (float) ($result['cuisine_match'] ?? 0.0);
-            if ($cuisineMatch >= $threshold) {
-                $confident[] = $result;
-            }
-        }
-
-        if (count($confident) >= $minResults) {
-            return $confident;
-        }
-
-        // Padding mode (fewer confident matches than min_results): keep the
-        // confident rows plus ambiguous rows from trusted sources (a real venue
-        // with no name keyword — e.g. "Olive Garden" for Italian — still shows,
-        // ranked below matches). Drop zero-evidence rows from UNFILTERED sources
-        // (BizData returns EVERY nearby restaurant regardless of the cuisine
-        // query): they are pure noise, and without this a low-coverage city
-        // floods its scoped results with unrelated venues like Applebee's.
-        return array_values(array_filter($results, function ($r) use ($threshold, $unfilteredSet) {
-            $cuisineMatch = (float) ($r['cuisine_match'] ?? 0.0);
-            if ($cuisineMatch >= $threshold) {
-                return true;
-            }
-
-            $source = strtolower((string) ($r['source'] ?? ''));
-
-            return ! isset($unfilteredSet[$source]);
-        }));
     }
 
     /**

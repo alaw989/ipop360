@@ -189,8 +189,15 @@ class BizDataApiService
      * Cache key for a BizData query. Shared by search()/fetchRaw() and the live
      * concurrent-pool path so the cache is the same byte-for-byte in both.
      */
-    public function cacheKeyFor(float $lat, float $lng, ?string $cuisine = null, int $radius = 25, int $limit = 50): string
+    public function cacheKeyFor(float $lat, float $lng, ?string $cuisine = null, int $radius = 25, ?int $limit = null): string
     {
+        // A null limit means "the read-path default" (LiveSearchService calls
+        // cacheKeyFor without an explicit limit), so the key must bake in the
+        // same config-driven live_limit that poolRequestsFor uses on the read
+        // path — otherwise a limit-75 fetch would land under a limit-50 key and
+        // collide with (or be masked by) enrichment-path cache entries.
+        $limit ??= (int) config('restaurant-finder.sources.bizdata.live_limit', 75);
+
         return 'bizdata:'.md5(serialize(compact('lat', 'lng', 'cuisine', 'radius', 'limit')));
     }
 
@@ -215,6 +222,10 @@ class BizDataApiService
             ? max(1, (int) config('restaurant-finder.live_search.bizdata_attempts', 2))
             : 1;
 
+        $limit = $readPath
+            ? (int) config('restaurant-finder.sources.bizdata.live_limit', 75)
+            : (int) config('restaurant-finder.sources.bizdata.limit', 50);
+
         $specs = [];
         for ($i = 0; $i < $attempts; $i++) {
             $specs[] = new RequestSpec(
@@ -224,7 +235,7 @@ class BizDataApiService
                     'location' => "{$lat},{$lng}",
                     'category' => 'restaurant',
                     'radius_km' => 25,
-                    'limit' => 50,
+                    'limit' => $limit,
                 ],
                 timeout: $timeout,
             );
