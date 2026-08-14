@@ -68,6 +68,21 @@ Schedule::command('restaurants:backfill-websites')
         Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:backfill-websites']);
     });
 
+// Schedule photo backfill (runs at 6:30 AM UTC daily, after backfill-websites
+// at 06:00 so website_url is populated — website og:image is the most reliable
+// source). Decoupled from the SerpApi-bound enrichment so image retrieval keeps
+// running even when SerpApi quota is exhausted. All sources are free; the
+// --limit cap bounds the daily run so the Google Custom Search last-resort
+// source (~100 req/day free) is never exhausted by an unbounded sweep.
+Schedule::command('restaurants:backfill-photos --apply --limit=100')
+    ->dailyAt('06:30')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Backfill missing restaurant photos from free sources (bounded)')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:backfill-photos --apply --limit=100']);
+    });
+
 // Schedule social link scraping (runs at 5:30 AM UTC daily)
 Schedule::command('restaurants:scrape-social')
     ->dailyAt('05:30')
