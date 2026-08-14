@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\BlogPostController as AdminBlogPostController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\CuisineController;
 use App\Http\Controllers\EngagementController;
@@ -48,6 +49,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::resource('blog', AdminBlogPostController::class)
             ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
             ->parameters(['blog' => 'post']);
+    });
+
+    Route::middleware('role:admin')->group(function () {
+        Route::resource('users', AdminUserController::class)->only(['index', 'update']);
     });
 });
 
