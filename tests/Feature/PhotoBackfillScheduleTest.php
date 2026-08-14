@@ -7,7 +7,6 @@ use App\Services\RestaurantWebsiteScraperService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Testing\PendingCommand;
 use Mockery;
 use Tests\TestCase;
 
@@ -92,6 +91,8 @@ class PhotoBackfillScheduleTest extends TestCase
 
         $this->artisan('restaurants:backfill-photos', ['--apply' => true]);
 
-        $this->assertSame('https://cdn.example/photo.jpg', $r->fresh()->photo_url);
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('https://cdn.example/photo.jpg', $fresh->photo_url);
     }
 }
