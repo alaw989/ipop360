@@ -3,16 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\SortsRestaurantQueries;
+use App\Http\Resources\LiveRestaurantResource;
 use App\Http\Resources\RestaurantResource;
 use App\Models\Cuisine;
 use App\Models\CuisineCategory;
+use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use App\Services\GeolocationService;
-use App\Services\LiveSearchService;
-use App\Services\LiveVenuePersister;
 use App\Services\PopularityScoreService;
+use App\Services\UnifiedSearchService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,8 +24,7 @@ class SearchController extends Controller
 
     public function __construct(
         private GeolocationService $geolocationService,
-        private LiveSearchService $liveSearchService,
-        private LiveVenuePersister $venuePersister,
+        private UnifiedSearchService $unifiedSearch,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -74,6 +75,158 @@ class SearchController extends Controller
             }
         }
 
+        if ($coords !== null) {
+            [$restaurants, $union] = $this->mergedSearch(
+                $request, $coords, $cuisineSlug, $categorySlug, $sort, $distanceKm, $priceRange
+            );
+            $categoryCounts = $this->categoryCountsForUnion($union);
+        } else {
+            [$restaurants, $query] = $this->dbOnlySearch($request, $cuisineSlug, $categorySlug, $priceRange, $sort);
+            $categoryCounts = $this->categoryCountsForQuery($query);
+        }
+
+        $filterOptions = [
+            'categories' => $categoryCounts,
+            'cuisines' => Cuisine::select('id', 'name', 'slug', 'category_id')->get()->toArray(),
+            'priceOptions' => ['$', '$$', '$$$', '$$$$'],
+            'distanceOptions' => [1, 5, 10, 25, 50],
+        ];
+
+        return Inertia::render('Search', [
+            'restaurants' => $restaurants,
+            'filters' => $request->only(['cuisine', 'category', 'lat', 'lng', 'sort', 'price_range', 'distance']),
+            'cuisineName' => $cuisineName,
+            'categorySlug' => $categorySlug,
+            'filterOptions' => $filterOptions,
+            'hasCoords' => $coords !== null,
+        ]);
+    }
+
+    /**
+     * Unified merged search (coords path): ALWAYS run the live free-source
+     * search, merge persisted DB rows into it, and rank the union by popularity
+     * score in one pass (UnifiedSearchService). Mirrors RestaurantController::
+     * apiIndex — page 1 snapshots the full user-sorted union; pages 2+ slice that
+     * snapshot (no re-search, deterministic pagination).
+     *
+     * @param  array{lat: float, lng: float}  $coords
+     * @return array{0: array<string, mixed>, 1: array<int, array<string, mixed>>}
+     */
+    private function mergedSearch(
+        Request $request,
+        array $coords,
+        ?string $cuisineSlug,
+        ?string $categorySlug,
+        string $sort,
+        int $distanceKm,
+        ?string $priceRange,
+    ): array {
+        $paginate = filter_var(config('restaurant-finder.live_search.paginate', true), FILTER_VALIDATE_BOOL);
+        $page = max(1, (int) $request->query('page', '1'));
+
+        // The page-2+ short-circuit must gate the search() CALL itself — not just
+        // the slice — or page 2 re-burns the live sources and re-ranks a fresh
+        // union (breaking deterministic pagination).
+        $union = [];
+        if (! $paginate || $page <= 1) {
+            $union = $this->unifiedSearch->search(
+                $coords['lat'],
+                $coords['lng'],
+                $cuisineSlug,
+                $categorySlug,
+                $sort,
+                (float) $distanceKm,
+                $priceRange,
+            );
+        }
+
+        return $this->paginateUnion($request, $union, $coords, $cuisineSlug, $categorySlug, $sort, $priceRange);
+    }
+
+    /**
+     * Shape a merged union into an Inertia paginator envelope (plain array,
+     * serialized by Inertia into the same data/current_page/last_page/next_page_url
+     * shape the DB paginator produces). Page 1 snapshots the union; pages 2+ slice
+     * it from the snapshot. Rows are formatted via LiveRestaurantResource (union
+     * rows are plain arrays, not Eloquent models).
+     *
+     * @param  array<int, array<string, mixed>>  $union  (empty on pages 2+ — sliced from the snapshot)
+     * @param  array{lat: float, lng: float}  $coords
+     * @return array{0: array<string, mixed>, 1: array<int, array<string, mixed>>}
+     */
+    private function paginateUnion(
+        Request $request,
+        array $union,
+        array $coords,
+        ?string $cuisineSlug,
+        ?string $categorySlug,
+        string $sort,
+        ?string $priceRange,
+    ): array {
+        $paginate = filter_var(config('restaurant-finder.live_search.paginate', true), FILTER_VALIDATE_BOOL);
+        $perPage = (int) config('restaurant-finder.live_search.page_size', 20);
+        $page = max(1, (int) $request->query('page', '1'));
+
+        $pageKey = 'search_page:'.md5(serialize([
+            'lat' => $coords['lat'],
+            'lng' => $coords['lng'],
+            'cuisine' => $cuisineSlug,
+            'category' => $categorySlug,
+            'sort' => $sort,
+            'price_range' => $priceRange,
+        ]));
+
+        if ($paginate && $page > 1) {
+            $snapshotted = ExternalApiCache::findByKey($pageKey);
+            $fullResults = is_array($snapshotted) ? $snapshotted : [];
+        } else {
+            $fullResults = $union;
+
+            if ($paginate) {
+                ExternalApiCache::storeByKey(
+                    $pageKey,
+                    $fullResults,
+                    now()->addMinutes((int) config('restaurant-finder.live_search.page_snapshot_minutes', 10))
+                );
+            }
+        }
+
+        $total = count($fullResults);
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $effectivePage = $paginate ? min($page, $lastPage) : 1;
+        $slice = $paginate
+            ? array_slice($fullResults, ($effectivePage - 1) * $perPage, $perPage)
+            : $fullResults;
+
+        $hasNext = $paginate && $effectivePage < $lastPage;
+        $hasPrev = $paginate && $effectivePage > 1;
+
+        $restaurants = [
+            'data' => LiveRestaurantResource::collection($slice)->resolve(),
+            'current_page' => $effectivePage,
+            'last_page' => $lastPage,
+            'per_page' => $paginate ? $perPage : $total,
+            'total' => $total,
+            'prev_page_url' => $hasPrev ? $request->fullUrlWithQuery(['page' => $effectivePage - 1]) : null,
+            'next_page_url' => $hasNext ? $request->fullUrlWithQuery(['page' => $effectivePage + 1]) : null,
+        ];
+
+        return [$restaurants, $fullResults];
+    }
+
+    /**
+     * DB-only search (no geolocation available): the persisted-db path. Serves
+     * RestaurantResource over an Eloquent paginator (parity with index()).
+     *
+     * @return array{0: LengthAwarePaginator<int, mixed>, 1: Builder<Restaurant>}
+     */
+    private function dbOnlySearch(
+        Request $request,
+        ?string $cuisineSlug,
+        ?string $categorySlug,
+        ?string $priceRange,
+        string $sort,
+    ): array {
         $query = Restaurant::query()
             ->when(
                 $cuisineSlug,
@@ -93,45 +246,14 @@ class SearchController extends Controller
                 )
             )
             ->when(
-                $coords !== null,
-                function ($q) use ($coords, $distanceKm) {
-                    assert($coords !== null);
-
-                    return $q->nearby($coords['lat'], $coords['lng'], $distanceKm);
-                }
-            )
-            ->when(
                 $priceRange,
                 fn ($q) => $q->where('price_range', $priceRange)
             )
             ->active();
 
-        $query = $this->applySort($query, $sort, $coords !== null);
+        $query = $this->applySort($query, $sort, false);
 
         $restaurants = $query->paginate(20)->withQueryString();
-
-        if ($restaurants->isEmpty() && $coords !== null) {
-            // Run the live search synchronously (mirrors apiIndex) so results
-            // appear immediately instead of waiting for the async enrichment
-            // job + frontend polling. Persist the venues with evidence-gated
-            // cuisine tags, then re-query the now-populated DB so rows flow
-            // through the standard RestaurantResource pipeline with real ids.
-            $liveResults = $this->liveSearchService->search(
-                $coords['lat'],
-                $coords['lng'],
-                $cuisineSlug,
-                $categorySlug,
-                false, // cacheOnly
-                $sort,
-                (float) $distanceKm,
-            );
-
-            if (! empty($liveResults)) {
-                $this->venuePersister->persistTaggedVenues($liveResults, $cuisineSlug, $categorySlug, $coords['lat'], $coords['lng']);
-
-                $restaurants = $query->paginate(20)->withQueryString();
-            }
-        }
 
         $items = $restaurants->getCollection();
         $allItems = $items;
@@ -148,7 +270,51 @@ class SearchController extends Controller
         $formattedArray = $formatted->resolve();
         $restaurants->setCollection(collect($formattedArray));
 
-        $categoryCounts = CuisineCategory::select('cuisine_categories.id', 'cuisine_categories.name', 'cuisine_categories.slug')
+        return [$restaurants, $query];
+    }
+
+    /**
+     * Category counts for the merged union (the union IS the filtered set, so
+     * the sidebar counts are the distinct restaurant ids across its rows).
+     *
+     * @param  array<int, array<string, mixed>>  $union
+     * @return array<int, array<string, mixed>>
+     */
+    private function categoryCountsForUnion(array $union): array
+    {
+        $ids = [];
+        foreach ($union as $row) {
+            $id = $row['id'] ?? null;
+            if (is_numeric($id) && (int) $id > 0) {
+                $ids[] = (int) $id;
+            }
+        }
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return CuisineCategory::select('cuisine_categories.id', 'cuisine_categories.name', 'cuisine_categories.slug')
+            ->selectRaw('COUNT(DISTINCT restaurants.id) as restaurants_count')
+            ->join('cuisines', 'cuisines.category_id', '=', 'cuisine_categories.id')
+            ->join('cuisine_restaurant', 'cuisine_restaurant.cuisine_id', '=', 'cuisines.id')
+            ->join('restaurants', 'restaurants.id', '=', 'cuisine_restaurant.restaurant_id')
+            ->whereIn('restaurants.id', $ids)
+            ->groupBy('cuisine_categories.id', 'cuisine_categories.name', 'cuisine_categories.slug')
+            ->orderByDesc('restaurants_count')
+            ->get()
+            ->toArray();
+    }
+
+    /**
+     * Category counts for the DB-only path (counts over the filtered $query).
+     *
+     * @param  Builder<Restaurant>  $query
+     * @return array<int, array<string, mixed>>
+     */
+    private function categoryCountsForQuery(Builder $query): array
+    {
+        return CuisineCategory::select('cuisine_categories.id', 'cuisine_categories.name', 'cuisine_categories.slug')
             ->selectRaw('COUNT(DISTINCT restaurants.id) as restaurants_count')
             ->join('cuisines', 'cuisines.category_id', '=', 'cuisine_categories.id')
             ->join('cuisine_restaurant', 'cuisine_restaurant.cuisine_id', '=', 'cuisines.id')
@@ -158,22 +324,6 @@ class SearchController extends Controller
             ->orderByDesc('restaurants_count')
             ->get()
             ->toArray();
-
-        $filterOptions = [
-            'categories' => $categoryCounts,
-            'cuisines' => Cuisine::select('id', 'name', 'slug', 'category_id')->get()->toArray(),
-            'priceOptions' => ['$', '$$', '$$$', '$$$$'],
-            'distanceOptions' => [1, 5, 10, 25, 50],
-        ];
-
-        return Inertia::render('Search', [
-            'restaurants' => $restaurants,
-            'filters' => $request->only(['cuisine', 'category', 'lat', 'lng', 'sort', 'price_range', 'distance']),
-            'cuisineName' => $cuisineName,
-            'categorySlug' => $categorySlug,
-            'filterOptions' => $filterOptions,
-            'hasCoords' => $coords !== null,
-        ]);
     }
 
     /**

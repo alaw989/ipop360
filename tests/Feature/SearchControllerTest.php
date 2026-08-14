@@ -6,7 +6,7 @@ use App\Models\Cuisine;
 use App\Models\CuisineCategory;
 use App\Models\Restaurant;
 use App\Services\GeolocationService;
-use App\Services\LiveSearchService;
+use App\Services\UnifiedSearchService;
 use Database\Seeders\CuisineSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
@@ -88,6 +88,10 @@ class SearchControllerTest extends TestCase
         Config::set('restaurant-finder.live_search.distance_fallback_lat', 30.6199);
         Config::set('restaurant-finder.live_search.distance_fallback_lng', -88.1967);
 
+        // Coords now route through the merged (always-live) path — stub it so the
+        // test doesn't fire real outbound HTTP.
+        $this->bindUnifiedSearchResults([]);
+
         $response = $this->get('/search?distance=10');
 
         $response->assertStatus(200);
@@ -98,6 +102,8 @@ class SearchControllerTest extends TestCase
     {
         Config::set('restaurant-finder.live_search.distance_fallback_lat', 30.6199);
         Config::set('restaurant-finder.live_search.distance_fallback_lng', -88.1967);
+
+        $this->bindUnifiedSearchResults([]);
 
         $response = $this->get('/search');
 
@@ -114,27 +120,40 @@ class SearchControllerTest extends TestCase
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $results
+     * @param  array<int, array<string, mixed>>  $union
      */
-    private function bindLiveSearchResults(array $results): void
+    private function bindUnifiedSearchResults(array $union): void
     {
-        $this->mock(LiveSearchService::class, function ($mock) use ($results) {
-            $mock->shouldReceive('search')->andReturn($results);
+        $this->mock(UnifiedSearchService::class, function ($mock) use ($union) {
+            $mock->shouldReceive('search')->andReturn($union);
         });
     }
 
-    public function test_empty_db_runs_live_search_immediately_and_renders_results(): void
+    /**
+     * Minimal merged-union row shape for the coords path.
+     *
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function unionRow(array $overrides = []): array
+    {
+        return array_merge([
+            'id' => 1,
+            'name' => 'Venue',
+            'slug' => 'venue',
+            'lat' => 30.0,
+            'lng' => -88.0,
+            'source' => 'serpapi',
+            'popularity_score' => 0.5,
+            'cuisines' => [],
+        ], $overrides);
+    }
+
+    public function test_coords_path_renders_merged_union_results(): void
     {
         $this->bindCoordsAndReverseGeocode();
-        $this->bindLiveSearchResults([
-            [
-                'name' => 'Live Bistro',
-                'slug' => 'live-bistro',
-                'lat' => 30.0,
-                'lng' => -88.0,
-                'source' => 'serpapi',
-                'popularity_score' => 0.5,
-            ],
+        $this->bindUnifiedSearchResults([
+            $this->unionRow(['name' => 'Live Bistro', 'slug' => 'live-bistro']),
         ]);
 
         $response = $this->get('/search');
@@ -147,10 +166,10 @@ class SearchControllerTest extends TestCase
         );
     }
 
-    public function test_empty_db_with_no_live_results_shows_honest_empty_state(): void
+    public function test_coords_path_with_empty_union_shows_honest_empty_state(): void
     {
         $this->bindCoordsAndReverseGeocode();
-        $this->bindLiveSearchResults([]);
+        $this->bindUnifiedSearchResults([]);
 
         $response = $this->get('/search');
 
@@ -161,20 +180,13 @@ class SearchControllerTest extends TestCase
         );
     }
 
-    public function test_scoped_live_search_attaches_searched_cuisine_so_results_are_found(): void
+    public function test_scoped_search_renders_merged_union_and_resolves_cuisine_name(): void
     {
         $this->seed(CuisineSeeder::class);
 
         $this->bindCoordsAndReverseGeocode();
-        $this->bindLiveSearchResults([
-            [
-                'name' => 'Trattoria Roma',
-                'slug' => 'trattoria-roma',
-                'lat' => 30.0,
-                'lng' => -88.0,
-                'source' => 'serpapi',
-                'popularity_score' => 0.5,
-            ],
+        $this->bindUnifiedSearchResults([
+            $this->unionRow(['name' => 'Trattoria Roma', 'slug' => 'trattoria-roma']),
         ]);
 
         $response = $this->get('/search?cuisine=italian');
@@ -185,6 +197,56 @@ class SearchControllerTest extends TestCase
             ->has('restaurants.data', 1)
             ->where('restaurants.data.0.name', 'Trattoria Roma')
             ->where('cuisineName', 'Italian')
+        );
+    }
+
+    public function test_coords_path_forwards_filters_and_sort_to_unified_search(): void
+    {
+        $this->bindCoordsAndReverseGeocode();
+        $this->mock(UnifiedSearchService::class, function ($mock) {
+            $mock->shouldReceive('search')
+                ->with(30.0, -88.0, null, null, 'nearest', 10.0, '$$')
+                ->andReturn([]);
+        });
+
+        $response = $this->get('/search?distance=10&sort=nearest&price_range=$$');
+
+        $response->assertStatus(200);
+    }
+
+    public function test_coords_path_page2_uses_snapshot_not_search(): void
+    {
+        $rows = [];
+        for ($i = 1; $i <= 25; $i++) {
+            $rows[] = $this->unionRow(['name' => "Venue {$i}", 'slug' => "venue-{$i}"]);
+        }
+
+        $this->bindCoordsAndReverseGeocode();
+        $this->mock(UnifiedSearchService::class, function ($mock) use ($rows) {
+            $mock->shouldReceive('search')->once()->andReturn($rows);
+        });
+
+        $this->get('/search')->assertStatus(200);
+        $this->get('/search?page=2')->assertStatus(200);
+        // Mockery's once() is verified at teardown — page 2 must not call search().
+    }
+
+    public function test_coords_path_paginates_union(): void
+    {
+        $rows = [];
+        for ($i = 1; $i <= 25; $i++) {
+            $rows[] = $this->unionRow(['name' => "Venue {$i}", 'slug' => "venue-{$i}"]);
+        }
+
+        $this->bindCoordsAndReverseGeocode();
+        $this->bindUnifiedSearchResults($rows);
+
+        $response = $this->get('/search');
+
+        $response->assertInertia(fn ($page) => $page
+            ->has('restaurants.data', 20)
+            ->where('restaurants.current_page', 1)
+            ->where('restaurants.last_page', 2)
         );
     }
 }

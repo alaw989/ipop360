@@ -350,6 +350,16 @@ class VenuePipeline
                     $this->priceLevelNormalizer->normalize($b['price_range'] ?? null),
                     false, // ASC: cheapest first
                 ],
+                'social_presence' => [
+                    (int) (((int) ($a['social_links_count'] ?? 0)) > 0),
+                    (int) (((int) ($b['social_links_count'] ?? 0)) > 0),
+                    true, // DESC: venues with social links first
+                ],
+                'website_traffic' => [
+                    $a['website_clicks_count'] ?? null,
+                    $b['website_clicks_count'] ?? null,
+                    true, // DESC: most clicks first
+                ],
                 default => [$a['popularity_score'] ?? null, $b['popularity_score'] ?? null, true],
             };
 
@@ -370,6 +380,61 @@ class VenuePipeline
         });
 
         return $venues;
+    }
+
+    /**
+     * spec-081: on a cuisine-scoped search, when enough confident matches exist
+     * (cuisine_match >= confidence_threshold), drop the rest so wrong-cuisine
+     * venues don't pollute the result list. When there aren't enough confident
+     * venues, keep everything (padding mode) — this prevents returning too few
+     * results for obscure cuisines or small towns.
+     *
+     * Unscoped searches pass through unchanged (no cuisine_match to judge).
+     *
+     * @param  array<int, array<string, mixed>>  $venues
+     * @return array<int, array<string, mixed>>
+     */
+    public function filterByCuisineConfidence(array $venues, CuisineScope $scope): array
+    {
+        if (! $scope->isScoped()) {
+            return $venues;
+        }
+
+        $threshold = (float) config('restaurant-finder.ranking.cuisine_confidence.confidence_threshold', 0.3);
+        $minResults = (int) config('restaurant-finder.ranking.cuisine_confidence.min_confident_results', 2);
+
+        $unfiltered = config('restaurant-finder.filters.cuisine_unfiltered_sources', ['bizdata']);
+        $unfilteredSet = array_flip(array_map('strtolower', $unfiltered));
+
+        $confident = [];
+        foreach ($venues as $venue) {
+            $cuisineMatch = (float) ($venue['cuisine_match'] ?? 0.0);
+            if ($cuisineMatch >= $threshold) {
+                $confident[] = $venue;
+            }
+        }
+
+        if (count($confident) >= $minResults) {
+            return $confident;
+        }
+
+        // Padding mode (fewer confident matches than min_results): keep the
+        // confident rows plus ambiguous rows from trusted sources (a real venue
+        // with no name keyword — e.g. "Olive Garden" for Italian — still shows,
+        // ranked below matches). Drop zero-evidence rows from UNFILTERED sources
+        // (BizData returns EVERY nearby restaurant regardless of the cuisine
+        // query): they are pure noise, and without this a low-coverage city
+        // floods its scoped results with unrelated venues like Applebee's.
+        return array_values(array_filter($venues, function ($v) use ($threshold, $unfilteredSet) {
+            $cuisineMatch = (float) ($v['cuisine_match'] ?? 0.0);
+            if ($cuisineMatch >= $threshold) {
+                return true;
+            }
+
+            $source = strtolower((string) ($v['source'] ?? ''));
+
+            return ! isset($unfilteredSet[$source]);
+        }));
     }
 
     /**

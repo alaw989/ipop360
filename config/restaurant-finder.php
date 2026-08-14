@@ -409,7 +409,9 @@ return [
         // distance filters and after scoring (already sorted by score desc).
         // spec-067: raised 30→60 so broader OSM recall is actually
         // visible (and pagination in spec-068 has rows to slice).
-        'max_results' => (int) env('LIVE_SEARCH_MAX_RESULTS', 60),
+        // Unified-merged-search: raised 60→150 so the merged DB + live union is
+        // not starved once DB rows and fresh free-source venues rank together.
+        'max_results' => (int) env('LIVE_SEARCH_MAX_RESULTS', 150),
 
         // Card gallery depth: max photo URLs stored per venue (photos column)
         // and served by the frontend gallery. Collected free from the venue's
@@ -492,6 +494,16 @@ return [
     | removed — see spec-066 revert; SerpApi is the only rating source).
     */
     'sources' => [
+        'bizdata' => [
+            // BizData read-path result cap. BizData is free/unlimited but its
+            // upstream caps rows per call; the live read path asks for more rows
+            // than the enrichment path so the always-live merged search surfaces
+            // more free coverage (reconciles with the goal's 50→75 wording).
+            // Enrichment keeps its own (smaller) limit.
+            'live_limit' => (int) env('BIZDATA_LIVE_LIMIT', 75),
+            'limit' => (int) env('BIZDATA_LIMIT', 50),
+        ],
+
         'overpass' => [
             // spec-067: broaden OSM from amenity=restaurant ONLY to a regex union
             // of food tags. OSM tags far more venues than restaurant (fast_food,
@@ -536,7 +548,9 @@ return [
 
             // Geofence radius (km) → bbox, and result limit.
             'radius_km' => (int) env('PHOTON_RADIUS_KM', 25),
-            'limit' => (int) env('PHOTON_LIMIT', 30),
+            // Unified-merged-search: raised 30→50 so Photon text-name recall
+            // contributes more free rows to the merged union.
+            'limit' => (int) env('PHOTON_LIMIT', 50),
         ],
     ],
 
@@ -571,6 +585,29 @@ return [
         // Bounds quota-burn abuse (rotating cuisines / nudging coords) from a
         // single client. Warm-cache requests don't count.
         'live_misses_per_hour' => (int) env('SERPAPI_LIVE_MISSES_PER_HOUR', 30),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Free-source read-path guard (cold-miss limiter)
+    |--------------------------------------------------------------------------
+    | The unified merged search fires the free sources (BizData, Socrata,
+    | Overpass, Photon) on EVERY search request, so a cache-cold city/cuisine
+    | means outbound calls on every request. They're quota-free but not
+    | cost-free: Overpass IP-bans heavy clients (see sources.overpass.mirrors),
+    | and unbounded outbound calls from a single client are a self-DoS. This
+    | per-IP hourly limiter (mirroring SerpApi's) bounds how many DISTINCT
+    | cache-miss fetches one IP can trigger per hour. There is NO circuit
+    | breaker — the free sources have no quota to exhaust. Warm-cache requests
+    | never reach the guard regardless.
+    */
+    'free_sources' => [
+        // Master kill-switch for the free-source read-path guard. false → the
+        // per-IP limiter is bypassed (reverts to always-fetch behavior).
+        'read_path_guard' => (bool) env('FREE_SOURCES_READ_PATH_GUARD', true),
+
+        // Per-IP cap on DISTINCT cache-miss free-source fetches per hour.
+        'live_misses_per_hour' => (int) env('FREE_SOURCES_LIVE_MISSES_PER_HOUR', 60),
     ],
 
     /*

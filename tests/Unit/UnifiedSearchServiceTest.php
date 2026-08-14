@@ -245,6 +245,134 @@ class UnifiedSearchServiceTest extends TestCase
         );
     }
 
+    public function test_scoped_search_drops_off_cuisine_db_rows_via_confidence_filter(): void
+    {
+        // The broad nearby() DB fetch pulls in EVERY nearby active restaurant, not
+        // just the searched cuisine. With ≥2 confident (on-cuisine) matches the
+        // union-level confidence filter must drop the off-cuisine DB row — the
+        // DB-first whereHas('cuisines') never returned it, so the merged path must
+        // not regress scoped searches by leaking "Taco Bell" into a Chinese search.
+        $this->seedCuisine('Chinese', 'chinese');
+
+        Restaurant::factory()->create([
+            'name' => 'China Wok',
+            'slug' => 'china-wok',
+            'google_place_id' => 'g-wok',
+            'latitude' => 30.65,
+            'longitude' => -88.20,
+        ]);
+        Restaurant::factory()->create([
+            'name' => 'Panda Palace',
+            'slug' => 'panda-palace',
+            'google_place_id' => 'g-panda',
+            'latitude' => 30.66,
+            'longitude' => -88.21,
+        ]);
+        Restaurant::factory()->create([
+            'name' => 'Taco Bell',
+            'slug' => 'taco-bell',
+            'google_place_id' => 'g-taco',
+            'latitude' => 30.67,
+            'longitude' => -88.22,
+        ]);
+
+        $service = $this->makeService(); // live returns nothing
+
+        $results = $service->search(30.6199783, -88.1967496, 'chinese', null, 'best_match', 25.0);
+        $names = array_column($results, 'name');
+
+        $this->assertContains('China Wok', $names, 'On-cuisine DB row must survive');
+        $this->assertContains('Panda Palace', $names, 'On-cuisine DB row must survive');
+        $this->assertNotContains('Taco Bell', $names, 'Off-cuisine DB row must be dropped when enough confident matches exist');
+    }
+
+    public function test_union_respects_nearest_sort_across_db_and_live(): void
+    {
+        $this->seedCuisine('Chinese', 'chinese');
+
+        Restaurant::factory()->create([
+            'name' => 'Far DB',
+            'slug' => 'far-db',
+            'google_place_id' => 'g-far',
+            'latitude' => 30.80,
+            'longitude' => -88.30,
+        ]);
+
+        $service = $this->makeService([
+            [
+                'name' => 'Mid Live',
+                'slug' => 'mid-live',
+                'source' => 'photon',
+                'lat' => 30.65,
+                'lng' => -88.20,
+            ],
+            [
+                'name' => 'Near Live',
+                'slug' => 'near-live',
+                'source' => 'photon',
+                'lat' => 30.6200,
+                'lng' => -88.1969,
+            ],
+        ]);
+
+        $results = $service->search(30.6199783, -88.1967496, null, null, 'nearest', 25.0);
+        $names = array_column($results, 'name');
+
+        $this->assertSame(
+            ['Near Live', 'Mid Live', 'Far DB'],
+            $names,
+            'The merged union must respect the user sort mode (nearest) across DB + live rows'
+        );
+    }
+
+    public function test_price_range_filter_narrows_the_union(): void
+    {
+        $this->seedCuisine('Chinese', 'chinese');
+
+        Restaurant::factory()->create([
+            'name' => 'Cheap Eats',
+            'slug' => 'cheap-eats',
+            'google_place_id' => 'g-cheap',
+            'latitude' => 30.65,
+            'longitude' => -88.20,
+            'price_range' => '$',
+        ]);
+        Restaurant::factory()->create([
+            'name' => 'Fine Dining',
+            'slug' => 'fine-dining',
+            'google_place_id' => 'g-fine',
+            'latitude' => 30.66,
+            'longitude' => -88.21,
+            'price_range' => '$$$$',
+        ]);
+
+        $service = $this->makeService(); // live returns nothing
+
+        $results = $service->search(30.6199783, -88.1967496, null, null, 'best_match', 25.0, '$');
+
+        $this->assertCount(1, $results, 'Price filter must narrow the union to matching rows');
+        $this->assertSame('Cheap Eats', $results[0]['name']);
+        $this->assertSame('$', $results[0]['price_range']);
+    }
+
+    public function test_price_range_filter_applies_to_live_rows_without_persisting_them(): void
+    {
+        $service = $this->makeService([
+            'name' => 'Luxe Live',
+            'slug' => 'luxe-live',
+            'source' => 'serpapi',
+            'lat' => 30.65,
+            'lng' => -88.20,
+            'price_range' => '$$$$',
+            'place_types' => ['restaurant'],
+        ]);
+
+        $results = $service->search(30.6199783, -88.1967496, null, null, 'best_match', 25.0, '$');
+
+        $this->assertCount(0, $results, 'Live rows priced outside the filter must be dropped');
+        $this->assertSame(0, Restaurant::count(), 'A price-dropped live row must not be persisted');
+    }
+
     /**
      * Build a UnifiedSearchService whose live search returns $liveRows (or []),
      * driving DB rows + live rows through the real merge + one-pass scoring.
@@ -255,7 +383,7 @@ class UnifiedSearchServiceTest extends TestCase
     {
         $live = Mockery::mock(LiveSearchService::class);
         $live->shouldReceive('search')
-            ->andReturn(is_array($liveRows) && array_is_list($liveRows) ? $liveRows : [$liveRows]);
+            ->andReturn(array_is_list($liveRows) ? $liveRows : [$liveRows]);
 
         return new UnifiedSearchService(
             $live,

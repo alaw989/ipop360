@@ -7,6 +7,7 @@ use App\Models\CuisineCategory;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use App\Services\LiveSearchService;
+use App\Services\UnifiedSearchService;
 use App\Services\VenuePipeline;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
@@ -85,13 +86,9 @@ class RestaurantControllerTest extends TestCase
 
     public function test_restaurant_index_with_location_accepts_coords(): void
     {
-        Restaurant::factory()->create([
-            'name' => 'Nearby',
-            'is_active' => true,
-            'popularity_score' => 0.5,
-            'latitude' => 37.7749,
-            'longitude' => -122.4194,
-        ]);
+        // Coords route through the unified merged search — stub it so the test
+        // doesn't fire real outbound HTTP.
+        $this->bindUnifiedSearchResults([]);
 
         $response = $this->get('/restaurants?lat=37.7749&lng=-122.4194');
 
@@ -103,21 +100,13 @@ class RestaurantControllerTest extends TestCase
         );
     }
 
-    public function test_restaurant_index_nearby_sorts_by_popularity_not_distance(): void
+    public function test_restaurant_index_coords_path_renders_merged_union_in_order(): void
     {
-        Restaurant::factory()->create([
-            'name' => 'Close but Unpopular',
-            'is_active' => true,
-            'popularity_score' => 0.2,
-            'latitude' => 37.7750,
-            'longitude' => -122.4195,
-        ]);
-        Restaurant::factory()->create([
-            'name' => 'Far but Popular',
-            'is_active' => true,
-            'popularity_score' => 0.9,
-            'latitude' => 37.7850,
-            'longitude' => -122.4095,
+        // The unified merged search owns the ranking; the controller must render
+        // the union in the order it is given (no re-sort).
+        $this->bindUnifiedSearchResults([
+            $this->unionRow(['name' => 'Far but Popular', 'slug' => 'far-but-popular']),
+            $this->unionRow(['name' => 'Close but Unpopular', 'slug' => 'close-but-unpopular']),
         ]);
 
         $response = $this->get('/restaurants?lat=37.7749&lng=-122.4194');
@@ -237,19 +226,11 @@ class RestaurantControllerTest extends TestCase
 
     public function test_restaurant_index_sort_by_nearest(): void
     {
-        Restaurant::factory()->create([
-            'name' => 'Close',
-            'is_active' => true,
-            'latitude' => 37.7750,
-            'longitude' => -122.4195,
-            'popularity_score' => 0.1,
-        ]);
-        Restaurant::factory()->create([
-            'name' => 'Far',
-            'is_active' => true,
-            'latitude' => 37.7900,
-            'longitude' => -122.4000,
-            'popularity_score' => 0.9,
+        // The unified merged search owns nearest sorting; the controller renders
+        // the union as given.
+        $this->bindUnifiedSearchResults([
+            $this->unionRow(['name' => 'Close', 'slug' => 'close', 'distance' => 0.1]),
+            $this->unionRow(['name' => 'Far', 'slug' => 'far', 'distance' => 5.0]),
         ]);
 
         $response = $this->get('/restaurants?lat=37.7749&lng=-122.4194&sort=nearest');
@@ -272,6 +253,46 @@ class RestaurantControllerTest extends TestCase
             ->where('restaurants.data.0.name', 'High Score')
             ->where('restaurants.data.1.name', 'Low Score')
         );
+    }
+
+    public function test_restaurant_index_coords_path_forwards_sort_and_distance_to_unified_search(): void
+    {
+        $this->mock(UnifiedSearchService::class, function ($mock) {
+            $mock->shouldReceive('search')
+                ->with(37.7749, -122.4194, null, null, 'nearest', 10.0)
+                ->andReturn([]);
+        });
+
+        $this->get('/restaurants?lat=37.7749&lng=-122.4194&sort=nearest&distance=10')->assertStatus(200);
+    }
+
+    public function test_restaurant_index_coords_path_paginates_union(): void
+    {
+        $rows = [];
+        for ($i = 1; $i <= 25; $i++) {
+            $rows[] = $this->unionRow(['name' => "Venue {$i}", 'slug' => "venue-{$i}"]);
+        }
+        $this->bindUnifiedSearchResults($rows);
+
+        $response = $this->get('/restaurants?lat=37.7749&lng=-122.4194');
+
+        $response->assertInertia(fn ($page) => $page
+            ->has('restaurants.data', 20)
+            ->where('restaurants.current_page', 1)
+            ->where('restaurants.last_page', 2)
+        );
+    }
+
+    public function test_restaurant_index_coords_path_page2_uses_snapshot_not_search(): void
+    {
+        $rows = array_map(fn ($i) => $this->unionRow(['name' => "V{$i}", 'slug' => "v{$i}"]), range(1, 25));
+        $this->mock(UnifiedSearchService::class, function ($mock) use ($rows) {
+            $mock->shouldReceive('search')->once()->andReturn($rows);
+        });
+
+        $this->get('/restaurants?lat=37.7749&lng=-122.4194')->assertStatus(200);
+        $this->get('/restaurants?lat=37.7749&lng=-122.4194&page=2')->assertStatus(200);
+        // Mockery's once() is verified at teardown — page 2 must not call search().
     }
 
     public function test_restaurant_index_sort_best_match_is_default(): void
@@ -319,6 +340,10 @@ class RestaurantControllerTest extends TestCase
 
     public function test_restaurant_api_sort_by_nearest(): void
     {
+        // Unified merged search always fires the live search on the coords path;
+        // stub it to contribute nothing so the union is the two DB rows.
+        $this->bindLiveSearchResults([]);
+
         Restaurant::factory()->create([
             'name' => 'Close',
             'is_active' => true,
@@ -353,6 +378,45 @@ class RestaurantControllerTest extends TestCase
         $this->mock(LiveSearchService::class, function ($mock) use ($results) {
             $mock->shouldReceive('search')->andReturn($results);
         });
+    }
+
+    /**
+     * Bind a UnifiedSearchService mock that returns the given merged union, so
+     * coords-bearing browse/api requests don't fire real outbound HTTP.
+     *
+     * @param  array<int, array<string, mixed>>  $union
+     */
+    private function bindUnifiedSearchResults(array $union): void
+    {
+        $this->mock(UnifiedSearchService::class, function ($mock) use ($union) {
+            $mock->shouldReceive('search')->andReturn($union);
+        });
+    }
+
+    /**
+     * Minimal merged-union row shape for the coords path.
+     *
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function unionRow(array $overrides = []): array
+    {
+        return array_merge([
+            'id' => 1,
+            'name' => 'Venue',
+            'slug' => 'venue',
+            'lat' => 37.7749,
+            'lng' => -122.4194,
+            'distance' => null,
+            'google_rating' => null,
+            'google_review_count' => null,
+            'yelp_rating' => null,
+            'yelp_review_count' => 0,
+            'price_range' => null,
+            'popularity_score' => 0.5,
+            'cuisines' => [],
+            'source' => 'serpapi',
+        ], $overrides);
     }
 
     /**
@@ -478,6 +542,37 @@ class RestaurantControllerTest extends TestCase
         ];
 
         $this->assertSame(['Beta', 'Alpha', 'Zeta'], array_column($pipeline->sortVenues($rows, 'rating', true), 'name'));
+    }
+
+    public function test_sort_venues_social_presence_puts_venues_with_links_first(): void
+    {
+        $pipeline = $this->app->make(VenuePipeline::class);
+        $rows = [
+            ['name' => 'NoLinks', 'social_links_count' => 0, 'popularity_score' => 0.9],
+            ['name' => 'Linked', 'social_links_count' => 3, 'popularity_score' => 0.2],
+            ['name' => 'MissingLinks', 'popularity_score' => 0.5],
+        ];
+
+        $this->assertSame(
+            ['Linked', 'NoLinks', 'MissingLinks'],
+            array_column($pipeline->sortVenues($rows, 'social_presence', true), 'name')
+        );
+    }
+
+    public function test_sort_venues_website_traffic_orders_clicks_desc_with_nulls_last(): void
+    {
+        $pipeline = $this->app->make(VenuePipeline::class);
+        $rows = [
+            ['name' => 'Few', 'website_clicks_count' => 10, 'popularity_score' => 0.9],
+            ['name' => 'Many', 'website_clicks_count' => 500, 'popularity_score' => 0.1],
+            ['name' => 'None', 'website_clicks_count' => 0, 'popularity_score' => 0.9],
+            ['name' => 'Missing', 'popularity_score' => 0.5],
+        ];
+
+        $this->assertSame(
+            ['Many', 'Few', 'None', 'Missing'],
+            array_column($pipeline->sortVenues($rows, 'website_traffic', true), 'name')
+        );
     }
 
     public function test_api_live_sort_preserves_response_shape(): void

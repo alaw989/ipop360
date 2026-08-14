@@ -47,6 +47,8 @@ class LiveRestaurantResource extends JsonResource
             'popular_times_avg_busyness' => $this->resource['popular_times_avg_busyness'] ?? null,
             'has_award' => $this->resource['has_award'] ?? false,
             'popularity_score' => $this->resource['popularity_score'] ?? null,
+            'rank_change' => $this->resource['rank_change'] ?? null,
+            'distance' => $this->resource['distance'] ?? null,
             'cuisines' => $this->resource['cuisines'] ?? [],
             'features' => $this->resource['features'] ?? [],
             'source' => $this->resource['source'] ?? 'live',
