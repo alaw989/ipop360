@@ -101,4 +101,20 @@ class SqlDialect
 
         return "CAST({$expr} AS REAL)";
     }
+
+    /**
+     * JSON array length of a column: MySQL `JSON_LENGTH`, SQLite
+     * `json_array_length`. Used for gallery arrays (photos JSON column).
+     *
+     * @param  literal-string  $column
+     * @return literal-string
+     */
+    public static function jsonArrayLength(string $column): string
+    {
+        if (self::isMysql()) {
+            return "JSON_LENGTH({$column})";
+        }
+
+        return "json_array_length({$column})";
+    }
 }

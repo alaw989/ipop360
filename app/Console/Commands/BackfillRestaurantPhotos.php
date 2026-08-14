@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Restaurant;
 use App\Services\RestaurantWebsiteScraperService;
+use App\Support\SqlDialect;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -51,7 +52,7 @@ class BackfillRestaurantPhotos extends Command
                 // Missing primary photo, or under the gallery target (--min-photos).
                 $q->where(fn ($sub) => $sub->whereNull('photo_url')->orWhere('photo_url', ''));
                 if ($minPhotos > 0) {
-                    $q->orWhereRaw('photos IS NULL OR JSON_LENGTH(photos) < ?', [$minPhotos]);
+                    $q->orWhereRaw('photos IS NULL OR '.SqlDialect::jsonArrayLength('photos').' < ?', [$minPhotos]);
                 }
             });
 
@@ -92,9 +93,7 @@ class BackfillRestaurantPhotos extends Command
                 if ($photoUrl !== null && empty($restaurant->photo_url)) {
                     $updates['photo_url'] = $photoUrl;
                     $this->found++;
-                }
-
-                // Fill the gallery array too: existing photo_url + scraped photos
+                }                // Fill the gallery array too: existing photo_url + scraped photos
                 // (website og:image/<img> when available), deduped, capped.
                 $gallery = $this->mergeGallery((array) ($restaurant->photos ?? []), $photoUrl, $galleryMax);
                 if (count($gallery) > count((array) ($restaurant->photos ?? []))) {
@@ -105,6 +104,13 @@ class BackfillRestaurantPhotos extends Command
                 if (! empty($updates)) {
                     if ($apply) {
                         $restaurant->update($updates);
+                        if (! empty($updates['photo_url'])) {
+                            Log::channel('enrichment')->info('Photo backfill found photo', [
+                                'restaurant_id' => $restaurant->id,
+                                'restaurant_name' => $restaurant->name,
+                                'photo_url' => $updates['photo_url'],
+                            ]);
+                        }
                     } else {
                         Log::channel('enrichment')->info('Photo backfill (dry-run) would update', [
                             'restaurant_id' => $restaurant->id,
