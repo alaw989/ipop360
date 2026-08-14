@@ -62,10 +62,10 @@ class PopularityScoreServiceTest extends TestCase
         $score = $this->service->calculateScore($restaurant, $all);
 
         // Yelp weights are 0 (removed). Proximity + quality are inactive (no
-        // distance, no Google rating). Only data_completeness (8/10=0.8,
-        // weight 0.05) and has_award (false=0.0, weight 0.05) contribute.
-        // Active weight 0.10. = (0.05/0.10)*0.8 = 0.40
-        $this->assertEqualsWithDelta(0.40, $score, 0.001);
+        // distance, no Google rating) and has_award=false is inactive (no award).
+        // Only data_completeness (8/10=0.8, weight 0.05) contributes; its weight
+        // renormalizes to 1.0. = (0.05/0.05)*0.8 = 0.80
+        $this->assertEqualsWithDelta(0.80, $score, 0.001);
     }
 
     public function test_no_data_scores_zero(): void
@@ -103,11 +103,11 @@ class PopularityScoreServiceTest extends TestCase
         $score = $this->service->calculateScore($restaurant, $all);
 
         // completeness = 1/10 = 0.1 (only `name` filled; lat/lng are 0 sentinel);
-        // has_award = 0. Proximity + quality inactive. Active weight 0.10
-        // (data_completeness 0.05 + has_award 0.05).
-        // = (0.05/0.10)*0.1 = 0.05.
+        // has_award = 0 (inactive). Proximity + quality inactive. Only
+        // data_completeness active (weight 0.05 → renormalized to 1.0).
+        // = (0.05/0.05)*0.1 = 0.10.
         // (With the isFilled bug, lat/lng would count -> completeness 3/10 -> 0.3.)
-        $this->assertEqualsWithDelta(0.05, $score, 0.001);
+        $this->assertEqualsWithDelta(0.10, $score, 0.001);
     }
 
     public function test_high_quality_outscores_low_quality(): void
@@ -154,6 +154,37 @@ class PopularityScoreServiceTest extends TestCase
         $this->assertGreaterThan($scoreWithout, $scoreWith);
     }
 
+    public function test_has_award_inactive_when_false_active_when_true(): void
+    {
+        // spec-104 audit: has_award reads 0 for the whole corpus, so a false/0
+        // award must NOT stay in the active set (its 0.05 dead weight would
+        // otherwise tax every row's denominator). Only a real award activates it.
+        $base = array_merge($this->fullFreeFields(), [
+            'yelp_review_count' => 1500,
+            'yelp_rating' => 4.3,
+        ]);
+
+        $noAward = $this->service->calculateBreakdown(
+            $this->makeRestaurant(array_merge($base, ['has_award' => false])),
+            new Collection([])
+        );
+        $this->assertNotContains(
+            'Award',
+            collect($noAward['signals'])->pluck('label')->toArray(),
+            'has_award=false must drop out of the active set'
+        );
+
+        $award = $this->service->calculateBreakdown(
+            $this->makeRestaurant(array_merge($base, ['has_award' => true])),
+            new Collection([])
+        );
+        $this->assertContains(
+            'Award',
+            collect($award['signals'])->pluck('label')->toArray(),
+            'has_award=true must stay active'
+        );
+    }
+
     public function test_data_completeness_rewards_richer_listings(): void
     {
         $rich = $this->makeRestaurant(array_merge($this->fullFreeFields(), [
@@ -198,9 +229,10 @@ class PopularityScoreServiceTest extends TestCase
 
         // Both venues score identically since they have the same data_completeness
         // and Yelp signals are removed (weight 0). Proximity + quality inactive
-        // (no distance, Yelp-only). Active weight 0.10 (data_completeness 0.05 +
-        // has_award 0.05). completeness = 8/10 = 0.8 → score = 0.40.
-        $this->assertEqualsWithDelta(0.40, $venueScore, 0.001);
+        // (no distance, Yelp-only) and has_award=false is inactive. Only
+        // data_completeness active (weight 0.05 → 1.0). completeness = 8/10 = 0.8
+        // → score = 0.80.
+        $this->assertEqualsWithDelta(0.80, $venueScore, 0.001);
     }
 
     public function test_log_floor_prevents_compression(): void

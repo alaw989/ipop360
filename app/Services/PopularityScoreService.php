@@ -9,18 +9,18 @@ class PopularityScoreService
 {
     /**
      * Fallback weight set used when the container/config is unavailable (e.g.
-     * pure unit tests). Mirrors config/restaurant-finder.php -> ranking.weights.
-     * `quality` (a Bayesian-weighted rating that folds review count in) LEADS;
-     * proximity is a tiebreaker; has_award is a strong boost when present;
-     * data_completeness is a minor tiebreaker. The yelp and google rating and
-     * review signals are removed (weight 0.0 — their data feeds `quality`
-     * instead); popular_times is opt-in (weight 0.0).
+     * pure unit tests). Mirrors config/restaurant-finder.php -> ranking.weights
+     * EXACTLY (see tests/Feature/RankingWeightsConfigTest.php, which locks the
+     * two sets together). `quality` (a Bayesian-weighted rating that folds
+     * review count in) LEADS; proximity is a tiebreaker; has_award is a strong
+     * boost when present; data_completeness is a minor tiebreaker. The google
+     * rating and review signals are removed (weight 0.0 — their data feeds
+     * `quality` instead); yelp was removed from the project entirely (absent
+     * here, matching the config); popular_times is opt-in (weight 0.0).
      *
      * @var array<string, float>
      */
     private const DEFAULT_WEIGHTS = [
-        'yelp_rating' => 0.0,
-        'yelp_review_count' => 0.0,
         'quality' => 0.35,
         'proximity' => 0.15,
         'data_completeness' => 0.05,
@@ -63,9 +63,13 @@ class PopularityScoreService
 
     /**
      * Signals that are always "active": data_completeness is always computable
-     * (a 0 ratio is a valid measurement) and has_award (false is legitimate).
+     * (a 0 ratio is a valid measurement). has_award is deliberately NOT always
+     * active — a false/0 award must not tax the row's denominator with dead
+     * weight, so it only activates when a venue actually has one (see the
+     * boolean-method branch in isPresent(); spec-104 audit found 0% of the
+     * corpus awarded).
      */
-    private const ALWAYS_ACTIVE = ['data_completeness', 'has_award'];
+    private const ALWAYS_ACTIVE = ['data_completeness'];
 
     /**
      * Source-agnostic fields that feed data_completeness. All are populate-able
@@ -437,6 +441,13 @@ class PopularityScoreService
 
         if ($raw === null) {
             return false;
+        }
+
+        if ($method === 'boolean') {
+            // A boolean signal (has_award) is only "present" when truthy — a
+            // false/0 award means "no award" and must drop out of the active set
+            // so its dead weight is redistributed to signals that actually fire.
+            return (bool) $raw;
         }
 
         if ($method === 'log_count' || $method === 'minmax') {
