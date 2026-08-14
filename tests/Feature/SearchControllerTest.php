@@ -5,6 +5,9 @@ namespace Tests\Feature;
 use App\Models\Cuisine;
 use App\Models\CuisineCategory;
 use App\Models\Restaurant;
+use App\Services\GeolocationService;
+use App\Services\LiveSearchService;
+use Database\Seeders\CuisineSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
@@ -100,5 +103,88 @@ class SearchControllerTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page->where('hasCoords', true));
+    }
+
+    private function bindCoordsAndReverseGeocode(): void
+    {
+        $this->mock(GeolocationService::class, function ($mock) {
+            $mock->shouldReceive('resolveCoordinates')->andReturn(['lat' => 30.0, 'lng' => -88.0]);
+            $mock->shouldReceive('reverseGeocode')->andReturn(null);
+        });
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $results
+     */
+    private function bindLiveSearchResults(array $results): void
+    {
+        $this->mock(LiveSearchService::class, function ($mock) use ($results) {
+            $mock->shouldReceive('search')->andReturn($results);
+        });
+    }
+
+    public function test_empty_db_runs_live_search_immediately_and_renders_results(): void
+    {
+        $this->bindCoordsAndReverseGeocode();
+        $this->bindLiveSearchResults([
+            [
+                'name' => 'Live Bistro',
+                'slug' => 'live-bistro',
+                'lat' => 30.0,
+                'lng' => -88.0,
+                'source' => 'serpapi',
+                'popularity_score' => 0.5,
+            ],
+        ]);
+
+        $response = $this->get('/search');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Search')
+            ->has('restaurants.data', 1)
+            ->where('restaurants.data.0.name', 'Live Bistro')
+        );
+    }
+
+    public function test_empty_db_with_no_live_results_shows_honest_empty_state(): void
+    {
+        $this->bindCoordsAndReverseGeocode();
+        $this->bindLiveSearchResults([]);
+
+        $response = $this->get('/search');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Search')
+            ->has('restaurants.data', 0)
+        );
+    }
+
+    public function test_scoped_live_search_attaches_searched_cuisine_so_results_are_found(): void
+    {
+        $this->seed(CuisineSeeder::class);
+
+        $this->bindCoordsAndReverseGeocode();
+        $this->bindLiveSearchResults([
+            [
+                'name' => 'Trattoria Roma',
+                'slug' => 'trattoria-roma',
+                'lat' => 30.0,
+                'lng' => -88.0,
+                'source' => 'serpapi',
+                'popularity_score' => 0.5,
+            ],
+        ]);
+
+        $response = $this->get('/search?cuisine=italian');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Search')
+            ->has('restaurants.data', 1)
+            ->where('restaurants.data.0.name', 'Trattoria Roma')
+            ->where('cuisineName', 'Italian')
+        );
     }
 }
