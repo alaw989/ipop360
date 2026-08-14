@@ -390,7 +390,11 @@ jobs:
           # Unset → 5. 0 → skip the count check (the 200 + data-key checks still run).
           DEPLOY_VERIFY_MIN_RESULTS: ${{ vars.DEPLOY_VERIFY_MIN_RESULTS }}
         run: |
-          curl -s --connect-timeout 10 --max-time 30 -o /dev/null -w "%{http_code}" https://ipop360.com | grep -q 200 && echo 'DEPLOY OK' || exit 1
+          # spec-108: unified merged search now runs the live free-source path on
+          # every request (cache-first). A cold city/cuisine query can take up to
+          # ~90s once before the cache warms; the old 30s cap flaked the verify
+          # step right after deploy (curl exit 28). Raised to 90s.
+          curl -s --connect-timeout 10 --max-time 90 -o /dev/null -w "%{http_code}" https://ipop360.com | grep -q 200 && echo 'DEPLOY OK' || exit 1
           # spec-086: assert HTTP 200 AND non-empty data on the API. A valid 200
           # with {"data":[]} is the app's load-bearing failure mode (a cache-nuking
           # migration or an over-filtering ranking change); the old check only
@@ -401,7 +405,7 @@ jobs:
           # deploys (0 results) without being tripped by honest recall.
           # DEPLOY_VERIFY_MIN_RESULTS=0 skips the COUNT check; the 200 + data-key
           # checks always run.
-          code=$(curl -s --connect-timeout 10 --max-time 30 -o /tmp/api.json -w '%{http_code}' 'https://ipop360.com/api/restaurants?cuisine=chinese&lat=30.6199783&lng=-88.1967496')
+          code=$(curl -s --connect-timeout 10 --max-time 90 -o /tmp/api.json -w '%{http_code}' 'https://ipop360.com/api/restaurants?cuisine=chinese&lat=30.6199783&lng=-88.1967496')
           if [ "$code" != "200" ]; then echo "API VERIFY FAILED: HTTP $code (expected 200)"; exit 1; fi
           python3 -c "
           import json, os, sys

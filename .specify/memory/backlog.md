@@ -379,32 +379,17 @@ thresholds and runs PHP 8.4**; **search covers: honest SerpApi quota accounting,
 free Photon source (Overpass name-regex fallback removed), real-name Caribbean
 cuisine matching, and a synchronous live-first search page**; CI + deploy green.
 
+## ✅ Done (2026-08-14 session, continued)
+1. **Unified merged search** — local `feat/unified-merged-search` loop (3 commits:
+   TDD seed `dd4c0e1` + implementation `6618254` + final `761598d`), in sync with
+   `origin/master` (CI green). Deployed to the droplet — `UnifiedSearchService.php`
+   present on prod, site 200. Goal text: `unified merged search: always run live
+   free-source search, merge DB rows, rank the union by popularity score, raise
+   result caps, guard free-source cold misses`.
+
 ## Next goals (in priority order)
 
-### 1. Unified merged search ⬅ NEXT
-- **Audit finding:** both search endpoints (`/search`, `/api/restaurants`) are
-  DB-first — the live free-source API search runs ONLY when the DB returns zero
-  rows. So a city/cuisine with even one stale DB row never sees fresh venues from
-  the 4 free unlimited sources (BizData, Overpass, Photon, Socrata), and DB + live
-  results are never ranked together. Goal: for ANY city × cuisine, ALWAYS run the
-  live search (cache-first; SerpApi stays behind its existing circuit breaker /
-  per-IP limiter / thundering-herd lock so it never exhausts), merge persisted DB
-  rows into it (DB row wins as base, live overlays rating/price/photo/website/
-  description/place_types; match by google_place_id → slug → phone-last-10 →
-  fuzzy name + 200m via `VenuePipeline::venuesMatch`), score the merged union in
-  ONE pass (`PopularityScoreService`), stamp `cuisine_match` on DB rows too (else
-  the 0.50 weight renormalizes away and DB rows are unfairly inflated), raise
-  result caps (`live_search.max_results` 60→150; Photon 30→50; Overpass/BizData
-  50→75), add a per-IP cold-miss limiter for the free sources (mirror SerpApi's),
-  and serve via the existing pagination snapshot. Both controllers delegate to a
-  new `UnifiedSearchService`. Tests: merger unit tests (match keys, precedence,
-  overlay), endpoint feature tests (DB + live co-present, ranked together, guards
-  respected), update `SearchControllerTest` / `LiveSearchScoringTest` that lock in
-  DB-only behavior.
-- **Goal:** `unified merged search: always run live free-source search, merge DB rows, rank the union by popularity score, raise result caps, guard free-source cold misses`
-- **Gate:** `composer test && npm run build`
-
-### 2. Data-driven popularity-score audit + rebalance
+### 1. Data-driven popularity-score audit + rebalance ⬅ NEXT
 - **Audit finding:** score weights are tuned by reading the code, not measured
   against the live DB. `has_award` (0.05, always-active) reads 0 for the whole
   population; `quality` (0.35) vanishes entirely on an exhausted/no-key SerpApi
