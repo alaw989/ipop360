@@ -386,20 +386,29 @@ cuisine matching, and a synchronous live-first search page**; CI + deploy green.
    present on prod, site 200. Goal text: `unified merged search: always run live
    free-source search, merge DB rows, rank the union by popularity score, raise
    result caps, guard free-source cold misses`.
+2. **Data-driven popularity-score audit + rebalance** — PR #104 (opencode-loop
+   legacy, 7 iterations, ALL_DONE on iter 7; work left uncommitted by loop's
+   `Commit: NO` mode, committed manually + rebased on origin/master before PR):
+   new `ranking:audit` command (signal activation %, score distribution/clumping,
+   cohort overlap, deciles + `--recompute` forecast); `has_award` activation
+   bugfix (false/0 award no longer taxes the denominator — audit found 0% of the
+   8,075-row corpus awarded); weights locked together between
+   `config/restaurant-finder.php` and `PopularityScoreService::DEFAULT_WEIGHTS`
+   via `RankingWeightsConfigTest`; findings in `docs/ranking-audit-2026-08.md` +
+   `ranking-metrics.md`. PHPUnit 691→736. Merged + deployed + live-verified
+   (`ranking:audit` runs on prod: dead-weight signals confirmed 0%, weights
+   active, distribution spread improved — unrated clump 0.27–0.29 vs 0.10–0.30;
+   / 200, /api/restaurants 200).
+
+**Current floor:** 736 PHPUnit tests + 1056 vitest tests; PHPStan level 8 over
+`app/ + tests/` with a zero baseline; pint clean; **CI enforces coverage
+thresholds and runs PHP 8.4**; **search covers unified merged always-live search,
+and popularity scoring is data-driven with a ranking:audit diagnostic**;
+CI + deploy green.
 
 ## Next goals (in priority order)
 
-### 1. Data-driven popularity-score audit + rebalance ⬅ NEXT
-- **Audit finding:** score weights are tuned by reading the code, not measured
-  against the live DB. `has_award` (0.05, always-active) reads 0 for the whole
-  population; `quality` (0.35) vanishes entirely on an exhausted/no-key SerpApi
-  deploy; the unrated cohort clumps at 0.10–0.30. Goal: add a `ranking:audit`
-  diagnostic (signal activation %, score distribution/clumping, dead-weight
-  detection, quality coverage), document findings in `docs/ranking-metrics.md`,
-  rebalance weights (config + `PopularityScoreService::DEFAULT_WEIGHTS` together),
-  pin with tests, re-run audit to show spread improvement.
-- **Goal:** `data-driven popularity-score audit: add ranking:audit diagnostic, document findings, rebalance weights with tests locking the change`
-- **Gate:** `composer test && ./vendor/bin/phpstan analyse`
+*(none queued — the audit backlog is complete)*
 
 ---
 
