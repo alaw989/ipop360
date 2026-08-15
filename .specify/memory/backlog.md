@@ -406,29 +406,22 @@ thresholds and runs PHP 8.4**; **search covers unified merged always-live search
 and popularity scoring is data-driven with a ranking:audit diagnostic**;
 CI + deploy green.
 
+## ✅ Done (2026-08-15 session, continued)
+
+**Fail-open enrichment when SerpApi is exhausted** — PR #113 (opencode-loop,
+6 iterations, ALL_DONE): when the SerpApi provider is exhausted, the throttled
+enrichment `break` → `continue` so every city×cuisine combo still runs the free
+sources (BizData/Overpass/Photon/Socrata) + AI/photo/social/website enrichment
+while `quota_exhausted` stays surfaced; ratings backfill later via the existing
+need-ordering. Frontend: global `serpapi_exhausted` shared prop + admin amber
+banner (+ SQLite HAVING fix); Rating sort relabeled "Ratings temporarily
+unavailable" when exhausted; neutral SEO copy while exhausted; all-unrated
+collection finite + differentiated lock-in test. PHPUnit 812→816. Merged +
+deployed + live-verified (prod sort shows the relabel; flag set on prod).
+
 ## Next goals (in priority order)
 
-### 6. Fail-open enrichment when SerpApi is exhausted ⬅ NEXT
-- **Audit finding (live-verified 2026-08-15):** when SerpApi 429s (provider
-  exhausted flag armed), the 04:00 throttled enrichment `break`s on the FIRST
-  combo (`RestaurantEnrichmentService.php:834`), so it does **0 combos / 0 calls /
-  0 cache hits** — even though the free sources (BizData/Overpass/Photon/Socrata)
-  + AI + photo + social + website enrichment don't touch SerpApi at all. Quota
-  exhausted today → the run did nothing while free-source work was pending.
-- **Goal:** `fail-open enrichment: when the SerpApi provider is exhausted, change
-  the throttled enrichment `break` → `continue` so every city×cuisine combo still
-  runs the free sources + AI/photo/social/website enrichment; keep
-  `quota_exhausted=true` in the log + admin so the outage stays surfaced; ratings
-  backfill later via the existing need-ordering (buildCityCuisineGrid). Tests:
-  provider exhausted → combos still processed via free sources, 0 SerpApi calls,
-  quota_exhausted true; all-unrated collection still scores finite + differentiated
-  (lock in PopularityScoreService renormalization). Frontend: expose
-  `serpapi_exhausted` shared prop; RELABEL (not hide) the Rating sort option
-  ("ratings temporarily unavailable") so the UI doesn't shift on recovery; neutral
-  SEO copy for the "real reviews / accurate ratings" phrasing while exhausted.`
-- **Gate:** `composer test && npm run build`
-
-### 7. Registration & login hardening
+### 7. Registration & login hardening ⬅ NEXT
 - **Audit finding (current state):** registration is throttled 5/min and login is
   rate-limited to 5 attempts with lockout (`LoginRequest`), email verification is
   ON (`MustVerifyEmail`), and `role` defaults to `user`. But: (1) NO email
