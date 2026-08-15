@@ -74,7 +74,7 @@ class RestaurantResource extends JsonResource
             'has_award' => $this->resource->has_award,
             'popularity_score' => $this->resource->popularity_score,
             'rank_change' => $this->resource->rank_change,
-            'distance' => $this->when(! $isShowRoute && ! is_null($this->resource->distance), fn () => $this->resource->distance),
+            'distance' => $this->when(! $isShowRoute && ! is_null($this->resource->distance), fn () => $this->kmToMiles((float) $this->resource->distance)),
             'cuisines' => $this->resource->cuisines->toArray(),
             'features' => $this->resource->features ?? [],
             'source' => 'ipop360',
@@ -154,5 +154,17 @@ class RestaurantResource extends JsonResource
 
         // Return null if we can't compute it (shouldn't happen in practice)
         return null;
+    }
+
+    /**
+     * Convert a distance from km to miles, rounded to 2 decimal places.
+     */
+    private function kmToMiles(?float $km): ?float
+    {
+        if ($km === null) {
+            return null;
+        }
+
+        return round($km * 0.621371, 2);
     }
 }

@@ -259,7 +259,7 @@ class RestaurantControllerTest extends TestCase
     {
         $this->mock(UnifiedSearchService::class, function ($mock) {
             $mock->shouldReceive('search')
-                ->with(37.7749, -122.4194, null, null, 'nearest', 10.0)
+                ->with(37.7749, -122.4194, null, null, 'nearest', 16.0934)
                 ->andReturn([]);
         });
 
