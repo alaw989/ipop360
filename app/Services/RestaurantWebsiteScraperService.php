@@ -1191,6 +1191,15 @@ class RestaurantWebsiteScraperService
                         continue;
                     }
 
+                    // spec-109 name-relevance guard: Commons keyword search
+                    // returns the FIRST hit regardless of accuracy — "Fixins
+                    // Soul Kitchen" matched a 1917 poetry book, "American Dive"
+                    // a 1924 photo of a person diving. Only accept a match
+                    // whose title actually contains the restaurant name.
+                    if (! $this->titleMatchesRestaurant($title, $restaurantName)) {
+                        continue;
+                    }
+
                     $imageUrl = $this->resolveCommonsImageUrl($title);
                     if ($imageUrl !== null) {
                         return $imageUrl;
@@ -1293,6 +1302,11 @@ class RestaurantWebsiteScraperService
                 foreach ($pages as $page) {
                     $title = $page['title'] ?? '';
                     if (empty($title)) {
+                        continue;
+                    }
+
+                    // spec-109 name-relevance guard (see searchWikimediaCommons).
+                    if (! $this->titleMatchesRestaurant($title, $restaurantName)) {
                         continue;
                     }
 
@@ -1434,6 +1448,46 @@ class RestaurantWebsiteScraperService
         }
 
         return $this->searchGoogleImages($name, $city, $state);
+    }
+
+    /**
+     * spec-109: does a Wikimedia/Wikipedia search result TITLE actually refer
+     * to the restaurant? The keyword-search engines return the first hit
+     * regardless of accuracy ("Fixins Soul Kitchen" → a 1917 poetry book), so
+     * we only accept a page/file whose title contains the full restaurant name.
+     *
+     * Matching is case-insensitive substring on the WHOLE name — "American
+     * Dive" does NOT match "American Divers Association" because the name
+     * string isn't present verbatim. Titles are normalized (commas, quotes,
+     * apostrophes, "the" prefix) so "Fixins Soul Kitchen, Austin TX" and
+     * "Fixins Soul Kitchen (restaurant)" both match while unrelated pages don't.
+     *
+     * @param  string  $title  matched page/file title
+     * @param  string  $restaurantName  the restaurant being searched
+     */
+    private function titleMatchesRestaurant(string $title, string $restaurantName): bool
+    {
+        $name = $this->normalizeTitleForMatch($restaurantName);
+        if ($name === '') {
+            return false;
+        }
+
+        return str_contains($this->normalizeTitleForMatch($title), $name);
+    }
+
+    /**
+     * Lowercase, strip punctuation/apostrophes, collapse whitespace, and drop a
+     * leading "the " — enough normalization that real venue titles match while
+     * keyword-fragment hits (books, unrelated people) don't.
+     */
+    private function normalizeTitleForMatch(string $value): string
+    {
+        $value = mb_strtolower($value);
+        $value = str_replace(['’', '‘', '\'', '“', '”', '"'], '', $value);
+        $value = preg_replace('/[^\p{L}\p{N} ]/u', ' ', $value) ?? $value;
+        $value = preg_replace('/\s+/u', ' ', trim($value)) ?? $value;
+
+        return preg_replace('/^the\s+/', '', $value) ?? $value;
     }
 
     /**
