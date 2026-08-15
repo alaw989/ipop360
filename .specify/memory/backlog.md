@@ -408,7 +408,26 @@ CI + deploy green.
 
 ## Next goals (in priority order)
 
-### 1. Context-first restaurant image search ⬅ NEXT
+### 1. Audit + harden the enrichment-logs skill (converted to opencode format) ⬅ NEXT
+- **Audit finding:** the enrichment-logs skill lived OUTSIDE the repo at
+  `~/.claude/skills/enrichment-logs/SKILL.md` — opencode-loop's progress
+  detection is git-worktree-based, so it could never track edits to that file
+  (every iteration would show no progress → stall). It also had 6 verified
+  bugs: (1) DB summary read a STALE SQLite mount (prod now runs MySQL — the
+  old `/tmp/ipop360-remote/database/database.sqlite` is pre-MySQL), (2) log
+  message names were outdated (`Image enrichment found photo…` → real lines are
+  `Photo backfill found photo` / `Photo verify re-sourced dead photo` /
+  `Image search source` / `Website backfilled from web search|cache|domain
+  guess` / `Social scrape found links`), (3) it missed the dominant
+  `Social scrape found links` signal, (4) SerpApi quota-exhausted (0 combos)
+  was buried, (5) sshfs host drifted from AGENTS.md (`167.71.107.253`).
+  Converted to opencode format at `<repo>/.claude/skills/enrichment-logs/
+  SKILL.md` with symlinks from both `~/.config/opencode/skills/` and
+  `~/.claude/skills/` so the loop can track it and both toolchains resolve it.
+- **Goal:** `audit + harden the converted opencode enrichment-logs skill: verify every python snippet parses and returns ACTUAL VALID CORRECT results end-to-end against the live log + MySQL (run /enrichment-logs and confirm output matches reality: quota-exhausted surfaced first, photo backfill/verify counts, website backfill by source, social links found, AI enrich, venue created, new-row field coverage); fix any remaining message-name drift or missing current log lines; confirm the day-over-day --compare path works; confirm the symlinked paths resolve; document any residual limitations`
+- **Gate:** `php artisan test --filter=Enrichment && grep -c 'Photo backfill found photo' .claude/skills/enrichment-logs/SKILL.md && grep -c '167.71.107.253' .claude/skills/enrichment-logs/SKILL.md`
+
+---
 - **Audit finding:** 4,101 photo-less restaurants, but we already hold verified
   context for most — 8,195 have `website_url` (scrape() only fetches the
   HOMEPAGE og:image, never `/menu`/`/gallery`/`/photos`), 4,301 have social
