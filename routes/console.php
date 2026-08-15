@@ -87,6 +87,22 @@ Schedule::command('restaurants:backfill-photos --apply --limit=200 --min-photos=
         Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:backfill-photos --apply --limit=200 --min-photos=2']);
     });
 
+// Weekly photo-URL verification sweep (Wednesdays at 07:30 UTC, after all
+// daily 00:30–07:00 jobs so it never contends for the SQLite write lock).
+// HTTP-checks each row's photo_url (HEAD→GET fallback), keeps valid photos,
+// and re-sources dead ones via the free searchAnyImage chain. gps-cs-s Google
+// CDN URLs decay opaquely (~1-month) and are checked first. Bounded by
+// --limit=200 so the free Google Custom Search last-resort source is never
+// exhausted by an unbounded sweep.
+Schedule::command('restaurants:backfill-photos --verify --apply --limit=200')
+    ->weeklyOn(3, '07:30')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Weekly verify + re-source of dead restaurant photo URLs (gps-cs-s first)')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:backfill-photos --verify --apply --limit=200']);
+    });
+
 // Schedule social link scraping (runs at 5:30 AM UTC daily)
 Schedule::command('restaurants:scrape-social')
     ->dailyAt('05:30')

@@ -1,28 +1,52 @@
 # Iteration Notes
 
 ## Goal
-switch the user-facing distance filter to miles while keeping internal geo math in km: (1) SearchController and RestaurantController convert the distance query param from miles to km ( * 1.60934) before it reaches UnifiedSearchService::search and Restaurant::nearby (default 25 is now 25 miles → 40.23 km), (2) RestaurantResource and LiveRestaurantResource emit distance in miles (km * 0.621371, rounding to 2dp; null stays null), (3) frontend SearchFilters.vue labels 'km' → 'mi' (1 mi / 50+ mi) and SearchResultCard.vue + RestaurantCard.vue render 'mi' instead of 'km', (4) fix PopularityScoreService proximity detail string to convert km→mi before formatting (it already said 'mi' while the value was km), (5) update any existing tests asserting km values (SearchControllerTest test_coords_path_forwards_filters_and_sort_to_unified_search expects 10.0 km — now 16.09 km; LiveRestaurantResourceTest + RestaurantResource tests asserting distance values). Internal knobs (nearby_radius_km, max_distance_km, proximity_scale_km, live_search distances) stay km. The distance query param contract is now MILES.
+add --verify mode to restaurants:backfill-photos: HTTP-check each row's existing photo_url (HEAD with GET fallback, ~8s timeout), keep valid photos untouched (200), re-source confirmed-dead ones (403/404/error) via the existing searchAnyImage free chain (website og:image → Wikimedia Commons → Wikipedia → Google Custom Search), remove the dead URL from the photos gallery array, tolerate transient failures (retry a 403 once before treating as dead — never churn a valid row), prioritize rows whose photo_url host is lh3.googleusercontent.com/gps-cs-s/ first then remaining photo-having rows, support --limit bounding and default dry-run with --apply to persist, log each re-sourced photo + a summary to the enrichment channel; schedule a WEEKLY bounded sweep (e.g. --verify --apply --limit=200 weekly) matching the ~1-month gps-cs-s decay; also prevent at persist time in LiveVenuePersister: a gps-cs-s URL must never overwrite an existing stable (Wikimedia/venue-owned) photo — only fill photo_url when empty
 
 ## State
+Iteration 1 done: implemented `--verify` mode on `restaurants:backfill-photos`
+(`app/Console/Commands/BackfillRestaurantPhotos.php`). Added `--verify` flag,
+`handleVerify()` branch, and `isPhotoAlive()`/`requestSucceeds()` helpers.
+Behavior: HEAD→GET fallback with 8s timeout; 403 retried once via the GET
+fallback (transient 403 never churns a valid row); alive rows kept untouched;
+dead rows re-sourced via `searchAnyImage` (mockable scraper); dead URL stripped
+from the `photos` gallery and fresh photo merged in; gps-cs-s rows ordered first
+(`photo_url LIKE '%gps-cs-s%'`); `--limit` bounding + default dry-run with
+`--apply`; per-photo re-source log + summary log to the enrichment channel.
 
-### Done (this iteration)
-- (1) Backend miles→km conversion complete. `SearchController::__invoke` now reads `$distanceMiles` (int, default 25) and computes `$distanceKm = $distanceMiles * 1.60934`; `mergedSearch` param retyped `int`→`float`. `RestaurantController::index` + `apiIndex` convert `(float) $validated['distance'] * 1.60934`. Factor `1.60934` matches the Goal; `10 * 1.60934 === 16.0934` (float-exact).
-- Updated 2 existing tests asserting the old km value: `SearchControllerTest::test_coords_path_forwards_filters_and_sort_to_unified_search` (`10.0`→`16.0934`) and `RestaurantControllerTest::test_restaurant_index_coords_path_forwards_sort_and_distance_to_unified_search` (`10.0`→`16.0934`).
-- (2) Resources emit distance in miles. `RestaurantResource` + `LiveRestaurantResource` now route `distance` through a private `kmToMiles(?float): ?float` helper (`round($km * 0.621371, 2)`, null stays null). `RestaurantResource` still wraps in `when(! $isShowRoute && ! is_null(...))`. Fixed the seed test bug: `DistanceMilesTest::test_restaurant_resource_emits_distance_in_miles` no longer passes `'cuisines' => collect([$cuisine])` to `factory()->create()` (pivot, not a column → QueryException); it now attaches via `$restaurant->cuisines()->attach($cuisine)`. Updated `LiveRestaurantResourceTest` km assertions to miles (`1.25`→`0.78`, `2.0`→`1.24`).
-- (3) Frontend distance labels now miles. `SearchFilters.vue` renames the `km` loop/param var → `mi` and renders `1 mi` / `50+ mi` / `${mi} mi`; `SearchResultCard.vue` (line ~139) and `RestaurantCard.vue` (line ~160) render `mi` instead of `km`. Updated the 3 frontend specs (`SearchFilters.spec.ts` label assertions `1/5/50+ km`→`mi`; `RestaurantCard.spec.ts` + `SearchResultCard.spec.ts` `3.5 km`→`3.5 mi` and `not.toContain('km')`→`'mi'`). Verified: 131 frontend tests pass; no `km` string remains anywhere under `resources/js`.
+Iteration 2 done: wired the WEEKLY verify sweep into `routes/console.php`
+(`Schedule::command('restaurants:backfill-photos --verify --apply --limit=200')
+->weeklyOn(3, '07:30')`, Wednesdays, after all daily 00:30–07:00 jobs to avoid
+SQLite lock contention). `PhotoVerifyTest` is now 6/6 green.
 
-### Next (in order)
-1. (4) `PopularityScoreService::signalDetail` proximity → convert `(float)$raw` km→mi before `sprintf('%.1f mi …')`. This is the only remaining red test (`DistanceMilesTest::test_proximity_score_detail_converts_km_to_miles` — currently emits `1.6 mi` for a `1.60934` km input, expects `1.0 mi`).
-2. (5) Verify no other km-asserting tests remain (`RestaurantResourceAggregatesTest` does not assert distance — confirmed clean).
+Iteration 3 done: LiveVenuePersister guard. `persist()` now calls a private
+`guardTransientPhotos()` on the update path (before `$restaurant->update()`).
+A gps-cs-s URL only fills an empty `photo_url` (never overwrites a stable
+Wikimedia/venue-owned photo), and `stablePhotosFirst()` reorders the gallery so
+a gps-cs-s entry never displaces an existing stable entry. Create path is
+untouched (no existing photo to protect). New `LiveVenuePersisterPhotoTest`
+(5/5 green). Also fixed two stale schedule tests from Iteration 2
+(`PhotoBackfillScheduleTest`, `PhotoBackfillImprovementsTest`) that asserted
+"exactly one" backfill-photos event — they now exclude the `--verify` sweep —
+and repaired 7 pre-existing PHPStan `Model|null` errors in `PhotoVerifyTest`
+(via `fresh()` + `assertNotNull`). Full gate green: 788 tests, pint, phpstan,
+build.
 
-### Gotchas
-- Conversion factor must stay `1.60934` / `0.621371` exactly — the seed tests assert `abs(km - miles*1.60934) < 0.01` and `assertEqualsWithDelta(miles, km*0.621371, 0.01)`.
-- Internal knobs (`nearby_radius_km`, `max_distance_km`, `proximity_scale_km`) remain km — do not convert them.
-- `distanceOptions [1,5,10,25,50]` in `SearchController` are now miles; `test_distance_filter_options_are_miles` uses a config fallback default so it's currently green with no config entry (no action needed).
-- Resource `distance` is a dynamically-set attribute (haversine `selectRaw` / `setAttribute`), not a model column; keep null-guards so `assertSame(0.78, ...)` etc. stay float-exact (PHP `round()` matches the source literals).
+Next: Goal is complete. Nothing left to implement; operator-gated hardening +
+PR/merge/deploy/verify per the backlog workflow.
+
+Gotchas: `Http::fake` matches HEAD and GET by URL pattern (not method), so the
+HEAD-first check works with single-response fakes. `searchAnyImage` is only
+invoked for dead rows, so valid-row tests need no scraper mock. Keep the
+existing backfill path untouched — `handle()` now branches on `--verify` first.
+`guardTransientPhotos` runs only on the update branch; `photos` is array-cast so
+no `is_array` guard is needed there (PHPStan level 8 flags the redundant check).
 
 ## Log
-
-- **Iter 1:** Implemented goal part (1) — miles→km conversion in SearchController + RestaurantController (index + apiIndex), retyped `mergedSearch` distance param to float, updated the 2 existing `->with(…, 10.0, …)` assertions to `16.0934`. Verified: 774 passed / 3 failed — the 3 failures are the pre-existing red seed tests for parts (2) resources-emit-miles and (4) proximity-detail, out of scope this iteration.
-- **Iter 2:** Implemented goal part (2) — resources emit distance in miles. Added `kmToMiles()` helper to both `RestaurantResource` and `LiveRestaurantResource` (`round($km * 0.621371, 2)`). Fixed the seed test QueryException (pivot vs column), updated `LiveRestaurantResourceTest` km→mi assertions. Verified: 776 passed / 1 failed — only remaining red is part (4) proximity-detail, out of scope this iteration.
-- **Iter 3:** Implemented goal part (3) — frontend distance labels now miles. `SearchFilters.vue` (`1 mi`/`50+ mi`/`${mi} mi`), `SearchResultCard.vue`, `RestaurantCard.vue` render `mi`; updated the 3 corresponding specs. Verified: 131 frontend tests pass, no `km` left under `resources/js`.
+- Iteration 1: `--verify` mode end-to-end. 5/6 `PhotoVerifyTest` green (schedule
+  test pending). Pint + PHPStan clean.
+- Iteration 2: weekly `--verify --apply --limit=200` sweep scheduled
+  (Wed 07:30). 6/6 `PhotoVerifyTest` green.
+- Iteration 3: LiveVenuePersister transient-photo guard + `LiveVenuePersisterPhotoTest`
+  (5/5). Fixed 2 stale schedule tests and 7 pre-existing PHPStan errors. Full
+  suite 788 passed, pint + phpstan + build clean. Goal complete.
