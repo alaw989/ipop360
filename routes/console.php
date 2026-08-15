@@ -74,13 +74,17 @@ Schedule::command('restaurants:backfill-websites')
 // running even when SerpApi quota is exhausted. All sources are free; the
 // --limit cap bounds the daily run so the Google Custom Search last-resort
 // source (~100 req/day free) is never exhausted by an unbounded sweep.
-Schedule::command('restaurants:backfill-photos --apply --limit=100')
+// --min-photos tops up the multi-photo gallery on rows that already have a
+// primary photo (live gallery coverage was only ~4% — cards degrade to a single
+// image). Live run: 83% of photo hits came from free-first sources (website
+// og:image / Wikimedia / Wikipedia), so 200/day stays safely under the CSE cap.
+Schedule::command('restaurants:backfill-photos --apply --limit=200 --min-photos=2')
     ->dailyAt('06:30')
     ->withoutOverlapping()
     ->onOneServer()
-    ->description('Backfill missing restaurant photos from free sources (bounded)')
+    ->description('Backfill missing restaurant photos + top up galleries from free sources (bounded)')
     ->onFailure(function () {
-        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:backfill-photos --apply --limit=100']);
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:backfill-photos --apply --limit=200 --min-photos=2']);
     });
 
 // Schedule social link scraping (runs at 5:30 AM UTC daily)
