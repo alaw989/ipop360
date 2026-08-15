@@ -30,6 +30,51 @@ class AiEnrichmentService
      */
     public function enrichRestaurant(array $restaurantData): ?array
     {
+        $parsed = $this->callProviders($this->buildPrompt($restaurantData));
+
+        if ($parsed === null) {
+            return null;
+        }
+
+        unset($parsed['rating'], $parsed['review_count'], $parsed['score']);
+
+        return $parsed;
+    }
+
+    /**
+     * Re-derive a restaurant's name from whatever identifying data is present.
+     *
+     * Used by the data-hygiene pass to salvage junk rows (one-char names,
+     * empty shells) before they are hard-deleted. Returns null when the model
+     * cannot confidently identify the restaurant (or no AI key is configured).
+     *
+     * @param  array<string, mixed>  $restaurantData
+     */
+    public function rederiveName(array $restaurantData): ?string
+    {
+        $parsed = $this->callProviders($this->buildNameRederivationPrompt($restaurantData));
+
+        if ($parsed === null) {
+            return null;
+        }
+
+        $name = $parsed['name'] ?? null;
+
+        if (! is_string($name) || trim($name) === '') {
+            return null;
+        }
+
+        return trim($name);
+    }
+
+    /**
+     * Run a prompt through the provider chain, returning the parsed JSON
+     * response (or null when the model produced nothing usable).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function callProviders(string $prompt): ?array
+    {
         $providers = $this->buildProviderChain();
 
         if (empty($providers)) {
@@ -44,12 +89,7 @@ class AiEnrichmentService
             }
 
             try {
-                $result = $this->tryProvider($restaurantData, $provider);
-                if ($result !== null) {
-                    return $result;
-                }
-
-                return null;
+                return $this->tryProvider($prompt, $provider);
             } catch (RequestException $e) {
                 $lastException = $e;
 
@@ -57,7 +97,6 @@ class AiEnrichmentService
                     Log::warning('AI provider returned non-retryable error', [
                         'provider' => $provider['base_url'],
                         'status' => $e->response->status(),
-                        'restaurant_id' => $restaurantData['id'] ?? null,
                     ]);
 
                     return null;
@@ -65,20 +104,17 @@ class AiEnrichmentService
 
                 Log::info('AI provider rate-limited, trying fallback', [
                     'provider' => $provider['base_url'],
-                    'restaurant_id' => $restaurantData['id'] ?? null,
                 ]);
             } catch (\Throwable $e) {
                 $lastException = $e;
                 Log::warning('AI provider threw exception, trying fallback', [
                     'provider' => $provider['base_url'],
                     'message' => $e->getMessage(),
-                    'restaurant_id' => $restaurantData['id'] ?? null,
                 ]);
             }
         }
 
         Log::warning('All AI providers exhausted', [
-            'restaurant_id' => $restaurantData['id'] ?? null,
             'last_error' => $lastException?->getMessage(),
         ]);
 
@@ -113,14 +149,11 @@ class AiEnrichmentService
     }
 
     /**
-     * @param  array<string, mixed>  $restaurantData
      * @param  array<string, mixed>  $provider
      * @return array<string, mixed>|null
      */
-    private function tryProvider(array $restaurantData, array $provider): ?array
+    private function tryProvider(string $prompt, array $provider): ?array
     {
-        $prompt = $this->buildPrompt($restaurantData);
-
         $response = Http::timeout(30)
             ->withHeaders([
                 'Authorization' => 'Bearer '.$provider['api_key'],
@@ -146,7 +179,6 @@ class AiEnrichmentService
             Log::warning('AI enrichment request failed', [
                 'provider' => $provider['base_url'],
                 'status' => $response->status(),
-                'restaurant_id' => $restaurantData['id'] ?? null,
             ]);
 
             if ($response->status() === 429) {
@@ -169,13 +201,10 @@ class AiEnrichmentService
             Log::warning('AI enrichment returned invalid JSON', [
                 'provider' => $provider['base_url'],
                 'content' => $content,
-                'restaurant_id' => $restaurantData['id'] ?? null,
             ]);
 
             return null;
         }
-
-        unset($parsed['rating'], $parsed['review_count'], $parsed['score']);
 
         return $parsed;
     }
@@ -227,6 +256,50 @@ class AiEnrichmentService
         $prompt .= "- cuisines: array of cuisine types (e.g., [\"Italian\", \"Pizza\"])\n";
         $prompt .= "- description: brief description (if missing and can be inferred)\n";
         $prompt .= "\nDO NOT include: rating, review_count, score, or any ratings fields.";
+
+        return $prompt;
+    }
+
+    /**
+     * @param  array<string, mixed>  $restaurantData
+     */
+    private function buildNameRederivationPrompt(array $restaurantData): string
+    {
+        $name = $restaurantData['name'] ?? null;
+        $address = $restaurantData['address'] ?? null;
+        $city = $restaurantData['city'] ?? null;
+        $state = $restaurantData['state'] ?? null;
+        $postalCode = $restaurantData['postal_code'] ?? null;
+        $phone = $restaurantData['phone'] ?? null;
+        $website = $restaurantData['website_url'] ?? null;
+
+        $prompt = "A restaurant record has a missing or invalid name. Identify the correct restaurant name from the available data.\n\n";
+
+        if ($name) {
+            $prompt .= "Current name: {$name}\n";
+        }
+        if ($address) {
+            $prompt .= "Address: {$address}\n";
+        }
+        if ($city) {
+            $prompt .= "City: {$city}\n";
+        }
+        if ($state) {
+            $prompt .= "State: {$state}\n";
+        }
+        if ($postalCode) {
+            $prompt .= "Postal Code: {$postalCode}\n";
+        }
+        if ($phone) {
+            $prompt .= "Phone: {$phone}\n";
+        }
+        if ($website) {
+            $prompt .= "Website: {$website}\n";
+        }
+
+        $prompt .= "\nReturn a JSON object with a single field:\n";
+        $prompt .= "- name: the corrected restaurant name\n";
+        $prompt .= "\nIf you cannot determine the name, return {\"name\": null}.";
 
         return $prompt;
     }

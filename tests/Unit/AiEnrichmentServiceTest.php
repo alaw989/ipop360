@@ -216,6 +216,44 @@ class AiEnrichmentServiceTest extends TestCase
         $this->assertNull($this->service->enrichRestaurant(['name' => 'Test']));
     }
 
+    public function test_rederive_name_returns_name_from_response(): void
+    {
+        config(['services.ai' => $this->providerConfig()]);
+
+        Http::fake([
+            self::PRIMARY_URL => Http::response($this->chatResponse((string) json_encode([
+                'name' => 'The Red Door',
+            ]))),
+        ]);
+
+        $this->assertSame('The Red Door', $this->service->rederiveName([
+            'name' => 'X',
+            'address' => '123 Main St',
+        ]));
+    }
+
+    public function test_rederive_name_returns_null_when_model_cannot_identify(): void
+    {
+        config(['services.ai' => $this->providerConfig()]);
+
+        Http::fake([
+            self::PRIMARY_URL => Http::response($this->chatResponse((string) json_encode([
+                'name' => null,
+            ]))),
+        ]);
+
+        $this->assertNull($this->service->rederiveName(['name' => 'X']));
+    }
+
+    public function test_rederive_name_returns_null_without_api_key(): void
+    {
+        config(['services.ai' => $this->providerConfig(['api_key' => ''])]);
+
+        $this->assertNull($this->service->rederiveName(['name' => 'X']));
+
+        Http::assertNothingSent();
+    }
+
     public function test_request_exception_from_transport_is_caught_and_falls_back(): void
     {
         config(['services.ai' => $this->providerConfig(
