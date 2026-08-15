@@ -351,7 +351,7 @@ class OverpassService
                 'country' => $tags['addr:country'] ?? 'US',
                 'lat' => $coords['lat'],
                 'lng' => $coords['lon'],
-                'photo_url' => null,
+                'photo_url' => $this->extractPhotoUrl($tags),
                 'price_range' => $this->mapPriceRange($tags),
                 'phone' => $tags['phone'] ?? null,
                 'website_url' => $tags['website'] ?? $tags['url'] ?? null,
@@ -423,6 +423,56 @@ class OverpassService
         }
 
         return null;
+    }
+
+    /**
+     * Surface the OSM photo tags as a photo_url: `image` takes priority, then
+     * `image:0`, then `wikimedia_commons`. This is the verified-context image
+     * that RestaurantWebsiteScraperService::searchImageForRestaurant() accepts
+     * as its OSM step (2) — the venue's own OSM record, not a keyword search.
+     *
+     * @param  array<string, mixed>  $tags
+     */
+    private function extractPhotoUrl(array $tags): ?string
+    {
+        foreach (['image', 'image:0'] as $key) {
+            $url = $this->normalizeImageValue($tags[$key] ?? null);
+            if ($url !== null) {
+                return $url;
+            }
+        }
+
+        return $this->normalizeImageValue($tags['wikimedia_commons'] ?? null);
+    }
+
+    /**
+     * Normalize a single OSM image value to a usable URL. A direct http(s) URL
+     * passes through verbatim; a `File:`-prefixed or bare Commons filename
+     * resolves via Special:FilePath. A wikimedia_commons `Category:` can't
+     * resolve to a single image and is dropped.
+     */
+    private function normalizeImageValue(mixed $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $value = trim($value);
+
+        if (preg_match('/^Category:/i', $value) === 1) {
+            return null;
+        }
+
+        if (preg_match('#^https?://#i', $value) === 1) {
+            return $value;
+        }
+
+        $file = preg_replace('/^File:/i', '', $value) ?? $value;
+        if (trim($file) === '') {
+            return null;
+        }
+
+        return 'https://commons.wikimedia.org/wiki/Special:FilePath/'.rawurlencode(str_replace(' ', '_', $file)).'?width=800';
     }
 
     /**
@@ -608,7 +658,7 @@ class OverpassService
             'website_url' => $r['website_url'] ?? null,
             'price_range' => $r['price_range'] ?? null,
             'opening_hours' => $r['opening_hours'] ?? null,
-            'photo_url' => null,
+            'photo_url' => $r['photo_url'] ?? null,
             'yelp_rating' => null,
             'yelp_review_count' => 0,
             'features' => $r['features'] ?? [],

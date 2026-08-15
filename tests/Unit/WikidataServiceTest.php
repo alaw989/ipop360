@@ -40,6 +40,26 @@ class WikidataServiceTest extends TestCase
         ];
     }
 
+    /**
+     * Image-shape binding for Atelier Crenn, used by the wdt:P18 image tests.
+     */
+    /** @return array<string, mixed> */
+    private function atelierCrennImageResponse(?string $image = 'Atelier Crenn.jpg'): array
+    {
+        return [
+            'results' => [
+                'bindings' => [
+                    [
+                        'item' => ['type' => 'uri', 'value' => 'http://www.wikidata.org/entity/Q60766970'],
+                        'itemLabel' => ['type' => 'literal', 'value' => 'Atelier Crenn'],
+                        'coord' => ['type' => 'literal', 'value' => 'Point(-122.436 37.7984)'],
+                        'image' => ['type' => 'literal', 'value' => $image],
+                    ],
+                ],
+            ],
+        ];
+    }
+
     public function test_build_awards_sparql_uses_correct_entities_and_geof_filter(): void
     {
         $sparql = $this->service->buildAwardsSparql(37.70, -122.52, 37.82, -122.35);
@@ -196,5 +216,98 @@ class WikidataServiceTest extends TestCase
         $hasAward = $this->service->hasAwardInSet('Atelier Crenn', 37.7984, -122.436, $venues);
 
         $this->assertTrue($hasAward);
+    }
+
+    public function test_build_image_sparql_uses_restaurant_entity_and_p18_and_geof_filter(): void
+    {
+        $sparql = $this->service->buildImageSparql(37.70, -122.52, 37.82, -122.35);
+
+        $this->assertStringContainsString('wdt:P18', $sparql);     // image property
+        $this->assertStringContainsString('?image', $sparql);
+        $this->assertStringContainsString('wd:Q11707', $sparql);   // restaurant
+        $this->assertStringContainsString('wdt:P625', $sparql);    // coordinate location
+
+        // Same geof-based box filter as the award query (SERVICE wikibase:box
+        // returns zero rows on the live endpoint).
+        $this->assertStringContainsString('geof:latitude', $sparql);
+        $this->assertStringContainsString('geof:longitude', $sparql);
+        $this->assertStringNotContainsString('wikibase:box', $sparql);
+
+        $this->assertStringContainsString('37.7000', $sparql);
+        $this->assertStringContainsString('-122.3500', $sparql);
+    }
+
+    public function test_search_wikidata_image_returns_commons_url_for_matching_venue(): void
+    {
+        Http::fake([
+            'query.wikidata.org/*' => Http::response($this->atelierCrennImageResponse(), 200),
+        ]);
+
+        $image = $this->service->searchWikidataImage('Atelier Crenn', 37.7984, -122.436);
+
+        // A Commons filename in wdt:P18 must resolve to a Special:FilePath URL.
+        $this->assertSame('https://commons.wikimedia.org/wiki/Special:FilePath/Atelier_Crenn.jpg?width=800', $image);
+    }
+
+    public function test_search_wikidata_image_passes_external_url_through_verbatim(): void
+    {
+        Http::fake([
+            'query.wikidata.org/*' => Http::response(
+                $this->atelierCrennImageResponse('https://example.com/crenn.jpg'),
+                200
+            ),
+        ]);
+
+        $image = $this->service->searchWikidataImage('Atelier Crenn', 37.7984, -122.436);
+
+        $this->assertSame('https://example.com/crenn.jpg', $image);
+    }
+
+    public function test_search_wikidata_image_null_when_name_does_not_match(): void
+    {
+        Http::fake([
+            'query.wikidata.org/*' => Http::response($this->atelierCrennImageResponse(), 200),
+        ]);
+
+        $image = $this->service->searchWikidataImage('Completely Different Name', 37.7984, -122.436);
+
+        $this->assertNull($image);
+    }
+
+    public function test_search_wikidata_image_null_when_venue_has_no_image(): void
+    {
+        // A nearby, same-named entity with no wdt:P18 binding (image key absent)
+        // must not yield an image.
+        Http::fake([
+            'query.wikidata.org/*' => Http::response([
+                'results' => [
+                    'bindings' => [
+                        [
+                            'item' => ['type' => 'uri', 'value' => 'http://www.wikidata.org/entity/Q60766970'],
+                            'itemLabel' => ['type' => 'literal', 'value' => 'Atelier Crenn'],
+                            'coord' => ['type' => 'literal', 'value' => 'Point(-122.436 37.7984)'],
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $image = $this->service->searchWikidataImage('Atelier Crenn', 37.7984, -122.436);
+
+        $this->assertNull($image);
+    }
+
+    public function test_find_restaurant_images_caches_results(): void
+    {
+        Http::fake([
+            'query.wikidata.org/*' => Http::response($this->atelierCrennImageResponse(), 200),
+        ]);
+
+        $first = $this->service->findRestaurantImagesInBox(37.70, -122.52, 37.82, -122.35);
+        $second = $this->service->findRestaurantImagesInBox(37.70, -122.52, 37.82, -122.35);
+
+        $this->assertSame($first, $second);
+        Http::assertSentCount(1); // second call served from cache
+        $this->assertDatabaseHas('external_api_cache', ['source' => 'wikidata']);
     }
 }

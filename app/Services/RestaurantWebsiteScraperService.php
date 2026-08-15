@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\Restaurant;
 use DOMDocument;
 use DOMXPath;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * Clean own-website scraper for restaurants.
@@ -26,6 +28,9 @@ use Illuminate\Support\Facades\Log;
  */
 class RestaurantWebsiteScraperService
 {
+    /** Lazily-resolved Wikidata collaborator (see wikidataService()). */
+    private ?WikidataService $wikidata = null;
+
     /** Cache TTL for scraped data (7 days). */
     private const CACHE_TTL_DAYS = 7;
 
@@ -55,6 +60,12 @@ class RestaurantWebsiteScraperService
 
     /** Stop early once this many distinct social platforms are found. */
     private const SOCIAL_STOP_EARLY_COUNT = 3;
+
+    /** Common sub-pages to crawl for photos beyond the homepage. */
+    private const PHOTO_CRAWL_PATHS = ['/menu', '/gallery', '/photos'];
+
+    /** Cap on extra pages fetched during a photo crawl (homepage + this many). */
+    private const PHOTO_CRAWL_MAX_EXTRA = 2;
 
     /** Domains that are NOT restaurant-owned websites — skip preemptively. */
     private const NON_RESTAURANT_DOMAINS = [
@@ -1398,7 +1409,7 @@ class RestaurantWebsiteScraperService
                 'cx' => $cx,
                 'q' => $query,
                 'searchType' => 'image',
-                'num' => 1,
+                'num' => 5,
                 'safe' => 'active',
             ]);
 
@@ -1413,7 +1424,7 @@ class RestaurantWebsiteScraperService
 
             $items = $response->json('items', []);
 
-            return $items[0]['link'] ?? null;
+            return $this->pickBestGoogleImage($items, $name);
         } catch (\Throwable $e) {
             Log::debug('Google Custom Search threw exception', [
                 'query' => $query,
@@ -1425,29 +1436,318 @@ class RestaurantWebsiteScraperService
     }
 
     /**
-     * Chain all image sources in order, returning the first match.
-     * Website og:image → Twitter:image → Wikimedia Commons → Wikipedia → Google Custom Search
+     * Pick the best image from a Google CSE result set: prefer the first link
+     * whose URL slug contains the restaurant-name slug, else the first link.
+     *
+     * @param  array<int, array{link?: mixed}>  $items
      */
-    public function searchAnyImage(string $name, ?string $city = null, ?string $state = null, ?string $websiteUrl = null): ?string
+    private function pickBestGoogleImage(array $items, string $name): ?string
     {
-        if (! empty($websiteUrl)) {
-            $scraped = $this->scrape($websiteUrl);
-            if ($scraped !== null && ! empty($scraped['photo_url'])) {
-                return $scraped['photo_url'];
+        $slug = Str::slug($name);
+        $fallback = null;
+
+        foreach ($items as $item) {
+            $link = $item['link'] ?? null;
+            if (! is_string($link) || $link === '') {
+                continue;
+            }
+
+            $fallback ??= $link;
+
+            if ($slug !== '' && str_contains(strtolower($link), strtolower($slug))) {
+                return $link;
             }
         }
 
+        return $fallback;
+    }
+
+    /**
+     * Context-first image search for a single restaurant.
+     *
+     * Chains each source in verified-context order before falling back to
+     * keyword/search sources:
+     *   (1) multi-page website crawl (homepage + /menu + /gallery, bounded),
+     *   (2) OSM `image=` tag passed directly by the caller,
+     *   (3) social-profile image from the row's stored restaurant_social_links,
+     *   (4) Wikidata wdt:P18 (coord-verified),
+     *   (5) name-relevance-guarded Wikimedia Commons + Wikipedia,
+     *   (6) Google CSE LAST (num=5, pick best) — 429-exhausted at 100/day.
+     *
+     * Returns the first image found, or null if every source misses.
+     */
+    public function searchImageForRestaurant(Restaurant $restaurant, ?string $osmImage = null): ?string
+    {
+        // (1) The venue's own website is the most reliable source.
+        if (! empty($restaurant->website_url)) {
+            $photo = $this->scrapePhotos((string) $restaurant->website_url);
+            if ($photo !== null) {
+                $this->logImageSource('website', $restaurant, $photo);
+
+                return $photo;
+            }
+        }
+
+        // (2) OSM image= tag — verified context surfaced by the Overpass
+        // normalizer and handed to us directly.
+        if ($osmImage !== null && trim($osmImage) !== '') {
+            $this->logImageSource('osm', $restaurant, $osmImage);
+
+            return $osmImage;
+        }
+
+        // (3) Social-profile image from the row's stored social links.
+        $social = $this->searchSocialProfileImage($restaurant);
+        if ($social !== null) {
+            $this->logImageSource('social', $restaurant, $social);
+
+            return $social;
+        }
+
+        $name = (string) $restaurant->name;
+
+        // (4) Wikidata wdt:P18 — coord-verified. Only queried when the row has
+        // coordinates (the Overpass/Wikidata pipelines both depend on them).
+        if ($restaurant->latitude !== null && $restaurant->longitude !== null) {
+            $wikidata = $this->wikidataService()->searchWikidataImage(
+                $name,
+                (float) $restaurant->latitude,
+                (float) $restaurant->longitude
+            );
+            if ($wikidata !== null) {
+                $this->logImageSource('wikidata', $restaurant, $wikidata);
+
+                return $wikidata;
+            }
+        }
+
+        $city = $restaurant->city;
+        $state = $restaurant->state;
+
+        // (5) Name-relevance-guarded keyword sources (spec-110).
         $wikimedia = $this->searchWikimediaCommons($name, $city, $state);
         if ($wikimedia !== null) {
+            $this->logImageSource('wikimedia', $restaurant, $wikimedia);
+
             return $wikimedia;
         }
 
         $wikipedia = $this->searchWikipediaImage($name, $city, $state);
         if ($wikipedia !== null) {
+            $this->logImageSource('wikipedia', $restaurant, $wikipedia);
+
             return $wikipedia;
         }
 
-        return $this->searchGoogleImages($name, $city, $state);
+        // (6) Google CSE last — the paid/exhausted source.
+        $google = $this->searchGoogleImages($name, $city, $state);
+        if ($google !== null) {
+            $this->logImageSource('google_cse', $restaurant, $google);
+
+            return $google;
+        }
+
+        return null;
+    }
+
+    /**
+     * Multi-page crawl of a venue's own website for a photo: homepage first,
+     * then up to PHOTO_CRAWL_MAX_EXTRA of the common photo/menu sub-pages.
+     * Honors the same domain-skip, SSRF and robots.txt guards as scrape().
+     */
+    public function scrapePhotos(string $websiteUrl): ?string
+    {
+        if (empty($websiteUrl)) {
+            return null;
+        }
+
+        if (! str_starts_with($websiteUrl, 'http://') && ! str_starts_with($websiteUrl, 'https://')) {
+            $websiteUrl = 'https://'.$websiteUrl;
+        }
+
+        $domain = $this->parseDomain($websiteUrl);
+        if ($domain === null) {
+            return null;
+        }
+
+        if ($this->isSkipDomain($domain)) {
+            return null;
+        }
+
+        if (config('restaurant-finder.website_scraper.ssrf_guard', true) && ! $this->isSafeUrl($websiteUrl)) {
+            Log::warning('Photo crawl blocked by SSRF guard', ['url' => $websiteUrl, 'domain' => $domain]);
+
+            return null;
+        }
+
+        if (! $this->isAllowedByRobotsTxt($websiteUrl, $domain)) {
+            return null;
+        }
+
+        $scheme = parse_url($websiteUrl, PHP_URL_SCHEME) ?: 'https';
+
+        $photo = $this->extractPhotoFromPage("{$scheme}://{$domain}/");
+        if ($photo !== null) {
+            return $photo;
+        }
+
+        $extraFetched = 0;
+        foreach (self::PHOTO_CRAWL_PATHS as $path) {
+            if ($extraFetched >= self::PHOTO_CRAWL_MAX_EXTRA) {
+                break;
+            }
+
+            $photo = $this->extractPhotoFromPage("{$scheme}://{$domain}{$path}");
+            $extraFetched++;
+
+            if ($photo !== null) {
+                return $photo;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Fetch a single page and return its first photo (og:image or <img>).
+     */
+    private function extractPhotoFromPage(string $url): ?string
+    {
+        try {
+            $response = Http::timeout(self::REQUEST_TIMEOUT)
+                ->withUserAgent(self::USER_AGENT)
+                ->withOptions(['allow_redirects' => $this->redirectOptions()])
+                ->get($url);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $html = $response->body();
+            if (empty($html)) {
+                return null;
+            }
+
+            libxml_use_internal_errors(true);
+            $dom = new DOMDocument;
+            $dom->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+            libxml_clear_errors();
+
+            $xpath = new DOMXPath($dom);
+            $photos = $this->extractPhotos($dom, $xpath, $url);
+
+            return $photos[0] ?? null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Look up the row's restaurant_social_links and pull a profile image from
+     * the first instagram handle (or facebook page) that exposes an og:image.
+     */
+    public function searchSocialProfileImage(Restaurant $restaurant): ?string
+    {
+        // A transient (unsaved) model can never have stored social links — and
+        // would otherwise trigger a pointless `restaurant_id IS NULL` query.
+        if ($restaurant->getKey() === null) {
+            return null;
+        }
+
+        $links = $restaurant->socialLinks()->get();
+
+        foreach (['instagram', 'facebook'] as $preferredPlatform) {
+            foreach ($links as $link) {
+                if (strtolower((string) $link->platform) !== $preferredPlatform) {
+                    continue;
+                }
+
+                $image = $this->fetchOgImage((string) $link->url);
+                if ($image !== null) {
+                    return $image;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Fetch a page and extract its og:image meta tag.
+     */
+    private function fetchOgImage(string $url): ?string
+    {
+        if ($url === '') {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(self::REQUEST_TIMEOUT)
+                ->withUserAgent(self::USER_AGENT)
+                ->get($url);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $html = $response->body();
+            if (empty($html)) {
+                return null;
+            }
+
+            if (preg_match('/<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m) === 1
+                || preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']/i', $html, $m) === 1) {
+                return $m[1];
+            }
+
+            return null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Attribute a found image to its source in the enrichment log.
+     */
+    private function logImageSource(string $source, Restaurant $restaurant, string $url): void
+    {
+        Log::channel('enrichment')->info('Image search source', [
+            'source' => $source,
+            'restaurant_id' => $restaurant->id,
+            'restaurant_name' => $restaurant->name,
+            'photo_url' => $url,
+        ]);
+    }
+
+    /**
+     * Lazily-resolved Wikidata collaborator. Kept as an accessor (rather than
+     * constructor injection) so `new RestaurantWebsiteScraperService` still
+     * works in tests that don't exercise the Wikidata step.
+     */
+    protected function wikidataService(): WikidataService
+    {
+        return $this->wikidata ??= app(WikidataService::class);
+    }
+
+    /**
+     * Thin wrapper over the context-first chain for callers that only hold
+     * scalar fields (name/city/state/website) rather than a persisted model.
+     * Builds a transient, unsaved Restaurant and defers to
+     * searchImageForRestaurant() — so the name-relevance guard and every other
+     * step of the chain stay intact. No OSM image is available here (that only
+     * comes from the caller's verified context), so the OSM argument is left
+     * null.
+     */
+    public function searchAnyImage(string $name, ?string $city = null, ?string $state = null, ?string $websiteUrl = null): ?string
+    {
+        $restaurant = new Restaurant([
+            'name' => $name,
+            'city' => $city,
+            'state' => $state,
+            'website_url' => $websiteUrl,
+        ]);
+
+        return $this->searchImageForRestaurant($restaurant);
     }
 
     /**

@@ -41,7 +41,7 @@ class BackfillRestaurantPhotosTest extends TestCase
         $r = $this->restaurant(['website_url' => 'https://eatery.example']);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchAnyImage')->once()->andReturn('https://cdn.example/photo.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://cdn.example/photo.jpg');
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         /** @var PendingCommand $cmd */
@@ -58,7 +58,7 @@ class BackfillRestaurantPhotosTest extends TestCase
         $r = $this->restaurant(['website_url' => 'https://eatery.example']);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchAnyImage')->once()->andReturn('https://cdn.example/photo.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://cdn.example/photo.jpg');
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         $this->artisan('restaurants:backfill-photos', ['--apply' => true]);
@@ -75,7 +75,7 @@ class BackfillRestaurantPhotosTest extends TestCase
         $r = $this->restaurant(['photo_url' => 'https://cdn.example/existing.jpg']);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldNotReceive('searchAnyImage');
+        $scraper->shouldNotReceive('searchImageForRestaurant');
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         /** @var PendingCommand $cmd */
@@ -92,7 +92,7 @@ class BackfillRestaurantPhotosTest extends TestCase
         $this->restaurant(['website_url' => 'https://eatery.example']);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchAnyImage')->once()->andThrow(new \RuntimeException('boom'));
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andThrow(new \RuntimeException('boom'));
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         /** @var PendingCommand $cmd */

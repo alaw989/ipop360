@@ -32,6 +32,8 @@ class WikidataService
 
     private const AWARD_MAX_DISTANCE_KM = 1.5;   // hasAwardInSet proximity cap (~0.01° box radius)
 
+    private const IMAGE_MAX_DISTANCE_KM = 1.5;   // image proximity cap (same ±0.01° box radius)
+
     private const TTL_HOURS = 24 * 30;           // 30-day cache
 
     /**
@@ -152,6 +154,217 @@ class WikidataService
         }
 
         return $found;
+    }
+
+    /**
+     * Find a restaurant's Wikidata image (wdt:P18) by name + proximity. Searches
+     * a ±0.01° box and matches by name similarity ≥ threshold, choosing the
+     * closest entity that carries an image. Never throws.
+     */
+    public function searchWikidataImage(string $name, float $lat, float $lng): ?string
+    {
+        if (trim($name) === '') {
+            return null;
+        }
+
+        try {
+            $venues = $this->findRestaurantImagesInBox(
+                $lat - self::BOX_PADDING,
+                $lng - self::BOX_PADDING,
+                $lat + self::BOX_PADDING,
+                $lng + self::BOX_PADDING,
+            );
+
+            return $this->bestImageInSet($name, $lat, $lng, $venues);
+        } catch (\Throwable $e) {
+            Log::debug('Wikidata image search failed gracefully', [
+                'name' => $name,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Find restaurants (with an optional wdt:P18 image) inside a bounding box.
+     *
+     * @return array<int, array{name: string, lat: float, lng: float, image: string|null}>
+     */
+    public function findRestaurantImagesInBox(float $sLat, float $wLng, float $nLat, float $eLng): array
+    {
+        $cacheId = $this->imagesBoxCacheId($sLat, $wLng, $nLat, $eLng);
+
+        $cached = ExternalApiCache::get('wikidata', $cacheId);
+        if ($cached !== null) {
+            return $cached->data ?? [];
+        }
+
+        try {
+            $sparql = $this->buildImageSparql($sLat, $wLng, $nLat, $eLng);
+
+            $response = Http::withHeaders([
+                'Accept' => 'application/sparql-results+json',
+                'User-Agent' => self::USER_AGENT,
+            ])->timeout(30)->get(self::ENDPOINT, [
+                'query' => $sparql,
+                'format' => 'json',
+            ]);
+
+            if ($response->failed()) {
+                Log::warning('Wikidata image SPARQL request failed', [
+                    'status' => $response->status(),
+                    'bbox' => compact('sLat', 'wLng', 'nLat', 'eLng'),
+                ]);
+
+                return [];
+            }
+
+            $bindings = $response->json()['results']['bindings'] ?? [];
+            $venues = $this->parseImageBindings($bindings);
+
+            ExternalApiCache::put('wikidata', $cacheId, $venues, self::TTL_HOURS);
+
+            return $venues;
+        } catch (\Throwable $e) {
+            Log::warning('Wikidata image SPARQL exception', [
+                'message' => $e->getMessage(),
+                'bbox' => compact('sLat', 'wLng', 'nLat', 'eLng'),
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Build the SPARQL query for restaurants (with optional wdt:P18 image) in a
+     * box. Same geof:latitude/geof:longitude FILTER as the award query.
+     */
+    public function buildImageSparql(float $sLat, float $wLng, float $nLat, float $eLng): string
+    {
+        $s = $this->num($sLat);
+        $n = $this->num($nLat);
+        $w = $this->num($wLng);
+        $e = $this->num($eLng);
+
+        return <<<SPARQL
+SELECT ?item ?itemLabel ?coord ?image WHERE {
+  ?item wdt:P31 wd:{$this->restaurantEntity()} ;
+        wdt:P625 ?coord .
+  OPTIONAL { ?item wdt:P18 ?image . }
+  FILTER(
+    geof:latitude(?coord) > {$s} && geof:latitude(?coord) < {$n} &&
+    geof:longitude(?coord) > {$w} && geof:longitude(?coord) < {$e}
+  )
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}
+SPARQL;
+    }
+
+    /**
+     * Match a restaurant against an already-fetched set of image-carrying venues
+     * by name similarity ≥ threshold AND within IMAGE_MAX_DISTANCE_KM, choosing
+     * the closest entity's image. Mirrors hasAwardInSet's proximity logic.
+     *
+     * @param  array<int, array{name: string, lat: float, lng: float, image: string|null}>  $venues
+     */
+    public function bestImageInSet(string $name, float $lat, float $lng, array $venues): ?string
+    {
+        if (trim($name) === '') {
+            return null;
+        }
+
+        $threshold = $this->awardSimilarityThreshold();
+        $bestDistance = INF;
+        $bestImage = null;
+
+        foreach ($venues as $venue) {
+            if (empty($venue['image'])) {
+                continue;
+            }
+
+            if ($this->nameSimilarity($name, $venue['name']) < $threshold) {
+                continue;
+            }
+
+            $distance = $this->haversineKm($lat, $lng, $venue['lat'], $venue['lng']);
+            if ($distance > self::IMAGE_MAX_DISTANCE_KM) {
+                continue;
+            }
+
+            if ($distance < $bestDistance) {
+                $bestDistance = $distance;
+                $bestImage = $venue['image'];
+            }
+        }
+
+        return $bestImage;
+    }
+
+    /**
+     * Parse image SPARQL bindings into venue records. Coordinates are WKT
+     * `Point(lng lat)` — longitude first; the image is resolved to a usable URL.
+     *
+     * @param  array<int, array{itemLabel: array{value: ?string}, coord: array{value: ?string}, image?: array{value: ?string}}>  $bindings
+     * @return array<int, array{name: string, lat: float, lng: float, image: string|null}>
+     */
+    private function parseImageBindings(array $bindings): array
+    {
+        $venues = [];
+
+        foreach ($bindings as $row) {
+            $name = $row['itemLabel']['value'] ?? null;
+            $coord = $row['coord']['value'] ?? null;
+            $image = $row['image']['value'] ?? null;
+
+            if ($name === null || $coord === null) {
+                continue;
+            }
+
+            if (! preg_match('/Point\(([-\d.]+) ([-\d.]+)\)/', $coord, $m)) {
+                continue;
+            }
+
+            $venues[] = [
+                'name' => $name,
+                'lng' => (float) $m[1],  // first capture = longitude
+                'lat' => (float) $m[2],  // second capture = latitude
+                'image' => $this->imageUrlFromValue($image),
+            ];
+        }
+
+        return $venues;
+    }
+
+    /**
+     * Convert a wdt:P18 value into an image URL. The value is usually a Commons
+     * filename (resolved via Special:FilePath); an absolute http(s) URL passes
+     * through verbatim.
+     */
+    private function imageUrlFromValue(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        if (preg_match('#^https?://#i', $value) === 1) {
+            return $value;
+        }
+
+        $file = str_replace(' ', '_', $value);
+
+        return 'https://commons.wikimedia.org/wiki/Special:FilePath/'.rawurlencode($file).'?width=800';
+    }
+
+    private function imagesBoxCacheId(float $sLat, float $wLng, float $nLat, float $eLng): string
+    {
+        return sprintf(
+            'images_box:%s,%s,%s,%s',
+            $this->num($sLat),
+            $this->num($wLng),
+            $this->num($nLat),
+            $this->num($eLng)
+        );
     }
 
     /**

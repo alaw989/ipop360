@@ -23,7 +23,7 @@ use Tests\TestCase;
  *
  * The only detection is an HTTP check. --verify mode must:
  *  1. HTTP-check each row's photo_url (HEAD→GET fallback), keep valid photos.
- *  2. Re-source confirmed-dead ones via searchAnyImage (free chain).
+ *  2. Re-source confirmed-dead ones via searchImageForRestaurant (free chain).
  *  3. Dedupe dead URLs out of the photos gallery.
  *  4. Prioritize gps-cs-s rows first.
  *  5. Be scheduled WEEKLY (matches ~1-month decay), bounded by --limit.
@@ -73,7 +73,7 @@ class PhotoVerifyTest extends TestCase
         ]);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchAnyImage')->once()->andReturn('https://upload.wikimedia.org/fresh.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://upload.wikimedia.org/fresh.jpg');
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
@@ -98,7 +98,7 @@ class PhotoVerifyTest extends TestCase
         ]);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchAnyImage')->once()->andReturn('https://upload.wikimedia.org/fresh.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://upload.wikimedia.org/fresh.jpg');
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         $this->artisan('restaurants:backfill-photos', ['--verify' => true]);
@@ -110,6 +110,52 @@ class PhotoVerifyTest extends TestCase
             $fresh->photo_url,
             'dry-run verify must not persist the re-sourced photo'
         );
+    }
+
+    public function test_verify_resources_dead_cdn_photo_with_null_osm_context(): void
+    {
+        Restaurant::factory()->create([
+            'name' => 'Cdn Eatery',
+            'photo_url' => 'https://lh3.googleusercontent.com/gps-cs-s/DEADTOKEN=w400-h300-c-no',
+        ]);
+
+        Http::fake([
+            'lh3.googleusercontent.com/*' => Http::response('Forbidden', 403),
+        ]);
+
+        // A decay-prone Google CDN URL must NOT be handed back as verified
+        // context — the chain re-sources from website/social/wikidata first.
+        $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
+        $scraper->shouldReceive('searchImageForRestaurant')
+            ->once()
+            ->with(Mockery::type(Restaurant::class), null)
+            ->andReturn(null);
+        $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
+
+        $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
+    }
+
+    public function test_verify_reuses_wikimedia_photo_as_verified_context(): void
+    {
+        Restaurant::factory()->create([
+            'name' => 'Wiki Eatery',
+            'photo_url' => 'https://upload.wikimedia.org/dead.jpg',
+        ]);
+
+        Http::fake([
+            'upload.wikimedia.org/*' => Http::response('Not Found', 404),
+        ]);
+
+        // A Wikimedia/OSM-sourced photo is verified context and is passed back
+        // as the OSM image so it is reused instead of a fresh keyword search.
+        $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
+        $scraper->shouldReceive('searchImageForRestaurant')
+            ->once()
+            ->with(Mockery::type(Restaurant::class), 'https://upload.wikimedia.org/dead.jpg')
+            ->andReturn(null);
+        $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
+
+        $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
     }
 
     public function test_verify_prioritizes_gps_cs_s_rows(): void

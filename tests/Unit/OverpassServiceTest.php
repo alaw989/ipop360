@@ -166,6 +166,67 @@ class OverpassServiceTest extends TestCase
         $this->assertSame(['outdoor_seating' => 'yes', 'wheelchair' => 'limited'], $venues[0]['features']);
     }
 
+    public function test_normalize_raw_surfaces_image_tag_as_photo_url(): void
+    {
+        $venues = $this->service->normalizeRaw([
+            ['type' => 'node', 'id' => 11, 'lat' => 40.0, 'lon' => -74.0, 'tags' => [
+                'name' => 'Pizza Spot',
+                'image' => 'https://upload.wikimedia.org/wikipedia/commons/1/1f/Pizza.jpg',
+            ]],
+        ], 40.0, -74.0);
+
+        $this->assertSame(
+            'https://upload.wikimedia.org/wikipedia/commons/1/1f/Pizza.jpg',
+            $venues[0]['photo_url'],
+        );
+    }
+
+    public function test_normalize_raw_falls_back_to_image_0_then_wikimedia_commons(): void
+    {
+        $venues = $this->service->normalizeRaw([
+            ['type' => 'node', 'id' => 12, 'lat' => 40.0, 'lon' => -74.0, 'tags' => [
+                'name' => 'No Primary Image',
+                'image:0' => 'https://cdn.example.com/img0.jpg',
+            ]],
+            ['type' => 'node', 'id' => 13, 'lat' => 40.0, 'lon' => -74.0, 'tags' => [
+                'name' => 'Commons Only',
+                'wikimedia_commons' => 'File:Example Pizza.jpg',
+            ]],
+        ], 40.0, -74.0);
+
+        $this->assertSame('https://cdn.example.com/img0.jpg', $venues[0]['photo_url']);
+        $this->assertSame(
+            'https://commons.wikimedia.org/wiki/Special:FilePath/Example_Pizza.jpg?width=800',
+            $venues[1]['photo_url'],
+        );
+    }
+
+    public function test_normalize_raw_skips_wikimedia_commons_category(): void
+    {
+        $venues = $this->service->normalizeRaw([
+            ['type' => 'node', 'id' => 14, 'lat' => 40.0, 'lon' => -74.0, 'tags' => [
+                'name' => 'Category Only',
+                'wikimedia_commons' => 'Category:Restaurants in Austin',
+            ]],
+        ], 40.0, -74.0);
+
+        $this->assertNull($venues[0]['photo_url']);
+    }
+
+    public function test_normalize_raw_prefers_image_over_image_0_and_commons(): void
+    {
+        $venues = $this->service->normalizeRaw([
+            ['type' => 'node', 'id' => 15, 'lat' => 40.0, 'lon' => -74.0, 'tags' => [
+                'name' => 'All Tags',
+                'image' => 'https://upload.wikimedia.org/primary.jpg',
+                'image:0' => 'https://cdn.example.com/fallback.jpg',
+                'wikimedia_commons' => 'File:Ignored.jpg',
+            ]],
+        ], 40.0, -74.0);
+
+        $this->assertSame('https://upload.wikimedia.org/primary.jpg', $venues[0]['photo_url']);
+    }
+
     public function test_normalize_for_enrichment_drops_to_db_shape(): void
     {
         $out = $this->service->normalizeForEnrichment([
@@ -195,6 +256,19 @@ class OverpassServiceTest extends TestCase
         $out = $this->service->normalizeForEnrichment(['lat' => 1.0, 'lng' => 2.0]);
         $this->assertSame('Unknown', $out['name']);
         $this->assertSame('US', $out['country']);
+    }
+
+    public function test_normalize_for_enrichment_carries_photo_url(): void
+    {
+        $out = $this->service->normalizeForEnrichment([
+            'name' => 'Photo Bakery',
+            'photo_url' => 'https://commons.wikimedia.org/wiki/Special:FilePath/Pizza.jpg',
+        ]);
+
+        $this->assertSame(
+            'https://commons.wikimedia.org/wiki/Special:FilePath/Pizza.jpg',
+            $out['photo_url'],
+        );
     }
 
     public function test_cache_key_is_deterministic_and_input_sensitive(): void
