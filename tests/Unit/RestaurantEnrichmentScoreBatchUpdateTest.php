@@ -173,6 +173,7 @@ class RestaurantEnrichmentScoreBatchUpdateTest extends TestCase
 
         $fresh = $restaurant->fresh();
         $this->assertNotNull($fresh);
+        $this->assertNotNull($fresh->updated_at);
         $this->assertSame($marked, $fresh->updated_at->toDateTimeString());
     }
 }

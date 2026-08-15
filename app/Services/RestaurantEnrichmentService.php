@@ -579,11 +579,7 @@ class RestaurantEnrichmentService
                     $noWebsite++;
 
                     if (empty($restaurant->photo_url)) {
-                        $photoUrl = $this->websiteScraper->searchAnyImage(
-                            $restaurant->name,
-                            $restaurant->city,
-                            $restaurant->state,
-                        );
+                        $photoUrl = $this->websiteScraper->searchImageForRestaurant($restaurant);
                         if ($photoUrl !== null) {
                             $restaurant->update(['photo_url' => $photoUrl]);
                             $photosFound++;
@@ -647,12 +643,7 @@ class RestaurantEnrichmentService
                 // Photo fallback: scrape og:image (or search free sources) for any
                 // row that still lacks a photo, regardless of hours/menu state.
                 if (empty($restaurant->photo_url)) {
-                    $photoUrl = $this->websiteScraper->searchAnyImage(
-                        $restaurant->name,
-                        $restaurant->city,
-                        $restaurant->state,
-                        $restaurant->website_url,
-                    );
+                    $photoUrl = $this->websiteScraper->searchImageForRestaurant($restaurant);
                     if ($photoUrl !== null) {
                         $restaurant->update(['photo_url' => $photoUrl]);
                         $imageFallbacks++;

@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\Log;
  * processed first — the venue's own og:image/<img> tags are the most reliable
  * and are cached by RestaurantWebsiteScraperService::scrape — then rows
  * without a website fall back to Wikimedia Commons / Wikipedia / Google image
- * search via searchAnyImage. When a photo is found it is also written to the
+ * search via searchImageForRestaurant. When a photo is found it is also
+ * written to the
  * `photos` gallery array (multi-image, capped by live_search.gallery_photos_max)
  * so cards use the 6-slot gallery instead of a single image.
  *
@@ -99,11 +100,9 @@ class BackfillRestaurantPhotos extends Command
 
         foreach ($rows as $restaurant) {
             try {
-                $photoUrl = $scraper->searchAnyImage(
-                    (string) $restaurant->name,
-                    $restaurant->city,
-                    $restaurant->state,
-                    $restaurant->website_url,
+                $photoUrl = $scraper->searchImageForRestaurant(
+                    $restaurant,
+                    $this->osmContextImage($restaurant),
                 );
 
                 $updates = [];
@@ -164,9 +163,9 @@ class BackfillRestaurantPhotos extends Command
     /**
      * Verify existing photo URLs: HTTP-check each one (HEAD→GET fallback),
      * keep valid photos untouched, and re-source confirmed-dead ones via the
-     * free searchAnyImage chain. gps-cs-s Google CDN URLs decay opaquely
-     * (~1-month) so they are prioritized for checking. Dead URLs are dropped
-     * from the gallery. Default is a dry run; pass --apply to persist.
+     * free searchImageForRestaurant chain. gps-cs-s Google CDN URLs decay
+     * opaquely (~1-month) so they are prioritized for checking. Dead URLs are
+     * dropped from the gallery. Default is a dry run; pass --apply to persist.
      */
     private function handleVerify(RestaurantWebsiteScraperService $scraper): int
     {
@@ -210,11 +209,9 @@ class BackfillRestaurantPhotos extends Command
                 }
 
                 $this->dead++;
-                $fresh = $scraper->searchAnyImage(
-                    (string) $restaurant->name,
-                    $restaurant->city,
-                    $restaurant->state,
-                    $restaurant->website_url,
+                $fresh = $scraper->searchImageForRestaurant(
+                    $restaurant,
+                    $this->osmContextImage($restaurant),
                 );
 
                 $updates = [];
@@ -319,6 +316,27 @@ class BackfillRestaurantPhotos extends Command
         } catch (\Throwable $e) {
             return false;
         }
+    }
+
+    /**
+     * The row's current photo_url, when it is a stable Wikimedia/OSM-sourced
+     * image worth reusing as verified context. Decay-prone Google CDN URLs
+     * (gps-cs-s / lh3.googleusercontent.com) are excluded, so a dead CDN row
+     * re-sources from context (website → social → wikidata → wikimedia) before
+     * touching Google CSE again.
+     */
+    private function osmContextImage(Restaurant $restaurant): ?string
+    {
+        $url = $restaurant->photo_url;
+        if (! is_string($url) || trim($url) === '') {
+            return null;
+        }
+
+        $host = strtolower((string) (parse_url($url, PHP_URL_HOST) ?? ''));
+
+        return str_contains($host, 'wikimedia.org') || str_contains($host, 'wikipedia.org')
+            ? $url
+            : null;
     }
 
     /**

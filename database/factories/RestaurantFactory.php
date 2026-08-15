@@ -6,6 +6,9 @@ use App\Models\Restaurant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
+/**
+ * @extends Factory<Restaurant>
+ */
 class RestaurantFactory extends Factory
 {
     protected $model = Restaurant::class;

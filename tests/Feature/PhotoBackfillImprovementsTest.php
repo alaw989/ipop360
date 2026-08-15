@@ -44,7 +44,7 @@ class PhotoBackfillImprovementsTest extends TestCase
         ]);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchAnyImage')->once()->andReturn('https://upload.wikimedia.org/x/photo.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://upload.wikimedia.org/x/photo.jpg');
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         Log::shouldReceive('channel')->with('enrichment')->andReturnSelf();
@@ -67,7 +67,7 @@ class PhotoBackfillImprovementsTest extends TestCase
         ]);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchAnyImage')->once()->andReturn('https://cdn.example/second.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://cdn.example/second.jpg');
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         $this->artisan('restaurants:backfill-photos', ['--apply' => true, '--min-photos' => 2]);
@@ -90,7 +90,7 @@ class PhotoBackfillImprovementsTest extends TestCase
         ]);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchAnyImage')->once()->andReturn('https://cdn.example/primary.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://cdn.example/primary.jpg');
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         $this->artisan('restaurants:backfill-photos', ['--apply' => true, '--min-photos' => 2]);

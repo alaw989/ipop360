@@ -63,11 +63,12 @@ class PhotoBackfillScheduleTest extends TestCase
 
     public function test_google_custom_search_is_the_last_resort_image_source(): void
     {
-        // Partial mock: keep the REAL searchAnyImage ordering logic, mock only
-        // the three collaborators it calls. The ~100/day Google CSE quota source
-        // must be reached ONLY after the free unlimited sources return nothing.
+        // Partial mock: keep the REAL searchImageForRestaurant ordering logic
+        // (reached via the searchAnyImage thin wrapper), mock only the outbound
+        // collaborators it calls. The ~100/day Google CSE quota source must be
+        // reached ONLY after the free unlimited sources return nothing.
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class)->makePartial();
-        $scraper->shouldReceive('scrape')->once()->andReturn(null);
+        $scraper->shouldReceive('scrapePhotos')->once()->andReturn(null);
         $scraper->shouldReceive('searchWikimediaCommons')->once()->andReturn(null);
         $scraper->shouldReceive('searchWikipediaImage')->once()->andReturn(null);
         $scraper->shouldReceive('searchGoogleImages')->once()->andReturn('https://cdn.example/cse-photo.jpg');
@@ -88,7 +89,7 @@ class PhotoBackfillScheduleTest extends TestCase
         ]);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchAnyImage')->andReturn('https://cdn.example/photo.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->andReturn('https://cdn.example/photo.jpg');
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         $this->artisan('restaurants:backfill-photos', ['--apply' => true]);

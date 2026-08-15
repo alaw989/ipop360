@@ -6,6 +6,7 @@ use App\Models\Restaurant;
 use App\Models\RestaurantSocialLink;
 use App\Services\RestaurantWebsiteScraperService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -31,6 +32,9 @@ class ContextImageSearchTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // The fake `.example` domains don't resolve — disable the fail-closed
+        // SSRF guard so the multi-page crawl reaches the faked pages.
+        Config::set('restaurant-finder.website_scraper.ssrf_guard', false);
         $this->service = $this->app->make(RestaurantWebsiteScraperService::class);
     }
 
@@ -122,6 +126,8 @@ class ContextImageSearchTest extends TestCase
             'city' => 'Austin',
             'state' => 'TX',
             'website_url' => null,
+            'latitude' => null,
+            'longitude' => null,
             'photo_url' => null,
             'photos' => [],
         ]);
@@ -140,6 +146,41 @@ class ContextImageSearchTest extends TestCase
         $this->assertNull($photo, 'an off-name Wikimedia hit must be rejected (name-relevance guard)');
     }
 
+    public function test_wikidata_image_used_when_coords_present_and_no_other_context(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'name' => 'Atelier Crenn',
+            'city' => 'San Francisco',
+            'state' => 'CA',
+            'website_url' => null,
+            'latitude' => 37.7984,
+            'longitude' => -122.436,
+            'photo_url' => null,
+            'photos' => [],
+        ]);
+
+        // No website, no social, no OSM tag → the coord-verified Wikidata
+        // wdt:P18 lookup (step 4) must win before keyword search.
+        Http::fake([
+            'query.wikidata.org/*' => Http::response([
+                'results' => [
+                    'bindings' => [
+                        [
+                            'item' => ['type' => 'uri', 'value' => 'http://www.wikidata.org/entity/Q60766970'],
+                            'itemLabel' => ['type' => 'literal', 'value' => 'Atelier Crenn'],
+                            'coord' => ['type' => 'literal', 'value' => 'Point(-122.436 37.7984)'],
+                            'image' => ['type' => 'literal', 'value' => 'Atelier Crenn.jpg'],
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $photo = $this->service->searchImageForRestaurant($restaurant);
+
+        $this->assertSame('https://commons.wikimedia.org/wiki/Special:FilePath/Atelier_Crenn.jpg?width=800', $photo, 'coord-verified Wikidata P18 must supply the image');
+    }
+
     public function test_google_cse_is_the_last_resort_after_free_context(): void
     {
         $restaurant = Restaurant::factory()->create([
@@ -147,6 +188,8 @@ class ContextImageSearchTest extends TestCase
             'city' => 'Austin',
             'state' => 'TX',
             'website_url' => null,
+            'latitude' => null,
+            'longitude' => null,
             'photo_url' => null,
             'photos' => [],
         ]);
