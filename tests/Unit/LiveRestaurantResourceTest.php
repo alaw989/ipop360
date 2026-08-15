@@ -26,7 +26,7 @@ class LiveRestaurantResourceTest extends TestCase
         ]))->resolve();
 
         $this->assertArrayHasKey('distance', $row);
-        $this->assertSame(1.25, $row['distance']);
+        $this->assertSame(0.78, $row['distance']);
         $this->assertArrayHasKey('rank_change', $row);
         $this->assertSame(3, $row['rank_change']);
     }
@@ -64,7 +64,7 @@ class LiveRestaurantResourceTest extends TestCase
 
         $this->assertSame(42, $row['id']);
         $this->assertSame('Golden Dragon', $row['name']);
-        $this->assertSame(2.0, $row['distance']);
+        $this->assertSame(1.24, $row['distance']);
         $this->assertSame(0.87, $row['popularity_score']);
         $this->assertSame('serpapi', $row['source']);
         $this->assertSame([['id' => 1, 'name' => 'Chinese', 'slug' => 'chinese']], $row['cuisines']);

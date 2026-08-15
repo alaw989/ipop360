@@ -44,7 +44,8 @@ class SearchController extends Controller
         $cuisineSlug = $validated['cuisine'] ?? null;
         $categorySlug = $validated['category'] ?? null;
         $priceRange = $validated['price_range'] ?? null;
-        $distanceKm = (int) ($validated['distance'] ?? 25);
+        $distanceMiles = (int) ($validated['distance'] ?? 25);
+        $distanceKm = $distanceMiles * 1.60934;
         $cuisineName = null;
 
         if ($cuisineSlug) {
@@ -118,7 +119,7 @@ class SearchController extends Controller
         ?string $cuisineSlug,
         ?string $categorySlug,
         string $sort,
-        int $distanceKm,
+        float $distanceKm,
         ?string $priceRange,
     ): array {
         $paginate = filter_var(config('restaurant-finder.live_search.paginate', true), FILTER_VALIDATE_BOOL);

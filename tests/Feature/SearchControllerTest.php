@@ -205,7 +205,7 @@ class SearchControllerTest extends TestCase
         $this->bindCoordsAndReverseGeocode();
         $this->mock(UnifiedSearchService::class, function ($mock) {
             $mock->shouldReceive('search')
-                ->with(30.0, -88.0, null, null, 'nearest', 10.0, '$$')
+                ->with(30.0, -88.0, null, null, 'nearest', 16.0934, '$$')
                 ->andReturn([]);
         });
 

@@ -121,7 +121,7 @@ class RestaurantController extends Controller
         $sort = $validated['sort'] ?? 'best_match';
         $cuisineSlug = $request->query('cuisine');
         $categorySlug = $request->query('category');
-        $distanceKm = isset($validated['distance']) ? (float) $validated['distance'] : null;
+        $distanceKm = isset($validated['distance']) ? (float) $validated['distance'] * 1.60934 : null;
         $cuisineName = null;
 
         // A cuisine/category slug is a single string; an array query param
@@ -369,7 +369,7 @@ class RestaurantController extends Controller
         $sort = $validated['sort'] ?? 'best_match';
         $cuisineSlug = $request->query('cuisine');
         $categorySlug = $request->query('category');
-        $distanceKm = isset($validated['distance']) ? (float) $validated['distance'] : null;
+        $distanceKm = isset($validated['distance']) ? (float) $validated['distance'] * 1.60934 : null;
 
         $coords = $this->geolocationService->resolveCoordinates($request);
 

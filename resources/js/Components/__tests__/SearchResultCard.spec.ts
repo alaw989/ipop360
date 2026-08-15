@@ -191,12 +191,12 @@ describe('SearchResultCard', () => {
     describe('distance', () => {
         it('renders distance formatted to 1 decimal', () => {
             const wrapper = mountCard({ distance: 3.456 })
-            expect(wrapper.text()).toContain('3.5 km')
+            expect(wrapper.text()).toContain('3.5 mi')
         })
 
         it('does not render distance when null', () => {
             const wrapper = mountCard({ distance: null })
-            expect(wrapper.text()).not.toContain('km')
+            expect(wrapper.text()).not.toContain('mi')
         })
     })
 

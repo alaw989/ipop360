@@ -134,10 +134,10 @@ describe('SearchFilters', () => {
 
     it('shows distance labels with correct formatting', () => {
         const wrapper = mountSearchFilters()
-        const labels = wrapper.findAll('label span').filter(s => s.text().includes('km'))
-        expect(labels[0].text()).toBe('1 km')
-        expect(labels[1].text()).toBe('5 km')
-        expect(labels[4].text()).toBe('50+ km')
+        const labels = wrapper.findAll('label span').filter(s => s.text().includes('mi'))
+        expect(labels[0].text()).toBe('1 mi')
+        expect(labels[1].text()).toBe('5 mi')
+        expect(labels[4].text()).toBe('50+ mi')
     })
 
     it('shows "Auto" as the label for the 0-value radio', () => {

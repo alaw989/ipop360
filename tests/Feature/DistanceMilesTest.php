@@ -7,6 +7,7 @@ use App\Http\Resources\RestaurantResource;
 use App\Models\Cuisine;
 use App\Models\CuisineCategory;
 use App\Models\Restaurant;
+use App\Services\PopularityScoreService;
 use App\Services\UnifiedSearchService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -65,13 +66,15 @@ class DistanceMilesTest extends TestCase
         $category = CuisineCategory::create(['name' => 'Italian', 'slug' => 'italian-cat']);
         $cuisine = Cuisine::create(['name' => 'Italian', 'slug' => 'italian', 'category_id' => $category->id]);
 
-        $restaurant = Restaurant::factory()->create([
-            'name' => 'Roma Trattoria',
-            'slug' => 'roma-trattoria',
-            'city' => 'Austin',
-            'state' => 'TX',
-            'cuisines' => collect([$cuisine]),
-        ]);
+        $restaurant = Restaurant::whereKey(
+            Restaurant::factory()->create([
+                'name' => 'Roma Trattoria',
+                'slug' => 'roma-trattoria',
+                'city' => 'Austin',
+                'state' => 'TX',
+            ])->id
+        )->firstOrFail();
+        $restaurant->cuisines()->attach($cuisine);
 
         // nearby() sets distance in km via the selectRaw haversine; simulate a
         // 3 km distance and assert the resource emits it as miles (~1.86).
@@ -108,7 +111,7 @@ class DistanceMilesTest extends TestCase
 
     public function test_proximity_score_detail_converts_km_to_miles(): void
     {
-        $service = app(\App\Services\PopularityScoreService::class);
+        $service = app(PopularityScoreService::class);
 
         // The proximity detail string is built from the raw distance (km).
         // It must display miles, not km. We assert the rawValueFromArray path

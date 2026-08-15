@@ -34,8 +34,8 @@ function togglePrice(price: string) {
     }
 }
 
-function setDistance(km: number) {
-    emit('update', { distance: String(km) });
+function setDistance(mi: number) {
+    emit('update', { distance: String(mi) });
 }
 </script>
 
@@ -94,20 +94,20 @@ function setDistance(km: number) {
             <h3 class="mb-2 text-sm font-medium">Distance</h3>
             <div class="space-y-1">
                 <label
-                    v-for="km in filterOptions.distanceOptions"
-                    :key="km"
+                    v-for="mi in filterOptions.distanceOptions"
+                    :key="mi"
                     class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted"
-                    :class="{ 'bg-primary/10': currentDistance === String(km) }"
+                    :class="{ 'bg-primary/10': currentDistance === String(mi) }"
                 >
                     <input
                         type="radio"
                         name="distance"
-                        :value="km"
-                        :checked="currentDistance === String(km)"
+                        :value="mi"
+                        :checked="currentDistance === String(mi)"
                         class="text-primary"
-                        @change="setDistance(km)"
+                        @change="setDistance(mi)"
                     />
-                    <span>{{ km === 1 ? '1 km' : km >= 50 ? '50+ km' : `${km} km` }}</span>
+                    <span>{{ mi === 1 ? '1 mi' : mi >= 50 ? '50+ mi' : `${mi} mi` }}</span>
                 </label>
                 <label
                     class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted"

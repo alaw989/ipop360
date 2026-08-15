@@ -136,7 +136,7 @@ const rankChangeTitle = computed(() => {
                         {{ restaurant.price_range }}
                     </span>
                     <span v-if="restaurant.distance != null" class="text-xs text-muted-foreground">
-                        {{ Number(restaurant.distance).toFixed(1) }} km
+                        {{ Number(restaurant.distance).toFixed(1) }} mi
                     </span>
                 </div>
 

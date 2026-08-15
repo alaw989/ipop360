@@ -298,7 +298,7 @@ class PopularityScoreService
     {
         return match ($signal) {
             'quality' => $this->qualityDetail($raw),
-            'proximity' => sprintf('%.1f mi from your search location.', (float) $raw),
+            'proximity' => sprintf('%.1f mi from your search location.', (float) $raw * 0.621371),
             'data_completeness' => 'Profile completeness reflects how much information is available for this restaurant.',
             'has_award' => 'Award-winning restaurant. This recognition is a strong quality signal.',
             'cuisine_match' => 'Matches your search cuisine preference.',

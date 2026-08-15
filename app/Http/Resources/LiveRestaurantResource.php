@@ -48,11 +48,23 @@ class LiveRestaurantResource extends JsonResource
             'has_award' => $this->resource['has_award'] ?? false,
             'popularity_score' => $this->resource['popularity_score'] ?? null,
             'rank_change' => $this->resource['rank_change'] ?? null,
-            'distance' => $this->resource['distance'] ?? null,
+            'distance' => $this->kmToMiles(isset($this->resource['distance']) ? (float) $this->resource['distance'] : null),
             'cuisines' => $this->resource['cuisines'] ?? [],
             'features' => $this->resource['features'] ?? [],
             'source' => $this->resource['source'] ?? 'live',
             'score_breakdown' => $this->resource['score_breakdown'] ?? null,
         ];
+    }
+
+    /**
+     * Convert a distance from km to miles, rounded to 2 decimal places.
+     */
+    private function kmToMiles(?float $km): ?float
+    {
+        if ($km === null) {
+            return null;
+        }
+
+        return round($km * 0.621371, 2);
     }
 }
