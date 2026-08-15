@@ -408,7 +408,27 @@ CI + deploy green.
 
 ## Next goals (in priority order)
 
-*(none queued — the audit backlog is complete)*
+### 1. Continuous data-hygiene loop ⬅ NEXT
+- **Audit finding (live DB, 8154 rows):** state column is chaotic — mixed
+  abbreviations (`AK`) + full names (`Alabama`), junk/foreign (`Hauts-De-France`,
+  `Île-De-France`, `Ontario`), lowercase; 7990/8154 rows non-standard. City is
+  lowercase on ~all rows (`long beach`, `durham`). 6740 rows (83%) lack a
+  description, 6095 (75%) lack price_range, 3675 (45%) lack phone. Junk entries
+  exist (one-char name `"B"` id 6123, 27 empty shells with no address/phone/
+  website). True duplicates: 136 exact name+city+coords pairs + 79 same-phone+
+  city groups (160 rows); chain names (Applebee's ×270) are legit locations, NOT
+  dupes. The AI enrichment pipeline only fills missing fields — it never cleans
+  wrong capitalization, mixed state formats, or bad punctuation.
+- **Goal:** `continuous restaurant data-hygiene loop: new restaurants:data-hygiene command (scheduled daily, bounded pass per run) that (1) deterministically normalizes state (full→abbrev, uppercase, junk→NULL), city (title-case), whitespace/punctuation and phone, (2) merges true duplicates (exact name+city+coords + same-phone+city, reusing DeduplicateRestaurants::mergePair, excluding chain locations) and AI-rederives junk rows before hard-delete, (3) AI-enriches still-missing fields (200 rows/day, highest score first), (4) logs per-run summary to the enrichment channel`
+- **Gate:** `composer test && npm run build`
+
+### 2. Distance filter in miles
+- **Audit finding:** distance is all km — filter options `[1,5,10,25,50]`,
+  `distance` query param → `$distanceKm` → `nearby()` haversine → resource
+  `distance` → cards render "km". Latent bug: `PopularityScoreService:301`
+  proximity detail already says "mi" while the value is km.
+- **Goal:** `switch the user-facing distance filter to miles: backend converts query param miles→km ($miles * 1.60934), resources emit distance in miles, frontend filter labels + card displays use "mi", fix PopularityScoreService proximity detail km→mi; internal knobs (nearby_radius_km, max_distance_km, proximity_scale_km) stay km`
+- **Gate:** `composer test && npm run build`
 
 ---
 
