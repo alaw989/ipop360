@@ -408,21 +408,44 @@ CI + deploy green.
 
 ## Next goals (in priority order)
 
-### 1. Photo verification — re-source expired Google CDN images ⬅ NEXT
-- **Audit finding (live):** `gps-cs-s` Google CDN photo URLs (from SerpApi's
-  google_maps results) expire opaquely — no expiry token in the URL, no
-  `photo_expires_at` column, no expiry header. Google revokes them silently over
-  time (~1-month observed). 1497/5175 photo-having rows carry them; June-era ones
-  already return 403 "Your client does not have permission". Nothing re-checks
-  the URL, so dead images persist forever. The trending section surfaces
-  top-scored (SerpApi-enriched) restaurants — all `gps-cs-s` — so it appears
-  fully broken. The only detection is an HTTP check.
-- **Goal:** `add --verify mode to restaurants:backfill-photos that HTTP-checks existing photo_urls (HEAD→GET fallback, ~8s timeout, tolerate transient 403 once), re-sources confirmed-dead ones via the existing searchAnyImage free chain (website og:image → Wikimedia → Wikipedia → Google CSE), keeps valid photos, dedupes dead URLs out of the photos gallery; prioritize gps-cs-s rows first; schedule a WEEKLY bounded sweep (--verify --apply --limit=200) matching the ~1-month decay; prevent at persist: a gps-cs-s URL never overwrites a stable Wikimedia/venue-owned photo (only fills when photo_url is empty)`
+### 1. Context-first restaurant image search ⬅ NEXT
+- **Audit finding:** 4,101 photo-less restaurants, but we already hold verified
+  context for most — 8,195 have `website_url` (scrape() only fetches the
+  HOMEPAGE og:image, never `/menu`/`/gallery`/`/photos`), 4,301 have social
+  links (instagram 3,684 / facebook 3,989 — handles stored but never used for
+  images), OSM `image=`/`wikimedia_commons` tags are dropped by the Overpass
+  normalizer, Wikidata P18 is coord-queryable (awards already do it), and
+  Google CSE is 429-exhausted (100/day) so it must stay the last resort.
+  Current chain (homepage-og → Wikimedia keyword → Wikipedia keyword → CSE)
+  uses sources shallowly and matched wrong images (fixed by PR #110 guard).
+- **Goal:** `context-first restaurant image search: new searchImageForRestaurant() on RestaurantWebsiteScraperService used by both the daily backfill and --verify that chains (1) multi-page website crawl (homepage + /menu + /gallery + /photos, bounded), (2) OSM image= tags surfaced by the Overpass normalizer, (3) social-profile image from the stored restaurant_social_links handle (instagram ?__a=1 / facebook og:image), (4) Wikidata wdt:P18 coord-verified, (5) existing name-relevance-guarded Wikimedia/Wikipedia, (6) Google CSE last with num=1→5 pick best; searchAnyImage becomes a thin wrapper; per-source hit attribution logged`
 - **Gate:** `composer test && npm run build`
 
 ---
 
-## ✅ Done (2026-08-15 session)
+## ✅ Done (2026-08-15 session, continued)
+
+**Photo verification** — PR #109 (opencode-loop, 3 iterations, ALL_DONE):
+`--verify` mode on `restaurants:backfill-photos` HTTP-checks existing photo_urls
+(HEAD→GET, 8s timeout, retries transient 403), re-sources dead ones via the
+free chain, dedupes the gallery, prioritizes gps-cs-s rows, weekly Wednesday
+07:30 bounded sweep (`--verify --apply --limit=200`), and LiveVenuePersister
+guard (gps-cs-s never overwrites a stable photo). PHPUnit 788.
+
+**Photo name-relevance guard** — PR #110 (direct fix): `titleMatchesRestaurant()`
+on the Wikimedia/Wikipedia image search — live audit found 209/400 re-sources
+were wrong images (books/PDFs/people: "Fixins Soul Kitchen" → a 1917 poetry
+book, "Carbone's Pizzeria" → Joel Robuchon). Only accepts a page/file title
+containing the full restaurant name; keyword-fragment hits rejected. PHPUnit
+793. Live: 301 wrong images cleared back to null; fill re-run now yields
+venue-owned og:image photos.
+
+**Current floor:** 793 PHPUnit tests + 1056 vitest tests; PHPStan level 8 over
+`app/ + tests/` with a zero baseline; pint clean; **CI enforces coverage
+thresholds and runs PHP 8.4**; **search covers unified merged always-live search,
+data-driven popularity scoring, a continuous data-hygiene loop, a miles-based
+distance filter, and photo verification with a name-relevance guard**;
+CI + deploy green.
 
 **Data-hygiene loop** — PR #107 (opencode-loop, 4 iterations, ALL_DONE):
 `restaurants:data-hygiene` command (scheduled daily 01:00 `--apply --limit=200`):
