@@ -408,22 +408,70 @@ CI + deploy green.
 
 ## Next goals (in priority order)
 
-### 1. Context-first restaurant image search ⬅ NEXT
-- **Audit finding:** 4,101 photo-less restaurants, but we already hold verified
-  context for most — 8,195 have `website_url` (scrape() only fetches the
-  HOMEPAGE og:image, never `/menu`/`/gallery`/`/photos`), 4,301 have social
-  links (instagram 3,684 / facebook 3,989 — handles stored but never used for
-  images), OSM `image=`/`wikimedia_commons` tags are dropped by the Overpass
-  normalizer, Wikidata P18 is coord-queryable (awards already do it), and
-  Google CSE is 429-exhausted (100/day) so it must stay the last resort.
-  Current chain (homepage-og → Wikimedia keyword → Wikipedia keyword → CSE)
-  uses sources shallowly and matched wrong images (fixed by PR #110 guard).
-- **Goal:** `context-first restaurant image search: new searchImageForRestaurant() on RestaurantWebsiteScraperService used by both the daily backfill and --verify that chains (1) multi-page website crawl (homepage + /menu + /gallery + /photos, bounded), (2) OSM image= tags surfaced by the Overpass normalizer, (3) social-profile image from the stored restaurant_social_links handle (instagram ?__a=1 / facebook og:image), (4) Wikidata wdt:P18 coord-verified, (5) existing name-relevance-guarded Wikimedia/Wikipedia, (6) Google CSE last with num=1→5 pick best; searchAnyImage becomes a thin wrapper; per-source hit attribution logged`
+### 1. Ingestion-time enrichment ⬅ NEXT
+- **Audit finding (live-verified):** of 384 restaurants added in the last 7d,
+  312 (81%) no photo, 377 (98%) no description, 375 (98%) no price. Free
+  live-search sources (BizData/Overpass/Photon/Socrata) set photo_url/description
+  null; SerpApi (the only rich source) isn't in the initial live-search path;
+  nothing bolsters a row at creation. The daily AI-enrich + photo backfill fill
+  it later — or never. New rows today: 128 added, 0 with photo, 2 with desc.
+- **Goal:** `ingestion-time enrichment: when LiveVenuePersister::persist() CREATES a row, queue async enrichment so new rows are rich within minutes — (1) photo hunt via the context-first searchImageForRestaurant chain, (2) EnrichRestaurantWithAi job for missing description/price_range/phone, (3) opening_hours from the venue's OSM tags when present; never block the search response (all queued); never clobber existing data on updates (created-only); respect domain-safety (no gps-cs-s primary, name-relevance guard)`
 - **Gate:** `composer test && npm run build`
+
+### 2. Photo-verify hardening
+- **Audit finding:** --verify (PR #109) checks only the primary photo_url; the
+  photos gallery array is only deduped as a side-effect. ~44 rows are
+  dead-unresolvable (no website / no name-matching source) and get re-checked
+  every weekly pass — wasted HTTP forever. Live galleries are single-element
+  mirrors today but --min-photos=2 is growing them.
+- **Goal:** `photo-verify hardening: (1) HTTP-check every distinct URL in the photos gallery array too — drop dead, keep valid, and promote an alive gallery entry to photo_url when the primary is dead; (2) add a photo_verified_at column and skip known-dead-unresolvable rows for N weeks (default 28) so the weekly sweep stops re-checking them; (3) clear-to-null on confirmed-dead-unresolvable (broken image → honest no-image fallback, operator-approved); (4) stamp valid rows so the sweep re-checks on the ~28-day cadence, not every Wednesday`
+- **Gate:** `composer test && npm run build`
+
+### 3. Scheduler / infra hardening audit
+- **Audit finding:** bare `withoutOverlapping()` everywhere — default 24h lock
+  expiry means a killed command (e.g. the 5h35m throttled enrichment) silently
+  skips the next day's run. No per-command runtime/failure telemetry. cron +
+  schedule:work supervisor both drive the scheduler (redundancy unverified).
+  SQLite-era lock errors in old scheduler logs.
+- **Goal:** `scheduler/infra hardening audit: instrument per-command runtime + failure telemetry; set explicit withoutOverlapping() expiries (or skipDuplicates); resolve the 5h35m throttled-enrichment collision with other daily jobs; verify cron + schedule:work redundancy is correct; confirm all 12 scheduled commands fire on time on the droplet`
+- **Gate:** `composer test && npm run build`
+
+### 4. Restaurant data-gap remediation
+- **Audit finding (8,282 active rows):** description 83% missing, menu_url 92%,
+  price_range 75%, no cuisine tag 68%, phone 46%, photo 39%, opening_hours 32%;
+  440 dupe name+city+state groups; 37 non-2-char states; 262 missing city.
+  Search/ranking reads these — cuisine_match (0.50) can't fire for untagged rows.
+- **Goal:** `restaurant data-gap remediation: map every gap to its owning scheduled command / SearchController and tune to close it — AI-enrich → description/price/phone; website-scrape → hours/menu; context backfill → photo; data-hygiene → state/dupes; enrichment → cuisine tags; prioritize by search impact; extend data-hygiene to the 440 dupe groups + 37 bad states`
+- **Gate:** `composer test && npm run build`
+
+### 5. Pull prod DB → local
+- **Audit finding:** local MySQL `ipop360` has 2 stale seed rows; prod has
+  ~8,282. `.env` already points at local MySQL. Runtime tables are ~120MB noise.
+- **Goal:** `pull the latest prod DB to local: mysqldump prod ipop360 excluding runtime tables (pulse_*, sessions, cache*, jobs*, failed_jobs, password_reset_tokens) → ~16MB core; restore into local MySQL; verify restaurants count ≈ 8,282 and the dev server on :8090 serves real data`
+- **Gate:** manual verify (row count + dev server)
 
 ---
 
 ## ✅ Done (2026-08-15 session, continued)
+
+**Context-first image search** — PR #111 (opencode-loop, 5 iterations, ALL_DONE):
+`searchImageForRestaurant()` on `RestaurantWebsiteScraperService` chains
+multi-page website crawl (homepage + /menu + /gallery + /photos) → OSM image=
+tags (surfaced by Overpass normalizer) → social-profile image (stored
+restaurant_social_links handle) → Wikidata wdt:P18 (coord-verified) → guarded
+Wikimedia/Wikipedia → Google CSE last (num=5, pick best). `searchAnyImage` is a
+thin wrapper; backfill fill + --verify + enrichment all use the context chain;
+`osmContextImage()` passes only stable Wikimedia-hosted URLs as re-source
+context. PHPUnit 812. Merged + deployed + live-verified (54/100 fill, per-source
+attribution logged).
+
+**enrichment-logs skill audit** — converted to a native opencode project skill
+at `.opencode/skills/enrichment-logs/SKILL.md` (opencode-loop, 6 iterations,
+ALL_DONE; PR #112 was closed per the new local-first protocol — work stays
+uncommitted in the worktree for operator review). Hardened against live-verified
+bugs: MySQL DB summary (not stale SQLite), current log-message names, quota-
+exhausted surfaced first, host 167.71.107.253, flag-aware --compare dates,
+sweep-aggregate verify counts. Symlink bridge removed.
 
 **Photo verification** — PR #109 (opencode-loop, 3 iterations, ALL_DONE):
 `--verify` mode on `restaurants:backfill-photos` HTTP-checks existing photo_urls
