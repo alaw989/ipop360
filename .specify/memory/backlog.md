@@ -408,27 +408,43 @@ CI + deploy green.
 
 ## Next goals (in priority order)
 
-### 1. Continuous data-hygiene loop ⬅ NEXT
-- **Audit finding (live DB, 8154 rows):** state column is chaotic — mixed
-  abbreviations (`AK`) + full names (`Alabama`), junk/foreign (`Hauts-De-France`,
-  `Île-De-France`, `Ontario`), lowercase; 7990/8154 rows non-standard. City is
-  lowercase on ~all rows (`long beach`, `durham`). 6740 rows (83%) lack a
-  description, 6095 (75%) lack price_range, 3675 (45%) lack phone. Junk entries
-  exist (one-char name `"B"` id 6123, 27 empty shells with no address/phone/
-  website). True duplicates: 136 exact name+city+coords pairs + 79 same-phone+
-  city groups (160 rows); chain names (Applebee's ×270) are legit locations, NOT
-  dupes. The AI enrichment pipeline only fills missing fields — it never cleans
-  wrong capitalization, mixed state formats, or bad punctuation.
-- **Goal:** `continuous restaurant data-hygiene loop: new restaurants:data-hygiene command (scheduled daily, bounded pass per run) that (1) deterministically normalizes state (full→abbrev, uppercase, junk→NULL), city (title-case), whitespace/punctuation and phone, (2) merges true duplicates (exact name+city+coords + same-phone+city, reusing DeduplicateRestaurants::mergePair, excluding chain locations) and AI-rederives junk rows before hard-delete, (3) AI-enriches still-missing fields (200 rows/day, highest score first), (4) logs per-run summary to the enrichment channel`
+### 1. Photo verification — re-source expired Google CDN images ⬅ NEXT
+- **Audit finding (live):** `gps-cs-s` Google CDN photo URLs (from SerpApi's
+  google_maps results) expire opaquely — no expiry token in the URL, no
+  `photo_expires_at` column, no expiry header. Google revokes them silently over
+  time (~1-month observed). 1497/5175 photo-having rows carry them; June-era ones
+  already return 403 "Your client does not have permission". Nothing re-checks
+  the URL, so dead images persist forever. The trending section surfaces
+  top-scored (SerpApi-enriched) restaurants — all `gps-cs-s` — so it appears
+  fully broken. The only detection is an HTTP check.
+- **Goal:** `add --verify mode to restaurants:backfill-photos that HTTP-checks existing photo_urls (HEAD→GET fallback, ~8s timeout, tolerate transient 403 once), re-sources confirmed-dead ones via the existing searchAnyImage free chain (website og:image → Wikimedia → Wikipedia → Google CSE), keeps valid photos, dedupes dead URLs out of the photos gallery; prioritize gps-cs-s rows first; schedule a WEEKLY bounded sweep (--verify --apply --limit=200) matching the ~1-month decay; prevent at persist: a gps-cs-s URL never overwrites a stable Wikimedia/venue-owned photo (only fills when photo_url is empty)`
 - **Gate:** `composer test && npm run build`
 
-### 2. Distance filter in miles
-- **Audit finding:** distance is all km — filter options `[1,5,10,25,50]`,
-  `distance` query param → `$distanceKm` → `nearby()` haversine → resource
-  `distance` → cards render "km". Latent bug: `PopularityScoreService:301`
-  proximity detail already says "mi" while the value is km.
-- **Goal:** `switch the user-facing distance filter to miles: backend converts query param miles→km ($miles * 1.60934), resources emit distance in miles, frontend filter labels + card displays use "mi", fix PopularityScoreService proximity detail km→mi; internal knobs (nearby_radius_km, max_distance_km, proximity_scale_km) stay km`
-- **Gate:** `composer test && npm run build`
+---
+
+## ✅ Done (2026-08-15 session)
+
+**Data-hygiene loop** — PR #107 (opencode-loop, 4 iterations, ALL_DONE):
+`restaurants:data-hygiene` command (scheduled daily 01:00 `--apply --limit=200`):
+deterministic state (full→abbrev/lower→upper/junk→NULL) + city title-case +
+whitespace + phone normalization; true-dup merge (exact name+city+coords +
+same-phone+city via extracted `RestaurantDeduplicationService::mergePair`,
+shared with `restaurants:dedupe`); AI-rederive junk rows before hard-delete;
+AI-enrich still-missing fields (200/day highest-score-first); per-run summary
+log. PHPUnit 770. Merged + deployed + live-verified (schedule live on droplet).
+
+**Distance filter in miles** — PR #108 (opencode-loop, 3 iterations then hand-fix
+on a stalled proximity-detail test): backend converts `distance` query param
+miles→km (`$miles * 1.60934`); resources emit `distance` in miles
+(`km * 0.621371`); frontend labels/cards → `mi`; `PopularityScoreService`
+proximity detail km→mi (latent "mi" while km bug). Internal geo knobs stay km.
+PHPUnit 777. Merged + deployed + live-verified (site 200).
+
+**Current floor:** 777 PHPUnit tests + 1056 vitest tests; PHPStan level 8 over
+`app/ + tests/` with a zero baseline; pint clean; **CI enforces coverage
+thresholds and runs PHP 8.4**; **search covers unified merged always-live search,
+data-driven popularity scoring, a continuous data-hygiene loop, and a miles-based
+distance filter**; CI + deploy green.
 
 ---
 
