@@ -408,7 +408,51 @@ CI + deploy green.
 
 ## Next goals (in priority order)
 
-### 1. Ingestion-time enrichment ⬅ NEXT
+### 6. Fail-open enrichment when SerpApi is exhausted ⬅ NEXT
+- **Audit finding (live-verified 2026-08-15):** when SerpApi 429s (provider
+  exhausted flag armed), the 04:00 throttled enrichment `break`s on the FIRST
+  combo (`RestaurantEnrichmentService.php:834`), so it does **0 combos / 0 calls /
+  0 cache hits** — even though the free sources (BizData/Overpass/Photon/Socrata)
+  + AI + photo + social + website enrichment don't touch SerpApi at all. Quota
+  exhausted today → the run did nothing while free-source work was pending.
+- **Goal:** `fail-open enrichment: when the SerpApi provider is exhausted, change
+  the throttled enrichment `break` → `continue` so every city×cuisine combo still
+  runs the free sources + AI/photo/social/website enrichment; keep
+  `quota_exhausted=true` in the log + admin so the outage stays surfaced; ratings
+  backfill later via the existing need-ordering (buildCityCuisineGrid). Tests:
+  provider exhausted → combos still processed via free sources, 0 SerpApi calls,
+  quota_exhausted true; all-unrated collection still scores finite + differentiated
+  (lock in PopularityScoreService renormalization). Frontend: expose
+  `serpapi_exhausted` shared prop; RELABEL (not hide) the Rating sort option
+  ("ratings temporarily unavailable") so the UI doesn't shift on recovery; neutral
+  SEO copy for the "real reviews / accurate ratings" phrasing while exhausted.`
+- **Gate:** `composer test && npm run build`
+
+### 7. Registration & login hardening
+- **Audit finding (current state):** registration is throttled 5/min and login is
+  rate-limited to 5 attempts with lockout (`LoginRequest`), email verification is
+  ON (`MustVerifyEmail`), and `role` defaults to `user`. But: (1) NO email
+  notifies the operator when someone registers — only the registrant gets a
+  verification email (no `app/Mail` or `app/Notifications` directory exists);
+  (2) the `forgot-password` POST route is NOT throttled → it can be spammed to
+  mail-bomb any address; (3) unverified users are auto-logged-in on registration
+  (design choice to revisit + make explicit); (4) no tests pin the full auth
+  lifecycle (register → verify → dashboard; lockout; reset).
+- **Goal:** `registration/login hardening: (1) send an admin/operator notification
+  (app/Notifications) on every new registration — "New user registered: name,
+  email" — TO a configurable comma-separated recipient list (ADMIN_NOTIFY_EMAILS
+  env), separate from the user's own verification email; (2) add throttle to the
+  forgot-password POST route (e.g. throttle:3,5) so reset links can't be spammed;
+  (3) document + decide auto-login for unverified users (recommend: keep
+  auto-login, gate protected routes on `verified` as now — unchanged behavior,
+  made explicit + tested); (4) pin the full lifecycle with feature tests:
+  register → verification email sent (Mail::fake) → verify link works → dashboard;
+  wrong password ×5 → lockout message; forgot-password throttle; duplicate email
+  rejected; new-user notification delivered. Keep registration throttling
+  (spec-089) intact.`
+- **Gate:** `composer test && npm run build`
+
+### 8. Ingestion-time enrichment
 - **Audit finding (live-verified):** of 384 restaurants added in the last 7d,
   312 (81%) no photo, 377 (98%) no description, 375 (98%) no price. Free
   live-search sources (BizData/Overpass/Photon/Socrata) set photo_url/description
@@ -418,7 +462,7 @@ CI + deploy green.
 - **Goal:** `ingestion-time enrichment: when LiveVenuePersister::persist() CREATES a row, queue async enrichment so new rows are rich within minutes — (1) photo hunt via the context-first searchImageForRestaurant chain, (2) EnrichRestaurantWithAi job for missing description/price_range/phone, (3) opening_hours from the venue's OSM tags when present; never block the search response (all queued); never clobber existing data on updates (created-only); respect domain-safety (no gps-cs-s primary, name-relevance guard)`
 - **Gate:** `composer test && npm run build`
 
-### 2. Photo-verify hardening
+### 9. Photo-verify hardening
 - **Audit finding:** --verify (PR #109) checks only the primary photo_url; the
   photos gallery array is only deduped as a side-effect. ~44 rows are
   dead-unresolvable (no website / no name-matching source) and get re-checked
@@ -427,7 +471,7 @@ CI + deploy green.
 - **Goal:** `photo-verify hardening: (1) HTTP-check every distinct URL in the photos gallery array too — drop dead, keep valid, and promote an alive gallery entry to photo_url when the primary is dead; (2) add a photo_verified_at column and skip known-dead-unresolvable rows for N weeks (default 28) so the weekly sweep stops re-checking them; (3) clear-to-null on confirmed-dead-unresolvable (broken image → honest no-image fallback, operator-approved); (4) stamp valid rows so the sweep re-checks on the ~28-day cadence, not every Wednesday`
 - **Gate:** `composer test && npm run build`
 
-### 3. Scheduler / infra hardening audit
+### 10. Scheduler / infra hardening audit
 - **Audit finding:** bare `withoutOverlapping()` everywhere — default 24h lock
   expiry means a killed command (e.g. the 5h35m throttled enrichment) silently
   skips the next day's run. No per-command runtime/failure telemetry. cron +
@@ -436,7 +480,7 @@ CI + deploy green.
 - **Goal:** `scheduler/infra hardening audit: instrument per-command runtime + failure telemetry; set explicit withoutOverlapping() expiries (or skipDuplicates); resolve the 5h35m throttled-enrichment collision with other daily jobs; verify cron + schedule:work redundancy is correct; confirm all 12 scheduled commands fire on time on the droplet`
 - **Gate:** `composer test && npm run build`
 
-### 4. Restaurant data-gap remediation
+### 11. Restaurant data-gap remediation
 - **Audit finding (8,282 active rows):** description 83% missing, menu_url 92%,
   price_range 75%, no cuisine tag 68%, phone 46%, photo 39%, opening_hours 32%;
   440 dupe name+city+state groups; 37 non-2-char states; 262 missing city.
@@ -444,7 +488,7 @@ CI + deploy green.
 - **Goal:** `restaurant data-gap remediation: map every gap to its owning scheduled command / SearchController and tune to close it — AI-enrich → description/price/phone; website-scrape → hours/menu; context backfill → photo; data-hygiene → state/dupes; enrichment → cuisine tags; prioritize by search impact; extend data-hygiene to the 440 dupe groups + 37 bad states`
 - **Gate:** `composer test && npm run build`
 
-### 5. Pull prod DB → local
+### 12. Pull prod DB → local
 - **Audit finding:** local MySQL `ipop360` has 2 stale seed rows; prod has
   ~8,282. `.env` already points at local MySQL. Runtime tables are ~120MB noise.
 - **Goal:** `pull the latest prod DB to local: mysqldump prod ipop360 excluding runtime tables (pulse_*, sessions, cache*, jobs*, failed_jobs, password_reset_tokens) → ~16MB core; restore into local MySQL; verify restaurants count ≈ 8,282 and the dev server on :8090 serves real data`
