@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import RestaurantsIndex from '@/Pages/Restaurants/Index.vue'
+import { useSeo } from '@/composables/useSeo'
 
-const { mockRouterGet, mockRouterOn, callbacks } = vi.hoisted(() => {
+const { mockRouterGet, mockRouterOn, callbacks, mockSerpapiExhausted } = vi.hoisted(() => {
   return {
     mockRouterGet: vi.fn(),
     mockRouterOn: vi.fn(),
     callbacks: {} as Record<string, (() => void) | null>,
+    mockSerpapiExhausted: { value: false },
   }
 })
 
@@ -21,20 +23,21 @@ vi.mock('@inertiajs/vue3', async () => {
         return mockRouterOn(event, cb)
       },
     },
+    usePage: () => ({ props: { serpapi_exhausted: mockSerpapiExhausted.value } }),
   }
 })
 
 vi.mock('@/composables/useSeo', () => ({
-  useSeo: () => ({
-    title: 'Test Title',
-    description: 'Test Description',
+  useSeo: vi.fn((options: any) => ({
+    title: options.title,
+    description: options.description,
     ogTitle: 'Test OG Title',
     ogDescription: 'Test OG Description',
     ogType: 'website',
     ogImage: 'https://example.com/image.jpg',
     ogUrl: 'http://localhost/test',
     twitterCard: 'summary_large_image',
-  }),
+  })),
   generateItemListJsonLd: vi.fn(() => ({ '@type': 'ItemList', itemListElement: [] })),
 }))
 
@@ -129,6 +132,7 @@ function mountComponent(propsOverrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   mockRouterGet.mockClear()
   mockRouterOn.mockClear()
+  mockSerpapiExhausted.value = false
   callbacks.start = null
   callbacks.finish = null
 })
@@ -258,6 +262,39 @@ describe('Restaurants/Index', () => {
         { cuisine: 'italian', sort: 'nearest' },
         { preserveState: true, replace: true },
       )
+    })
+
+    it('shows "Rating" label when SerpApi provider is not exhausted', () => {
+      const wrapper = mountComponent()
+      const rating = wrapper.findAll('select option').find((o) => o.attributes('value') === 'rating')
+      expect(rating!.text()).toBe('Rating')
+    })
+
+    it('relabels Rating option when SerpApi provider is exhausted', () => {
+      mockSerpapiExhausted.value = true
+      const wrapper = mountComponent()
+      const rating = wrapper.findAll('select option').find((o) => o.attributes('value') === 'rating')
+      expect(rating!.text()).toBe('Ratings temporarily unavailable')
+    })
+  })
+
+  describe('SEO description', () => {
+    beforeEach(() => {
+      vi.mocked(useSeo).mockClear()
+    })
+
+    it('mentions real reviews and accurate ratings when SerpApi is available', () => {
+      mountComponent()
+      expect(vi.mocked(useSeo)).toHaveBeenCalledWith(expect.objectContaining({
+        description: expect.stringContaining('real reviews and accurate ratings'),
+      }))
+    })
+
+    it('uses neutral copy when SerpApi is exhausted', () => {
+      mockSerpapiExhausted.value = true
+      mountComponent()
+      const last = vi.mocked(useSeo).mock.calls.at(-1)![0] as { description: string }
+      expect(last.description).not.toMatch(/review|rating/i)
     })
   })
 

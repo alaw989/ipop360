@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\SerpApiService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
@@ -50,6 +51,7 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
             ],
             'userCoords' => $request->session()->get('user_coords'),
+            'serpapi_exhausted' => fn () => app(SerpApiService::class)->isProviderExhausted(),
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),

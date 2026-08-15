@@ -52,6 +52,7 @@ interface SerpApiQuota {
     circuit_breaker_tripped: boolean
     enrich_budget: number
     enrich_budget_exhausted: boolean
+    serpapi_exhausted: boolean
 }
 
 interface ScrapeHealth {
@@ -96,6 +97,7 @@ function makeQuota(overrides: Partial<SerpApiQuota> = {}): SerpApiQuota {
         circuit_breaker_tripped: false,
         enrich_budget: 100,
         enrich_budget_exhausted: false,
+        serpapi_exhausted: false,
         ...overrides,
     }
 }
@@ -248,6 +250,20 @@ describe('Admin Dashboard page', () => {
             serpapiQuota: makeQuota({ circuit_breaker_tripped: true }),
         })
         expect(wrapper.text()).toContain('Cache only')
+    })
+
+    it('does not show provider-exhausted banner when serpapi_exhausted is false', () => {
+        const wrapper = mountComponent({
+            serpapiQuota: makeQuota({ serpapi_exhausted: false }),
+        })
+        expect(wrapper.text()).not.toContain('out of searches')
+    })
+
+    it('shows provider-exhausted banner when serpapi_exhausted is true', () => {
+        const wrapper = mountComponent({
+            serpapiQuota: makeQuota({ serpapi_exhausted: true }),
+        })
+        expect(wrapper.text()).toContain('SerpApi account is exhausted')
     })
 
     it('renders Scrape Health section heading', () => {

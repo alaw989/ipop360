@@ -14,5 +14,6 @@ export type PageProps<
     auth: {
         user: User;
     };
+    serpapi_exhausted: boolean;
     ziggy: Config & { location: string };
 };

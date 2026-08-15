@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import RestaurantCard from '@/Components/RestaurantCard.vue';
@@ -50,6 +50,8 @@ const locationName = computed(() => {
     return parts.join(' ')
 })
 
+const serpapiExhausted = computed(() => usePage().props.serpapi_exhausted);
+
 const seoData = computed(() => {
     const cuisine = props.cuisineName || 'All'
     const location = locationName.value
@@ -57,8 +59,12 @@ const seoData = computed(() => {
         ? `Top ${cuisine} Restaurants ${location} | iPop360`
         : `Top ${cuisine} Restaurants | iPop360`
     const description = location
-        ? `Discover the best ${cuisine.toLowerCase()} restaurants near you. Real reviews, ratings, and popularity rankings to help you find great dining options.`
-        : `Browse top-rated ${cuisine.toLowerCase()} restaurants with real reviews and accurate ratings. Find the best dining options with iPop360's smart rankings.`
+        ? (serpapiExhausted.value
+            ? `Discover the best ${cuisine.toLowerCase()} restaurants near you. Popularity rankings to help you find great dining options.`
+            : `Discover the best ${cuisine.toLowerCase()} restaurants near you. Real reviews, ratings, and popularity rankings to help you find great dining options.`)
+        : (serpapiExhausted.value
+            ? `Browse popular ${cuisine.toLowerCase()} restaurants and find the best dining options with iPop360's smart rankings.`
+            : `Browse top-rated ${cuisine.toLowerCase()} restaurants with real reviews and accurate ratings. Find the best dining options with iPop360's smart rankings.`)
 
     return useSeo({
         title,
@@ -79,13 +85,13 @@ const structuredData = computed(() => {
     return generateItemListJsonLd(items)
 })
 
-const sortOptions = [
+const sortOptions = computed(() => [
     { value: 'best_match', label: 'Best Match' },
     { value: 'nearest', label: 'Nearest' },
-    { value: 'rating', label: 'Rating' },
+    { value: 'rating', label: serpapiExhausted.value ? 'Ratings temporarily unavailable' : 'Rating' },
     { value: 'reviews', label: 'Reviews' },
     { value: 'price', label: 'Price (Low to High)' },
-];
+]);
 
 function updateSort(newSort: string) {
     router.get(

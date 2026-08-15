@@ -434,4 +434,46 @@ class PopularityScoreServiceTest extends TestCase
         $absent = $service->calculateBreakdownForArray([], $all);
         $this->assertNotContains('Cuisine Match', collect($absent['signals'])->pluck('label')->toArray());
     }
+
+    public function test_all_unrated_collection_still_scores_finite_and_differentiated(): void
+    {
+        // Fail-open enrichment (SerpApi exhausted) yields rows with NO rating, so
+        // the leading quality signal (0.35) drops out of the active set for the
+        // ENTIRE collection. The always-active completeness signal plus the free
+        // social-presence signal must renormalize over the shrunken active set so
+        // the collection still scores finite, non-zero, and differentiated —
+        // richer free data outranks sparser free data instead of collapsing to a
+        // tie (the all-unrated renormalization lock-in).
+        $rich = $this->makeRestaurant(array_merge($this->fullFreeFields(), [
+            'name' => 'Rich Free Listing',
+            'social_links_count' => 4,
+            'google_rating' => null,
+            'google_review_count' => 0,
+        ]));
+        $sparse = $this->makeRestaurant([
+            'name' => 'Sparse Free Listing',
+            'social_links_count' => 4,
+            'google_rating' => null,
+            'google_review_count' => 0,
+        ]);
+
+        $all = new Collection([$rich, $sparse]);
+
+        $richScore = $this->service->calculateScore($rich, $all);
+        $sparseScore = $this->service->calculateScore($sparse, $all);
+
+        // Finite (no NaN/INF) and non-zero for populated rows.
+        $this->assertFinite($richScore);
+        $this->assertFinite($sparseScore);
+        $this->assertGreaterThan(0.0, $richScore);
+        $this->assertGreaterThan(0.0, $sparseScore);
+
+        // Differentiated: richer free data (higher completeness) outranks sparser.
+        $this->assertGreaterThan($sparseScore, $richScore);
+
+        // Quality stays OUT of the active set for unrated rows — its 0.35 weight
+        // is redistributed across the surviving signals, not a dead contributor.
+        $breakdown = $this->service->calculateBreakdown($rich, $all);
+        $this->assertNotContains('Quality', collect($breakdown['signals'])->pluck('label')->toArray());
+    }
 }

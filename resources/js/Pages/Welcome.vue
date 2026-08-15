@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router } from '@inertiajs/vue3'
+import { router, usePage } from '@inertiajs/vue3'
 import { ref, computed, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -135,13 +135,14 @@ const selectedLabel = ref<string | null>(null)
 
 // Sort state
 const sort = ref<string>('best_match')
-const sortOptions = [
+const serpapiExhausted = computed(() => usePage().props.serpapi_exhausted)
+const sortOptions = computed(() => [
     { value: 'best_match', label: 'Best Match' },
     { value: 'nearest', label: 'Nearest' },
-    { value: 'rating', label: 'Rating' },
+    { value: 'rating', label: serpapiExhausted.value ? 'Ratings temporarily unavailable' : 'Rating' },
     { value: 'reviews', label: 'Reviews' },
     { value: 'price', label: 'Price' },
-]
+])
 
 // Persisted location (city/state/coords from localStorage)
 const { location: persistedLocation, lat, lng, persistLocation, restore: restorePersistedLocation } = usePersistedLocation(props.location, props.fallbackCoords)
@@ -171,7 +172,9 @@ const baseUrl = useBaseUrl()
 const seoData = computed(() => {
     return useSeo({
         title: 'Find Popular Restaurants Near You | iPop360',
-        description: 'Discover top-rated restaurants near you with iPop360. Real reviews, accurate ratings, and smart rankings help you find the best dining options in your area.',
+        description: serpapiExhausted.value
+            ? 'Discover popular restaurants near you with iPop360. Smart rankings help you find the best dining options in your area.'
+            : 'Discover top-rated restaurants near you with iPop360. Real reviews, accurate ratings, and smart rankings help you find the best dining options in your area.',
         url: `${baseUrl.value}/`,
         type: 'website',
     })

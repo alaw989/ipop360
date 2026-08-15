@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import Search from '@/Pages/Search.vue'
 import { router } from '@inertiajs/vue3'
+import { useSeo } from '@/composables/useSeo'
+
+const mockSerpapiExhausted = vi.hoisted(() => ({ value: false }))
 
 vi.mock('@inertiajs/vue3', async () => {
     const actual = await vi.importActual('@inertiajs/vue3')
@@ -11,9 +14,17 @@ vi.mock('@inertiajs/vue3', async () => {
             get: vi.fn(),
             on: vi.fn(),
         },
+        usePage: () => ({ props: { serpapi_exhausted: mockSerpapiExhausted.value } }),
         Link: { template: '<a><slot /></a>' },
     }
 })
+
+vi.mock('@/composables/useSeo', () => ({
+    useSeo: vi.fn((options: Record<string, unknown>) => options),
+    generateItemListJsonLd: vi.fn(() => ({ '@type': 'ItemList', itemListElement: [] })),
+}))
+
+const mockedUseSeo = vi.mocked(useSeo)
 
 const stubs = {
     AppLayout: { template: '<div><slot /></div>' },
@@ -48,6 +59,7 @@ function mountSearch(props = {}) {
 describe('Search location banner', () => {
     beforeEach(() => {
         localStorage.clear()
+        mockSerpapiExhausted.value = false
     })
 
     it('shows location banner when hasCoords is false and distance filter is set', () => {
@@ -90,5 +102,45 @@ describe('Search handleFilterChange', () => {
             { cuisine: 'chinese' },
             expect.objectContaining({ preserveState: true, replace: true }),
         )
+    })
+})
+
+describe('Search rating sort relabel', () => {
+    beforeEach(() => {
+        mockSerpapiExhausted.value = false
+    })
+
+    it('shows "Rating" when SerpApi provider is not exhausted', () => {
+        const wrapper = mountSearch()
+        const rating = wrapper.findAll('#search-sort option').find((o) => o.attributes('value') === 'rating')
+        expect(rating!.text()).toBe('Rating')
+    })
+
+    it('relabels Rating option when SerpApi provider is exhausted', () => {
+        mockSerpapiExhausted.value = true
+        const wrapper = mountSearch()
+        const rating = wrapper.findAll('#search-sort option').find((o) => o.attributes('value') === 'rating')
+        expect(rating!.text()).toBe('Ratings temporarily unavailable')
+    })
+})
+
+describe('Search SEO copy', () => {
+    beforeEach(() => {
+        mockSerpapiExhausted.value = false
+        mockedUseSeo.mockClear()
+    })
+
+    it('mentions rating in description when SerpApi is available', () => {
+        mountSearch({ cuisineName: 'Italian' })
+        expect(mockedUseSeo).toHaveBeenCalledWith(expect.objectContaining({
+            description: expect.stringContaining('rating'),
+        }))
+    })
+
+    it('drops rating phrasing when SerpApi is exhausted', () => {
+        mockSerpapiExhausted.value = true
+        mountSearch({ cuisineName: 'Italian' })
+        const last = mockedUseSeo.mock.calls.at(-1)![0] as { description: string }
+        expect(last.description).not.toMatch(/rating/i)
     })
 })
