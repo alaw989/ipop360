@@ -33,7 +33,7 @@ class RestaurantEnrichmentServiceTest extends TestCase
      * Only the throttling / quota-guard contract under test is exercised, so
      * none of the 11 collaborators' real (network/DB) paths are ever hit.
      */
-    private function makeService(?callable $configureSerpApi = null): RestaurantEnrichmentService
+    private function makeService(?callable $configureSerpApi = null, ?callable $configureFreeSources = null): RestaurantEnrichmentService
     {
         /** @var OverpassService&MockInterface $overpass */
         $overpass = Mockery::mock(OverpassService::class)->shouldIgnoreMissing();
@@ -66,6 +66,10 @@ class RestaurantEnrichmentServiceTest extends TestCase
 
         if ($configureSerpApi !== null) {
             $configureSerpApi($serpApiService);
+        }
+
+        if ($configureFreeSources !== null) {
+            $configureFreeSources($bizData, $overpass, $socrataService);
         }
 
         return new RestaurantEnrichmentService(
@@ -209,29 +213,42 @@ class RestaurantEnrichmentServiceTest extends TestCase
     }
 
     /**
-     * Honest quota accounting: when SerpApi has flagged the account exhausted
-     * (429 "out of searches"), throttled enrichment must honor the 24h flag and
-     * stop BEFORE attempting a live fetch — it must not count phantom "real
-     * calls" for combos where poolRequestsFor() would silently issue nothing.
+     * Fail-open enrichment: when SerpApi has flagged the account exhausted
+     * (429 "out of searches"), throttled enrichment must NOT stop the grid —
+     * every city×cuisine combo still runs the free sources (BizData/Overpass/
+     * Socrata + the AI/photo/social/website enrichment they trigger), makes
+     * ZERO SerpApi calls, and keeps quota_exhausted surfaced so the outage
+     * stays visible. Ratings backfill later via the need-ordering grid.
      */
-    public function test_stops_when_provider_exhausted(): void
+    public function test_runs_free_sources_for_every_combo_when_provider_exhausted(): void
     {
-        Config::set('restaurant-finder.cities', ['Mobile' => [30.69, -88.04]]);
+        Config::set('restaurant-finder.cities', [
+            'Mobile' => [30.69, -88.04],
+            'Austin' => [30.27, -97.74],
+        ]);
         Config::set('restaurant-finder.cuisines', ['Taco']);
         // Budgets far above the grid so neither the monthly nor per-run cap fires
-        // first — the provider-exhaustion flag must be what stops the run.
+        // first — the provider-exhaustion flag is what switches the run to fail-open.
         Config::set('restaurant-finder.enrich.monthly_budget', 1000);
         Config::set('restaurant-finder.enrich.per_run_cap', 1000);
 
         Cuisine::factory()->create(['slug' => 'taco', 'name' => 'Taco']);
 
+        // The free-source mocks return [] so enrichByCuisine() completes cleanly;
+        // the ->times(2) expectations assert every one of the 2 combos still hit
+        // the free sources instead of being short-circuited by the exhaustion break.
         $result = $this->makeService(
-            fn ($mock) => $mock->shouldReceive('isProviderExhausted')->andReturn(true)
+            fn ($mock) => $mock->shouldReceive('isProviderExhausted')->andReturn(true),
+            function ($bizData, $overpass, $socrata) {
+                $bizData->shouldReceive('poolRequestsFor')->times(2)->andReturn([]);
+                $overpass->shouldReceive('poolRequestsFor')->times(2)->andReturn([]);
+                $socrata->shouldReceive('poolRequestsFor')->times(2)->andReturn([]);
+            }
         )->enrichAllCitiesThrottled();
 
         $this->assertTrue($result['quota_exhausted']);
         $this->assertSame(0, $result['real_calls_made']);
-        $this->assertSame(0, $result['total_processed']);
+        $this->assertSame(2, $result['total_processed']);
         $this->assertFalse($result['per_run_cap_reached']);
     }
 }

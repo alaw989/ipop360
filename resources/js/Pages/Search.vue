@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SearchFilters from '@/Components/SearchFilters.vue';
@@ -43,15 +43,16 @@ function dismissLocationBanner() {
 router.on('start', () => { isLoading.value = true; });
 router.on('finish', () => { isLoading.value = false; });
 
-const sortOptions = [
+const serpapiExhausted = computed(() => usePage().props.serpapi_exhausted);
+const sortOptions = computed(() => [
     { value: 'best_match', label: 'Best Match' },
     { value: 'nearest', label: 'Nearest' },
-    { value: 'rating', label: 'Rating' },
+    { value: 'rating', label: serpapiExhausted.value ? 'Ratings temporarily unavailable' : 'Rating' },
     { value: 'reviews', label: 'Reviews' },
     { value: 'price', label: 'Price (Low to High)' },
     { value: 'social_presence', label: 'Social Presence' },
     { value: 'website_traffic', label: 'Website Traffic' },
-];
+]);
 
 const currentSort = computed(() => (props.filters["sort"] as string) || 'best_match');
 
@@ -88,8 +89,12 @@ const seoData = computed(() => {
         ? `Best ${cuisine} Near You | iPop360`
         : 'Search Restaurants Near You | iPop360';
     const description = cuisine
-        ? `Search ${cuisine.toLowerCase()} restaurants by cuisine, rating, and price. Find the most popular dining spots near you with iPop360's smart rankings.`
-        : 'Search for restaurants by cuisine, rating, and price. Find the most popular dining spots near you with iPop360\'s smart rankings.';
+        ? (serpapiExhausted.value
+            ? `Search ${cuisine.toLowerCase()} restaurants by cuisine and price. Find the most popular dining spots near you with iPop360's smart rankings.`
+            : `Search ${cuisine.toLowerCase()} restaurants by cuisine, rating, and price. Find the most popular dining spots near you with iPop360's smart rankings.`)
+        : (serpapiExhausted.value
+            ? 'Search for restaurants by cuisine and price. Find the most popular dining spots near you with iPop360\'s smart rankings.'
+            : 'Search for restaurants by cuisine, rating, and price. Find the most popular dining spots near you with iPop360\'s smart rankings.');
 
     return useSeo({
         title,

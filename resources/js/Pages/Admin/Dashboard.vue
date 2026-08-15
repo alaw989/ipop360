@@ -22,6 +22,7 @@ defineProps<{
         circuit_breaker_tripped: boolean;
         enrich_budget: number;
         enrich_budget_exhausted: boolean;
+        serpapi_exhausted: boolean;
     };
     scrapeHealth: {
         last_social_scrape: string | null;
@@ -154,6 +155,16 @@ function gapBadgeVariant(gap: string): 'default' | 'secondary' | 'destructive' |
                 <!-- SerpApi Quota -->
                 <div class="mb-8">
                     <h3 class="mb-4 text-lg font-semibold text-gray-900">SerpApi Quota</h3>
+
+                    <Card v-if="serpapiQuota.serpapi_exhausted" class="mb-4 border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950">
+                        <CardContent class="flex items-center gap-2 py-4">
+                            <AlertCircle class="h-5 w-5 shrink-0 text-amber-600" />
+                            <p class="text-sm font-medium text-amber-800 dark:text-amber-200">
+                                SerpApi account is exhausted ("out of searches"). Enrichment continues via free sources; ratings backfill is paused.
+                            </p>
+                        </CardContent>
+                    </Card>
+
                     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <Card>
                             <CardHeader class="pb-2">

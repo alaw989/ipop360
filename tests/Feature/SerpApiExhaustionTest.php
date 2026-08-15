@@ -196,4 +196,20 @@ class SerpApiExhaustionTest extends TestCase
 
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'serpapi.com'));
     }
+
+    /**
+     * The public UI must know about the outage via a global Inertia shared
+     * prop (so it can relabel the Rating sort option and swap SEO copy), not
+     * just the admin dashboard.
+     */
+    public function test_shared_inertia_prop_reports_provider_exhaustion(): void
+    {
+        $this->get('/')->assertInertia(fn ($page) => $page
+            ->where('serpapi_exhausted', false));
+
+        app(SerpApiService::class)->markProviderExhausted();
+
+        $this->get('/')->assertInertia(fn ($page) => $page
+            ->where('serpapi_exhausted', true));
+    }
 }

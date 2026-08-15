@@ -8,6 +8,7 @@ use App\Models\Cuisine;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use App\Models\User;
+use App\Services\SerpApiService;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -32,6 +33,7 @@ class DashboardController extends Controller
             'circuit_breaker_tripped' => $serpapiCalls >= $circuitBreakerThreshold,
             'enrich_budget' => $enrichBudget,
             'enrich_budget_exhausted' => $serpapiCalls >= $enrichBudget,
+            'serpapi_exhausted' => app(SerpApiService::class)->isProviderExhausted(),
         ];
 
         // Entity counts
@@ -68,7 +70,12 @@ class DashboardController extends Controller
                 DB::raw('CASE WHEN opening_hours IS NULL THEN 1 ELSE 0 END as missing_hours'),
                 DB::raw('CASE WHEN photo_url IS NULL THEN 1 ELSE 0 END as missing_photo'),
             ])
-            ->havingRaw('missing_website + missing_social + missing_hours + missing_photo > 0')
+            ->where(function ($q) {
+                $q->whereRaw("website_url IS NULL OR website_url = ''")
+                    ->orWhereRaw('social_links_count = 0')
+                    ->orWhereNull('opening_hours')
+                    ->orWhereNull('photo_url');
+            })
             ->orderByRaw('missing_website + missing_social + missing_hours + missing_photo DESC')
             ->limit(20)
             ->get()

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import Welcome from '@/Pages/Welcome.vue'
+import { useSeo } from '@/composables/useSeo'
 
 const {
     mockRouterGet,
@@ -65,6 +66,8 @@ const {
     }
 })
 
+const mockSerpapiExhausted = vi.hoisted(() => ({ value: false }))
+
 vi.mock('@inertiajs/vue3', async () => {
     const actual = await vi.importActual('@inertiajs/vue3')
     return {
@@ -72,18 +75,19 @@ vi.mock('@inertiajs/vue3', async () => {
         router: {
             get: mockRouterGet,
         },
+        usePage: () => ({ props: { serpapi_exhausted: mockSerpapiExhausted.value } }),
         Head: { template: '<div />' },
         Link: { template: '<a><slot /></a>' },
     }
 })
 
 vi.mock('@/composables/useSeo', () => ({
-    useSeo: vi.fn(() => ({
-        title: 'Find Popular Restaurants Near You | iPop360',
-        description: 'Test description',
+    useSeo: vi.fn((options: any) => ({
+        title: options.title,
+        description: options.description,
         canonical: 'http://localhost/',
-        url: 'http://localhost/',
-        type: 'website',
+        url: options.url ?? 'http://localhost/',
+        type: options.type ?? 'website',
     })),
     generateWebSiteJsonLd: vi.fn(() => ({ '@type': 'WebSite' })),
     generateOrganizationJsonLd: vi.fn(() => ({ '@type': 'Organization' })),
@@ -242,6 +246,7 @@ function mountWelcome(propsOverrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
     mockRouterGet.mockClear()
+    mockSerpapiExhausted.value = false
     mockPersistedLocation.value = { city: null, state: null }
     mockLat.value = null
     mockLng.value = null
@@ -418,6 +423,26 @@ describe('Welcome', () => {
             mockGeolocationError.value = null
             const wrapper = mountWelcome()
             // Card stub may still render if HeroBanner or other stubs don't use Card
+        })
+    })
+
+    describe('SEO description', () => {
+        beforeEach(() => {
+            vi.mocked(useSeo).mockClear()
+        })
+
+        it('mentions real reviews and accurate ratings when SerpApi is available', () => {
+            mountWelcome()
+            expect(vi.mocked(useSeo)).toHaveBeenCalledWith(expect.objectContaining({
+                description: expect.stringContaining('Real reviews, accurate ratings'),
+            }))
+        })
+
+        it('uses neutral copy when SerpApi is exhausted', () => {
+            mockSerpapiExhausted.value = true
+            mountWelcome()
+            const last = vi.mocked(useSeo).mock.calls.at(-1)![0] as { description: string }
+            expect(last.description).not.toMatch(/review|rating/i)
         })
     })
 })

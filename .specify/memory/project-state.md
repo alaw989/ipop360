@@ -2,7 +2,29 @@
 
 > Living snapshot for Claude (and humans) picking up this project. Read this
 > together with `constitution.md` and `backlog.md` at session start. Detailed
-> per-spec history lives in `history/`. Updated: 2026-08-11.
+> per-spec history lives in `history/`. Updated: 2026-08-15.
+
+## Latest (2026-08-15) — photo pipeline, data hygiene, distance miles, skill conversion, local-first protocol
+
+**Session wrap-up:** see `history/2026-08-15--photo-pipeline-skill-protocol.md`.
+
+**Highlights (all live-verified):**
+- **Data-hygiene loop** (#107), **distance in miles** (#108), **photo
+  verification** (#109), **name-relevance guard** (#110), **context-first image
+  search** (#111) — merged + deployed.
+- Scheduler verified firing on time; **SerpApi quota exhausted** (free sources
+  carry on). 06:30 fill: 153 photos, 445 verify re-sourced (431 authoritative).
+- **Local-first protocol** created: `~/.config/opencode/protocol-default.md`
+  (no commit/PR/deploy until operator approves locally) — wired into
+  `opencode.jsonc`, needs restart.
+- **enrichment-logs skill → `.opencode/skills/enrichment-logs/SKILL.md`** (native
+  project-skill path, no symlinks), hardened via loop, needs restart to register.
+- **QUEUED backlog goals (not started):** ingestion-time enrichment (top),
+  photo-verify hardening, scheduler audit, data-gap remediation, prod-DB
+  pull-down. Worktree has uncommitted `.opencode/skills/`.
+
+**Current floor:** 812 PHPUnit + 1056 vitest; PHPStan level 8 zero baseline;
+pint clean; CI enforces coverage + PHP 8.4; CI + deploy green.
 
 ## Latest (2026-08-11, later) — blog foundation + search audit + loop process
 Six PRs shipped and deployed this session (all live-verified):

@@ -826,19 +826,33 @@ class RestaurantEnrichmentService
                 continue;
             }
 
-            // Honest quota accounting: when SerpApi has flagged the account
-            // exhausted (429 "out of searches"), no live call can succeed for the
-            // retry window. Stop the run instead of attempting fetches that would
-            // only 429 — and instead of counting phantom "real calls" for combos
-            // where poolRequestsFor() silently issued no outbound request.
+            // Fail-open: when SerpApi has flagged the account exhausted (429
+            // "out of searches"), no live call can succeed for the retry window.
+            // Don't stop the grid — run the free sources (BizData/Overpass/
+            // Socrata + the AI/photo/social/website enrichment they trigger) for
+            // this combo anyway, and keep quota_exhausted surfaced. Ratings
+            // backfill later via the need-ordering grid (buildCityCuisineGrid).
             if ($this->serpApiService->isProviderExhausted()) {
                 $quotaExhausted = true;
-                Log::channel('enrichment')->info('SerpApi provider exhausted; stopping throttled enrichment', [
-                    'city' => $cityName,
-                    'cuisine' => $cuisine->name,
-                ]);
 
-                break;
+                try {
+                    $stateCode = config('restaurant-finder.city_states.'.$cityName);
+                    $count = $this->enrichByCuisine($lat, $lng, $cuisine, true, $cityName, $stateCode);
+                    $totalProcessed++;
+                    Log::channel('enrichment')->info('SerpApi provider exhausted; ran free sources for combo', [
+                        'city' => $cityName,
+                        'cuisine' => $cuisine->name,
+                        'restaurants_enriched' => $count,
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::channel('enrichment')->error('Failed to enrich combo (free only, provider exhausted)', [
+                        'city' => $cityName,
+                        'cuisine' => $cuisine->name,
+                        'message' => $e->getMessage(),
+                    ]);
+                }
+
+                continue;
             }
 
             if ($realCallsThisMonth >= $monthlyBudget) {
