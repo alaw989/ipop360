@@ -106,9 +106,10 @@ class PhotoBackfillImprovementsTest extends TestCase
         $schedule = app(Schedule::class);
 
         $events = collect($schedule->events())
-            ->filter(fn ($event) => str_contains($event->command ?? $event->description ?? '', 'restaurants:backfill-photos'));
+            ->filter(fn ($event) => str_contains($event->command ?? $event->description ?? '', 'restaurants:backfill-photos')
+                && ! str_contains($event->command ?? '', '--verify'));
 
-        $this->assertCount(1, $events, 'exactly one scheduled backfill-photos event');
+        $this->assertCount(1, $events, 'exactly one daily backfill-photos event (the weekly --verify sweep is separate)');
         $command = $events->first()->command ?? '';
 
         $this->assertStringContainsString('--min-photos', $command, 'scheduled run must top up gallery arrays');

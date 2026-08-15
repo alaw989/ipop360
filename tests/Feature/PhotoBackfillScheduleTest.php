@@ -37,10 +37,12 @@ class PhotoBackfillScheduleTest extends TestCase
         /** @var Schedule $schedule */
         $schedule = app(Schedule::class);
 
+        // Exclude the weekly --verify sweep: it also references backfill-photos.
         $events = collect($schedule->events())
-            ->filter(fn ($event) => str_contains($event->command ?? $event->description ?? '', 'restaurants:backfill-photos'));
+            ->filter(fn ($event) => str_contains($event->command ?? $event->description ?? '', 'restaurants:backfill-photos')
+                && ! str_contains($event->command ?? '', '--verify'));
 
-        $this->assertCount(1, $events, 'restaurants:backfill-photos must be scheduled exactly once');
+        $this->assertCount(1, $events, 'exactly one daily backfill-photos run (the weekly --verify sweep is separate)');
 
         $event = $events->first();
         $this->assertStringContainsString('backfill-photos', $event->command ?? '', 'Scheduled event must reference the backfill-photos command');

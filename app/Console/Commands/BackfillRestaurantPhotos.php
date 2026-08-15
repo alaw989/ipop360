@@ -6,6 +6,7 @@ use App\Models\Restaurant;
 use App\Services\RestaurantWebsiteScraperService;
 use App\Support\SqlDialect;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -28,9 +29,16 @@ class BackfillRestaurantPhotos extends Command
         {--apply : Persist changes (default is a read-only dry run)}
         {--limit=0 : Max restaurants to process (0 = all missing)}
         {--with-website : Only process rows that already have a website_url}
-        {--min-photos=0 : Also top up rows that already have a photo but fewer than N gallery photos}';
+        {--min-photos=0 : Also top up rows that already have a photo but fewer than N gallery photos}
+        {--verify : Verify existing photo URLs (HEAD/GET), re-source dead ones, dedupe gallery}';
 
     protected $description = 'Backfill missing restaurant photos + gallery arrays from free sources (website og:image, Wikimedia, Wikipedia)';
+
+    /** Timeout for the photo-url liveness check (seconds). */
+    private const VERIFY_TIMEOUT = 8;
+
+    /** User agent for the photo-url liveness check. */
+    private const VERIFY_USER_AGENT = 'Mozilla/5.0 (compatible; iPop360-Verify/1.0)';
 
     private int $found = 0;
 
@@ -38,8 +46,18 @@ class BackfillRestaurantPhotos extends Command
 
     private int $failed = 0;
 
+    private int $verified = 0;
+
+    private int $dead = 0;
+
+    private int $resourced = 0;
+
     public function handle(RestaurantWebsiteScraperService $scraper): int
     {
+        if ($this->option('verify')) {
+            return $this->handleVerify($scraper);
+        }
+
         $apply = (bool) $this->option('apply');
         $limit = (int) $this->option('limit');
         $withWebsite = (bool) $this->option('with-website');
@@ -141,6 +159,166 @@ class BackfillRestaurantPhotos extends Command
         $this->line("Failed: {$this->failed}");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Verify existing photo URLs: HTTP-check each one (HEAD→GET fallback),
+     * keep valid photos untouched, and re-source confirmed-dead ones via the
+     * free searchAnyImage chain. gps-cs-s Google CDN URLs decay opaquely
+     * (~1-month) so they are prioritized for checking. Dead URLs are dropped
+     * from the gallery. Default is a dry run; pass --apply to persist.
+     */
+    private function handleVerify(RestaurantWebsiteScraperService $scraper): int
+    {
+        $apply = (bool) $this->option('apply');
+        $limit = (int) $this->option('limit');
+        $galleryMax = (int) config('restaurant-finder.live_search.gallery_photos_max', 6);
+
+        $query = Restaurant::query()
+            ->active()
+            ->whereNotNull('photo_url')
+            ->where('photo_url', '!=', '');
+
+        $total = (clone $query)->count();
+        if ($total === 0) {
+            $this->info('No restaurants with photos to verify.');
+
+            return self::SUCCESS;
+        }
+
+        // gps-cs-s CDN URLs decay opaquely (~1-month) — check those first.
+        $rows = (clone $query)
+            ->orderByRaw("CASE WHEN photo_url LIKE '%gps-cs-s%' THEN 0 ELSE 1 END")
+            ->orderBy('id')
+            ->limit($limit > 0 ? $limit : $total)
+            ->get();
+
+        $this->info(($apply ? 'Verifying' : 'Would verify')." photos for {$rows->count()} restaurant(s)...");
+
+        $bar = $this->output->createProgressBar($rows->count());
+        $bar->start();
+
+        foreach ($rows as $restaurant) {
+            try {
+                $current = (string) $restaurant->photo_url;
+
+                if ($this->isPhotoAlive($current)) {
+                    $this->verified++;
+                    $bar->advance();
+
+                    continue;
+                }
+
+                $this->dead++;
+                $fresh = $scraper->searchAnyImage(
+                    (string) $restaurant->name,
+                    $restaurant->city,
+                    $restaurant->state,
+                    $restaurant->website_url,
+                );
+
+                $updates = [];
+
+                if ($fresh !== null && $fresh !== $current) {
+                    $updates['photo_url'] = $fresh;
+                    $this->resourced++;
+                }
+
+                // Drop the dead URL from the gallery, seed the fresh photo.
+                $gallery = array_values(array_filter(
+                    (array) ($restaurant->photos ?? []),
+                    fn ($url) => trim((string) $url) !== '' && trim((string) $url) !== $current
+                ));
+
+                if ($fresh !== null) {
+                    $gallery = $this->mergeGallery($gallery, $fresh, $galleryMax);
+                }
+
+                if ($gallery !== (array) ($restaurant->photos ?? [])) {
+                    $updates['photos'] = $gallery;
+                }
+
+                if (! empty($updates)) {
+                    if ($apply) {
+                        $restaurant->update($updates);
+                        Log::channel('enrichment')->info('Photo verify re-sourced dead photo', [
+                            'restaurant_id' => $restaurant->id,
+                            'restaurant_name' => $restaurant->name,
+                            'old_photo_url' => $current,
+                            'new_photo_url' => $updates['photo_url'] ?? null,
+                        ]);
+                    } else {
+                        Log::channel('enrichment')->info('Photo verify (dry-run) would update', [
+                            'restaurant_id' => $restaurant->id,
+                            'restaurant_name' => $restaurant->name,
+                            'old_photo_url' => $current,
+                            'new_photo_url' => $updates['photo_url'] ?? null,
+                        ]);
+                    }
+                }
+            } catch (\Throwable $e) {
+                $this->failed++;
+                Log::channel('enrichment')->warning('Photo verify failed', [
+                    'restaurant_id' => $restaurant->id,
+                    'restaurant_name' => $restaurant->name,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+
+            $bar->advance();
+        }
+
+        $bar->finish();
+        $this->newLine(2);
+
+        $this->line('Mode: '.($apply ? '<fg=green>APPLIED (changes persisted)</>' : '<fg=yellow>DRY RUN (no changes persisted)</>'));
+        $this->line("Photos verified alive: {$this->verified}");
+        $this->line("Dead photos found: {$this->dead}");
+        $this->line("Re-sourced: {$this->resourced}");
+        $this->line("Failed: {$this->failed}");
+
+        Log::channel('enrichment')->info('Photo verify sweep complete', [
+            'mode' => $apply ? 'applied' : 'dry-run',
+            'total' => $rows->count(),
+            'verified' => $this->verified,
+            'dead' => $this->dead,
+            'resourced' => $this->resourced,
+            'failed' => $this->failed,
+        ]);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * HEAD-check a photo URL, falling back to GET. A 403 is retried once via
+     * the GET fallback — Google lh3 and other CDNs return a transient 403 that
+     * recovers on a second hit, so a single 403 must never churn a valid row.
+     */
+    private function isPhotoAlive(string $url): bool
+    {
+        if ($this->requestSucceeds($url, 'HEAD')) {
+            return true;
+        }
+
+        return $this->requestSucceeds($url, 'GET');
+    }
+
+    /**
+     * Perform one HTTP request and report whether it returned 200.
+     */
+    private function requestSucceeds(string $url, string $method): bool
+    {
+        try {
+            $request = Http::timeout(self::VERIFY_TIMEOUT)
+                ->withUserAgent(self::VERIFY_USER_AGENT)
+                ->withOptions(['allow_redirects' => ['max' => 3]]);
+
+            $response = $method === 'HEAD' ? $request->head($url) : $request->get($url);
+
+            return $response->status() === 200;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**

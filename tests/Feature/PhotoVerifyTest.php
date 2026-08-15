@@ -52,7 +52,9 @@ class PhotoVerifyTest extends TestCase
 
         $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
 
-        $this->assertSame('https://upload.wikimedia.org/valid.jpg', $r->fresh()->photo_url, 'valid photo must be kept untouched');
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('https://upload.wikimedia.org/valid.jpg', $fresh->photo_url, 'valid photo must be kept untouched');
     }
 
     public function test_verify_resources_dead_photo_from_free_chain(): void
@@ -77,6 +79,7 @@ class PhotoVerifyTest extends TestCase
         $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
 
         $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
         $this->assertSame('https://upload.wikimedia.org/fresh.jpg', $fresh->photo_url, 'dead photo must be re-sourced from the free chain');
         $this->assertIsArray($fresh->photos);
         $this->assertContains('https://upload.wikimedia.org/fresh.jpg', $fresh->photos);
@@ -100,9 +103,11 @@ class PhotoVerifyTest extends TestCase
 
         $this->artisan('restaurants:backfill-photos', ['--verify' => true]);
 
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
         $this->assertSame(
             'https://lh3.googleusercontent.com/gps-cs-s/DEADTOKEN=w400-h300-c-no',
-            $r->fresh()->photo_url,
+            $fresh->photo_url,
             'dry-run verify must not persist the re-sourced photo'
         );
     }
@@ -147,7 +152,9 @@ class PhotoVerifyTest extends TestCase
 
         $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
 
-        $this->assertSame('https://venue.example/flaky.jpg', $r->fresh()->photo_url, 'a photo that recovers on retry must be kept');
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('https://venue.example/flaky.jpg', $fresh->photo_url, 'a photo that recovers on retry must be kept');
     }
 
     public function test_verify_is_scheduled_weekly(): void

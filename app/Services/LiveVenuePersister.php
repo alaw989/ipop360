@@ -78,6 +78,7 @@ class LiveVenuePersister
             // has_award => false) can never clobber a true award set by
             // RestaurantEnrichmentService::enrichAwards. (spec-104 award audit)
             unset($attributes['has_award']);
+            $attributes = $this->guardTransientPhotos($restaurant, $attributes);
             $restaurant->update($attributes);
         } else {
             $restaurant = Restaurant::create($attributes);
@@ -104,6 +105,97 @@ class LiveVenuePersister
             'created' => $created,
             'venue' => $venue,
         ];
+    }
+
+    /**
+     * Guard an update against a transient Google gps-cs-s CDN photo. Those URLs
+     * (from SerpApi google_maps results) decay opaquely (~1-month), so a
+     * live-search venue carrying one must only fill photo_url when it is empty
+     * and must never overwrite an existing stable (Wikimedia/venue-owned) photo,
+     * nor displace one in the photos gallery.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private function guardTransientPhotos(Restaurant $restaurant, array $attributes): array
+    {
+        $incomingPhoto = $attributes['photo_url'] ?? null;
+
+        if (is_string($incomingPhoto) && $incomingPhoto !== '' && $this->isGpsCsSPhoto($incomingPhoto)) {
+            if (! empty($restaurant->photo_url)) {
+                $attributes['photo_url'] = $restaurant->photo_url;
+            }
+        }
+
+        $incomingPhotos = $attributes['photos'] ?? [];
+        $existingPhotos = $restaurant->photos ?? [];
+
+        if (
+            is_array($incomingPhotos) && $incomingPhotos !== []
+            && $existingPhotos !== []
+            && $this->containsGpsCsSPhoto($incomingPhotos)
+        ) {
+            $attributes['photos'] = $this->stablePhotosFirst($existingPhotos, $incomingPhotos);
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * Detect a Google gps-cs-s CDN photo URL (transient, ~1-month decay).
+     */
+    private function isGpsCsSPhoto(string $url): bool
+    {
+        return str_contains(strtolower($url), 'gps-cs-s');
+    }
+
+    /**
+     * @param  array<int, mixed>  $photos
+     */
+    private function containsGpsCsSPhoto(array $photos): bool
+    {
+        foreach ($photos as $photo) {
+            if (is_string($photo) && $this->isGpsCsSPhoto($photo)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Order gallery photos so a transient gps-cs-s entry never displaces an
+     * existing stable (Wikimedia/venue-owned) one: existing stable, incoming
+     * stable, existing transient, incoming transient — deduped.
+     *
+     * @param  array<int, mixed>  $existing
+     * @param  array<int, mixed>  $incoming
+     * @return string[]
+     */
+    private function stablePhotosFirst(array $existing, array $incoming): array
+    {
+        $stable = fn ($url): bool => is_string($url) && ! $this->isGpsCsSPhoto($url);
+        $transient = fn ($url): bool => is_string($url) && $this->isGpsCsSPhoto($url);
+
+        $ordered = array_merge(
+            array_values(array_filter($existing, $stable)),
+            array_values(array_filter($incoming, $stable)),
+            array_values(array_filter($existing, $transient)),
+            array_values(array_filter($incoming, $transient)),
+        );
+
+        $seen = [];
+        $result = [];
+        foreach ($ordered as $url) {
+            $url = trim((string) $url);
+            if ($url === '' || isset($seen[$url])) {
+                continue;
+            }
+            $seen[$url] = true;
+            $result[] = $url;
+        }
+
+        return $result;
     }
 
     /**
