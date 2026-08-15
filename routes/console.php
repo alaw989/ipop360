@@ -131,6 +131,20 @@ Schedule::command('restaurants:update-engagement')
         Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:update-engagement']);
     });
 
+// Continuous data-hygiene pass (runs at 01:00 UTC, after engagement aggregation
+// at 00:30 and before re-scoring at 02:00, so scores reflect a clean corpus).
+// Normalizes state/city/name/address/phone and merges true duplicates. Bounded
+// to 200 merge pairs + 200 enrich rows per run so a single daily sweep never
+// exhausts the AI quota; the next run picks up where this one left off.
+Schedule::command('restaurants:data-hygiene --apply --limit=200')
+    ->dailyAt('01:00')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->description('Normalize restaurant fields and merge true duplicates (data hygiene)')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:data-hygiene --apply --limit=200']);
+    });
+
 // AI enrichment fills missing description, phone, website_url, price_range,
 // and cuisines on all restaurants (uses Groq LLM, not SerpApi quota).
 // Runs every 6 hours so rate-limited records are gradually filled.
