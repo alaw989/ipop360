@@ -74,4 +74,17 @@ return [
         'cx' => env('GOOGLE_CSE_CX'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Operator notifications
+    |--------------------------------------------------------------------------
+    | Comma-separated list of email addresses that receive operator
+    | notifications (e.g. "new user registered"). Empty = no notifications.
+    | Kept separate from the user's own verification email.
+    */
+    'admin_notify_emails' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('ADMIN_NOTIFY_EMAILS', ''))
+    ))),
+
 ];
