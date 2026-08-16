@@ -1,66 +1,59 @@
 # Iteration Notes
 
 ## Goal
-fail-open enrichment: when the SerpApi provider is exhausted, change the throttled enrichment break -> continue so every city x cuisine combo still runs the free sources + AI/photo/social/website enrichment; keep quota_exhausted=true in the log + admin so the outage stays surfaced; ratings backfill later via the existing need-ordering (buildCityCuisineGrid). Tests: provider exhausted -> combos still processed via free sources, 0 SerpApi calls, quota_exhausted true; all-unrated collection still scores finite + differentiated (lock in PopularityScoreService renormalization). Frontend: expose serpapi_exhausted shared prop; RELABEL (not hide) the Rating sort option ('ratings temporarily unavailable') so the UI doesn't shift on recovery; neutral SEO copy for the 'real reviews / accurate ratings' phrasing while exhausted.
+registration/login hardening: (1) send an admin/operator notification (app/Notifications) on every new registration - 'New user registered: name, email' - TO a configurable comma-separated recipient list (ADMIN_NOTIFY_EMAILS env), separate from the user's own verification email; (2) add throttle to the forgot-password POST route (e.g. throttle:3,5) so reset links can't be spammed; (3) document + decide auto-login for unverified users (recommend: keep auto-login, gate protected routes on verified as now - unchanged behavior, made explicit + tested); (4) pin the full lifecycle with feature tests: register -> verification email sent (Mail::fake) -> verify link works -> dashboard; wrong password x5 -> lockout message; forgot-password throttle; duplicate email rejected; new-user notification delivered. Keep registration throttling (spec-089) intact.
 
 ## State
 
-### Done (this iteration)
-- **All-unrated renormalization lock-in test** (`PopularityScoreServiceTest`) —
-  `test_all_unrated_collection_still_scores_finite_and_differentiated`. When SerpApi is
-  exhausted, every fail-open-enriched row has no rating, so the leading `quality` signal
-  (0.35) drops out for the entire collection. The test locks in that the always-active
-  `data_completeness` + free `social_links_count` signals renormalize over the shrunken
-  active set: a rich free listing (9/10 completeness) vs a sparse one (2/10) both score
-  finite + non-zero, the rich row strictly outranks the sparse one (no tie), and
-  `Quality` stays OUT of the active set (its weight redistributed, not a dead contributor).
-  No production code change needed — the renormalization path already behaved correctly.
-- **Ratings backfill** is already served by the existing `buildCityCuisineGrid`
-  need-ordering (unrated cities sort first, so a recovered provider refills ratings
-  where they're missing first). Confirmed no code change is required there.
+### Done (iteration 1 — part 1: admin new-user notification)
+- Added `app/Notifications/NewUserRegistered.php` (mail notification, subject/line
+  "New user registered: {name}, {email}").
+- Wired `RegisteredUserController::store` to send it via `Notification::route('mail', $emails)`
+  to a comma-separated recipient list from `ADMIN_NOTIFY_EMAILS`, exposed as
+  `config('services.admin_notify_emails')` (config/services.php). No-op when empty.
+- Added `ADMIN_NOTIFY_EMAILS=` to `.env.example`.
+- Tests in `tests/Feature/Auth/RegistrationTest.php`:
+  `test_registration_notifies_admin_recipients_when_configured` (asserts on-demand send
+  to both addresses + name/email payload) and `test_registration_does_not_notify_admins_when_unconfigured`
+  (`assertSentOnDemandTimes(..., 0)`).
+- Verification: `pint --test` passed, `phpstan` clean, `php artisan test tests/Feature/Auth` 23 passed.
 
-### Verified
-- `php artisan test` — 816 passed (3452 assertions)
-- `vendor/bin/pint --test tests/Unit/PopularityScoreServiceTest.php` — clean
-- (prior iterations) `npx vitest run` — 71 files / 1068 tests; `npx vue-tsc --noEmit` — clean
+### Done (iteration 2 — part 2: forgot-password throttle)
+- Added `->middleware('throttle:3,5')` to the `forgot-password` POST route in routes/auth.php
+  (3 attempts per 5 min, keyed by IP) so reset links can't be spammed.
+- Added `test_forgot_password_is_throttled_after_three_attempts` in
+  `tests/Feature/Auth/PasswordResetTest.php`: 3 posts succeed, 4th returns 429.
+- Verification: `php artisan test tests/Feature/Auth/PasswordResetTest.php` 5 passed;
+  `pint --test` clean.
 
-### Next (remaining goal work)
-- None. All goal items are complete:
-  1. fail-open `break`→`continue` (iteration 1)
-  2. `quota_exhausted` surfaced in log + admin (iterations 1–2)
-  3. `serpapi_exhausted` shared prop (iteration 3)
-  4. Rating sort relabel (iteration 4)
-  5. neutral SEO copy (iteration 5)
-  6. all-unrated finite + differentiated lock-in (this iteration)
+### Done (iteration 3 — part 3: document + pin auto-login for unverified users)
+- Added `test_unverified_registered_user_is_redirected_to_verification_notice_from_dashboard`
+  in `tests/Feature/Auth/RegistrationTest.php`: registers (auto-login), asserts authenticated,
+  then GET /dashboard redirects to `verification.notice` (/verify-email).
+- Documented the decision inline in `RegisteredUserController::store` (auto-login kept;
+  protected routes gated on `verified`). Behavior unchanged — now explicit + tested.
+- Verification: `php artisan test tests/Feature/Auth/RegistrationTest.php` 6 passed;
+  `pint --test` clean.
+
+### Done (iteration 4 — part 4: remaining lifecycle tests)
+- Added `test_users_are_locked_out_after_five_failed_login_attempts` in
+  `tests/Feature/Auth/AuthenticationTest.php`: 5 wrong-password posts, 6th asserts
+  `assertSessionHasErrors('email')` and that the message contains "Too many login attempts".
+- Added `test_duplicate_email_registration_is_rejected` in
+  `tests/Feature/Auth/RegistrationTest.php`: pre-existing email re-registering asserts
+  `assertSessionHasErrors('email')`, `assertGuest()`, and `assertDatabaseCount('users', 1)`.
+- Verification: `php artisan test tests/Feature/Auth` 27 passed (61 assertions);
+  `pint --test` clean.
+
+### Next
+- None — all four goal parts are now complete and pinned with feature tests.
+  Registration throttling (`throttle:5,1`, spec-089) left intact in routes/auth.php.
 
 ### Gotchas
-- Provider exhaustion state lives in the app cache (`serpapi_provider_exhausted`, 24h
-  retry), NOT the DB — so the admin flag reflects the live cache, not a persisted row.
-  In array-cache tests `markProviderExhausted()` / `Cache::forget()` drive it directly.
-- The `where`-closure rewrite of the missing-data query must stay behavior-identical:
-  it reproduces "at least one of the four gaps" exactly (no HAVING, no aggregate).
-- `serpapi_exhausted` (provider "out of searches") is DISTINCT from
-  `enrich_budget_exhausted` (monthly spend) and `circuit_breaker_tripped` (30d calls)
-  — the three are shown side-by-side in the same SerpApi Quota card grid.
+- `NotificationFake::assertSentOnDemand` callback signature is `(notification, channels[],
+  notifiable, locale)` — 2nd arg is the channels ARRAY, not a single channel string.
+- There is no `assertNotSentOnDemand`; use `assertSentOnDemandTimes($class, 0)` or
+  `assertNotSentTo(new AnonymousNotifiable, $class)`.
+- AnonymousNotifiable `getKey()` returns null, so all on-demand sends share one bucket in the fake.
 
 ## Log
-- 2026-08-15: iteration 1 — fail-open `break`→`continue` + free-source processing for
-  provider-exhausted combos; unit test rewritten to assert the new behavior.
-- 2026-08-15: iteration 2 — admin dashboard surfaces `serpapi_exhausted` (controller
-  + Vue banner + tests); fixed SQLite `HAVING`-on-non-aggregate bug in the missing-data
-  query that blocked any admin dashboard feature test.
-- 2026-08-15: iteration 3 — global `serpapi_exhausted` Inertia shared prop
-  (`HandleInertiaRequests` + `PageProps` type + feature test); unlocks the Rating
-  relabel + SEO copy work on the public search UI.
-- 2026-08-15: iteration 4 — relabeled the Rating sort option to "Ratings temporarily
-  unavailable" when exhausted (`Welcome.vue`, `Search.vue`, `Restaurants/Index.vue`
-  `sortOptions` → `computed` keyed off `usePage().props.serpapi_exhausted`); added
-  `usePage` mocks + relabel assertions to the three page spec files.
-- 2026-08-15: iteration 5 — neutral SEO copy while exhausted: `Welcome.vue`,
-  `Search.vue`, `Restaurants/Index.vue` meta descriptions drop "real reviews / accurate
-  ratings" (and "rating" in Search's "by cuisine, rating, and price") when
-  `serpapi_exhausted`; `useSeo` mocks in the three specs now pass options through for
-  call-arg assertions + new "SEO description" describe blocks.
-- 2026-08-15: iteration 6 — all-unrated finite + differentiated renormalization lock-in
-  test (`PopularityScoreServiceTest::test_all_unrated_collection_still_scores_finite_and_differentiated`).
-  Goal complete.

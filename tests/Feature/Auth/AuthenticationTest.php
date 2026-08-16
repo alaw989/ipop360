@@ -68,6 +68,29 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_users_are_locked_out_after_five_failed_login_attempts(): void
+    {
+        $user = User::factory()->create();
+
+        foreach (range(1, 5) as $i) {
+            $this->post('/login', [
+                'email' => $user->email,
+                'password' => 'wrong-password',
+            ]);
+        }
+
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $this->assertStringContainsString(
+            'Too many login attempts',
+            session('errors')->first('email')
+        );
+    }
+
     public function test_users_can_logout(): void
     {
         $user = User::factory()->create();
