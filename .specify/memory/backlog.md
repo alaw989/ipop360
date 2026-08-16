@@ -446,9 +446,30 @@ deployed + live-verified (prod sort shows the relabel; flag set on prod).
    Live-verified: Groq returns valid JSON with the new model; GitHub Models
    fallback (`gpt-4o-mini`) untouched.
 
-**Current floor:** 822 PHPUnit tests + 1068 vitest tests; PHPStan level 8 over
+**Current floor:** 837 PHPUnit tests + 1068 vitest tests; PHPStan level 8 over
 `app/ + tests/` with a zero baseline; pint clean; CI enforces coverage
-thresholds and runs PHP 8.4; CI + deploy green.
+thresholds and runs PHP 8.4; CI + deploy green; new restaurant rows are
+enriched within minutes of creation (photo hunt + AI + OSM hours, queued).
+
+## ✅ Done (2026-08-16 session, continued)
+
+**Ingestion-time enrichment** — PR #116 (opencode-loop, 3+1 iterations,
+ALL_DONE; first run stalled 3/3 on the composer 300s script cap + leaked
+`DISTANCE_FALLBACK_LAT/LNG` routing tests down the live-search path with real
+HTTP — relaunched from the committed WIP, 1 more iteration, ALL_DONE):
+`LiveVenuePersister::persist()` on CREATE queues (1) `EnrichNewRestaurantPhoto`
+(context-first photo hunt, gps-cs-s guard, created-only, enrichment log
+channel), (2) `EnrichRestaurantWithAi` when description/price_range/phone are
+missing (fills empties only), (3) OSM opening_hours normalized to
+`{structured:false, raw_text}` on create, `unset` on update (never clobbers
+structured hours). Root-cause fixes: `SearchControllerTest::setUp` nulls the
+leaked fallback coords (db-only path by default), `Composer\Config::
+disableProcessTimeout` on `test`/`coverage` scripts (suite grew past composer's
+300s cap). PHPUnit 822→837. Merged + deployed + live-verified: Boise search
+created 94 new rows in 10.3s (response unblocked), 9075 AI + 6 photo jobs
+queued, worker processed with fail-soft fallbacks (Google CSE 429, Groq 429 →
+GitHub Models fallback 404 — noted: gpt-4o-mini fallback returns 404 on prod,
+pre-existing, follow-up), 0 failures, no clobbering.
 
 ## Next goals (in priority order)
 
@@ -462,7 +483,7 @@ thresholds and runs PHP 8.4; CI + deploy green.
 - **Goal:** `ingestion-time enrichment: when LiveVenuePersister::persist() CREATES a row, queue async enrichment so new rows are rich within minutes — (1) photo hunt via the context-first searchImageForRestaurant chain, (2) EnrichRestaurantWithAi job for missing description/price_range/phone, (3) opening_hours from the venue's OSM tags when present; never block the search response (all queued); never clobber existing data on updates (created-only); respect domain-safety (no gps-cs-s primary, name-relevance guard)`
 - **Gate:** `composer test && npm run build`
 
-### 9. Photo-verify hardening
+### 9. Photo-verify hardening ⬅ NEXT
 - **Audit finding:** --verify (PR #109) checks only the primary photo_url; the
   photos gallery array is only deduped as a side-effect. ~44 rows are
   dead-unresolvable (no website / no name-matching source) and get re-checked
