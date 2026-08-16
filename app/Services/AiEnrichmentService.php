@@ -135,7 +135,7 @@ class AiEnrichmentService
             [
                 'api_key' => $primaryKey,
                 'base_url' => config('services.ai.base_url', 'https://api.groq.com/openai/v1'),
-                'model' => config('services.ai.model', 'llama-3.3-70b-versatile'),
+                'model' => config('services.ai.model', 'openai/gpt-oss-120b'),
             ],
         ];
 
