@@ -40,7 +40,7 @@ class AiEnrichmentServiceTest extends TestCase
         return [
             'api_key' => $primary['api_key'] ?? 'pk-primary',
             'base_url' => 'https://api.groq.com/openai/v1',
-            'model' => 'llama-3.3-70b-versatile',
+            'model' => 'openai/gpt-oss-120b',
             'fallback' => $fallback === null ? [] : [$fallback],
         ];
     }

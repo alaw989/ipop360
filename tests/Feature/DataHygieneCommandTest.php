@@ -38,7 +38,7 @@ class DataHygieneCommandTest extends TestCase
         config(['services.ai' => [
             'api_key' => '',
             'base_url' => 'https://api.groq.com/openai/v1',
-            'model' => 'llama-3.3-70b-versatile',
+            'model' => 'openai/gpt-oss-120b',
             'fallback' => [],
         ]]);
     }
@@ -264,7 +264,7 @@ class DataHygieneCommandTest extends TestCase
         config(['services.ai' => [
             'api_key' => '',
             'base_url' => 'https://api.groq.com/openai/v1',
-            'model' => 'llama-3.3-70b-versatile',
+            'model' => 'openai/gpt-oss-120b',
             'fallback' => [],
         ]]);
 
@@ -394,7 +394,7 @@ class DataHygieneCommandTest extends TestCase
         config(['services.ai' => [
             'api_key' => '',
             'base_url' => 'https://api.groq.com/openai/v1',
-            'model' => 'llama-3.3-70b-versatile',
+            'model' => 'openai/gpt-oss-120b',
             'fallback' => [],
         ]]);
         Queue::fake();
@@ -499,7 +499,7 @@ class DataHygieneCommandTest extends TestCase
         config(['services.ai' => [
             'api_key' => 'pk-test',
             'base_url' => 'https://api.groq.com/openai/v1',
-            'model' => 'llama-3.3-70b-versatile',
+            'model' => 'openai/gpt-oss-120b',
             'fallback' => [],
         ]]);
     }
