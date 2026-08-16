@@ -419,33 +419,40 @@ unavailable" when exhausted; neutral SEO copy while exhausted; all-unrated
 collection finite + differentiated lock-in test. PHPUnit 812→816. Merged +
 deployed + live-verified (prod sort shows the relabel; flag set on prod).
 
+## ✅ Done (2026-08-16 session)
+
+1. **Registration & login hardening** — PR #114 (opencode-loop, 4 iterations,
+   ALL_DONE; work left uncommitted by the loop, committed manually on the
+   pre-created `feat/registration-login-hardening` branch after the crash
+   recovered): (1) `app/Notifications/NewUserRegistered.php` — admin/operator
+   notification "New user registered: name, email" on every registration, sent
+   to a comma-separated `ADMIN_NOTIFY_EMAILS` recipient list (new
+   `config('services.admin_notify_emails')`), separate from the user's
+   verification email, no-op when empty; (2) `throttle:3,5` on the
+   forgot-password POST route; (3) auto-login for unverified users documented +
+   pinned with a test (keep auto-login, gate protected routes on `verified`);
+   (4) full lifecycle pinned with feature tests (verify link → dashboard,
+   wrong-password ×5 lockout, forgot-password 429, duplicate email rejected,
+   notification delivered/omitted). Registration throttling (spec-089) intact.
+   PHPUnit 816→822. Merged + deployed; `ADMIN_NOTIFY_EMAILS=alaw989@gmail.com,
+   vphan@vp-associates.com` set on prod `.env` + config cached + workers
+   restarted; cached config verified.
+2. **AI model migration** — PR #115: Groq decommissioned `llama-3.3-70b-versatile`
+   (Aug 16, 2026); migrated primary enrichment model to `openai/gpt-oss-120b`
+   (verified live on GroqCloud; `qwen/qwen3.6-27b` confirmed as lighter
+   alternative). Updated code defaults (`config/services.php`,
+   `EnrichRestaurantWithAi.php`, `AiEnrichmentService.php`), `.env.example`,
+   local `.env`, test fixtures, and prod `.env` + config cache + worker restart.
+   Live-verified: Groq returns valid JSON with the new model; GitHub Models
+   fallback (`gpt-4o-mini`) untouched.
+
+**Current floor:** 822 PHPUnit tests + 1068 vitest tests; PHPStan level 8 over
+`app/ + tests/` with a zero baseline; pint clean; CI enforces coverage
+thresholds and runs PHP 8.4; CI + deploy green.
+
 ## Next goals (in priority order)
 
-### 7. Registration & login hardening ⬅ NEXT
-- **Audit finding (current state):** registration is throttled 5/min and login is
-  rate-limited to 5 attempts with lockout (`LoginRequest`), email verification is
-  ON (`MustVerifyEmail`), and `role` defaults to `user`. But: (1) NO email
-  notifies the operator when someone registers — only the registrant gets a
-  verification email (no `app/Mail` or `app/Notifications` directory exists);
-  (2) the `forgot-password` POST route is NOT throttled → it can be spammed to
-  mail-bomb any address; (3) unverified users are auto-logged-in on registration
-  (design choice to revisit + make explicit); (4) no tests pin the full auth
-  lifecycle (register → verify → dashboard; lockout; reset).
-- **Goal:** `registration/login hardening: (1) send an admin/operator notification
-  (app/Notifications) on every new registration — "New user registered: name,
-  email" — TO a configurable comma-separated recipient list (ADMIN_NOTIFY_EMAILS
-  env), separate from the user's own verification email; (2) add throttle to the
-  forgot-password POST route (e.g. throttle:3,5) so reset links can't be spammed;
-  (3) document + decide auto-login for unverified users (recommend: keep
-  auto-login, gate protected routes on `verified` as now — unchanged behavior,
-  made explicit + tested); (4) pin the full lifecycle with feature tests:
-  register → verification email sent (Mail::fake) → verify link works → dashboard;
-  wrong password ×5 → lockout message; forgot-password throttle; duplicate email
-  rejected; new-user notification delivered. Keep registration throttling
-  (spec-089) intact.`
-- **Gate:** `composer test && npm run build`
-
-### 8. Ingestion-time enrichment
+### 8. Ingestion-time enrichment ⬅ NEXT
 - **Audit finding (live-verified):** of 384 restaurants added in the last 7d,
   312 (81%) no photo, 377 (98%) no description, 375 (98%) no price. Free
   live-search sources (BizData/Overpass/Photon/Socrata) set photo_url/description

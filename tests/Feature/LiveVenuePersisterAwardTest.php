@@ -8,6 +8,7 @@ use App\Services\GeolocationService;
 use App\Services\LiveVenuePersister;
 use App\Services\RestaurantValidationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Mockery;
 use Tests\TestCase;
@@ -26,6 +27,8 @@ class LiveVenuePersisterAwardTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Queue::fake();
 
         $geo = Mockery::mock(GeolocationService::class);
 

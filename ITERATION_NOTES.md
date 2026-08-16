@@ -1,59 +1,91 @@
 # Iteration Notes
 
 ## Goal
-registration/login hardening: (1) send an admin/operator notification (app/Notifications) on every new registration - 'New user registered: name, email' - TO a configurable comma-separated recipient list (ADMIN_NOTIFY_EMAILS env), separate from the user's own verification email; (2) add throttle to the forgot-password POST route (e.g. throttle:3,5) so reset links can't be spammed; (3) document + decide auto-login for unverified users (recommend: keep auto-login, gate protected routes on verified as now - unchanged behavior, made explicit + tested); (4) pin the full lifecycle with feature tests: register -> verification email sent (Mail::fake) -> verify link works -> dashboard; wrong password x5 -> lockout message; forgot-password throttle; duplicate email rejected; new-user notification delivered. Keep registration throttling (spec-089) intact.
+ingestion-time enrichment: when LiveVenuePersister::persist() CREATES a row, queue async enrichment so new rows are rich within minutes — (1) photo hunt via the context-first searchImageForRestaurant chain, (2) EnrichRestaurantWithAi job for missing description/price_range/phone, (3) opening_hours from the venue's OSM tags when present; never block the search response (all queued); never clobber existing data on updates (created-only); respect domain-safety (no gps-cs-s primary, name-relevance guard)
 
 ## State
-
-### Done (iteration 1 — part 1: admin new-user notification)
-- Added `app/Notifications/NewUserRegistered.php` (mail notification, subject/line
-  "New user registered: {name}, {email}").
-- Wired `RegisteredUserController::store` to send it via `Notification::route('mail', $emails)`
-  to a comma-separated recipient list from `ADMIN_NOTIFY_EMAILS`, exposed as
-  `config('services.admin_notify_emails')` (config/services.php). No-op when empty.
-- Added `ADMIN_NOTIFY_EMAILS=` to `.env.example`.
-- Tests in `tests/Feature/Auth/RegistrationTest.php`:
-  `test_registration_notifies_admin_recipients_when_configured` (asserts on-demand send
-  to both addresses + name/email payload) and `test_registration_does_not_notify_admins_when_unconfigured`
-  (`assertSentOnDemandTimes(..., 0)`).
-- Verification: `pint --test` passed, `phpstan` clean, `php artisan test tests/Feature/Auth` 23 passed.
-
-### Done (iteration 2 — part 2: forgot-password throttle)
-- Added `->middleware('throttle:3,5')` to the `forgot-password` POST route in routes/auth.php
-  (3 attempts per 5 min, keyed by IP) so reset links can't be spammed.
-- Added `test_forgot_password_is_throttled_after_three_attempts` in
-  `tests/Feature/Auth/PasswordResetTest.php`: 3 posts succeed, 4th returns 429.
-- Verification: `php artisan test tests/Feature/Auth/PasswordResetTest.php` 5 passed;
-  `pint --test` clean.
-
-### Done (iteration 3 — part 3: document + pin auto-login for unverified users)
-- Added `test_unverified_registered_user_is_redirected_to_verification_notice_from_dashboard`
-  in `tests/Feature/Auth/RegistrationTest.php`: registers (auto-login), asserts authenticated,
-  then GET /dashboard redirects to `verification.notice` (/verify-email).
-- Documented the decision inline in `RegisteredUserController::store` (auto-login kept;
-  protected routes gated on `verified`). Behavior unchanged — now explicit + tested.
-- Verification: `php artisan test tests/Feature/Auth/RegistrationTest.php` 6 passed;
-  `pint --test` clean.
-
-### Done (iteration 4 — part 4: remaining lifecycle tests)
-- Added `test_users_are_locked_out_after_five_failed_login_attempts` in
-  `tests/Feature/Auth/AuthenticationTest.php`: 5 wrong-password posts, 6th asserts
-  `assertSessionHasErrors('email')` and that the message contains "Too many login attempts".
-- Added `test_duplicate_email_registration_is_rejected` in
-  `tests/Feature/Auth/RegistrationTest.php`: pre-existing email re-registering asserts
-  `assertSessionHasErrors('email')`, `assertGuest()`, and `assertDatabaseCount('users', 1)`.
-- Verification: `php artisan test tests/Feature/Auth` 27 passed (61 assertions);
-  `pint --test` clean.
-
-### Next
-- None — all four goal parts are now complete and pinned with feature tests.
-  Registration throttling (`throttle:5,1`, spec-089) left intact in routes/auth.php.
-
-### Gotchas
-- `NotificationFake::assertSentOnDemand` callback signature is `(notification, channels[],
-  notifiable, locale)` — 2nd arg is the channels ARRAY, not a single channel string.
-- There is no `assertNotSentOnDemand`; use `assertSentOnDemandTimes($class, 0)` or
-  `assertNotSentTo(new AnonymousNotifiable, $class)`.
-- AnonymousNotifiable `getKey()` returns null, so all on-demand sends share one bucket in the fake.
+Progress toward the goal:
+- [x] (1) photo hunt — DONE. New `App\Jobs\EnrichNewRestaurantPhoto` runs the
+  context-first `searchImageForRestaurant` chain in the background and is queued
+  from `LiveVenuePersister::persist()` only on CREATE when `photo_url` is empty.
+- [x] (2) AI enrichment — DONE. `persist()` now dispatches
+  `EnrichRestaurantWithAi` on CREATE when description/price_range/phone is
+  missing. The job itself only fills empty fields, so it never clobbers.
+- [x] (3) opening_hours — DONE. `persist()` now copies a string
+  `$venue['opening_hours']` (OSM raw-hours tag) into `$attributes` as the app's
+  `{structured:false, raw_text}` shape, and unsets it in the update branch so
+  structured hours set by the scraper/enrichment are never clobbered.
+- [x] (4) verification hardening — DONE. `composer test` no longer dies on the
+  Composer 300s process-timeout and no longer hits real outbound HTTP from the
+  no-params search tests (see Iteration 4). Full suite now green in ~156s.
 
 ## Log
+### Iteration 1 — photo hunt job + dispatch on create
+- Added `app/Jobs/EnrichNewRestaurantPhoto.php`: loads the row, skips when
+  missing or already photo'd (created-only), runs `searchImageForRestaurant`,
+  refuses to promote a gps-cs-s CDN URL to primary, sets `photo_url`, logs.
+- `LiveVenuePersister::persist()` now dispatches it in the create branch when
+  `photo_url` is empty (never blocks the search response).
+- Added `tests/Feature/EnrichNewRestaurantPhotoTest.php` (5 cases) and three
+  dispatch assertions in `LiveVenuePersisterPhotoTest`.
+- Gotcha: `persist()` runs under `QUEUE_CONNECTION=sync` in tests, so a queued
+  job would fire `searchImageForRestaurant` (real HTTP) during any create-path
+  test. Added `Queue::fake()` to `setUp()` of `LiveVenuePersisterPhotoTest`,
+  `LiveVenuePersisterAwardTest`, `LiveVenuePersisterTagTest`, and
+  `UnifiedSearchServiceTest`. Any future test that creates a row via
+  `persist()`/`persistTaggedVenues()` must fake the queue the same way.
+- Verified: `pint --test` pass, `phpstan analyse` 0 errors, full suite 830 passed,
+  `npm run build` pass.
+
+### Iteration 2 — AI enrichment dispatch on create
+- `LiveVenuePersister::persist()` now dispatches `EnrichRestaurantWithAi` in the
+  create branch when `description`/`price_range`/`phone` is empty (imported
+  `App\Jobs\EnrichRestaurantWithAi`). The job only fills empty fields internally,
+  so it is created-only and never clobbers existing data.
+- Added `tests/Feature/LiveVenuePersisterAiEnrichmentTest.php` (3 cases: missing
+  fields queue, all-present skip, update never queues).
+- Gotcha: this is a second dispatch in the same create branch, so the Iteration 1
+  queue-faking rule still holds — every test that creates a row via `persist()` /
+  `persistTaggedVenues()` must call `Queue::fake()` in `setUp()`. Confirmed all
+  such tests (LiveVenuePersister{Photo,Award,Tag,AiEnrichment}, UnifiedSearchService)
+  already fake the queue; otherwise a sync-queue run would fire real AI HTTP.
+- Verified: `pint --test` pass, `phpstan analyse` 0 errors, targeted tests
+  (LiveVenuePersister*, UnifiedSearchService, AiEnrichRestaurants) all green.
+
+### Iteration 3 — opening_hours copy on create (created-only)
+- `LiveVenuePersister::persist()` now maps `opening_hours` through a new private
+  `normalizeOpeningHours()` helper: a string OSM tag (e.g. `"Mo-Fr 10:00-20:00"`)
+  is stored as `['structured' => false, 'raw_text' => <tag>]` (the same shape the
+  website scraper and `OpeningHours.vue` consume); non-string values (SerpApi
+  operating_hours objects/arrays) are deliberately ignored so structured hours
+  stay with the scraper/AI job.
+- The update branch now `unset($attributes['opening_hours'])` alongside
+  `has_award`, so a live-search source can never clobber existing (possibly
+  structured) hours — created-only, matching the goal.
+- Added `tests/Feature/LiveVenuePersisterOpeningHoursTest.php` (4 cases: string
+  copy, null when absent, non-string ignored, update never clobbers).
+- Gotcha: `normalize()` only trims `is_string()` values, so the array-shaped
+  opening_hours passes through untouched (no special handling needed).
+- Verified: `pint --test` pass, `phpstan analyse` 0 errors, targeted tests (all
+  LiveVenuePersister*, EnrichNewRestaurantPhoto, UnifiedSearchService) green.
+
+### Iteration 4 — make `composer test` reliably green
+- `composer test` was timing out: the suite had grown past Composer's 300s
+  `process-timeout` (the previous loop commit literally logged "check stalled on
+  slow suite"). Added `Composer\Config::disableProcessTimeout` to the `test` and
+  `coverage` scripts in `composer.json`, matching the existing `dev` script.
+- Root cause of the slowness was not the whole suite but four
+  `SearchControllerTest` "no-params" tests: the dev `.env` sets
+  `DISTANCE_FALLBACK_LAT/LNG`, which leaks into the testing env (no `.env.testing`),
+  so those requests routed down the live-search path and fired real outbound HTTP
+  (hang/flaky). Added a `setUp()` that nulls
+  `restaurant-finder.live_search.distance_fallback_{lat,lng}`, so they now take the
+  deterministic db-only path; coords-path tests opt back in explicitly.
+- Result: `SearchControllerTest` went from 60s+ hang to 0.6s; full suite from
+  ~330s to ~156s, all 837 green.
+- Gotcha: any future `SearchControllerTest` case that expects the fallback to be
+  non-null MUST set it explicitly (setUp now nulls it). Same for any test class
+  whose requests should NOT fire real live-search HTTP — null the fallback or mock
+  `UnifiedSearchService`/`GeolocationService`.
+- Verified: `pint --test` pass (changed test file), `npm run build` pass, full
+  `php artisan test` 837 passed (3494 assertions).

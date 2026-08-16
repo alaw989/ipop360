@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Jobs\EnrichNewRestaurantPhoto;
+use App\Jobs\EnrichRestaurantWithAi;
 use App\Models\Cuisine;
 use App\Models\Restaurant;
 use Illuminate\Support\Facades\Log;
@@ -48,6 +50,7 @@ class LiveVenuePersister
             'phone' => $venue['phone'] ?? null,
             'website_url' => $venue['website_url'] ?? null,
             'price_range' => $venue['price_range'] ?? null,
+            'opening_hours' => $this->normalizeOpeningHours($venue['opening_hours'] ?? null),
             'photo_url' => $venue['photo_url'] ?? null,
             'photos' => $venue['photos'] ?? [],
             'google_place_id' => $venue['google_place_id'] ?? null,
@@ -78,6 +81,10 @@ class LiveVenuePersister
             // has_award => false) can never clobber a true award set by
             // RestaurantEnrichmentService::enrichAwards. (spec-104 award audit)
             unset($attributes['has_award']);
+            // opening_hours is created-only: a live-search source (which carries
+            // only the OSM raw-hours tag) must never clobber structured hours set
+            // by the website scraper or RestaurantEnrichmentService.
+            unset($attributes['opening_hours']);
             $attributes = $this->guardTransientPhotos($restaurant, $attributes);
             $restaurant->update($attributes);
         } else {
@@ -92,6 +99,21 @@ class LiveVenuePersister
                 'source' => $venue['source'] ?? 'api',
                 'google_place_id' => $restaurant->google_place_id,
             ]);
+
+            // Ingestion-time enrichment: photo-less new rows queue a background
+            // photo hunt so they are rich within minutes. Never blocks the
+            // search response, and only runs for freshly created rows.
+            if (empty($restaurant->photo_url)) {
+                EnrichNewRestaurantPhoto::dispatch($restaurant->id);
+            }
+
+            // Ingestion-time AI enrichment: freshly created rows missing any of
+            // description/price_range/phone queue EnrichRestaurantWithAi so they
+            // are rich within minutes. The job itself only fills empty fields,
+            // so re-running never clobbers existing data.
+            if (empty($restaurant->description) || empty($restaurant->price_range) || empty($restaurant->phone)) {
+                EnrichRestaurantWithAi::dispatch($restaurant->id);
+            }
         }
 
         if (! empty($cuisineIds)) {
@@ -105,6 +127,26 @@ class LiveVenuePersister
             'created' => $created,
             'venue' => $venue,
         ];
+    }
+
+    /**
+     * Normalize a venue's opening_hours (an OSM raw-hours tag like
+     * "Mo-Fr 10:00-20:00") into the app's stored shape so the JSON array cast
+     * and the OpeningHours component render raw text correctly. Structured
+     * (array) sources are intentionally left to the website scraper / AI job,
+     * so we only ever persist a raw-text form here.
+     *
+     * @return array{structured: false, raw_text: string}|null
+     */
+    private function normalizeOpeningHours(mixed $value): ?array
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : ['structured' => false, 'raw_text' => $value];
     }
 
     /**

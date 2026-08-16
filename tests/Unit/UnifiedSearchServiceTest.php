@@ -12,6 +12,7 @@ use App\Services\PopularityScoreService;
 use App\Services\UnifiedSearchService;
 use App\Services\VenuePipeline;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Mockery;
 use Tests\TestCase;
 
@@ -39,6 +40,7 @@ class UnifiedSearchServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Queue::fake();
         $this->scoreService = $this->app->make(PopularityScoreService::class);
         $this->cuisineMatcher = $this->app->make(CuisineMatcher::class);
         $this->venuePipeline = $this->app->make(VenuePipeline::class);
