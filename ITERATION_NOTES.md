@@ -15,6 +15,9 @@ Progress toward the goal:
   `$venue['opening_hours']` (OSM raw-hours tag) into `$attributes` as the app's
   `{structured:false, raw_text}` shape, and unsets it in the update branch so
   structured hours set by the scraper/enrichment are never clobbered.
+- [x] (4) verification hardening — DONE. `composer test` no longer dies on the
+  Composer 300s process-timeout and no longer hits real outbound HTTP from the
+  no-params search tests (see Iteration 4). Full suite now green in ~156s.
 
 ## Log
 ### Iteration 1 — photo hunt job + dispatch on create
@@ -65,3 +68,24 @@ Progress toward the goal:
   opening_hours passes through untouched (no special handling needed).
 - Verified: `pint --test` pass, `phpstan analyse` 0 errors, targeted tests (all
   LiveVenuePersister*, EnrichNewRestaurantPhoto, UnifiedSearchService) green.
+
+### Iteration 4 — make `composer test` reliably green
+- `composer test` was timing out: the suite had grown past Composer's 300s
+  `process-timeout` (the previous loop commit literally logged "check stalled on
+  slow suite"). Added `Composer\Config::disableProcessTimeout` to the `test` and
+  `coverage` scripts in `composer.json`, matching the existing `dev` script.
+- Root cause of the slowness was not the whole suite but four
+  `SearchControllerTest` "no-params" tests: the dev `.env` sets
+  `DISTANCE_FALLBACK_LAT/LNG`, which leaks into the testing env (no `.env.testing`),
+  so those requests routed down the live-search path and fired real outbound HTTP
+  (hang/flaky). Added a `setUp()` that nulls
+  `restaurant-finder.live_search.distance_fallback_{lat,lng}`, so they now take the
+  deterministic db-only path; coords-path tests opt back in explicitly.
+- Result: `SearchControllerTest` went from 60s+ hang to 0.6s; full suite from
+  ~330s to ~156s, all 837 green.
+- Gotcha: any future `SearchControllerTest` case that expects the fallback to be
+  non-null MUST set it explicitly (setUp now nulls it). Same for any test class
+  whose requests should NOT fire real live-search HTTP — null the fallback or mock
+  `UnifiedSearchService`/`GeolocationService`.
+- Verified: `pint --test` pass (changed test file), `npm run build` pass, full
+  `php artisan test` 837 passed (3494 assertions).

@@ -16,6 +16,19 @@ class SearchControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // The dev .env sets DISTANCE_FALLBACK_LAT/LNG, which leaks into the
+        // testing env (no .env.testing) and routes these "no-params" requests
+        // down the live-search path — firing real outbound HTTP. Null it here so
+        // tests default to the deterministic db-only path; coords-path tests
+        // opt back in explicitly via Config::set or a GeolocationService mock.
+        Config::set('restaurant-finder.live_search.distance_fallback_lat', null);
+        Config::set('restaurant-finder.live_search.distance_fallback_lng', null);
+    }
+
     public function test_search_page_loads_without_params(): void
     {
         $response = $this->get('/search');
