@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\EnrichNewRestaurantPhoto;
 use App\Models\Restaurant;
 use App\Services\CuisineMatcher;
 use App\Services\GeolocationService;
 use App\Services\LiveVenuePersister;
 use App\Services\RestaurantValidationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Mockery;
 use Tests\TestCase;
@@ -28,6 +30,8 @@ class LiveVenuePersisterPhotoTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        Queue::fake();
 
         $geo = Mockery::mock(GeolocationService::class);
 
@@ -148,5 +152,37 @@ class LiveVenuePersisterPhotoTest extends TestCase
             $result['restaurant']->photo_url,
             'a create has no existing photo to protect, so gps-cs-s is stored as-is'
         );
+    }
+
+    public function test_create_without_photo_queues_photo_hunt(): void
+    {
+        $result = $this->persister->persist($this->venue('place_hunt', 'Hunt Me', [
+            'photo_url' => null,
+        ]));
+
+        $this->assertTrue($result['created']);
+
+        Queue::assertPushed(EnrichNewRestaurantPhoto::class, fn ($job) => $job->restaurantId === $result['restaurant']->id);
+    }
+
+    public function test_create_with_photo_does_not_queue_photo_hunt(): void
+    {
+        $this->persister->persist($this->venue('place_photo', 'Has Photo', [
+            'photo_url' => 'https://upload.wikimedia.org/x.jpg',
+        ]));
+
+        Queue::assertNotPushed(EnrichNewRestaurantPhoto::class);
+    }
+
+    public function test_update_does_not_queue_photo_hunt(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'google_place_id' => 'place_update',
+            'photo_url' => null,
+        ]);
+
+        $this->persister->persist($this->venue('place_update', $restaurant->name));
+
+        Queue::assertNotPushed(EnrichNewRestaurantPhoto::class);
     }
 }

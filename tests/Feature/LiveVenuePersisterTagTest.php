@@ -9,6 +9,7 @@ use App\Services\LiveVenuePersister;
 use App\Services\RestaurantValidationService;
 use Database\Seeders\CuisineSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Mockery;
 use Tests\TestCase;
@@ -30,6 +31,8 @@ class LiveVenuePersisterTagTest extends TestCase
     {
         parent::setUp();
         $this->seed(CuisineSeeder::class);
+
+        Queue::fake();
 
         $geo = Mockery::mock(GeolocationService::class);
         $geo->shouldReceive('reverseGeocode')->andReturn(['city' => 'Tampa', 'state' => 'FL']);
