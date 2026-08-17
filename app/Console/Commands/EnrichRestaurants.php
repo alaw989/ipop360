@@ -350,17 +350,19 @@ class EnrichRestaurants extends Command
         $this->table(
             ['Metric', 'Value'],
             [
-                ['Combos processed', $result['total_processed']],
+                ['Combos processed', $result['combos_processed']],
                 ['Real SerpApi calls made', $result['real_calls_made']],
                 ['Cache hits skipped', $result['cache_hits_skipped']],
+                ['Combo cap reached?', $result['combos_cap_reached'] ? 'Yes' : 'No'],
                 ['Quota exhausted?', $result['quota_exhausted'] ? 'Yes' : 'No'],
             ]
         );
 
         Log::channel('enrichment')->info('Throttled enrichment result', [
-            'combos_processed' => $result['total_processed'],
+            'combos_processed' => $result['combos_processed'],
             'real_calls_made' => $result['real_calls_made'],
             'cache_hits_skipped' => $result['cache_hits_skipped'],
+            'combos_cap_reached' => $result['combos_cap_reached'],
             'quota_exhausted' => $result['quota_exhausted'],
         ]);
 

@@ -311,21 +311,23 @@ jobs:
             "cd ${{ secrets.DEPLOY_PATH }} && \
              (sudo systemctl reload php8.4-fpm 2>/dev/null || sudo systemctl restart php8.4-fpm 2>/dev/null || true) && \
              (supervisorctl restart ipop360-worker:* || echo 'worker restart failed (non-fatal)') && \
-             (supervisorctl restart ipop360-ssr:* || echo 'ssr restart failed (non-fatal)') && \
-              (supervisorctl restart ipop360-scheduler:* || echo 'scheduler restart failed (non-fatal)')"
+             (supervisorctl restart ipop360-ssr:* || echo 'ssr restart failed (non-fatal)')"
 
-      - name: Register the scheduler supervisor program (secondary safeguard)
-        # schedule:work runs alongside cron (schedule:run). If cron stalls,
-        # supervisor keeps the long-lived worker dispatching due tasks.
+      - name: Remove legacy scheduler supervisor program (cron is the single driver)
+        # cron (`schedule:run` every minute, installed below) is the single
+        # source of truth for the scheduler. The old `schedule:work` supervisor
+        # program was a redundant second driver — both fired `schedule:run`
+        # every minute, doubling each tick's app boot and racing every due
+        # command's mutex. Stop + de-provision it so it never re-registers.
         continue-on-error: true
         run: |
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
-            "DEPLOY=${{ secrets.DEPLOY_PATH }} && \
-             sed \"s|{{DEPLOY_PATH}}|\${DEPLOY}|g\" \${DEPLOY}/deploy/supervisor-ipop360-scheduler.conf \
-               | sudo tee /etc/supervisor/conf.d/ipop360-scheduler.conf >/dev/null && \
-             supervisorctl reread && \
-             supervisorctl update"
+            "sudo supervisorctl stop ipop360-scheduler:* 2>/dev/null || true; \
+             sudo rm -f /etc/supervisor/conf.d/ipop360-scheduler.conf && \
+             sudo supervisorctl reread && \
+             sudo supervisorctl update && \
+             echo 'schedule:work supervisor program removed — cron drives the scheduler'"
 
       - name: Register the queue worker supervisor program
         # Runs queue:work so dispatched jobs (AI enrichment, etc.) actually
@@ -341,6 +343,10 @@ jobs:
               supervisorctl update"
 
       - name: Ensure Laravel scheduler cron + logrotate (restaurants:score, apicache:gc, uptime:canary)
+        # cron is the SINGLE scheduler driver: `schedule:run` fires every minute,
+        # evaluates the schedule in routes/console.php, and the per-command
+        # withoutOverlapping()/onOneServer() mutexes dedup any run. No supervisor
+        # schedule:work program exists (removed above) — one driver, one tick.
         continue-on-error: true
         run: |
           ssh -i ~/.ssh/deploy_key \

@@ -1,91 +1,108 @@
 # Iteration Notes
 
 ## Goal
-ingestion-time enrichment: when LiveVenuePersister::persist() CREATES a row, queue async enrichment so new rows are rich within minutes — (1) photo hunt via the context-first searchImageForRestaurant chain, (2) EnrichRestaurantWithAi job for missing description/price_range/phone, (3) opening_hours from the venue's OSM tags when present; never block the search response (all queued); never clobber existing data on updates (created-only); respect domain-safety (no gps-cs-s primary, name-relevance guard)
+scheduler/infra hardening audit: instrument per-command runtime + failure telemetry; set explicit withoutOverlapping() expiries (or skipDuplicates); resolve the 5h35m throttled-enrichment collision with other daily jobs; verify cron + schedule:work redundancy is correct; confirm all 12 scheduled commands fire on time on the droplet
 
 ## State
-Progress toward the goal:
-- [x] (1) photo hunt — DONE. New `App\Jobs\EnrichNewRestaurantPhoto` runs the
-  context-first `searchImageForRestaurant` chain in the background and is queued
-  from `LiveVenuePersister::persist()` only on CREATE when `photo_url` is empty.
-- [x] (2) AI enrichment — DONE. `persist()` now dispatches
-  `EnrichRestaurantWithAi` on CREATE when description/price_range/phone is
-  missing. The job itself only fills empty fields, so it never clobbers.
-- [x] (3) opening_hours — DONE. `persist()` now copies a string
-  `$venue['opening_hours']` (OSM raw-hours tag) into `$attributes` as the app's
-  `{structured:false, raw_text}` shape, and unsets it in the update branch so
-  structured hours set by the scraper/enrichment are never clobbered.
-- [x] (4) verification hardening — DONE. `composer test` no longer dies on the
-  Composer 300s process-timeout and no longer hits real outbound HTTP from the
-  no-params search tests (see Iteration 4). Full suite now green in ~156s.
+
+**Changed this iteration (goal part 5 — automated on-time drift detection):**
+- `scheduler:report` now computes a signed **drift** for every fired command —
+  minutes between its `last_started_at` and the cron slot `CronExpression::getPreviousRunDate(now)`
+  says it should have run (positive = late, negative = early). It prints a new
+  **Drift (min)** column and a warning block "Commands that fired off-schedule
+  (|drift| > N min)" listing each late/early command with magnitude + direction.
+  New `--drift-tolerance=15` option tunes the flag threshold. This automates the
+  "confirm every command fires on time" half of part 5 — the operator no longer
+  eyeballs the Schedule-vs-Last-started columns, the report tells them directly
+  which commands drifted off cadence.
+- Tests (TDD): `test_command_flags_commands_that_fired_off_schedule` (canary
+  started 06:00 vs `*/15` slot → flagged "off-schedule") and
+  `test_command_does_not_flag_commands_fired_on_schedule` (started 10:00:00 vs
+  10:00:30 now → clean), both using `travelTo()` + a fixed `started_at` so the
+  cron reference is deterministic. SchedulerReportTest now 11/11 (36 assertions).
+- Verified: full suite **863 passed (3705 assertions)**; Pint clean; PHPStan
+  **No errors** (190/190). Live smoke: `uptime:canary` renders `+0.0` drift
+  against `*/15 * * * *`; the other 15 still "NEVER FIRED" (times not yet elapsed
+  since telemetry shipped).
+
+**Prior work this goal (iteration 7 — Schedule column):**
+- `scheduler:report` gained a **Schedule** column (cron expression) sourced from
+  `Event::getExpression()`, so an operator can line up expected cadence vs actual
+  `Last started`. `registeredCommands()` became `array<command, cron-expression>`.
+- Test `test_command_lists_the_cron_expression_for_each_command` (renders
+  `0 2 * * *`, `*/15 * * * *`, `0 4 * * *`). Also fixed 8 pre-existing PHPStan
+  level-8 errors in `SchedulerReportTest.php` (PendingCommand `@var` chains,
+  `telemetryLine()`/`writeLog()` param types).
+
+**Prior work this goal (parts 1–5 tooling):**
+- Added `scheduler:report {--days=7}` (new `SchedulerReportCommand`) backed by a
+  new `SchedulerTelemetryReport` support class that parses the structured JSON
+  `scheduler` telemetry log (`storage/logs/scheduler-YYYY-MM-DD.log`, written by
+  the part-1 `SchedulerTelemetry` hooks) and aggregates per-command started /
+  completed / failed counts, last-started timestamp, and min/avg/max wall-clock
+  runtime. It cross-references those aggregates against the commands actually
+  registered in `routes/console.php`, printing a table plus warning blocks:
+  registered commands with **no telemetry in the window** ("NEVER FIRED"),
+  commands with failures, and now commands with unfinished runs. Read-only, no
+  DB/network.
+- Reconciliation: the report prints "Registered commands: **16**". The goal's
+  "12 scheduled commands" wording is stale — `schedule:list` registers 16 events
+  (the 8 daily + 6 weekly + every-15-min + every-6-hour entries). Part 5 must
+  treat the target as 16, not 12.
+- Verified against real local telemetry: `php artisan scheduler:report --days=7`
+  shows `uptime:canary` fired 4× today (0.22s each), the other 15 as
+  "NEVER FIRED" (their daily/weekly times hadn't elapsed since telemetry
+  shipped). Confirms the part-1 instrumentation is actually landing in the log.
+- Tests (TDD): `tests/Feature/SchedulerReportTest.php` — 6 tests covering
+  aggregation, php/artisan prefix normalization, window filtering, malformed/
+  non-telemetry line tolerance, never-fired flagging, and failure reporting.
+  Full suite 858 passed (3690 assertions). Pint + PHPStan clean on the new files.
+- Iteration 6 added a third warning block: commands where `started > completed +
+  failed` are flagged "unfinished runs (hung or still-running)" — the signal a
+  hard-crashed run (that the part-2 expiries are meant to unblock) leaves in
+  telemetry. 2 tests (`test_command_reports_unfinished_runs`,
+  `test_command_does_not_report_finished_runs_as_unfinished`).
+
+**Gotchas / findings for the rest of the goal:**
+- The goal says "12 scheduled commands" but `routes/console.php` registers **16**
+  (`schedule:list` confirms). Audit part 5 must reconcile this count.
+- `Event::command` stores the fully-qualified `"{phpBinary} {artisanBinary} …"`
+  string, not the bare command — the test strips it with a regex. Same pattern
+  applies to any future schedule-introspection test.
+- `combos_per_run=60` is a SWAG for "finishes before 05:00" — the real per-combo
+  cost varies (45s–2.5min in the local log). Tune via `ENRICH_COMBOS_PER_RUN`
+  against live scheduler telemetry (part 1) once it's been collecting a few days.
+- The supervisor program is only *de-provisioned* when the deploy runs (the
+  removal step is `continue-on-error`). Until then it is still running on the
+  droplet; the drop-off is a deploy-time side effect, not a pre-deploy change.
+- `tests/Unit/ExternalApiCacheStatsTest::test_stats_counts_serpapi_calls_within_30_days_only`
+  is flaky in the full suite (passes in isolation). The boundary entry's
+  `fetched_at = now()->subDays(30)` is compared against `now()->subDays(30)`
+  inside `stats()`; SQLite truncates both to whole seconds, so it toggles when a
+  second boundary falls between `create()` and `stats()`. Unrelated to the
+  scheduler work — note only, do not fold a fix into this goal.
+
+**Next (part 5 — remaining):** the live on-droplet confirmation is still open.
+The report tool is done (Schedule column + Drift column + off-schedule/failure/
+hung/never-fired blocks all automated), but the telemetry hasn't shipped yet
+(deploy is operator-gated). Once the loop's changes deploy, run
+`php artisan scheduler:report --days=7` on the droplet and confirm every command
+has started+completed records with sane runtimes, zero failures, zero hung runs,
+and no "off-schedule" flags. Watch for:
+- the 05:00 sitemap / 05:30 social / 06:00 website window — verify the 04:00
+  throttled enrichment actually finishes before 05:00 now that `combos_per_run`
+  is capped (see part-3 gotcha).
+- `withoutOverlapping` expiries were added for all 16 commands (part 2), so a
+  crashed run should never block the next day's tick — confirm no command shows
+  `started` without a matching `completed`/`failed` (a hung/crashed run).
 
 ## Log
-### Iteration 1 — photo hunt job + dispatch on create
-- Added `app/Jobs/EnrichNewRestaurantPhoto.php`: loads the row, skips when
-  missing or already photo'd (created-only), runs `searchImageForRestaurant`,
-  refuses to promote a gps-cs-s CDN URL to primary, sets `photo_url`, logs.
-- `LiveVenuePersister::persist()` now dispatches it in the create branch when
-  `photo_url` is empty (never blocks the search response).
-- Added `tests/Feature/EnrichNewRestaurantPhotoTest.php` (5 cases) and three
-  dispatch assertions in `LiveVenuePersisterPhotoTest`.
-- Gotcha: `persist()` runs under `QUEUE_CONNECTION=sync` in tests, so a queued
-  job would fire `searchImageForRestaurant` (real HTTP) during any create-path
-  test. Added `Queue::fake()` to `setUp()` of `LiveVenuePersisterPhotoTest`,
-  `LiveVenuePersisterAwardTest`, `LiveVenuePersisterTagTest`, and
-  `UnifiedSearchServiceTest`. Any future test that creates a row via
-  `persist()`/`persistTaggedVenues()` must fake the queue the same way.
-- Verified: `pint --test` pass, `phpstan analyse` 0 errors, full suite 830 passed,
-  `npm run build` pass.
 
-### Iteration 2 — AI enrichment dispatch on create
-- `LiveVenuePersister::persist()` now dispatches `EnrichRestaurantWithAi` in the
-  create branch when `description`/`price_range`/`phone` is empty (imported
-  `App\Jobs\EnrichRestaurantWithAi`). The job only fills empty fields internally,
-  so it is created-only and never clobbers existing data.
-- Added `tests/Feature/LiveVenuePersisterAiEnrichmentTest.php` (3 cases: missing
-  fields queue, all-present skip, update never queues).
-- Gotcha: this is a second dispatch in the same create branch, so the Iteration 1
-  queue-faking rule still holds — every test that creates a row via `persist()` /
-  `persistTaggedVenues()` must call `Queue::fake()` in `setUp()`. Confirmed all
-  such tests (LiveVenuePersister{Photo,Award,Tag,AiEnrichment}, UnifiedSearchService)
-  already fake the queue; otherwise a sync-queue run would fire real AI HTTP.
-- Verified: `pint --test` pass, `phpstan analyse` 0 errors, targeted tests
-  (LiveVenuePersister*, UnifiedSearchService, AiEnrichRestaurants) all green.
-
-### Iteration 3 — opening_hours copy on create (created-only)
-- `LiveVenuePersister::persist()` now maps `opening_hours` through a new private
-  `normalizeOpeningHours()` helper: a string OSM tag (e.g. `"Mo-Fr 10:00-20:00"`)
-  is stored as `['structured' => false, 'raw_text' => <tag>]` (the same shape the
-  website scraper and `OpeningHours.vue` consume); non-string values (SerpApi
-  operating_hours objects/arrays) are deliberately ignored so structured hours
-  stay with the scraper/AI job.
-- The update branch now `unset($attributes['opening_hours'])` alongside
-  `has_award`, so a live-search source can never clobber existing (possibly
-  structured) hours — created-only, matching the goal.
-- Added `tests/Feature/LiveVenuePersisterOpeningHoursTest.php` (4 cases: string
-  copy, null when absent, non-string ignored, update never clobbers).
-- Gotcha: `normalize()` only trims `is_string()` values, so the array-shaped
-  opening_hours passes through untouched (no special handling needed).
-- Verified: `pint --test` pass, `phpstan analyse` 0 errors, targeted tests (all
-  LiveVenuePersister*, EnrichNewRestaurantPhoto, UnifiedSearchService) green.
-
-### Iteration 4 — make `composer test` reliably green
-- `composer test` was timing out: the suite had grown past Composer's 300s
-  `process-timeout` (the previous loop commit literally logged "check stalled on
-  slow suite"). Added `Composer\Config::disableProcessTimeout` to the `test` and
-  `coverage` scripts in `composer.json`, matching the existing `dev` script.
-- Root cause of the slowness was not the whole suite but four
-  `SearchControllerTest` "no-params" tests: the dev `.env` sets
-  `DISTANCE_FALLBACK_LAT/LNG`, which leaks into the testing env (no `.env.testing`),
-  so those requests routed down the live-search path and fired real outbound HTTP
-  (hang/flaky). Added a `setUp()` that nulls
-  `restaurant-finder.live_search.distance_fallback_{lat,lng}`, so they now take the
-  deterministic db-only path; coords-path tests opt back in explicitly.
-- Result: `SearchControllerTest` went from 60s+ hang to 0.6s; full suite from
-  ~330s to ~156s, all 837 green.
-- Gotcha: any future `SearchControllerTest` case that expects the fallback to be
-  non-null MUST set it explicitly (setUp now nulls it). Same for any test class
-  whose requests should NOT fire real live-search HTTP — null the fallback or mock
-  `UnifiedSearchService`/`GeolocationService`.
-- Verified: `pint --test` pass (changed test file), `npm run build` pass, full
-  `php artisan test` 837 passed (3494 assertions).
+- Iteration 1: added scheduler telemetry helper + channel + wiring + tests (part 1).
+- Iteration 2: added explicit `withoutOverlapping()` expiries to all 16 commands + expiry test (part 2).
+- Iteration 3: capped the throttled-enrichment combo grid (`combos_per_run` config + cap in `enrichAllCitiesThrottled`) so the run fits before 05:00 (part 3).
+- Iteration 4: verified cron + schedule:work were BOTH driving the scheduler; removed the redundant `schedule:work` supervisor program, made cron the single driver (part 4).
+- Iteration 5: added `scheduler:report` command + `SchedulerTelemetryReport` parser (part 5 tooling); reconciled the 12-vs-16 command count.
+- Iteration 6: added hung-run detection (started > completed+failed) to `scheduler:report` + 2 tests (part 5).
+- Iteration 7: added the Schedule (cron expression) column to `scheduler:report` for on-time cross-reference + 1 test; fixed 8 pre-existing PHPStan level-8 errors in the scheduler report test (part 5).
+- Iteration 8: added automated on-time drift detection (Drift column + off-schedule warning block + `--drift-tolerance`) to `scheduler:report` + 2 tests (part 5).

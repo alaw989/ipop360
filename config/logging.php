@@ -137,6 +137,15 @@ return [
             'formatter' => JsonFormatter::class,
         ],
 
+        'scheduler' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/scheduler.log'),
+            'level' => 'debug',
+            'days' => 30,
+            'replace_placeholders' => true,
+            'formatter' => JsonFormatter::class,
+        ],
+
     ],
 
 ];
