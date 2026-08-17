@@ -6,6 +6,7 @@ use App\Models\Restaurant;
 use App\Services\RestaurantWebsiteScraperService;
 use App\Support\SqlDialect;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -53,6 +54,12 @@ class BackfillRestaurantPhotos extends Command
 
     private int $resourced = 0;
 
+    private int $promoted = 0;
+
+    private int $cleared = 0;
+
+    private int $skipped = 0;
+
     public function handle(RestaurantWebsiteScraperService $scraper): int
     {
         if ($this->option('verify')) {
@@ -78,6 +85,16 @@ class BackfillRestaurantPhotos extends Command
         if ($withWebsite) {
             $query->whereNotNull('website_url')->where('website_url', '!=', '');
         }
+
+        // Skip rows whose photo state was verified within the cooldown window —
+        // a recently confirmed-dead row (cleared to null) must not be re-sourced
+        // again before the cooldown elapses.
+        $cutoff = $this->photoVerifyCutoff();
+        $this->skipped = (clone $query)
+            ->whereNotNull('photo_verified_at')
+            ->where('photo_verified_at', '>=', $cutoff)
+            ->count();
+        $query->where(fn ($q) => $q->whereNull('photo_verified_at')->orWhere('photo_verified_at', '<', $cutoff));
 
         $total = (clone $query)->count();
         if ($total === 0) {
@@ -155,28 +172,42 @@ class BackfillRestaurantPhotos extends Command
         $this->line('Mode: '.($apply ? '<fg=green>APPLIED (changes persisted)</>' : '<fg=yellow>DRY RUN (no changes persisted)</>'));
         $this->line("Primary photos found: {$this->found}");
         $this->line("Gallery arrays filled/top-up: {$this->galleryFilled}");
+        $this->line("Skipped (recently verified): {$this->skipped}");
         $this->line("Failed: {$this->failed}");
 
         return self::SUCCESS;
     }
 
     /**
-     * Verify existing photo URLs: HTTP-check each one (HEAD→GET fallback),
+     * Verify existing photo URLs: HTTP-check each distinct URL (HEAD→GET
+     * fallback) across the primary photo_url AND the photos gallery array,
      * keep valid photos untouched, and re-source confirmed-dead ones via the
-     * free searchImageForRestaurant chain. gps-cs-s Google CDN URLs decay
-     * opaquely (~1-month) so they are prioritized for checking. Dead URLs are
-     * dropped from the gallery. Default is a dry run; pass --apply to persist.
+     * free searchImageForRestaurant chain. Dead URLs are dropped from the
+     * gallery; when the primary is dead but a gallery entry is alive, that
+     * entry is promoted to photo_url instead of re-sourcing. gps-cs-s Google
+     * CDN URLs decay opaquely (~1-month) so they are prioritized for checking.
+     * Default is a dry run; pass --apply to persist.
      */
     private function handleVerify(RestaurantWebsiteScraperService $scraper): int
     {
         $apply = (bool) $this->option('apply');
         $limit = (int) $this->option('limit');
         $galleryMax = (int) config('restaurant-finder.live_search.gallery_photos_max', 6);
+        $cutoff = $this->photoVerifyCutoff();
 
-        $query = Restaurant::query()
+        $base = Restaurant::query()
             ->active()
             ->whereNotNull('photo_url')
             ->where('photo_url', '!=', '');
+
+        // Rows verified within the cooldown window are skipped this sweep —
+        // this is what turns the weekly Wednesday sweep into a ~28-day cadence.
+        $this->skipped = (clone $base)
+            ->whereNotNull('photo_verified_at')
+            ->where('photo_verified_at', '>=', $cutoff)
+            ->count();
+
+        $query = (clone $base)->where(fn ($q) => $q->whereNull('photo_verified_at')->orWhere('photo_verified_at', '<', $cutoff));
 
         $total = (clone $query)->count();
         if ($total === 0) {
@@ -199,50 +230,82 @@ class BackfillRestaurantPhotos extends Command
 
         foreach ($rows as $restaurant) {
             try {
-                $current = (string) $restaurant->photo_url;
+                $current = trim((string) $restaurant->photo_url);
+                $gallery = $this->normalizeGallery((array) ($restaurant->photos ?? []));
 
-                if ($this->isPhotoAlive($current)) {
-                    $this->verified++;
-                    $bar->advance();
-
-                    continue;
+                // Distinct URLs to HTTP-check once: primary first, then gallery.
+                $distinct = [];
+                foreach (array_merge($current !== '' ? [$current] : [], $gallery) as $url) {
+                    if (in_array($url, $distinct, true)) {
+                        continue;
+                    }
+                    $distinct[] = $url;
                 }
 
-                $this->dead++;
-                $fresh = $scraper->searchImageForRestaurant(
-                    $restaurant,
-                    $this->osmContextImage($restaurant),
-                );
+                $alive = [];
+                foreach ($distinct as $url) {
+                    if ($this->isPhotoAlive($url)) {
+                        $alive[] = $url;
+                    }
+                }
+
+                // Keep only alive gallery entries, in original order.
+                $keptGallery = array_values(array_filter(
+                    $gallery,
+                    fn ($url) => in_array($url, $alive, true)
+                ));
 
                 $updates = [];
 
-                if ($fresh !== null && $fresh !== $current) {
-                    $updates['photo_url'] = $fresh;
-                    $this->resourced++;
+                if ($current !== '' && in_array($current, $alive, true)) {
+                    $this->verified++;
+                    $updates['photo_verified_at'] = now();
+                } else {
+                    $this->dead++;
+
+                    if (! empty($alive)) {
+                        // Promote an alive gallery entry into the primary slot.
+                        $updates['photo_url'] = $alive[0];
+                        $updates['photo_verified_at'] = now();
+                        $this->promoted++;
+                    } else {
+                        $fresh = $scraper->searchImageForRestaurant(
+                            $restaurant,
+                            $this->osmContextImage($restaurant),
+                        );
+
+                        if ($fresh !== null && $fresh !== $current) {
+                            $updates['photo_url'] = $fresh;
+                            $updates['photo_verified_at'] = now();
+                            $this->resourced++;
+                        }
+
+                        if ($fresh !== null) {
+                            $keptGallery = $this->mergeGallery($keptGallery, $fresh, $galleryMax);
+                        } else {
+                            // Confirmed-dead-unresolvable: clear to null so the card
+                            // falls back to an honest no-image state, and stamp it
+                            // so neither sweep re-checks it before the cooldown.
+                            $updates['photo_url'] = null;
+                            $updates['photo_verified_at'] = now();
+                            $this->cleared++;
+                        }
+                    }
                 }
 
-                // Drop the dead URL from the gallery, seed the fresh photo.
-                $gallery = array_values(array_filter(
-                    (array) ($restaurant->photos ?? []),
-                    fn ($url) => trim((string) $url) !== '' && trim((string) $url) !== $current
-                ));
-
-                if ($fresh !== null) {
-                    $gallery = $this->mergeGallery($gallery, $fresh, $galleryMax);
-                }
-
-                if ($gallery !== (array) ($restaurant->photos ?? [])) {
-                    $updates['photos'] = $gallery;
+                if ($keptGallery !== $gallery) {
+                    $updates['photos'] = $keptGallery;
                 }
 
                 if (! empty($updates)) {
                     if ($apply) {
                         $restaurant->update($updates);
-                        Log::channel('enrichment')->info('Photo verify re-sourced dead photo', [
+                        Log::channel('enrichment')->info('Photo verify updated photo', [
                             'restaurant_id' => $restaurant->id,
                             'restaurant_name' => $restaurant->name,
                             'old_photo_url' => $current,
                             'new_photo_url' => $updates['photo_url'] ?? null,
+                            'cleared' => ($updates['photo_url'] ?? null) === null,
                         ]);
                     } else {
                         Log::channel('enrichment')->info('Photo verify (dry-run) would update', [
@@ -250,6 +313,7 @@ class BackfillRestaurantPhotos extends Command
                             'restaurant_name' => $restaurant->name,
                             'old_photo_url' => $current,
                             'new_photo_url' => $updates['photo_url'] ?? null,
+                            'cleared' => ($updates['photo_url'] ?? null) === null,
                         ]);
                     }
                 }
@@ -271,7 +335,10 @@ class BackfillRestaurantPhotos extends Command
         $this->line('Mode: '.($apply ? '<fg=green>APPLIED (changes persisted)</>' : '<fg=yellow>DRY RUN (no changes persisted)</>'));
         $this->line("Photos verified alive: {$this->verified}");
         $this->line("Dead photos found: {$this->dead}");
+        $this->line("Promoted from gallery: {$this->promoted}");
         $this->line("Re-sourced: {$this->resourced}");
+        $this->line("Cleared (dead-unresolvable): {$this->cleared}");
+        $this->line("Skipped (recently verified): {$this->skipped}");
         $this->line("Failed: {$this->failed}");
 
         Log::channel('enrichment')->info('Photo verify sweep complete', [
@@ -279,7 +346,10 @@ class BackfillRestaurantPhotos extends Command
             'total' => $rows->count(),
             'verified' => $this->verified,
             'dead' => $this->dead,
+            'promoted' => $this->promoted,
             'resourced' => $this->resourced,
+            'cleared' => $this->cleared,
+            'skipped' => $this->skipped,
             'failed' => $this->failed,
         ]);
 
@@ -340,6 +410,26 @@ class BackfillRestaurantPhotos extends Command
     }
 
     /**
+     * Normalize the photos gallery to a deduped list of trimmed, non-empty URLs.
+     *
+     * @param  array<int, string>  $photos
+     * @return string[]
+     */
+    private function normalizeGallery(array $photos): array
+    {
+        $normalized = [];
+        foreach ($photos as $url) {
+            $url = trim((string) $url);
+            if ($url === '' || in_array($url, $normalized, true)) {
+                continue;
+            }
+            $normalized[] = $url;
+        }
+
+        return $normalized;
+    }
+
+    /**
      * Merge an existing photo_url + any scraped photos into the gallery array,
      * deduped and capped at the configured gallery max.
      *
@@ -361,5 +451,16 @@ class BackfillRestaurantPhotos extends Command
         }
 
         return $merged;
+    }
+
+    /**
+     * The photo-verify cooldown cutoff: rows stamped at or after this moment are
+     * still within the cooldown window and must be skipped by both sweeps.
+     */
+    private function photoVerifyCutoff(): Carbon
+    {
+        $weeks = (int) config('restaurant-finder.live_search.photo_verify_cooldown_weeks', 28);
+
+        return now()->subWeeks($weeks);
     }
 }

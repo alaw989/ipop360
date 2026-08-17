@@ -158,6 +158,65 @@ class PhotoVerifyTest extends TestCase
         $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
     }
 
+    public function test_verify_promotes_alive_gallery_entry_when_primary_dead(): void
+    {
+        $r = Restaurant::factory()->create([
+            'name' => 'Promote Eatery',
+            'photo_url' => 'https://lh3.googleusercontent.com/gps-cs-s/DEADTOKEN=w400-h300-c-no',
+            'photos' => [
+                'https://lh3.googleusercontent.com/gps-cs-s/DEADTOKEN=w400-h300-c-no',
+                'https://upload.wikimedia.org/alive.jpg',
+            ],
+        ]);
+
+        Http::fake([
+            'lh3.googleusercontent.com/*' => Http::response('Forbidden', 403),
+            'upload.wikimedia.org/*' => Http::response('ok', 200, ['Content-Type' => 'image/jpeg']),
+        ]);
+
+        // An alive gallery entry must be promoted — no free-source re-search.
+        $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
+        $scraper->shouldReceive('searchImageForRestaurant')->never();
+        $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
+
+        $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('https://upload.wikimedia.org/alive.jpg', $fresh->photo_url, 'alive gallery entry must be promoted when primary is dead');
+        $this->assertIsArray($fresh->photos);
+        $this->assertContains('https://upload.wikimedia.org/alive.jpg', $fresh->photos);
+        $this->assertNotContains('https://lh3.googleusercontent.com/gps-cs-s/DEADTOKEN=w400-h300-c-no', $fresh->photos, 'dead gallery URL must be dropped');
+    }
+
+    public function test_verify_drops_dead_gallery_urls_and_keeps_valid(): void
+    {
+        $r = Restaurant::factory()->create([
+            'name' => 'Gallery Eatery',
+            'photo_url' => 'https://upload.wikimedia.org/hero.jpg',
+            'photos' => [
+                'https://upload.wikimedia.org/hero.jpg',
+                'https://upload.wikimedia.org/extra.jpg',
+                'https://lh3.googleusercontent.com/gps-cs-s/DEADGALLERY=w400-h300-c-no',
+            ],
+        ]);
+
+        Http::fake([
+            'lh3.googleusercontent.com/*' => Http::response('Forbidden', 403),
+            'upload.wikimedia.org/*' => Http::response('ok', 200, ['Content-Type' => 'image/jpeg']),
+        ]);
+
+        $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('https://upload.wikimedia.org/hero.jpg', $fresh->photo_url, 'valid primary must be kept');
+        $this->assertIsArray($fresh->photos);
+        $this->assertContains('https://upload.wikimedia.org/hero.jpg', $fresh->photos);
+        $this->assertContains('https://upload.wikimedia.org/extra.jpg', $fresh->photos);
+        $this->assertNotContains('https://lh3.googleusercontent.com/gps-cs-s/DEADGALLERY=w400-h300-c-no', $fresh->photos, 'dead gallery URL must be dropped');
+    }
+
     public function test_verify_prioritizes_gps_cs_s_rows(): void
     {
         $gps = Restaurant::factory()->create([
@@ -215,5 +274,79 @@ class PhotoVerifyTest extends TestCase
         $this->assertStringContainsString('--verify', $events->first()->command ?? '', 'scheduled sweep must run in verify mode');
         $this->assertStringContainsString('--apply', $events->first()->command ?? '');
         $this->assertStringContainsString('--limit', $events->first()->command ?? '');
+    }
+
+    public function test_verify_stamps_valid_photo_with_verified_at(): void
+    {
+        $r = Restaurant::factory()->create([
+            'name' => 'Stamp Eatery',
+            'photo_url' => 'https://upload.wikimedia.org/valid.jpg',
+        ]);
+
+        Http::fake([
+            'upload.wikimedia.org/*' => Http::response('ok', 200, ['Content-Type' => 'image/jpeg']),
+        ]);
+
+        $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNotNull($fresh->photo_verified_at, 'valid photo must be stamped with the verify timestamp');
+    }
+
+    public function test_verify_clears_dead_unresolvable_photo_to_null(): void
+    {
+        $r = Restaurant::factory()->create([
+            'name' => 'Clear Eatery',
+            'photo_url' => 'https://lh3.googleusercontent.com/gps-cs-s/DEADTOKEN=w400-h300-c-no',
+            'photos' => ['https://lh3.googleusercontent.com/gps-cs-s/DEADTOKEN=w400-h300-c-no'],
+        ]);
+
+        Http::fake([
+            'lh3.googleusercontent.com/*' => Http::response('Forbidden', 403),
+        ]);
+
+        $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn(null);
+        $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
+
+        $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNull($fresh->photo_url, 'confirmed-dead-unresolvable photo must be cleared to null (honest no-image fallback)');
+        $this->assertNotNull($fresh->photo_verified_at, 'cleared row must be stamped so it is not re-checked next sweep');
+    }
+
+    public function test_verify_skips_rows_verified_within_cooldown(): void
+    {
+        Restaurant::factory()->create([
+            'name' => 'Fresh Eatery',
+            'photo_url' => 'https://upload.wikimedia.org/valid.jpg',
+            'photo_verified_at' => now(),
+        ]);
+
+        Http::fake();
+
+        $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_verify_rechecks_rows_whose_stamp_is_past_cooldown(): void
+    {
+        Restaurant::factory()->create([
+            'name' => 'Stale Eatery',
+            'photo_url' => 'https://upload.wikimedia.org/valid.jpg',
+            'photo_verified_at' => now()->subWeeks(29),
+        ]);
+
+        Http::fake([
+            'upload.wikimedia.org/*' => Http::response('ok', 200, ['Content-Type' => 'image/jpeg']),
+        ]);
+
+        $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'upload.wikimedia.org'));
     }
 }
