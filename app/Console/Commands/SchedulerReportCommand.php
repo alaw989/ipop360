@@ -108,9 +108,13 @@ class SchedulerReportCommand extends Command
             }
         }
 
+        // Structured telemetry alone can attest completion; commands ingested
+        // only from the raw cron-redirect log (source=raw) can't attribute the
+        // trailing `... DONE`, so skip them here to avoid false "hung" flags.
         $hung = array_filter(
             $aggregates,
-            fn (array $agg) => $agg['started'] > ($agg['completed'] + $agg['failed']),
+            fn (array $agg) => ($agg['source'] ?? 'structured') === 'structured'
+                && $agg['started'] > ($agg['completed'] + $agg['failed']),
         );
         if ($hung !== []) {
             $this->newLine();

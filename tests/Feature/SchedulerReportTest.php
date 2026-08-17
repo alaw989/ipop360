@@ -244,6 +244,69 @@ class SchedulerReportTest extends TestCase
             ->assertSuccessful();
     }
 
+    public function test_aggregate_ingests_raw_cron_redirect_log_for_fire_counts(): void
+    {
+        // Structured JSON telemetry absent — only the raw `scheduler.log`
+        // cron-redirect exists (as on the droplet before telemetry deploys).
+        $this->writeLog('scheduler.log', [
+            "  2026-08-17 02:00:00 Running ['artisan' restaurants:score] ",
+            "  2026-08-17 02:00:01 Running ['artisan' uptime:canary] ........ 822.73ms DONE",
+            "  2026-08-17 04:00:01 Running ['artisan' restaurants:enrich --throttled] ",
+            '   INFO  No scheduled commands are ready to run.  ',
+        ]);
+
+        $aggregates = (new SchedulerTelemetryReport($this->dir))->aggregate(7);
+
+        $this->assertSame(1, $aggregates['restaurants:score']['started']);
+        $this->assertSame('raw', $aggregates['restaurants:score']['source']);
+        $this->assertSame(['2026-08-17 02:00:00'], $aggregates['restaurants:score']['started_ats']);
+
+        $this->assertSame(1, $aggregates['uptime:canary']['started']);
+        $this->assertSame(1, $aggregates['restaurants:enrich --throttled']['started']);
+
+        // Non-start lines (INFO output, blanks) are ignored.
+        $this->assertCount(3, $aggregates);
+    }
+
+    public function test_raw_only_commands_are_not_flagged_as_unfinished(): void
+    {
+        $this->writeLog('scheduler.log', [
+            "  2026-08-17 02:00:00 Running ['artisan' restaurants:score] ",
+        ]);
+
+        $this->app->instance(SchedulerTelemetryReport::class, new SchedulerTelemetryReport($this->dir));
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('scheduler:report', ['--days' => 7]);
+        $command->expectsOutputToContain('restaurants:score')
+            ->doesntExpectOutputToContain('unfinished runs')
+            ->assertSuccessful();
+    }
+
+    public function test_raw_log_merges_with_structured_telemetry(): void
+    {
+        // Structured JSON marks the command as structured; the raw log is a
+        // secondary source and must not overwrite it.
+        $this->writeLog('scheduler-'.now()->format('Y-m-d').'.log', [
+            $this->telemetryLine('Scheduled command started', 'restaurants:score', ['started_at' => '2026-08-17T02:00:00+00:00']),
+            $this->telemetryLine('Scheduled command completed', 'restaurants:score', ['runtime_seconds' => 3.0]),
+        ]);
+        $this->writeLog('scheduler.log', [
+            "  2026-08-17 02:00:00 Running ['artisan' restaurants:score] ",
+            "  2026-08-17 02:00:01 Running ['artisan' uptime:canary] ........ 822.73ms DONE",
+        ]);
+
+        $aggregates = (new SchedulerTelemetryReport($this->dir))->aggregate(7);
+
+        $this->assertSame('structured', $aggregates['restaurants:score']['source']);
+        $this->assertSame(1, $aggregates['restaurants:score']['completed']);
+        $this->assertSame([3.0], $aggregates['restaurants:score']['runtimes']);
+
+        // uptime:canary only has raw data -> raw source.
+        $this->assertSame('raw', $aggregates['uptime:canary']['source']);
+        $this->assertSame(1, $aggregates['uptime:canary']['started']);
+    }
+
     /**
      * @param  array<string, mixed>  $extra
      */
