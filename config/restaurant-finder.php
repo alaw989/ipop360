@@ -423,6 +423,12 @@ return [
         // own website og:image/<img> tags. The RestaurantCard shows up to 6.
         'gallery_photos_max' => (int) env('LIVE_SEARCH_GALLERY_PHOTOS_MAX', 6),
 
+        // Photo-verify cooldown: rows whose photo state was HTTP-verified within
+        // this many weeks are skipped by both the daily backfill and the weekly
+        // verify sweep, so a confirmed-dead photo isn't re-checked (or re-sourced)
+        // every run. Rows re-enter the pool once the stamp ages past the window.
+        'photo_verify_cooldown_weeks' => (int) env('LIVE_SEARCH_PHOTO_VERIFY_COOLDOWN_WEEKS', 28),
+
         // Quality floor: drop scored rows below this popularity_score before the
         // max_results cap. Scores are normalized per active set, so a fixed floor
         // is unreliable across result sets — it defaults to 0 (off). The

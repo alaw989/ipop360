@@ -99,4 +99,25 @@ class BackfillRestaurantPhotosTest extends TestCase
         $cmd = $this->artisan('restaurants:backfill-photos', ['--apply' => true]);
         $cmd->assertExitCode(0);
     }
+
+    public function test_backfill_skips_recently_verified_dead_row_within_cooldown(): void
+    {
+        $r = $this->restaurant([
+            'website_url' => 'https://eatery.example',
+            'photo_url' => null,
+            'photo_verified_at' => now(),
+        ]);
+
+        // A recently cleared (known-dead-unresolvable) row must NOT be re-sourced
+        // before the cooldown elapses.
+        $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
+        $scraper->shouldReceive('searchImageForRestaurant')->never();
+        $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
+
+        $this->artisan('restaurants:backfill-photos', ['--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNull($fresh->photo_url, 'recently cleared dead row must not be re-sourced within the cooldown');
+    }
 }
