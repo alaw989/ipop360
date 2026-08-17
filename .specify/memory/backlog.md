@@ -451,6 +451,24 @@ deployed + live-verified (prod sort shows the relabel; flag set on prod).
 thresholds and runs PHP 8.4; CI + deploy green; new restaurant rows are
 enriched within minutes of creation (photo hunt + AI + OSM hours, queued).
 
+## ✅ Done (2026-08-17 session)
+
+**Photo-verify hardening** — PR #117 (opencode-loop, ALL_DONE; work left
+uncommitted by the loop, committed manually on the pre-created
+`feat/photo-verify-hardening` branch before shipping): (1) `--verify` now
+HTTP-checks every distinct URL in the photos gallery array too — drops dead,
+keeps valid, and promotes an alive gallery entry to `photo_url` when the
+primary is dead; (2) new `photo_verified_at` column skips known-dead-unresolvable
+rows for N weeks (default 28, `LIVE_SEARCH_PHOTO_VERIFY_COOLDOWN_WEEKS` /
+`restaurant-finder.live_search.photo_verify_cooldown_weeks`) so the weekly sweep
+stops re-checking them; (3) clear-to-null on confirmed-dead-unresolvable (broken
+image → honest no-image fallback); (4) valid rows stamped so the sweep re-checks
+on the ~28-day cadence, not every Wednesday. New `$cleared`/`$skipped` counters.
+PHPUnit 837→844. Merged + deployed + live-verified: dry-run verify sweep on
+prod (20 rows: 3 alive, 17 dead, 3 promoted, 4 re-sourced, 10 cleared, 0 failed);
+migration ran (`photo_verified_at` present); site 200; supervisor programs
+restarted.
+
 ## ✅ Done (2026-08-16 session, continued)
 
 **Ingestion-time enrichment** — PR #116 (opencode-loop, 3+1 iterations,
@@ -473,26 +491,7 @@ pre-existing, follow-up), 0 failures, no clobbering.
 
 ## Next goals (in priority order)
 
-### 8. Ingestion-time enrichment ⬅ NEXT
-- **Audit finding (live-verified):** of 384 restaurants added in the last 7d,
-  312 (81%) no photo, 377 (98%) no description, 375 (98%) no price. Free
-  live-search sources (BizData/Overpass/Photon/Socrata) set photo_url/description
-  null; SerpApi (the only rich source) isn't in the initial live-search path;
-  nothing bolsters a row at creation. The daily AI-enrich + photo backfill fill
-  it later — or never. New rows today: 128 added, 0 with photo, 2 with desc.
-- **Goal:** `ingestion-time enrichment: when LiveVenuePersister::persist() CREATES a row, queue async enrichment so new rows are rich within minutes — (1) photo hunt via the context-first searchImageForRestaurant chain, (2) EnrichRestaurantWithAi job for missing description/price_range/phone, (3) opening_hours from the venue's OSM tags when present; never block the search response (all queued); never clobber existing data on updates (created-only); respect domain-safety (no gps-cs-s primary, name-relevance guard)`
-- **Gate:** `composer test && npm run build`
-
-### 9. Photo-verify hardening ⬅ NEXT
-- **Audit finding:** --verify (PR #109) checks only the primary photo_url; the
-  photos gallery array is only deduped as a side-effect. ~44 rows are
-  dead-unresolvable (no website / no name-matching source) and get re-checked
-  every weekly pass — wasted HTTP forever. Live galleries are single-element
-  mirrors today but --min-photos=2 is growing them.
-- **Goal:** `photo-verify hardening: (1) HTTP-check every distinct URL in the photos gallery array too — drop dead, keep valid, and promote an alive gallery entry to photo_url when the primary is dead; (2) add a photo_verified_at column and skip known-dead-unresolvable rows for N weeks (default 28) so the weekly sweep stops re-checking them; (3) clear-to-null on confirmed-dead-unresolvable (broken image → honest no-image fallback, operator-approved); (4) stamp valid rows so the sweep re-checks on the ~28-day cadence, not every Wednesday`
-- **Gate:** `composer test && npm run build`
-
-### 10. Scheduler / infra hardening audit
+### 8. Scheduler / infra hardening audit ⬅ NEXT
 - **Audit finding:** bare `withoutOverlapping()` everywhere — default 24h lock
   expiry means a killed command (e.g. the 5h35m throttled enrichment) silently
   skips the next day's run. No per-command runtime/failure telemetry. cron +
@@ -501,7 +500,7 @@ pre-existing, follow-up), 0 failures, no clobbering.
 - **Goal:** `scheduler/infra hardening audit: instrument per-command runtime + failure telemetry; set explicit withoutOverlapping() expiries (or skipDuplicates); resolve the 5h35m throttled-enrichment collision with other daily jobs; verify cron + schedule:work redundancy is correct; confirm all 12 scheduled commands fire on time on the droplet`
 - **Gate:** `composer test && npm run build`
 
-### 11. Restaurant data-gap remediation
+### 9. Restaurant data-gap remediation
 - **Audit finding (8,282 active rows):** description 83% missing, menu_url 92%,
   price_range 75%, no cuisine tag 68%, phone 46%, photo 39%, opening_hours 32%;
   440 dupe name+city+state groups; 37 non-2-char states; 262 missing city.
@@ -509,7 +508,7 @@ pre-existing, follow-up), 0 failures, no clobbering.
 - **Goal:** `restaurant data-gap remediation: map every gap to its owning scheduled command / SearchController and tune to close it — AI-enrich → description/price/phone; website-scrape → hours/menu; context backfill → photo; data-hygiene → state/dupes; enrichment → cuisine tags; prioritize by search impact; extend data-hygiene to the 440 dupe groups + 37 bad states`
 - **Gate:** `composer test && npm run build`
 
-### 12. Pull prod DB → local
+### 10. Pull prod DB → local
 - **Audit finding:** local MySQL `ipop360` has 2 stale seed rows; prod has
   ~8,282. `.env` already points at local MySQL. Runtime tables are ~120MB noise.
 - **Goal:** `pull the latest prod DB to local: mysqldump prod ipop360 excluding runtime tables (pulse_*, sessions, cache*, jobs*, failed_jobs, password_reset_tokens) → ~16MB core; restore into local MySQL; verify restaurants count ≈ 8,282 and the dev server on :8090 serves real data`
