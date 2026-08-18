@@ -2,11 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Support\SchedulerProblemDetector;
 use App\Support\SchedulerTelemetryReport;
-use Cron\CronExpression;
 use Illuminate\Console\Command;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Support\Carbon;
 
 /**
  * Report per-command scheduler fire/runtime/failure telemetry.
@@ -27,7 +26,7 @@ class SchedulerReportCommand extends Command
 
     protected $description = 'Report per-command scheduler fire/runtime/failure telemetry (read-only)';
 
-    public function handle(SchedulerTelemetryReport $report): int
+    public function handle(SchedulerTelemetryReport $report, SchedulerProblemDetector $detector): int
     {
         $days = max(1, (int) $this->option('days'));
         $tolerance = max(1, (int) $this->option('drift-tolerance'));
@@ -56,7 +55,7 @@ class SchedulerReportCommand extends Command
             $agg = $aggregates[$command] ?? null;
 
             $drift = ($agg['last_started_at'] ?? null) !== null
-                ? $this->driftMinutes($expression, (string) $agg['last_started_at'], $now)
+                ? $detector->driftMinutes($expression, (string) $agg['last_started_at'], $now)
                 : null;
 
             $rows[] = [
@@ -97,12 +96,18 @@ class SchedulerReportCommand extends Command
             );
         }
 
-        $neverFired = array_values(array_filter(
-            array_keys($registered),
-            fn (string $command) => ! isset($aggregates[$command]),
-        ));
+        $problems = $detector->detect($aggregates, $registered, $tolerance, $days, $now);
+        $hasProblem = $problems['has_problem'];
+        $neverFired = $problems['never_fired'];
+        $withFailures = $problems['failed'];
+        $hung = $problems['hung'];
+        $offSchedule = $problems['off_schedule'];
+        $offScheduleFires = $problems['off_schedule_fires'];
+        $stale = $problems['stopped_firing'];
+        $overFired = $problems['over_fired'];
+        $flaggedCommands = $problems['flagged'];
+
         if ($neverFired !== []) {
-            $hasProblem = true;
             if (! $json) {
                 $this->newLine();
                 $this->warn('Registered commands with NO telemetry in window:');
@@ -112,9 +117,7 @@ class SchedulerReportCommand extends Command
             }
         }
 
-        $withFailures = array_filter($aggregates, fn (array $agg) => $agg['failed'] > 0);
         if ($withFailures !== []) {
-            $hasProblem = true;
             if (! $json) {
                 $this->newLine();
                 $this->warn('Commands with failures in window:');
@@ -127,18 +130,7 @@ class SchedulerReportCommand extends Command
             }
         }
 
-        // Only runs whose START was recorded by structured telemetry can have
-        // their completion attested. Raw cron-redirect fires can't name their
-        // trailing `... DONE`, so mixing raw-era starts with structured
-        // completions would false-flag every command once telemetry is live on
-        // top of raw history. Compare structured starts against (attributable)
-        // completions + failures only.
-        $hung = array_filter(
-            $aggregates,
-            fn (array $agg) => $agg['structured_started'] > ($agg['completed'] + $agg['failed']),
-        );
         if ($hung !== []) {
-            $hasProblem = true;
             if (! $json) {
                 $this->newLine();
                 $this->warn('Commands with unfinished runs (started without completed/failed — hung or still-running):');
@@ -153,19 +145,7 @@ class SchedulerReportCommand extends Command
             }
         }
 
-        $offSchedule = [];
-        foreach ($registered as $command => $expression) {
-            $last = $aggregates[$command]['last_started_at'] ?? null;
-            if ($last === null) {
-                continue;
-            }
-            $drift = $this->driftMinutes($expression, (string) $last, $now);
-            if ($drift !== null && abs($drift) > $tolerance) {
-                $offSchedule[$command] = $drift;
-            }
-        }
         if ($offSchedule !== []) {
-            $hasProblem = true;
             if (! $json) {
                 $this->newLine();
                 $this->warn(sprintf('Commands that fired off-schedule (|drift| > %d min):', $tolerance));
@@ -180,20 +160,7 @@ class SchedulerReportCommand extends Command
             }
         }
 
-        // The block above only inspects the *most recent* fire, so a command
-        // that fired on time today but late earlier in the window would slip
-        // through. Re-check every individual fire against its own cron slot.
-        $offScheduleFires = [];
-        foreach ($registered as $command => $expression) {
-            foreach ($aggregates[$command]['started_ats'] ?? [] as $startedAt) {
-                $drift = $this->fireDriftMinutes($expression, $startedAt);
-                if ($drift !== null && abs($drift) > $tolerance) {
-                    $offScheduleFires[$command][] = ['at' => $startedAt, 'drift' => $drift];
-                }
-            }
-        }
         if ($offScheduleFires !== []) {
-            $hasProblem = true;
             if (! $json) {
                 $this->newLine();
                 $this->warn(sprintf('Individual fires that ran off their own cron slot (|drift| > %d min):', $tolerance));
@@ -211,28 +178,7 @@ class SchedulerReportCommand extends Command
             }
         }
 
-        // A command can fire on-schedule at its slot and STILL be a problem if it
-        // has since gone silent. The drift checks above flag a *wrong* fire time;
-        // this flags a *missing* cycle — a command whose latest fire is more than
-        // 1.5x its own cadence in the past (it stopped firing).
-        $stale = [];
-        foreach ($registered as $command => $expression) {
-            $last = $aggregates[$command]['last_started_at'] ?? null;
-            if ($last === null) {
-                continue;
-            }
-            $lastAt = Carbon::parse($last);
-            $cadence = $this->cadenceMinutes($expression, $lastAt);
-            if ($cadence === null) {
-                continue;
-            }
-            $ageMinutes = $lastAt->diffInMinutes($now, false);
-            if ($ageMinutes > $cadence * 1.5) {
-                $stale[$command] = $ageMinutes;
-            }
-        }
         if ($stale !== []) {
-            $hasProblem = true;
             if (! $json) {
                 $this->newLine();
                 $this->warn('Commands that stopped firing (last fire > 1.5x cadence ago):');
@@ -242,25 +188,7 @@ class SchedulerReportCommand extends Command
             }
         }
 
-        // The drift/stale checks above can't see a command that fires TOO often:
-        // a daily job that fires twice each day still looks healthy on every
-        // per-fire drift and has a fresh last_started_at. That is the signature
-        // of a redundant second scheduler instance (e.g. cron AND schedule:work
-        // both running) — item 4. Flag any command whose fires exceed the number
-        // of cron slots its expression provides in the window.
-        $overFired = [];
-        foreach ($registered as $command => $expression) {
-            $fires = count($aggregates[$command]['started_ats'] ?? []);
-            if ($fires === 0) {
-                continue;
-            }
-            $expected = $this->expectedFiresInWindow($expression, now()->subDays($days)->startOfDay(), $now);
-            if ($expected >= 0 && $fires > $expected) {
-                $overFired[$command] = ['fires' => $fires, 'expected' => $expected];
-            }
-        }
         if ($overFired !== []) {
-            $hasProblem = true;
             if (! $json) {
                 $this->newLine();
                 $this->warn('Commands that fired MORE often than their cron slot allows (redundant scheduler / double-run):');
@@ -280,16 +208,6 @@ class SchedulerReportCommand extends Command
             fn (string $command) => ! isset($registered[$command]),
         ));
 
-        $flaggedCommands = array_values(array_unique(array_merge(
-            $neverFired,
-            array_keys($withFailures),
-            array_keys($hung),
-            array_keys($offSchedule),
-            array_keys($offScheduleFires),
-            array_keys($stale),
-            array_keys($overFired),
-        )));
-
         if ($this->option('json')) {
             return $this->renderJson(
                 registered: $registered,
@@ -306,6 +224,7 @@ class SchedulerReportCommand extends Command
                 overFired: array_keys($overFired),
                 notRegistered: $notRegistered,
                 exitOnProblem: $exitOnProblem,
+                detector: $detector,
             );
         }
 
@@ -379,94 +298,6 @@ class SchedulerReportCommand extends Command
     }
 
     /**
-     * Signed minutes between a command's last start and its expected cron slot
-     * (positive = late, negative = early). Returns null if the timestamp is
-     * unparseable or the cron expression is invalid.
-     */
-    private function driftMinutes(string $expression, string $lastStartedAt, \DateTimeInterface $now): ?float
-    {
-        try {
-            $expected = CronExpression::factory($expression)->getPreviousRunDate($now);
-            $actual = Carbon::parse($lastStartedAt);
-
-            return $actual->diffInMinutes($expected, false);
-        } catch (\Throwable) {
-            return null;
-        }
-    }
-
-    /**
-     * Cadence (period) of a cron expression in minutes — the gap between two
-     * consecutive scheduled runs. Used to judge whether a command has gone a full
-     * cycle (or more) without firing. Returns null if the expression is invalid
-     * or yields no next run.
-     *
-     * The period is measured between two consecutive *scheduled* runs, never
-     * from the actual (possibly off-slot) fire time — otherwise a command that
-     * fired early (e.g. right after a schedule migration) would yield a tiny
-     * period (fire → next slot) and be false-flagged as stopped firing.
-     */
-    private function cadenceMinutes(string $expression, \DateTimeInterface $reference): ?float
-    {
-        try {
-            $cron = CronExpression::factory($expression);
-            $first = Carbon::instance($cron->getNextRunDate($reference));
-            $second = Carbon::instance($cron->getNextRunDate($first));
-
-            return $first->diffInMinutes($second, false);
-        } catch (\Throwable) {
-            return null;
-        }
-    }
-
-    /**
-     * Signed minutes between a single fire and its own expected cron slot
-     * (positive = late, negative = early). Uses allowCurrentDate=true so a fire
-     * landing exactly on its slot boundary reads as 0 drift rather than +period.
-     * Returns null if the timestamp is unparseable or the cron expression invalid.
-     */
-    private function fireDriftMinutes(string $expression, string $startedAt): ?float
-    {
-        try {
-            $actual = Carbon::parse($startedAt);
-            $expected = CronExpression::factory($expression)->getPreviousRunDate($actual, 0, true);
-
-            return Carbon::instance($expected)->diffInMinutes($actual, false);
-        } catch (\Throwable) {
-            return null;
-        }
-    }
-
-    /**
-     * Number of times a cron expression is scheduled to run inside the half-open
-     * interval [from, to). Used to judge whether a command has fired MORE often
-     * than its schedule allows (a redundant-scheduler / double-run signal).
-     * Returns -1 if the expression is invalid (caller treats -1 as "unknown").
-     */
-    private function expectedFiresInWindow(string $expression, \DateTimeInterface $from, \DateTimeInterface $to): int
-    {
-        try {
-            $count = 0;
-            $cursor = Carbon::instance($from);
-            $end = Carbon::instance($to);
-            $cron = CronExpression::factory($expression);
-
-            for ($i = 0; $i < 10000; $i++) {
-                $next = Carbon::instance($cron->getNextRunDate($cursor));
-                if ($next >= $end) {
-                    break;
-                }
-                $cursor = $next;
-                $count++;
-            }
-
-            return $count;
-        } catch (\Throwable) {
-            return -1;
-        }
-    }
-
-    /**
      * Emit the report as a single JSON document so automation/CI can consume the
      * item-5 "confirm all 16 fire on time" verdict programmatically (exit code is
      * still governed by --exit-on-problem).
@@ -494,6 +325,7 @@ class SchedulerReportCommand extends Command
         array $hung,
         array $offSchedule,
         array $offScheduleFires,
+        SchedulerProblemDetector $detector,
         array $stale,
         array $overFired,
         array $notRegistered,
@@ -517,7 +349,7 @@ class SchedulerReportCommand extends Command
                     'max' => max($runtimes),
                 ],
                 'last_drift_minutes' => ($agg['last_started_at'] ?? null) !== null
-                    ? $this->driftMinutes($expression, (string) $agg['last_started_at'], now())
+                    ? $detector->driftMinutes($expression, (string) $agg['last_started_at'], now())
                     : null,
                 'last_failure_output' => $agg['last_failure_output'] ?? null,
             ];
