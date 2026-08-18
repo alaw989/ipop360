@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Carbon;
+
 /**
  * Reads the scheduler telemetry log(s) written by {@see SchedulerTelemetry}
  * and aggregates per-command fire counts, failure counts and wall-clock
@@ -59,7 +61,7 @@ final class SchedulerTelemetryReport
     /**
      * Aggregate telemetry records per (normalized) command.
      *
-     * @return array<string, array{started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string, last_failure_output:string|null}>
+     * @return array<string, array{started:int, structured_started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string, last_failure_output:string|null}>
      */
     public function aggregate(int $days): array
     {
@@ -83,7 +85,7 @@ final class SchedulerTelemetryReport
 
                 if ($message === 'Scheduled command started') {
                     $aggregates[$command]['started']++;
-                    $aggregates[$command]['last_started_at'] = $record['context']['started_at'] ?? null;
+                    $aggregates[$command]['structured_started']++;
 
                     $startedAt = $record['context']['started_at'] ?? null;
                     if (is_string($startedAt) && $startedAt !== '') {
@@ -103,7 +105,37 @@ final class SchedulerTelemetryReport
 
         $this->mergeRawLog($aggregates, now()->subDays($days)->startOfDay()->format('Y-m-d'), $structuredFires);
 
+        // last_started_at is the NEWEST fire across both sources. It must not be
+        // taken from whichever source happened to be read last (raw merge runs
+        // after structured and skips deduped fires, which would otherwise regress
+        // the timestamp to an older raw fire) — derive it from the full fire list.
+        foreach ($aggregates as $command => &$agg) {
+            $latest = null;
+            foreach ($agg['started_ats'] as $startedAt) {
+                if ($latest === null || $this->laterThan($startedAt, $latest)) {
+                    $latest = $startedAt;
+                }
+            }
+            $agg['last_started_at'] = $latest;
+        }
+        unset($agg);
+
         return $aggregates;
+    }
+
+    /**
+     * True when timestamp $a is later than timestamp $b. Handles both the
+     * structured (ISO8601, "T" separator + offset) and raw ("Y-m-d H:i:s")
+     * formats. Unparseable values compare as "not later" so a parse failure
+     * never fabricates a newer fire.
+     */
+    private function laterThan(string $a, string $b): bool
+    {
+        try {
+            return Carbon::parse($a)->greaterThan(Carbon::parse($b));
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
@@ -123,7 +155,7 @@ final class SchedulerTelemetryReport
      * have no structured data as source=raw so the report doesn't misread their
      * (unattributable) completion as "unfinished".
      *
-     * @param  array<string, array{started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string, last_failure_output:string|null}>  $aggregates
+     * @param  array<string, array{started:int, structured_started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string, last_failure_output:string|null}>  $aggregates
      * @param  string  $cutoff  Window start date (Y-m-d) — raw lines older than this are excluded.
      * @param  array<string, array<string, true>>  $structuredFires  command => minute-key => true
      *                                                               fires already recorded by structured telemetry.
@@ -158,7 +190,6 @@ final class SchedulerTelemetryReport
             $isNew = ! isset($aggregates[$command]);
             $aggregates[$command] ??= $this->emptyAggregate();
             $aggregates[$command]['started']++;
-            $aggregates[$command]['last_started_at'] = $startedAt;
             $aggregates[$command]['started_ats'][] = $startedAt;
             if ($isNew) {
                 $aggregates[$command]['source'] = 'raw';
@@ -167,12 +198,13 @@ final class SchedulerTelemetryReport
     }
 
     /**
-     * @return array{started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string, last_failure_output:string|null}
+     * @return array{started:int, structured_started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string, last_failure_output:string|null}
      */
     private function emptyAggregate(): array
     {
         return [
             'started' => 0,
+            'structured_started' => 0,
             'completed' => 0,
             'failed' => 0,
             'last_started_at' => null,

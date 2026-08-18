@@ -361,6 +361,45 @@ class SchedulerReportTest extends TestCase
             ->assertSuccessful();
     }
 
+    public function test_aggregate_keeps_the_newest_fire_and_only_structured_starts_count_as_unfinished(): void
+    {
+        // Hybrid window: a raw cron-redirect fire at 14:00 (pre-structured era,
+        // completion unattributable) PLUS structured started/completed at 14:15.
+        // The newest fire must win for last_started_at (not the oldest
+        // non-deduped raw fire), and the raw-era start must not count against
+        // the structured completion in the unfinished-run check.
+        $this->travelTo(Carbon::parse('2026-08-17 14:20:00', 'UTC'));
+
+        $this->writeLog('scheduler.log', [
+            "  2026-08-17 14:00:01 Running ['artisan' uptime:canary] ........ 822ms DONE",
+            "  2026-08-17 14:15:00 Running ['artisan' uptime:canary] ........ 822ms DONE",
+        ]);
+        $this->writeLog('scheduler-2026-08-17.log', [
+            $this->telemetryLine('Scheduled command started', 'uptime:canary', ['started_at' => '2026-08-17T14:15:02+00:00']),
+            $this->telemetryLine('Scheduled command completed', 'uptime:canary', ['runtime_seconds' => 1.5]),
+        ]);
+
+        $aggregates = (new SchedulerTelemetryReport($this->dir))->aggregate(7);
+
+        // Raw 14:15 fire deduped against structured; raw 14:00 kept.
+        $this->assertSame(2, $aggregates['uptime:canary']['started']);
+        $this->assertSame(1, $aggregates['uptime:canary']['structured_started']);
+        $this->assertSame(1, $aggregates['uptime:canary']['completed']);
+        $this->assertSame(
+            '2026-08-17T14:15:02+00:00',
+            $aggregates['uptime:canary']['last_started_at'],
+            'the newest (structured) fire must win over the older raw fire',
+        );
+
+        $this->app->instance(SchedulerTelemetryReport::class, new SchedulerTelemetryReport($this->dir));
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('scheduler:report', ['--days' => 7]);
+        $command->doesntExpectOutputToContain('unfinished runs')
+            ->doesntExpectOutputToContain('stopped firing')
+            ->assertSuccessful();
+    }
+
     public function test_exit_on_problem_returns_failure_when_a_command_stopped_firing(): void
     {
         // The item-5 gate must fail when any command went silent, so CI/alerting
