@@ -127,13 +127,15 @@ class SchedulerReportCommand extends Command
             }
         }
 
-        // Structured telemetry alone can attest completion; commands ingested
-        // only from the raw cron-redirect log (source=raw) can't attribute the
-        // trailing `... DONE`, so skip them here to avoid false "hung" flags.
+        // Only runs whose START was recorded by structured telemetry can have
+        // their completion attested. Raw cron-redirect fires can't name their
+        // trailing `... DONE`, so mixing raw-era starts with structured
+        // completions would false-flag every command once telemetry is live on
+        // top of raw history. Compare structured starts against (attributable)
+        // completions + failures only.
         $hung = array_filter(
             $aggregates,
-            fn (array $agg) => $agg['source'] === 'structured'
-                && $agg['started'] > ($agg['completed'] + $agg['failed']),
+            fn (array $agg) => $agg['structured_started'] > ($agg['completed'] + $agg['failed']),
         );
         if ($hung !== []) {
             $hasProblem = true;
@@ -470,7 +472,7 @@ class SchedulerReportCommand extends Command
      * still governed by --exit-on-problem).
      *
      * @param  array<string, string>  $registered  bare command => cron expression
-     * @param  array<string, array{started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string, last_failure_output:string|null}>  $aggregates
+     * @param  array<string, array{started:int, structured_started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string, last_failure_output:string|null}>  $aggregates
      * @param  list<string>  $flaggedCommands
      * @param  list<string>  $neverFired
      * @param  list<string>  $withFailures
