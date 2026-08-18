@@ -394,17 +394,24 @@ class SchedulerReportCommand extends Command
     }
 
     /**
-     * Cadence (period) of a cron expression in minutes — the gap between a
-     * reference instant and its next matching run. Used to judge whether a
-     * command has gone a full cycle (or more) without firing. Returns null if
-     * the expression is invalid or yields no next run.
+     * Cadence (period) of a cron expression in minutes — the gap between two
+     * consecutive scheduled runs. Used to judge whether a command has gone a full
+     * cycle (or more) without firing. Returns null if the expression is invalid
+     * or yields no next run.
+     *
+     * The period is measured between two consecutive *scheduled* runs, never
+     * from the actual (possibly off-slot) fire time — otherwise a command that
+     * fired early (e.g. right after a schedule migration) would yield a tiny
+     * period (fire → next slot) and be false-flagged as stopped firing.
      */
     private function cadenceMinutes(string $expression, \DateTimeInterface $reference): ?float
     {
         try {
-            $next = CronExpression::factory($expression)->getNextRunDate($reference);
+            $cron = CronExpression::factory($expression);
+            $first = Carbon::instance($cron->getNextRunDate($reference));
+            $second = Carbon::instance($cron->getNextRunDate($first));
 
-            return abs(Carbon::instance($next)->diffInMinutes($reference, false));
+            return $first->diffInMinutes($second, false);
         } catch (\Throwable) {
             return null;
         }

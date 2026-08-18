@@ -338,6 +338,29 @@ class SchedulerReportTest extends TestCase
             ->assertSuccessful();
     }
 
+    public function test_command_does_not_flag_an_early_fire_as_stale(): void
+    {
+        // A daily command that fired EARLY (its last fire sits before the current
+        // cron slot, e.g. right after a schedule migration) must not be flagged
+        // "stopped firing". The cadence is the gap between two consecutive
+        // SCHEDULED runs (1440 min for seo:sitemap), not the gap from the
+        // off-slot fire to the next run (~315 min here) — otherwise a healthy
+        // command that just fired this morning looks >1.5x cadence old.
+        $this->travelTo(Carbon::parse('2026-08-17 14:00:30', 'UTC'));
+
+        $this->writeLog('scheduler-2026-08-17.log', [
+            $this->telemetryLine('Scheduled command started', 'seo:sitemap', ['started_at' => '2026-08-17T05:00:00+00:00']),
+            $this->telemetryLine('Scheduled command completed', 'seo:sitemap', ['runtime_seconds' => 3.0]),
+        ]);
+
+        $this->app->instance(SchedulerTelemetryReport::class, new SchedulerTelemetryReport($this->dir));
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('scheduler:report', ['--days' => 7]);
+        $command->doesntExpectOutputToContain('stopped firing')
+            ->assertSuccessful();
+    }
+
     public function test_exit_on_problem_returns_failure_when_a_command_stopped_firing(): void
     {
         // The item-5 gate must fail when any command went silent, so CI/alerting
