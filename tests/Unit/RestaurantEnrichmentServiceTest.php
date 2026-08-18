@@ -90,6 +90,8 @@ class RestaurantEnrichmentServiceTest extends TestCase
         $result = $this->makeService()->enrichAllCitiesThrottled();
 
         $this->assertSame([
+            'combos_processed' => 0,
+            'combos_cap_reached' => false,
             'total_processed' => 0,
             'real_calls_made' => 0,
             'cache_hits_skipped' => 0,
@@ -110,6 +112,8 @@ class RestaurantEnrichmentServiceTest extends TestCase
         $result = $this->makeService()->enrichAllCitiesThrottled();
 
         $this->assertSame([
+            'combos_processed' => 0,
+            'combos_cap_reached' => false,
             'total_processed' => 0,
             'real_calls_made' => 0,
             'cache_hits_skipped' => 0,
@@ -250,5 +254,42 @@ class RestaurantEnrichmentServiceTest extends TestCase
         $this->assertSame(0, $result['real_calls_made']);
         $this->assertSame(2, $result['total_processed']);
         $this->assertFalse($result['per_run_cap_reached']);
+    }
+
+    /**
+     * Combos-per-run cap: the free-source sweep (cache-fresh pre-warm AND the
+     * provider-exhausted fail-open path) is NOT bounded by per_run_cap or the
+     * monthly budget, so without its own cap it walks the whole ~1,470-combo
+     * grid nightly — the ~5h35m run that collides with the 05:00+ jobs (and up
+     * to ~15h in fail-open mode). With the cap at 2 over a 3-combo grid, the
+     * third combo must never reach the free sources.
+     */
+    public function test_caps_combos_per_run_when_provider_exhausted(): void
+    {
+        Config::set('restaurant-finder.cities', [
+            'Mobile' => [30.69, -88.04],
+            'Austin' => [30.27, -97.74],
+            'Boulder' => [40.01, -105.27],
+        ]);
+        Config::set('restaurant-finder.cuisines', ['Taco']);
+        Config::set('restaurant-finder.enrich.monthly_budget', 1000);
+        Config::set('restaurant-finder.enrich.per_run_cap', 1000);
+        Config::set('restaurant-finder.enrich.combos_per_run', 2);
+
+        Cuisine::factory()->create(['slug' => 'taco', 'name' => 'Taco']);
+
+        $result = $this->makeService(
+            fn ($mock) => $mock->shouldReceive('isProviderExhausted')->andReturn(true),
+            function ($bizData, $overpass, $socrata) {
+                $bizData->shouldReceive('poolRequestsFor')->times(2)->andReturn([]);
+                $overpass->shouldReceive('poolRequestsFor')->times(2)->andReturn([]);
+                $socrata->shouldReceive('poolRequestsFor')->times(2)->andReturn([]);
+            }
+        )->enrichAllCitiesThrottled();
+
+        $this->assertTrue($result['combos_cap_reached']);
+        $this->assertSame(2, $result['combos_processed']);
+        $this->assertSame(2, $result['total_processed']);
+        $this->assertTrue($result['quota_exhausted']);
     }
 }

@@ -640,6 +640,16 @@ return [
         // 150 — leaves 100 of the 250 quota for live search, which is already
         // protected by the read-path circuit breaker at 80 % (200).
         'monthly_budget' => (int) env('ENRICH_MONTHLY_BUDGET', 150),
+
+        // Max total city×cuisine combos processed per run (cache-fresh pre-warm,
+        // fail-open free-source sweep, AND real SerpApi calls all count). The
+        // per-run/monetary caps only bound real SerpApi calls; without this the
+        // free-source sweep walks the entire ~1,470-combo grid every night,
+        // which measures 5h35m (and up to ~15h when SerpApi is in fail-open
+        // mode) and collides with the 05:00 sitemap / 05:30 social / 06:00
+        // website jobs. Sized so the 04:00 run finishes before 05:00 (~1m/combo);
+        // need-ordering means the cap spends each night on the neediest cities.
+        'combos_per_run' => (int) env('ENRICH_COMBOS_PER_RUN', 60),
     ],
 
     /*

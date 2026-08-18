@@ -758,9 +758,10 @@ class RestaurantEnrichmentService
     /**
      * Throttled enrichment for all cities with SerpApi quota protection.
      * Rotates through city×cuisine combos, skipping cache-fresh ones,
-     * and stops when per-run cap or monthly budget is reached.
+     * and stops when the combos-per-run cap, per-run cap, or monthly budget
+     * is reached.
      *
-     * @return array{total_processed: int, real_calls_made: int, cache_hits_skipped: int, quota_exhausted: bool, per_run_cap_reached: bool}
+     * @return array{combos_processed: int, combos_cap_reached: bool, total_processed: int, real_calls_made: int, cache_hits_skipped: int, quota_exhausted: bool, per_run_cap_reached: bool}
      */
     public function enrichAllCitiesThrottled(): array
     {
@@ -769,6 +770,8 @@ class RestaurantEnrichmentService
 
         if (empty($cities) || $cuisines->isEmpty()) {
             return [
+                'combos_processed' => 0,
+                'combos_cap_reached' => false,
                 'total_processed' => 0,
                 'real_calls_made' => 0,
                 'cache_hits_skipped' => 0,
@@ -779,23 +782,33 @@ class RestaurantEnrichmentService
 
         $perRunCap = config('restaurant-finder.enrich.per_run_cap', 40);
         $monthlyBudget = config('restaurant-finder.enrich.monthly_budget', 40);
+        $combosPerRun = (int) config('restaurant-finder.enrich.combos_per_run', 60);
 
         $realCallsThisMonth = $this->countRealSerpApiCallsLast30Days();
         $realCallsThisRun = 0;
         $cacheHitsSkipped = 0;
         $totalProcessed = 0;
+        $combosProcessed = 0;
         $quotaExhausted = false;
         $perRunCapReached = false;
+        $combosCapReached = false;
 
         Log::channel('enrichment')->info('Starting throttled enrichment', [
             'per_run_cap' => $perRunCap,
             'monthly_budget' => $monthlyBudget,
+            'combos_per_run' => $combosPerRun,
             'real_calls_this_month' => $realCallsThisMonth,
         ]);
 
         $combos = $this->buildCityCuisineGrid($cities, $cuisines);
 
         foreach ($combos as $combo) {
+            if ($combosProcessed >= $combosPerRun) {
+                $combosCapReached = true;
+                break;
+            }
+            $combosProcessed++;
+
             $cityName = $combo['city'];
             $lat = $combo['lat'];
             $lng = $combo['lng'];
@@ -896,14 +909,18 @@ class RestaurantEnrichmentService
         }
 
         Log::channel('enrichment')->info('Throttled enrichment complete', [
+            'combos_processed' => $combosProcessed,
             'total_processed' => $totalProcessed,
             'real_calls_made' => $realCallsThisRun,
             'cache_hits_skipped' => $cacheHitsSkipped,
             'quota_exhausted' => $quotaExhausted,
             'per_run_cap_reached' => $perRunCapReached,
+            'combos_cap_reached' => $combosCapReached,
         ]);
 
         return [
+            'combos_processed' => $combosProcessed,
+            'combos_cap_reached' => $combosCapReached,
             'total_processed' => $totalProcessed,
             'real_calls_made' => $realCallsThisRun,
             'cache_hits_skipped' => $cacheHitsSkipped,

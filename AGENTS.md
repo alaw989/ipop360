@@ -201,7 +201,7 @@ To recover:
 - **Config keys read in service constructors** — `Config::set()` must happen before `app()->make(...)`.
 
 ## Scheduler (cron: every minute → php artisan schedule:run)
-Daily: 00:30 engagement aggregation → 02:00 score → 03:00 cache GC → 04:00 throttled enrichment → 05:00 website backfill → 05:30 social scrape. Weekly: Sat 06:30 full social re-scrape, Sun 06:00 dead-link check. Every 15min: uptime canary.
+Daily: 00:30 engagement → 01:00 data hygiene → 02:00 score → 03:00 cache GC → 04:00 throttled enrichment (long window, ~04:00–10:00) → 10:15 sitemap → 10:45 social scrape → 11:45 website backfill → 13:45 photo backfill → ai-enrich every 6h. Weekly: Sat 12:00 full social re-scrape, Sun 11:00 dead-link check, Sun 11:30 refresh-awards, Mon 11:00 coverage, Wed 12:30 photo verify. Every 15min: uptime canary. Daily jobs are all scheduled AFTER the enrichment window to avoid SQLite write-lock contention (enforced by SchedulerCollisionTest).
 
 ## Outdated references
 - `.specify/memory/` (constitution.md, project-state.md, history/, backlog.md) is the **living memory bank** — read it at session start. `history.md` + `.specify/memory/history/` hold per-spec records.
