@@ -185,7 +185,7 @@ class DataHygiene extends Command
      * so detection is identical in dry-run and apply mode.
      *
      * @param  Collection<int, Restaurant>  $restaurants
-     * @return array<int, array{name: ?string, city: ?string, phone: ?string, lat: ?float, lng: ?float}>
+     * @return array<int, array{name: ?string, city: ?string, state: ?string, phone: ?string, lat: ?float, lng: ?float}>
      */
     private function normalizeFields($restaurants, bool $apply): array
     {
@@ -231,6 +231,7 @@ class DataHygiene extends Command
             $normalized[$restaurant->id] = [
                 'name' => $name ?? $restaurant->name,
                 'city' => $city ?? $restaurant->city,
+                'state' => $state ?? $restaurant->state,
                 'phone' => $phone,
                 'lat' => $restaurant->latitude,
                 'lng' => $restaurant->longitude,
@@ -242,15 +243,18 @@ class DataHygiene extends Command
 
     /**
      * Merge true duplicates: exact name+city+coords, then same-phone+city
-     * groups. Chain locations (same name, different city/coords) are left alone.
+     * groups, then same name+city+state rows whose coords are within a tight
+     * proximity (snapshot copies persisted with slightly different coords).
+     * Chain locations (same name, different city/coords) are left alone.
      * {@see $limit} bounds the total number of merge pairs performed per run
      * (lowest-id groups first), so a bounded pass works through the corpus over
      * successive runs rather than merging everything at once.
      *
-     * @param  array<int, array{name: ?string, city: ?string, phone: ?string, lat: ?float, lng: ?float}>  $normalized
+     * @param  array<int, array{name: ?string, city: ?string, state: ?string, phone: ?string, lat: ?float, lng: ?float}>  $normalized
      * @return array{
      *     exact_pairs: int,
      *     phone_pairs: int,
+     *     proximity_pairs: int,
      *     rows_deleted: int,
      *     links_repointed: int,
      *     links_dropped: int,
@@ -264,6 +268,7 @@ class DataHygiene extends Command
         $totals = [
             'exact_pairs' => 0,
             'phone_pairs' => 0,
+            'proximity_pairs' => 0,
             'rows_deleted' => 0,
             'links_repointed' => 0,
             'links_dropped' => 0,
@@ -312,7 +317,176 @@ class DataHygiene extends Command
         $totals['phone_pairs'] = $result['pairs'];
         $totals = $this->accumulateMergeStats($totals, $result['stats']);
 
+        if ($budget !== null && $budget <= 0) {
+            return $totals;
+        }
+
+        // Same normalized name+city+state whose coords sit within a tight
+        // radius. These are the audit's name+city+state dupe groups: the
+        // live-search snapshot persistence path created a second row with
+        // slightly different coords (and often no phone), so neither the exact
+        // coords nor the phone passes catch them. Chains keep distinct
+        // coords far apart, so proximity never merges them.
+        $proximityGroups = $this->groupByProximity($normalized, $removed);
+
+        $result = $this->mergeProximityGroups($proximityGroups, $normalized, $apply, $removed, $budget);
+        $totals['proximity_pairs'] = $result['pairs'];
+        $totals = $this->accumulateMergeStats($totals, $result['stats']);
+
         return $totals;
+    }
+
+    /**
+     * The maximum distance (km) between two same-name rows that still count as
+     * the same venue. Tight enough that genuine chain locations (which sit
+     * kilometres apart even in the same city) are never merged, yet loose
+     * enough to catch live-search snapshot copies whose coords differ by a few
+     * metres to a few hundred metres.
+     */
+    private const PROXIMITY_RADIUS_KM = 0.15;
+
+    /**
+     * Group rows sharing a normalized name+city+state whose coords are within
+     * {@see self::PROXIMITY_RADIUS_KM} of the group's lowest-id row. Rows that
+     * fall outside every existing group's radius start their own group, so
+     * distinct chain locations in the same city are never merged together.
+     *
+     * @param  array<int, array{name: ?string, city: ?string, state: ?string, phone: ?string, lat: ?float, lng: ?float}>  $normalized
+     * @param  array<int, true>  $removed
+     * @return array<int, array<int, int>>
+     */
+    private function groupByProximity(array $normalized, array $removed): array
+    {
+        // $groups[$key] is a list of groups; each group is a list of ids whose
+        // anchor (first id) is the lowest-id row for that cluster.
+        $groups = [];
+
+        ksort($normalized, SORT_NUMERIC);
+
+        foreach ($normalized as $id => $row) {
+            if (isset($removed[$id]) || $row['lat'] === null || $row['lng'] === null
+                || $row['name'] === null || $row['city'] === null) {
+                continue;
+            }
+
+            $key = $row['name']."\0".$row['city']."\0".($row['state'] ?? '');
+            $assigned = false;
+
+            foreach ($groups[$key] ?? [] as $groupIndex => $groupIds) {
+                $anchorId = $groupIds[0];
+                $anchor = $normalized[$anchorId] ?? null;
+                if ($anchor === null || $anchor['lat'] === null || $anchor['lng'] === null) {
+                    continue;
+                }
+
+                if ($this->haversineKm($row['lat'], $row['lng'], $anchor['lat'], $anchor['lng']) <= self::PROXIMITY_RADIUS_KM) {
+                    $groups[$key][$groupIndex][] = $id;
+                    $assigned = true;
+
+                    break;
+                }
+            }
+
+            if (! $assigned) {
+                $groups[$key][] = [$id];
+            }
+        }
+
+        $result = [];
+        foreach ($groups as $key => $keyGroups) {
+            foreach ($keyGroups as $ids) {
+                if (count($ids) > 1) {
+                    $result[] = $ids;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Merge every proximity group: keep its lowest-id row, merge each sibling
+     * within the radius into it, decrementing the shared pair {@see $budget}.
+     *
+     * @param  array<int, array<int, int>>  $groups
+     * @param  array<int, array{name: ?string, city: ?string, state: ?string, phone: ?string, lat: ?float, lng: ?float}>  $normalized
+     * @param  array<int, true>  $removed
+     * @return array{
+     *     pairs: int,
+     *     stats: array{
+     *         rows_deleted: int,
+     *         links_repointed: int,
+     *         links_dropped: int,
+     *         engagement_merged: int,
+     *         favorites_repointed: int,
+     *         pivot_unions: int,
+     *     },
+     * }
+     */
+    private function mergeProximityGroups(array $groups, array $normalized, bool $apply, array $removed, ?int &$budget): array
+    {
+        $stats = [
+            'rows_deleted' => 0,
+            'links_repointed' => 0,
+            'links_dropped' => 0,
+            'engagement_merged' => 0,
+            'favorites_repointed' => 0,
+            'pivot_unions' => 0,
+        ];
+
+        $pairs = 0;
+
+        foreach ($groups as $ids) {
+            if (count($ids) < 2) {
+                continue;
+            }
+
+            sort($ids, SORT_NUMERIC);
+            $keepId = array_shift($ids);
+
+            foreach ($ids as $dupeId) {
+                if (isset($removed[$dupeId])) {
+                    continue;
+                }
+
+                if ($budget !== null && $budget <= 0) {
+                    break 2;
+                }
+
+                $pair = $this->dedupe->mergePair($keepId, $dupeId, $apply);
+
+                $pairs++;
+                $stats['rows_deleted'] += $pair['rows_deleted'];
+                $stats['links_repointed'] += $pair['links_repointed'];
+                $stats['links_dropped'] += $pair['links_dropped'];
+                $stats['engagement_merged'] += $pair['engagement_merged'];
+                $stats['favorites_repointed'] += $pair['favorites_repointed'];
+                $stats['pivot_unions'] += $pair['pivot_unions'];
+
+                $removed[$dupeId] = true;
+
+                if ($budget !== null) {
+                    $budget--;
+                }
+            }
+        }
+
+        return ['pairs' => $pairs, 'stats' => $stats];
+    }
+
+    /**
+     * Haversine distance between two coordinate pairs in kilometres.
+     */
+    private function haversineKm(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $earthRadius = 6371;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        return $earthRadius * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
     /**
@@ -389,6 +563,7 @@ class DataHygiene extends Command
      * @param  array{
      *     exact_pairs: int,
      *     phone_pairs: int,
+     *     proximity_pairs: int,
      *     rows_deleted: int,
      *     links_repointed: int,
      *     links_dropped: int,
@@ -407,6 +582,7 @@ class DataHygiene extends Command
      * @return array{
      *     exact_pairs: int,
      *     phone_pairs: int,
+     *     proximity_pairs: int,
      *     rows_deleted: int,
      *     links_repointed: int,
      *     links_dropped: int,
@@ -634,6 +810,7 @@ class DataHygiene extends Command
      * @param  array{
      *     exact_pairs: int,
      *     phone_pairs: int,
+     *     proximity_pairs: int,
      *     rows_deleted: int,
      *     links_repointed: int,
      *     links_dropped: int,
@@ -655,6 +832,7 @@ class DataHygiene extends Command
         $this->line('Phone normalized: '.$normalizationCounts['phone']);
         $this->line('Exact duplicate pairs merged: '.$mergeStats['exact_pairs']);
         $this->line('Same-phone/city pairs merged: '.$mergeStats['phone_pairs']);
+        $this->line('Proximity duplicate pairs merged: '.$mergeStats['proximity_pairs']);
         $this->line('Duplicate rows deleted: '.$mergeStats['rows_deleted']);
         $this->line('Social links repointed: '.$mergeStats['links_repointed']);
         $this->line('Social links dropped (platform collision): '.$mergeStats['links_dropped']);
@@ -674,6 +852,7 @@ class DataHygiene extends Command
      * @param  array{
      *     exact_pairs: int,
      *     phone_pairs: int,
+     *     proximity_pairs: int,
      *     rows_deleted: int,
      *     links_repointed: int,
      *     links_dropped: int,
@@ -696,6 +875,7 @@ class DataHygiene extends Command
             'phone_normalized' => $normalizationCounts['phone'],
             'exact_pairs_merged' => $mergeStats['exact_pairs'],
             'phone_pairs_merged' => $mergeStats['phone_pairs'],
+            'proximity_pairs_merged' => $mergeStats['proximity_pairs'],
             'rows_deleted' => $mergeStats['rows_deleted'],
             'links_repointed' => $mergeStats['links_repointed'],
             'links_dropped' => $mergeStats['links_dropped'],

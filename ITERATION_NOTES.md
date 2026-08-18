@@ -1,86 +1,49 @@
 # Iteration Notes
 
 ## Goal
-scheduler/infra hardening audit: instrument per-command runtime + failure telemetry; set explicit withoutOverlapping() expiries (or skipDuplicates); resolve the 5h35m throttled-enrichment collision with other daily jobs; verify cron + schedule:work redundancy is correct; confirm all 16 scheduled commands fire on time on the droplet
+restaurant data-gap remediation: map every gap to its owning scheduled command / SearchController and tune to close it — AI-enrich → description/price/phone; website-scrape → hours/menu; context backfill → photo; data-hygiene → state/dupes; enrichment → cuisine tags; prioritize by search impact; extend data-hygiene to the 440 dupe groups + 37 bad states
 
-## State — GOAL COMPLETE (shipped 2026-08-18 as PRs #118/#119/#120)
-All code iterations were accepted (ALL_DONE), hardened locally, and shipped. The
-operational half (item 5) is done: `scheduler:report --exit-on-problem --json`
-runs on the droplet; the single-driver cron setup is live (legacy schedule:work
-supervisor de-provisioned by the deploy step). Live report shows only
-genuine/expected flags: photo-verify never-fired (first Wednesday is Aug 19),
-off-schedule = migration noise from moved jobs firing at old pre-deploy slots
-(self-heals as the window rolls), ai-enrich over-fired = one pre-deploy anomaly.
-Post-loop live-verify found + fixed two report bugs (PR #119: cadence measured
-fire→next-slot instead of the scheduled period → false stopped-firing; PR #120:
-raw merge clobbered last_started_at with an older fire, and started mixed raw-era
-starts against structured completions → false unfinished-runs; now derived as
-newest fire + structured-only hung check).
-
-- Moved 4 colliding daily jobs OUT of the enrichment mutex window [04:00, ~10:00): seo:sitemap 05:00→10:15, scrape-social 05:30→10:45, backfill-websites 06:00→11:45, backfill-photos(apply) 06:30→13:45 (chained, no mutual overlap).
-- Added `tests/Feature/SchedulerCollisionTest.php` — asserts no fixed-daily DB-write job starts inside the enrichment window (derived from the event's own dailyAt + mutex expiry); exempts ai-enrich (every 6h, intentional) and uptime:canary. Verified it FAILS if a job is moved back into the window, passes otherwise.
-- Updated stale/contradictory comments in routes/console.php (the old "after enrichment 04:00–05:05" was wrong vs the actual 5h35m run) and corrected the AGENTS.md scheduler summary.
-
-This iteration resolved the remaining weekly-job collisions from item 3: all 5 weekly jobs that started inside the throttled-enrichment window [04:00, ~10:00) on their days are now moved out.
-
-- Moved weekly jobs after the enrichment window: refresh-awards Sun 07:00→11:30, verify-websites Sun 06:00→11:00, scrape-social --force Sat 06:30→12:00, backfill-photos --verify Wed 07:30→12:30, coverage (read-only) Mon 06:30→11:00.
-- Extended `SchedulerCollisionTest` to cover WEEKLY jobs too (regex now accepts `M H * * W` as well as `M H * * *`), so any daily OR weekly job scheduled inside the window fails the guard. Exemptions unchanged (ai-enrich, uptime:canary). Verified it fails when a weekly job is moved back into the window, passes otherwise.
-- Updated the stale comments on the moved weekly jobs (all now reference the post-enrichment window).
-
-This iteration pushed item 5 (confirm all 16 commands fire on time) forward locally: added `tests/Feature/SchedulerManifestTest.php` — locks the full 16-command manifest (bare command => exact cron slot), so any dailyAt/weeklyOn/everyN drift that would make a command fire off-schedule fails the build and names the drifted command. Complements Expiry (command set+mutex) and Collision (enrichment-window) tests; verified 2 tests pass (33 assertions).
-
-Also hardened item 4 (cron+schedule:work redundancy): SchedulerExpiryTest now asserts every event keeps onOneServer() enabled, so a command added without it (double-fire risk under a second scheduler instance) fails the build.
-
-This iteration hardened the item-5 operational tool: SchedulerReportTest now asserts `scheduler:report` prints "Registered commands: 16" in its header even with zero telemetry, so a dropped/added command diverges the count and fails the build. (Asserted via the header line, not table cells — the test's narrow BufferedOutput truncates long table cells, making per-cell `expectsOutputToContain` flaky.) Verified it FAILS when a command is removed from routes/console.php, passes otherwise.
-
-This iteration closed a self-referential gap in the item-3 guard: SchedulerCollisionTest derives the enrichment window from the enrich event's own mutex expiry, so it now also asserts that expiry >= the documented ~5h35m runtime (335m). Without this, reducing the expiry would silently narrow the guard's window and stop catching collisions. Verified it FAILS when expiry is cut below 335, passes otherwise.
-
-This iteration added a shared-slot guard: SchedulerManifestTest now asserts no two FIXED-TIME commands share the same cron slot (contention/double-run hazard). Interval expressions (`*/15`, `0 */6`) are excluded via a `*/`-step detector. Verified it FAILS when a job is moved onto another's slot, passes otherwise. (Gotcha: keep `*/` out of docblocks — it prematurely closes PHP comments; also note `M H * * *` contains `*` but is NOT an interval.)
-
-This iteration made the item-5 operational tool automatable: `scheduler:report` gained an opt-in `--exit-on-problem` flag that returns FAILURE when any command never fired, failed, hung, or ran off-schedule — so CI/alerting can gate on it. 3 new SchedulerReportTest cases cover: FAILURE on never-fired, SUCCESS when all 16 fire on time (telemetry generated from each command's own cron slot), SUCCESS without the flag despite problems. Default (no flag) behavior unchanged.
-
-This iteration closed a gap in the item-5 gate: `scheduler:report` now flags a command that fired on-schedule at its slot but then WENT SILENT (missed ≥1.5x of its own cadence), surfaced as a clear "stopped firing — last fired X hours ago" warning instead of the old confusing huge "off-schedule/early" drift. Cadence is derived from each command's own cron expression via getNextRunDate (no manual parsing). 3 new SchedulerReportTest cases: flags a daily command silent 3 days as STALE, does NOT flag one fired yesterday, and `--exit-on-problem` returns FAILURE when any command stopped firing. Happy-path all-16-on-time test still passes (no false positive).
-
-This iteration added the missing test coverage for the `--drift-tolerance` knob (the only option previously with zero direct tests): a 30-min-late fire is flagged at the default 15-min tolerance but NOT at `--drift-tolerance=60` — proving the operator-facing tolerance knob is wired into both the last-fire and per-fire drift checks. 1 new SchedulerReportTest case.
-
-This iteration guarded a cross-command data-flow ordering that the exact-slot map can't catch: SchedulerManifestTest now asserts `backfill-photos --apply` fires AFTER `backfill-websites` (photos sources og:image from the website_url websites populates). If the slots ever flip, the photo backfill silently runs against a stale website_url set. Verified it FAILS when the two slots are swapped, passes otherwise.
-
-This iteration added a second cross-command ordering guard: SchedulerManifestTest now asserts `restaurants:score` fires AFTER both `update-engagement` (00:30) and `data-hygiene` (01:00), so scores always reflect fresh engagement on a clean (deduped/normalized) corpus. Verified it FAILS when the score/engagement slots are swapped, passes otherwise.
-
-This iteration guarded a dangling-command hazard: SchedulerManifestTest now asserts every scheduled command's signature resolves to a registered artisan command (via `Artisan::all()`). A command renamed/removed but left in routes/console.php would crash every `schedule:run` tick, surfacing only as a late failure — now it fails the build instead. Verified it FAILS when a schedule route points at a non-existent command, passes otherwise.
-
-This iteration fixed a correctness bug in the item-5 tool: `scheduler:report`'s raw `scheduler.log` ingestion ignored the `--days` window (the raw file accumulates every fire since creation, unlike the date-stamped structured logs). Old fires inflated `started` counts and could drag `last_started_at` back far enough to false-flag staleness/drift on the droplet. Now raw lines older than the window cutoff are excluded. 1 new SchedulerReportTest; verified FAILS when the window filter is removed, passes otherwise.
-
-This iteration fixed a double-count bug: the raw cron-redirect and the structured telemetry record the SAME fire, so when both are present (as on the droplet) `started` was counted twice → `started(2) > completed(1)` false-flagged "unfinished runs" for every healthy command (making `--exit-on-problem` always fail). Raw fires already captured by structured telemetry (matched by minute key, both timestamp formats normalized) are now skipped. 1 new SchedulerReportTest; verified FAILS when the dedupe is removed, passes otherwise.
-
-This iteration closed the item-4 detection gap: `scheduler:report` now flags a command that fired MORE often than its cron slot allows (a redundant-scheduler / double-run signature — the exact thing cron + schedule:work both running produces). The drift/stale checks can't see this (each fire is on-slot, last fire is fresh), so the report now counts each command's fires and compares against the number of cron slots its expression provides in the window (`expectedFiresInWindow` iterates getNextRunDate over [now-days, now]). Wired into `--exit-on-problem`. 3 new SchedulerReportTest cases: flags a daily command double-fired across a 2-day window, does NOT flag one fired once per slot, and `--exit-on-problem` FAILS on double-fire. Also fixed a detached docblock that had drifted off `fireDriftMinutes`.
-
-This iteration added a scannable final health verdict to `scheduler:report`: it now prints one line summarizing the whole window — "Verdict: all 16 registered commands healthy in the last N day(s)" when clean, or "Verdict: X of 16 registered commands have a problem (see above); Y healthy" when not. The flagged count is the distinct union of every problem category (never-fired, failed, hung, off-schedule, off-schedule fires, stale, over-fired). 2 new SchedulerReportTest cases: healthy all-16 verdict, and a 1-of-16 problem verdict (one command left silent).
-
-This iteration made the item-5 gate machine-consumable: `scheduler:report` gained an opt-in `--json` flag that emits ONE pretty-printed JSON document (healthy flag, registered/healthy/problem counts, per-category problem command lists, and a per-command detail array) instead of the human table+warnings. `--exit-on-problem` still governs the exit code, so CI can parse the doc AND gate on the return. In `--json` mode the human header/table/warnings are suppressed so the output is a clean single document. 3 new SchedulerReportTest cases, asserted by `json_decode` (robust): flags problems / exit-fail on problem / healthy all-16.
-
-This iteration closed an item-2 guard gap: SchedulerExpiryTest now asserts every command's mutex expiry is STRICTLY SHORTER than its own cadence (gap between two consecutive cron runs, derived live via CronExpression::getNextRunDate). An expiry >= cadence would let a hard-crashed run hold the lock until/past the next tick and block it. All 16 pass today (e.g. score 60 < 1440; uptime 5 < 15; ai-enrich 180 < 360). Verified it FLAGS a daily command with expiry 2000 (> 1440), passes otherwise.
-
-This iteration closed a JSON-visibility gap in `scheduler:report --json`: telemetry for a command no longer in routes/console.php (an orphaned fire — e.g. a stale scheduler still running a removed job) was shown only as a "NOT REGISTERED" human-table row and silently dropped from the JSON doc, so CI consuming the doc couldn't see it. The doc now carries an `unregistered` array. 1 new SchedulerReportTest case; verified the orphaned command lands in `unregistered` while `commands` stays at 16.
-
-This iteration exposed the item-1 runtime telemetry + last-fire drift in the JSON doc: `scheduler:report --json`'s per-command `commands` array now carries `runtime_seconds` (min/avg/max summary of the observed runtimes) and `last_drift_minutes` (signed drift of the latest fire vs its cron slot) — previously only the human table showed these, so CI parsing the doc lost the "how long did jobs take / how far off-slot" visibility the audit wants. 1 new SchedulerReportTest case, asserted by `json_decode`.
-
-This iteration deepened the item-1 failure telemetry: the `Scheduled command failed` record now carries a truncated copy of the command's captured output (via `onFailureWithOutput`, capped at 2000 chars + `… [truncated]`), so an operator can see WHY a scheduled command failed from the telemetry instead of just that it did. `SchedulerTelemetry::attach` no longer uses bare `onFailure` — switching to `onFailureWithOutput` also flips on output capture for scheduled events (Laravel writes a per-mutex `schedule-<hash>.log`, one per command, overwritten each run). 2 new SchedulerTelemetryTest cases: failed record carries the output, and very long output is truncated.
-
-This iteration surfaced the failure output through the operator tool: `SchedulerTelemetryReport::aggregate` now retains the last failed record's captured `output`, and `scheduler:report` shows it two ways — the human "Commands with failures" warning prints the last failure output (newlines collapsed to one line via a new `shorten()` helper), and `--json` carries it per-command as `last_failure_output`. So a failing command is diagnosable from the report itself. 1 new SchedulerReportTest case (asserted via `json_decode`).
-
-Next: item 5 operational half — once this branch ships + deploys, run `php artisan scheduler:report --exit-on-problem --json` on the droplet to confirm all 16 commands fire on time in the live cron-driven scheduler — and use the over-fired flag + JSON to CONFIRM the single-scheduler setup (cron only, schedule:work off) is actually in force. (Collision work under item 3 — daily + weekly — the manifest guard, the two ordering guards, the resolves-to-registered-command guard, the raw-log window + dedupe fixes, the local staleness/off-schedule/never-fired/double-fire/tolerance gates, the final verdict, JSON output, the expiry<cadence guard, the JSON `unregistered` field, JSON runtime+drift telemetry, the failure-output capture, and the report surfacing of last failure output are complete.)
-
-Gotchas: Pre-existing phpstan debt in SchedulerReportCommand (line 135 `source ?? 'structured'`, renderJson `array_values()` on already-list params) predates this iteration and is out of scope. When changing the aggregate's shape, keep the `@param`/`@return` docblocks in both SchedulerTelemetryReport and SchedulerReportCommand::renderJson in sync or phpstan flags a new `nullCoalesce.offset`.
-
-Gotchas: The collision test regex `^(\d+)\s+(\d+)\s+\*\s+\*\s+(\*|\d+)$` still returns null for interval expressions like ai-enrich (`0 */6 * * *`) and uptime (`*/15 * * * *`), so those exemptions stay naturally skipped. Manifest cron expressions were read live from `$schedule->events()`. Over-fired detection stays silent while fires <= slots. TEST gotcha: do NOT assert multiple `--json` substrings via `expectsOutputToContain` — the harness's mocked console output only evaluates the FIRST matching expectation per write; assert by `Artisan::call()` + `json_decode`. Cadence in SchedulerExpiryTest uses `abs(diffInMinutes)` — Carbon's signed diff comes back negative in this orientation; the magnitude is the cadence.
+## State
+Iter 1: extended `restaurants:data-hygiene` with a **proximity merge pass** — merges
+same normalized name+city+state rows whose coords are within 0.15km (the audit's
+"440 dupe name+city+state groups"). Chains never merged; `--limit` budget respected.
+4 new tests. PHPUnit 901→905.
+Iter 2: closed the **cuisine-tag gap** (68% untagged — highest search impact via
+cuisine_match 0.50). New `CuisineTagMapper` service normalizes free-text AI cuisine
+names to seeded slugs; `EnrichRestaurantWithAi` now `syncWithoutDetaching`s them onto
+the pivot so untagged rows become cuisine-searchable as the every-6h ai-enrich
+sweep fills them. Existing tags preserved; unseeded names (e.g. "Pizza") skipped.
+3 new tests. TDD: tests first.
+Iter 3: gave **menu_url (92% missing, was ownerless) a home** — `restaurants:backfill-websites`
+(daily 11:45, the website-scrape owner) now runs a bounded `scrapeMenuData` phase:
+active rows with website_url but no menu_url get menu_url + opening_hours scraped
+from their own site (fill-empty only, cached 7d/domain, `MENU_SCRAPE_DAILY_LIMIT=200`,
+highest popularity_score first, dry-run safe, enrichment-channel log).
+4 new tests. TDD: tests first.
+Iter 4: closed the **opening_hours trail** (32% gap; scrape only fired when menu_url
+was missing, so rows with menu_url but no hours were never revisited). `scrapeMenuData`
+now targets rows missing **either** field; the update is genuinely fill-empty (existing
+menu_url/opening_hours never clobbered) — the hours-only test caught an overwrite bug.
+2 new tests. TDD: tests first. Suite green (916 pass; SchedulerHealthTest is pre-existing flaky).
+Iter 5: **phone (46% missing) gets a free cache backfill** — `restaurants:backfill-websites`'s
+cache phase now serves rows missing website OR phone, backfilling phone (10-digit,
+fill-empty, null-safe) from cached live-search venue data. No AI quota burned; ~850
+local rows estimable. New `cacheCandidates()` + `normalizeCachePhone()`, phone summary
+line. 4 new tests. TDD: tests first. Full suite 921 pass.
+Iter 6: **price (75%) + description (83%) join the free cache backfill** — the same
+cache phase now fills missing price_range (parseExtractedPrice) and description
+(min-20-char guard) from cached venue data; candidates widened to missing website/
+phone/price/description. ~103 price + ~141 description local rows estimable, keeping
+AI quota for rows the cache can't help. New `sanitizeDescription()`, per-field summary
+lines. 4 new tests. TDD: tests first. Full suite 925 pass.
+Next: data-hygiene → 37 bad states (already handled by normalizeState — only 1 bad
+locally) + prod verify (`--limit=200` bounded); remaining description/price needs are
+AI-enrich quota-bound.
 
 ## Log
-- Iteration: `scheduler:report` now surfaces the last failure output — aggregate retains it, the human failure warning prints it (via `shorten()`), and `--json` carries `last_failure_output` per command. 1 test via `json_decode`.
-- Iteration: `SchedulerTelemetry::attach` failure record now carries truncated captured output (via `onFailureWithOutput`, 2000-char cap) so operators see WHY a command failed. 2 tests (output captured / truncated). Gotcha: switching to onFailureWithOutput enables output capture for all scheduled events (per-mutex `schedule-<hash>.log`, overwritten each run).
-- Iteration: `scheduler:report --json` per-command `commands` array now carries `runtime_seconds` (min/avg/max) + `last_drift_minutes`, so CI sees the item-1 runtime telemetry + off-slot drift the human table shows. 1 test via `json_decode`; verified runtime summary + 0 drift on-slot.
-- Iteration: `scheduler:report --json` now emits an `unregistered` array — telemetry for a command no longer in routes/console.php (orphaned fire) that the human table shows as "NOT REGISTERED" but the JSON doc previously hid from CI. 1 test; verified command lands in `unregistered`, `commands` stays at 16.
-- Iteration: SchedulerManifestTest now asserts `restaurants:score` runs after `update-engagement` AND `data-hygiene` (score freshness/clean-corpus); verified FAILS when score/engagement slots are swapped.
-- Iteration: SchedulerManifestTest now asserts every scheduled command resolves to a registered artisan command (via Artisan::all()); verified FAILS when a schedule route points at a non-existent command.
-- Iteration: fixed `scheduler:report` raw-log ingestion to respect the `--days` window (old raw fires no longer inflate counts / false-flag staleness); verified FAILS when the filter is removed.
-- Iteration: fixed `scheduler:report` double-counting when structured + raw log both record the same fire (minute-key dedupe) — no more false "unfinished runs" / always-failing gate on the droplet; verified FAILS when dedupe is removed.
+- 2026-08-18: Iter 6 — cache phase also backfills price_range + description (sanitizeDescription min-20-char guard); candidates widened to missing website/phone/price/description; per-field summary lines; 4 tests in BackfillWebsitesCachePhoneTest. Full suite 925 pass, pint + phpstan clean.
+- 2026-08-18: Iter 5 — backfill-websites cache phase now backfills missing phone from cached live-search data (free, fill-empty, 10-digit); candidates widened to missing website OR phone (cacheCandidates + normalizeCachePhone); 4 tests in BackfillWebsitesCachePhoneTest. Full suite 921 pass, pint + phpstan clean.
+- 2026-08-18: Iter 4 — scrapeMenuData widened to rows missing EITHER menu_url or opening_hours (hours-only rows now revisited); update made truly fill-empty (existing values never clobbered); 2 tests in BackfillWebsitesMenuScrapeTest. Suite 916 pass (SchedulerHealthTest flaky, unrelated), pint + phpstan clean.
+- 2026-08-18: Iter 3 — BackfillRestaurantWebsites `scrapeMenuData` phase (menu_url + opening_hours backfill, fill-empty, bounded 200/run, popularity-first, dry-run safe); 4 tests in BackfillWebsitesMenuScrapeTest. Suite 912 pass, pint + phpstan clean.
+- 2026-08-18: Iter 2 — CuisineTagMapper + EnrichRestaurantWithAi pivot attach (AI cuisines → seeded slugs, syncWithoutDetaching); 3 tests in EnrichRestaurantWithAiCuisineAttachTest. Full suite + pint + phpstan clean.
+- 2026-08-18: DataHygiene proximity merge pass (name+city+state + 0.15km radius, sub-grouped by anchor so chains survive); `state` added to normalized map; summary/log lines + docblocks updated; 4 tests in DataHygieneCommandTest. Full suite 905 pass, pint + phpstan clean. Dry run on local MySQL found 3 proximity pairs.

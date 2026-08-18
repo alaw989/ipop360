@@ -194,6 +194,126 @@ class DataHygieneCommandTest extends TestCase
         $this->assertDatabaseHas('restaurants', ['id' => $keep->id]);
     }
 
+    public function test_merges_same_name_city_state_rows_with_nearby_coords(): void
+    {
+        $keep = $this->restaurant([
+            'name' => 'Prox Dupe',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.26,
+            'longitude' => -97.74,
+            'website_url' => 'https://prox.example',
+            'phone' => null,
+        ]);
+        $dupe = $this->restaurant([
+            'name' => 'Prox Dupe',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.2602,
+            'longitude' => -97.7401,
+            'phone' => null,
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true]);
+
+        $this->assertDatabaseHas('restaurants', ['id' => $keep->id]);
+        $this->assertDatabaseMissing('restaurants', ['id' => $dupe->id]);
+        $this->assertSame('https://prox.example', Restaurant::findOrFail($keep->id)->website_url);
+    }
+
+    public function test_does_not_merge_same_name_city_state_chain_locations(): void
+    {
+        $a = $this->restaurant([
+            'name' => 'Chain Grill',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.26,
+            'longitude' => -97.74,
+        ]);
+        $b = $this->restaurant([
+            'name' => 'Chain Grill',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.28,
+            'longitude' => -97.76,
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true]);
+
+        $this->assertDatabaseHas('restaurants', ['id' => $a->id]);
+        $this->assertDatabaseHas('restaurants', ['id' => $b->id]);
+    }
+
+    public function test_proximity_merge_respects_limit_budget(): void
+    {
+        $exactKeep = $this->restaurant([
+            'name' => 'Budget Exact',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.26,
+            'longitude' => -97.74,
+            'phone' => null,
+        ]);
+        $exactDupe = $this->restaurant([
+            'name' => 'Budget Exact',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.26,
+            'longitude' => -97.74,
+            'phone' => null,
+        ]);
+        $proxKeep = $this->restaurant([
+            'name' => 'Budget Prox',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.27,
+            'longitude' => -97.75,
+            'phone' => null,
+        ]);
+        $proxDupe = $this->restaurant([
+            'name' => 'Budget Prox',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.2702,
+            'longitude' => -97.7501,
+            'phone' => null,
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true, '--limit' => 1]);
+
+        $this->assertDatabaseHas('restaurants', ['id' => $exactKeep->id]);
+        $this->assertDatabaseMissing('restaurants', ['id' => $exactDupe->id]);
+        $this->assertDatabaseHas('restaurants', ['id' => $proxKeep->id]);
+        $this->assertDatabaseHas('restaurants', ['id' => $proxDupe->id]);
+    }
+
+    public function test_dry_run_reports_proximity_pairs_without_merging(): void
+    {
+        $keep = $this->restaurant([
+            'name' => 'Dry Prox',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.26,
+            'longitude' => -97.74,
+            'phone' => null,
+        ]);
+        $dupe = $this->restaurant([
+            'name' => 'Dry Prox',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.2602,
+            'longitude' => -97.7401,
+            'phone' => null,
+        ]);
+
+        /** @var PendingCommand $cmd */
+        $cmd = $this->artisan('restaurants:data-hygiene');
+        $cmd->expectsOutputToContain('Proximity duplicate pairs merged: 1');
+
+        $this->assertDatabaseHas('restaurants', ['id' => $keep->id]);
+        $this->assertDatabaseHas('restaurants', ['id' => $dupe->id]);
+    }
+
     public function test_dry_run_makes_no_changes(): void
     {
         $r = $this->restaurant(['state' => 'Alabama', 'city' => 'long beach']);

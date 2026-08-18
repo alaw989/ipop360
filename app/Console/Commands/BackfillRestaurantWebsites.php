@@ -25,6 +25,14 @@ class BackfillRestaurantWebsites extends Command
 
     private const CACHE_SOURCES = ['serpapi', 'preview', 'bizdata'];
 
+    /**
+     * Max restaurants whose menu URL + opening hours are scraped per run.
+     * Bounded so a single daily sweep never hammers every website at once;
+     * the scrape result is cached per-domain (7d TTL) so the next run picks up
+     * where this one left off cheaply.
+     */
+    private const MENU_SCRAPE_DAILY_LIMIT = 200;
+
     private const DOMAIN_SKIP_PATTERNS = [
         '/facebook\.com/i', '/instagram\.com/i', '/twitter\.com/i', '/x\.com/i',
         '/yelp\.com/i', '/tripadvisor\.com/i', '/youtube\.com/i', '/tiktok\.com/i',
@@ -63,6 +71,8 @@ class BackfillRestaurantWebsites extends Command
             $this->scrapeSocialLinks($scraper);
         }
 
+        $this->scrapeMenuData($scraper, $dryRun);
+
         $this->newLine();
         $this->info("Done. {$this->found} website(s) found.");
         $left = $this->countMissing();
@@ -92,6 +102,8 @@ class BackfillRestaurantWebsites extends Command
                     $entryData = [
                         '_website' => $website,
                         '_price_range' => $parsedPrice,
+                        '_phone' => $venue['phone'] ?? null,
+                        '_description' => $this->sanitizeDescription($venue['description'] ?? null),
                     ];
                     $name = $this->normalize($venue['title'] ?? $venue['name'] ?? '');
                     if ($name !== '') {
@@ -110,8 +122,11 @@ class BackfillRestaurantWebsites extends Command
 
         $this->line('  Name index: '.count($nameIndex).', Phone index: '.count($phoneIndex));
 
-        $missing = $this->missingRestaurants(0)->get();
+        $missing = $this->cacheCandidates()->get();
         $hits = 0;
+        $phonesBackfilled = 0;
+        $pricesBackfilled = 0;
+        $descriptionsBackfilled = 0;
 
         foreach ($missing as $restaurant) {
             $entryData = null;
@@ -142,21 +157,99 @@ class BackfillRestaurantWebsites extends Command
                 if (empty($restaurant->price_range) && is_string($entryData['_price_range'])) {
                     $updates['price_range'] = $entryData['_price_range'];
                 }
+                $phone = $this->normalizeCachePhone($entryData['_phone'] ?? null);
+                if (empty($restaurant->phone) && $phone !== null) {
+                    $updates['phone'] = $phone;
+                }
+                if (empty($restaurant->description) && is_string($entryData['_description'])) {
+                    $updates['description'] = $entryData['_description'];
+                }
                 if (! empty($updates) && ! $dryRun) {
                     $restaurant->update($updates);
-                    Log::channel('enrichment')->info('Website backfilled from cache', [
+                    Log::channel('enrichment')->info('Cache backfill from cached search data', [
                         'restaurant_id' => $restaurant->id,
                         'restaurant_name' => $restaurant->name,
                         'website_url' => $updates['website_url'] ?? null,
                         'price_range' => $updates['price_range'] ?? null,
+                        'phone' => $updates['phone'] ?? null,
+                        'description' => $updates['description'] ?? null,
                     ]);
                 }
+                if (isset($updates['phone'])) {
+                    $phonesBackfilled++;
+                }
+                if (isset($updates['price_range'])) {
+                    $pricesBackfilled++;
+                }
+                if (isset($updates['description'])) {
+                    $descriptionsBackfilled++;
+                }
                 $hits++;
-                $this->found++;
+                if (isset($updates['website_url'])) {
+                    $this->found++;
+                }
             }
         }
 
         $this->line("  Cache matched {$hits} restaurant(s).");
+        $this->line("  Phone backfilled for {$phonesBackfilled} restaurant(s).");
+        $this->line("  Price backfilled for {$pricesBackfilled} restaurant(s).");
+        $this->line("  Description backfilled for {$descriptionsBackfilled} restaurant(s).");
+    }
+
+    /**
+     * Restaurants the cache phase may enrich: those missing a website URL, a
+     * phone number, a price range or a description (fill-empty all from the
+     * cached live-search venue data, free of charge — no web search, no AI quota).
+     *
+     * @return Builder<Restaurant>
+     */
+    private function cacheCandidates(): Builder
+    {
+        return Restaurant::query()
+            ->active()
+            ->where(function ($q) {
+                $q->where(function ($website) {
+                    $website->whereNull('website_url')->orWhere('website_url', '');
+                })->orWhere(function ($phone) {
+                    $phone->whereNull('phone')->orWhere('phone', '');
+                })->orWhere(function ($price) {
+                    $price->whereNull('price_range')->orWhere('price_range', '');
+                })->orWhere(function ($description) {
+                    $description->whereNull('description')->orWhere('description', '');
+                });
+            });
+    }
+
+    /**
+     * A cached venue description worth storing, or null. Rejects missing,
+     * non-string and implausibly short values so no junk blurb is persisted.
+     */
+    private function sanitizeDescription(mixed $description): ?string
+    {
+        if (! is_string($description)) {
+            return null;
+        }
+
+        $trimmed = trim($description);
+
+        return strlen($trimmed) >= 20 ? $trimmed : null;
+    }
+
+    /**
+     * Normalize a cached venue phone to the corpus's 10-digit convention
+     * (digits only, last 10). Returns null for missing or implausibly short
+     * values so nothing bogus is stored.
+     */
+    private function normalizeCachePhone(mixed $phone): ?string
+    {
+        if (! is_string($phone) && ! is_numeric($phone)) {
+            return null;
+        }
+
+        $digits = substr((string) preg_replace('/\D+/', '', (string) $phone), -10);
+
+        return strlen($digits) === 10 ? $digits : null;
     }
 
     /** @param array<string, mixed> $venue */
@@ -500,6 +593,92 @@ class BackfillRestaurantWebsites extends Command
 
         $bar->finish();
         $this->newLine();
+    }
+
+    /**
+     * Scrape menu URLs + opening hours from the websites of restaurants that
+     * have a website_url but are missing menu_url or opening_hours (menu_url
+     * was the corpus's biggest gap: 92% of active rows). Fill-empty only —
+     * existing menu_url/opening_hours are never clobbered, and rows missing
+     * only opening_hours are revisited until both fields are filled. Bounded
+     * per run by {@see self::MENU_SCRAPE_DAILY_LIMIT} and driven by the same
+     * per-domain cache as the rest of the scraper.
+     */
+    private function scrapeMenuData(RestaurantWebsiteScraperService $scraper, bool $dryRun): void
+    {
+        $query = Restaurant::query()
+            ->active()
+            ->whereNotNull('website_url')
+            ->where('website_url', '!=', '')
+            ->where(function ($q) {
+                $q->whereNull('menu_url')->orWhere('menu_url', '')
+                    ->orWhereNull('opening_hours')->orWhere('opening_hours', '');
+            })
+            ->orderByRaw('COALESCE(popularity_score, 0) DESC')
+            ->orderBy('id')
+            ->limit(self::MENU_SCRAPE_DAILY_LIMIT);
+
+        $restaurants = $query->get();
+        $total = $restaurants->count();
+
+        if ($total === 0) {
+            return;
+        }
+
+        $this->info("Scraping menu URLs + hours for {$total} restaurant(s)...");
+
+        $bar = $this->output->createProgressBar($total);
+        $bar->start();
+
+        $found = 0;
+
+        foreach ($restaurants as $restaurant) {
+            try {
+                if ($restaurant->website_url === null || $restaurant->website_url === '') {
+                    $bar->advance();
+
+                    continue;
+                }
+
+                $scraped = $scraper->scrape($restaurant->website_url);
+
+                if ($scraped !== null && (! empty($scraped['menu_url']) || ! empty($scraped['opening_hours']))) {
+                    $updates = [];
+
+                    if (! empty($scraped['menu_url']) && empty($restaurant->menu_url)) {
+                        $updates['menu_url'] = $scraped['menu_url'];
+                    }
+                    if (! empty($scraped['opening_hours']) && empty($restaurant->opening_hours)) {
+                        $updates['opening_hours'] = $scraped['opening_hours'];
+                    }
+
+                    if (! $dryRun && ! empty($updates)) {
+                        $restaurant->update($updates);
+                        Log::channel('enrichment')->info('Menu URL + hours backfilled from website scrape', [
+                            'restaurant_id' => $restaurant->id,
+                            'restaurant_name' => $restaurant->name,
+                            'website_url' => $restaurant->website_url,
+                            'menu_url' => $scraped['menu_url'] ?? null,
+                            'opening_hours' => $scraped['opening_hours'] ?? null,
+                        ]);
+                    }
+
+                    $found++;
+                }
+            } catch (\Throwable $e) {
+                Log::channel('enrichment')->warning('Menu scrape failed during website backfill', [
+                    'restaurant_id' => $restaurant->id,
+                    'website_url' => $restaurant->website_url ?? null,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+
+            $bar->advance();
+        }
+
+        $bar->finish();
+        $this->newLine();
+        $this->line("  Menu/hours scraped for {$found} restaurant(s).");
     }
 
     private function guessFromTitle(bool $dryRun): void
