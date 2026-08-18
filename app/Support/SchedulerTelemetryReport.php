@@ -59,11 +59,12 @@ final class SchedulerTelemetryReport
     /**
      * Aggregate telemetry records per (normalized) command.
      *
-     * @return array<string, array{started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string}>
+     * @return array<string, array{started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string, last_failure_output:string|null}>
      */
     public function aggregate(int $days): array
     {
         $aggregates = [];
+        $structuredFires = [];
 
         foreach ($this->logFiles($days) as $file) {
             foreach ($this->readLines($file) as $record) {
@@ -87,6 +88,7 @@ final class SchedulerTelemetryReport
                     $startedAt = $record['context']['started_at'] ?? null;
                     if (is_string($startedAt) && $startedAt !== '') {
                         $aggregates[$command]['started_ats'][] = $startedAt;
+                        $structuredFires[$command][$this->minuteKey($startedAt)] = true;
                     }
                 } elseif ($message === 'Scheduled command completed') {
                     $aggregates[$command]['completed']++;
@@ -94,13 +96,23 @@ final class SchedulerTelemetryReport
                 } elseif ($message === 'Scheduled command failed') {
                     $aggregates[$command]['failed']++;
                     $aggregates[$command]['runtimes'][] = (float) ($record['context']['runtime_seconds'] ?? 0.0);
+                    $aggregates[$command]['last_failure_output'] = $record['context']['output'] ?? null;
                 }
             }
         }
 
-        $this->mergeRawLog($aggregates);
+        $this->mergeRawLog($aggregates, now()->subDays($days)->startOfDay()->format('Y-m-d'), $structuredFires);
 
         return $aggregates;
+    }
+
+    /**
+     * Normalize a structured (ISO8601) or raw ("Y-m-d H:i:s") timestamp down to
+     * minute resolution so the same fire can be matched across both sources.
+     */
+    private function minuteKey(string $timestamp): string
+    {
+        return substr(str_replace('T', ' ', $timestamp), 0, 16);
     }
 
     /**
@@ -111,9 +123,12 @@ final class SchedulerTelemetryReport
      * have no structured data as source=raw so the report doesn't misread their
      * (unattributable) completion as "unfinished".
      *
-     * @param  array<string, array{started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string}>  $aggregates
+     * @param  array<string, array{started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string, last_failure_output:string|null}>  $aggregates
+     * @param  string  $cutoff  Window start date (Y-m-d) — raw lines older than this are excluded.
+     * @param  array<string, array<string, true>>  $structuredFires  command => minute-key => true
+     *                                                               fires already recorded by structured telemetry.
      */
-    private function mergeRawLog(array &$aggregates): void
+    private function mergeRawLog(array &$aggregates, string $cutoff, array $structuredFires): void
     {
         $path = $this->directory().'/'.self::RAW_FILE;
         if (! is_file($path)) {
@@ -128,6 +143,18 @@ final class SchedulerTelemetryReport
             $command = trim($m[2]);
             $startedAt = $m[1];
 
+            if (substr($startedAt, 0, 10) < $cutoff) {
+                continue;
+            }
+
+            // The raw cron-redirect and the structured telemetry record the SAME
+            // fire. Skip raw fires the structured log already captured, so a
+            // command present in both sources isn't double-counted (which would
+            // otherwise false-flag "unfinished runs" for a healthy command).
+            if (isset($structuredFires[$command][$this->minuteKey($startedAt)])) {
+                continue;
+            }
+
             $isNew = ! isset($aggregates[$command]);
             $aggregates[$command] ??= $this->emptyAggregate();
             $aggregates[$command]['started']++;
@@ -140,7 +167,7 @@ final class SchedulerTelemetryReport
     }
 
     /**
-     * @return array{started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string}
+     * @return array{started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string, last_failure_output:string|null}
      */
     private function emptyAggregate(): array
     {
@@ -152,6 +179,7 @@ final class SchedulerTelemetryReport
             'started_ats' => [],
             'runtimes' => [],
             'source' => 'structured',
+            'last_failure_output' => null,
         ];
     }
 

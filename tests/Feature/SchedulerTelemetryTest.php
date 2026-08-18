@@ -87,6 +87,61 @@ class SchedulerTelemetryTest extends TestCase
         $this->assertSame('restaurants:score', $completed->context['command']);
     }
 
+    public function test_attach_includes_captured_output_in_failed_record(): void
+    {
+        // The failure telemetry must let an operator see WHY a scheduled command
+        // failed, not just that it did. The failed record carries a truncated
+        // copy of the command's captured output.
+        $handler = new TestHandler;
+        Log::extend('scheduler-test', fn () => new MonologLogger('scheduler', [$handler]));
+        config(['logging.channels.scheduler' => ['driver' => 'scheduler-test']]);
+        Log::forgetChannel('scheduler');
+
+        $event = new Event(app(CacheEventMutex::class), 'restaurants:score');
+        SchedulerTelemetry::attach($event);
+
+        // onFailureWithOutput triggers output capture; write the failure output to
+        // the path the event now points at, then run the after callbacks.
+        $outputPath = $event->output;
+        file_put_contents($outputPath, "ERROR: could not reach SerpApi\n");
+
+        $event->exitCode = 1;
+        $event->callAfterCallbacks($this->app);
+
+        $failed = collect($handler->getRecords())
+            ->first(fn (LogRecord $record) => $record->message === 'Scheduled command failed');
+
+        $this->assertInstanceOf(LogRecord::class, $failed);
+        $this->assertArrayHasKey('output', $failed->context, 'failed record must carry the captured output');
+        $this->assertStringContainsString('could not reach SerpApi', $failed->context['output']);
+    }
+
+    public function test_attach_truncates_very_long_failure_output(): void
+    {
+        // A command that dumps a huge trace must not bloat the telemetry log; the
+        // captured output is capped and marked truncated.
+        $handler = new TestHandler;
+        Log::extend('scheduler-test', fn () => new MonologLogger('scheduler', [$handler]));
+        config(['logging.channels.scheduler' => ['driver' => 'scheduler-test']]);
+        Log::forgetChannel('scheduler');
+
+        $event = new Event(app(CacheEventMutex::class), 'restaurants:score');
+        SchedulerTelemetry::attach($event);
+
+        $outputPath = $event->output;
+        file_put_contents($outputPath, str_repeat('x', 5000)."\n");
+
+        $event->exitCode = 1;
+        $event->callAfterCallbacks($this->app);
+
+        $failed = collect($handler->getRecords())
+            ->first(fn (LogRecord $record) => $record->message === 'Scheduled command failed');
+
+        $this->assertInstanceOf(LogRecord::class, $failed);
+        $this->assertLessThanOrEqual(2100, mb_strlen($failed->context['output']));
+        $this->assertStringContainsString('[truncated]', $failed->context['output']);
+    }
+
     /**
      * @return array<int, mixed>
      */

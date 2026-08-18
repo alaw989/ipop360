@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use Cron\CronExpression;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class SchedulerExpiryTest extends TestCase
@@ -61,6 +63,13 @@ class SchedulerExpiryTest extends TestCase
                 "event [{$command}] must keep withoutOverlapping() enabled"
             );
 
+            $this->assertTrue(
+                $event->onOneServer,
+                "event [{$command}] must keep onOneServer() enabled — cron is the single scheduler "
+                .'driver, so a command without onOneServer would double-fire if a second scheduler '
+                .'instance (e.g. a stray schedule:work) ever starts'
+            );
+
             $this->assertSame(
                 self::EXPECTED_EXPIRIES[$command],
                 $event->expiresAt,
@@ -89,6 +98,46 @@ class SchedulerExpiryTest extends TestCase
             $scheduled,
             'the expected-expiry map must exactly match the scheduled commands'
         );
+    }
+
+    public function test_every_mutex_expiry_is_shorter_than_the_commands_cadence(): void
+    {
+        // A mutex expiry >= the command's own cadence would let a hard-crashed run
+        // hold the lock until (or past) the next scheduled tick, blocking it. Every
+        // expiry must be strictly shorter than the gap between two consecutive runs
+        // so a crashed run always releases in time for the next cycle.
+        /** @var Schedule $schedule */
+        $schedule = app(Schedule::class);
+
+        foreach ($schedule->events() as $event) {
+            $command = $this->commandName($event->command);
+            $cadence = $this->cadenceMinutes($event->getExpression());
+
+            $this->assertNotNull($cadence, "could not derive cadence for [{$command}]");
+
+            $this->assertLessThan(
+                $cadence,
+                $event->expiresAt,
+                "event [{$command}] mutex expiry ({$event->expiresAt}m) must be shorter than its "
+                ."cadence ({$cadence}m), or a hard-crashed run blocks the next scheduled tick"
+            );
+        }
+    }
+
+    /**
+     * Gap (minutes) between two consecutive runs of a cron expression.
+     */
+    private function cadenceMinutes(string $expression): ?float
+    {
+        try {
+            $cron = CronExpression::factory($expression);
+            $a = Carbon::instance($cron->getNextRunDate(now()));
+            $b = Carbon::instance($cron->getNextRunDate($a));
+
+            return abs($b->diffInMinutes($a));
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

@@ -20,6 +20,11 @@ use Tests\TestCase;
  */
 class SchedulerCollisionTest extends TestCase
 {
+    /** Documented worst-case free-source sweep runtime: ~5h35m. The mutex expiry
+     * must stay at or above this, otherwise this test derives a window narrower
+     * than the real run and would silently stop catching collisions. */
+    private const DOCUMENTED_RUNTIME_MIN = 335;
+
     public function test_no_job_starts_inside_throttled_enrichment_window(): void
     {
         /** @var Schedule $schedule */
@@ -34,6 +39,17 @@ class SchedulerCollisionTest extends TestCase
 
         $enrichStart = $this->dailyStartMinutes($enrich->getExpression());
         $this->assertNotNull($enrichStart, 'enrichment must run at a fixed daily time');
+
+        // The window we test against is derived from the mutex expiry, so that
+        // expiry must be >= the documented runtime. Otherwise the guard would
+        // silently pass jobs that the real ~5h35m run would collide with.
+        $this->assertGreaterThanOrEqual(
+            self::DOCUMENTED_RUNTIME_MIN,
+            $enrich->expiresAt,
+            'enrichment mutex expiry must cover the documented ~5h35m runtime, or the '
+            .'collision window derived from it is narrower than the real run'
+        );
+
         $enrichEnd = $enrichStart + $enrich->expiresAt;
 
         foreach ($events as $event) {
