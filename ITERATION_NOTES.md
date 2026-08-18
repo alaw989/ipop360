@@ -3,8 +3,19 @@
 ## Goal
 scheduler/infra hardening audit: instrument per-command runtime + failure telemetry; set explicit withoutOverlapping() expiries (or skipDuplicates); resolve the 5h35m throttled-enrichment collision with other daily jobs; verify cron + schedule:work redundancy is correct; confirm all 16 scheduled commands fire on time on the droplet
 
-## State
-Checkpoint 282277d already shipped items 1 (telemetry), 2 (explicit mutex expiries), 4 (single-driver cron), and the `scheduler:report` tool. This iteration resolved item 3: the daily jobs that started inside the throttled-enrichment window.
+## State — GOAL COMPLETE (shipped 2026-08-18 as PRs #118/#119/#120)
+All code iterations were accepted (ALL_DONE), hardened locally, and shipped. The
+operational half (item 5) is done: `scheduler:report --exit-on-problem --json`
+runs on the droplet; the single-driver cron setup is live (legacy schedule:work
+supervisor de-provisioned by the deploy step). Live report shows only
+genuine/expected flags: photo-verify never-fired (first Wednesday is Aug 19),
+off-schedule = migration noise from moved jobs firing at old pre-deploy slots
+(self-heals as the window rolls), ai-enrich over-fired = one pre-deploy anomaly.
+Post-loop live-verify found + fixed two report bugs (PR #119: cadence measured
+fire→next-slot instead of the scheduled period → false stopped-firing; PR #120:
+raw merge clobbered last_started_at with an older fire, and started mixed raw-era
+starts against structured completions → false unfinished-runs; now derived as
+newest fire + structured-only hung check).
 
 - Moved 4 colliding daily jobs OUT of the enrichment mutex window [04:00, ~10:00): seo:sitemap 05:00→10:15, scrape-social 05:30→10:45, backfill-websites 06:00→11:45, backfill-photos(apply) 06:30→13:45 (chained, no mutual overlap).
 - Added `tests/Feature/SchedulerCollisionTest.php` — asserts no fixed-daily DB-write job starts inside the enrichment window (derived from the event's own dailyAt + mutex expiry); exempts ai-enrich (every 6h, intentional) and uptime:canary. Verified it FAILS if a job is moved back into the window, passes otherwise.

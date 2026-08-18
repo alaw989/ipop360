@@ -489,16 +489,36 @@ queued, worker processed with fail-soft fallbacks (Google CSE 429, Groq 429 →
 GitHub Models fallback 404 — noted: gpt-4o-mini fallback returns 404 on prod,
 pre-existing, follow-up), 0 failures, no clobbering.
 
-## Next goals (in priority order)
+## ✅ Done (2026-08-18 session)
 
-### 8. Scheduler / infra hardening audit ⬅ NEXT
-- **Audit finding:** bare `withoutOverlapping()` everywhere — default 24h lock
-  expiry means a killed command (e.g. the 5h35m throttled enrichment) silently
-  skips the next day's run. No per-command runtime/failure telemetry. cron +
-  schedule:work supervisor both drive the scheduler (redundancy unverified).
-  SQLite-era lock errors in old scheduler logs.
-- **Goal:** `scheduler/infra hardening audit: instrument per-command runtime + failure telemetry; set explicit withoutOverlapping() expiries (or skipDuplicates); resolve the 5h35m throttled-enrichment collision with other daily jobs; verify cron + schedule:work redundancy is correct; confirm all 12 scheduled commands fire on time on the droplet`
-- **Gate:** `composer test && npm run build`
+8. **Scheduler / infra hardening audit** — PRs #118/#119/#120 (opencode-loop, ~16
+   iterations, ALL_DONE; post-loop hardening + 2 live-verification follow-ups):
+   (1) `SchedulerTelemetry` per-command runtime + failure telemetry (scheduler
+   JSON daily channel, failed records carry truncated captured output);
+   (2) explicit `withoutOverlapping()` expiries, each strictly shorter than its
+   own cadence + `onOneServer()` on every event (ExpiryTest guard); (3) resolved
+   the 5h35m throttled-enrichment collision — new `ENRICH_COMBOS_PER_RUN` (60)
+   bounds the free-source sweep, 4 daily + 5 weekly jobs moved out of the window
+   and chained after it (CollisionTest derives the window from the enrich mutex
+   expiry, covers daily + weekly); (4) single-driver cron — legacy schedule:work
+   supervisor program removed/de-provisioned, SingleDriverTest + over-fired
+   detection; (5) `scheduler:report` read-only tool: drift/stale/never-fired/
+   failed/hung/over-fired flags, verdict line, `--exit-on-problem`,
+   `--json`, `--drift-tolerance`; `SchedulerManifestTest` locks the 16-command
+   manifest + ordering + resolves-to-registered guards. PHPUnit 844→901.
+   Post-loop live-verify on the droplet surfaced + fixed two report bugs (PR #119
+   cadence false-stale; PR #120 newest-fire last_started_at + structured-only
+   unfinished check). Deployed; live report now shows only genuine/expected
+   flags: photo-verify never-fired (first Wednesday Aug 19), off-schedule =
+   migration noise (self-heals), ai-enrich over-fired = one pre-deploy anomaly.
+
+**Current floor:** 901 PHPUnit tests + 1068 vitest tests; PHPStan level 8 over
+`app/ + tests/` with a zero baseline; pint clean; **CI enforces coverage
+thresholds and runs PHP 8.4**; **the scheduler is hardened: telemetry,
+explicit mutex expiries, no enrichment-window collisions, single-driver cron,
+and an operator `scheduler:report` gate**; CI + deploy green.
+
+## Next goals (in priority order)
 
 ### 9. Restaurant data-gap remediation
 - **Audit finding (8,282 active rows):** description 83% missing, menu_url 92%,
