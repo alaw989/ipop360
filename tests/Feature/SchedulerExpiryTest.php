@@ -40,6 +40,7 @@ class SchedulerExpiryTest extends TestCase
         'restaurants:ai-enrich' => 180,
         'restaurants:coverage' => 30,
         'restaurants:verify-websites --limit=200' => 120,
+        'scheduler:health' => 30,
     ];
 
     public function test_every_scheduled_event_has_an_explicit_mutex_expiry(): void

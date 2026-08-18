@@ -38,6 +38,7 @@ class SchedulerManifestTest extends TestCase
         'restaurants:ai-enrich' => '0 */6 * * *',
         'restaurants:coverage' => '0 11 * * 1',
         'restaurants:verify-websites --limit=200' => '0 11 * * 0',
+        'scheduler:health' => '0 15 * * *',
     ];
 
     public function test_manifest_exactly_matches_the_scheduled_commands(): void
@@ -57,7 +58,7 @@ class SchedulerManifestTest extends TestCase
         $this->assertSame(
             $expected,
             $scheduled,
-            'the scheduler manifest must contain exactly these 16 commands — add/remove a '
+            'the scheduler manifest must contain exactly these 17 commands — add/remove a '
             .'route in routes/console.php AND update this map together'
         );
     }

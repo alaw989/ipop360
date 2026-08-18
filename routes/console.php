@@ -223,3 +223,17 @@ Schedule::command('restaurants:verify-websites --limit=200')
         Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:verify-websites']);
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
+
+// Daily scheduler health alert (runs at 15:00 UTC, after the last daily job —
+// the 13:45 photo backfill — completes). Reads scheduler telemetry and emails
+// the configured operator addresses when any command never fired, failed, hung,
+// ran off-schedule, stopped firing, or over-fired in the last day. Read-only.
+Schedule::command('scheduler:health')
+    ->dailyAt('15:00')
+    ->withoutOverlapping(30)
+    ->onOneServer()
+    ->description('Alert operators when any scheduled command has a problem')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'scheduler:health']);
+    })
+    ->tap(fn ($event) => SchedulerTelemetry::attach($event));
