@@ -125,7 +125,7 @@ class RestaurantWebsiteScraperService
      * Scrape a restaurant's own website for opening hours and optional data.
      *
      * @param  string  $websiteUrl  The restaurant's own website URL
-     * @return array{opening_hours: mixed, menu_url: string|null, photo_url: string|null, photos: string[]}|null
+     * @return array{opening_hours: mixed, menu_url: string|null, photo_url: string|null, photos: string[], description: string|null, price_range: string|null}|null
      */
     public function scrape(string $websiteUrl): ?array
     {
@@ -171,8 +171,13 @@ class RestaurantWebsiteScraperService
             return null;
         }
 
-        // Check cache first
-        $cacheKey = 'website_scrape:'.md5($websiteUrl);
+        // Check cache first. The key carries a version suffix so that when the
+        // extracted field set grows (e.g. description / price_range added), the
+        // 7-day TTL is overridden: an unversioned key would serve a stale blob
+        // from before the new fields existed and waste the daily scrape budget
+        // on rows that can never gain them. Bump the version on every
+        // extraction-logic change.
+        $cacheKey = 'website_scrape:v2:'.md5($websiteUrl);
         $cached = Cache::get($cacheKey);
         if ($cached !== null) {
             Log::info('Cache hit for website scrape', ['url' => $websiteUrl]);
@@ -604,7 +609,7 @@ class RestaurantWebsiteScraperService
     /**
      * Perform the actual scraping of the website.
      *
-     * @return array{opening_hours: mixed, menu_url: string|null, photo_url: string|null, photos: string[]}|null
+     * @return array{opening_hours: mixed, menu_url: string|null, photo_url: string|null, photos: string[], description: string|null, price_range: string|null}|null
      */
     private function performScrape(string $url): ?array
     {
@@ -656,10 +661,12 @@ class RestaurantWebsiteScraperService
                     'menu_url' => $this->extractMenuUrl($dom, $xpath, $url),
                     'photo_url' => $this->extractPhotoUrl($dom, $xpath, $url),
                     'photos' => $this->extractPhotos($dom, $xpath, $url),
+                    'description' => $this->extractDescription($dom, $xpath),
+                    'price_range' => $this->extractPriceRange($xpath),
                 ];
 
                 // Only return result if we found something useful
-                if ($result['opening_hours'] !== null || $result['menu_url'] !== null || $result['photo_url'] !== null || ! empty($result['photos'])) {
+                if ($result['opening_hours'] !== null || $result['menu_url'] !== null || $result['photo_url'] !== null || ! empty($result['photos']) || $result['description'] !== null || $result['price_range'] !== null) {
                     return $result;
                 }
 
@@ -1036,6 +1043,179 @@ class RestaurantWebsiteScraperService
                     if (! empty($href)) {
                         return $href;
                     }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract the venue's price range from its JSON-LD structured data
+     * (Restaurant schema's `priceRange` field — the same application/ld+json
+     * blocks already parsed for hours/description). Values are normalized to
+     * the corpus's $-$$$$ convention (mirroring parseExtractedPrice's
+     * thresholds) so the scrape phase can close the price gap without burning
+     * AI quota. Junk values ("Price on request") yield null.
+     */
+    private function extractPriceRange(DOMXPath $xpath): ?string
+    {
+        $scripts = $xpath->query("//script[@type='application/ld+json']");
+        if ($scripts === false) {
+            return null;
+        }
+
+        foreach ($scripts as $script) {
+            if (! $script instanceof \DOMNode) {
+                continue;
+            }
+            $json = trim($script->textContent);
+            if ($json === '') {
+                continue;
+            }
+
+            try {
+                $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\Throwable $e) {
+                continue;
+            }
+
+            $objects = is_array($data) && (isset($data[0]['@type']) || (isset($data[0]) && is_array($data[0])))
+                ? $data
+                : [$data];
+
+            foreach ($objects as $object) {
+                if (! is_array($object)) {
+                    continue;
+                }
+                $price = $this->normalizePriceRange($object['priceRange'] ?? null);
+                if ($price !== null) {
+                    return $price;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalize a JSON-LD priceRange value to the corpus's $-$$$$ convention,
+     * or null when it cannot be trusted. Accepts the dollar-sign form ("$$",
+     * "$$$$") and any numeric form ("$10-20", "15-30", "$40 and up"). A range
+     * uses the average of its first two numbers; a single value uses itself.
+     * Both map to the same thresholds as the cache phase's parseExtractedPrice
+     * (<15 $, <30 $$, <50 $$$, else $$$$). Non-string, empty and digit-less
+     * non-dollar junk is rejected.
+     */
+    private function normalizePriceRange(mixed $priceRange): ?string
+    {
+        if (! is_string($priceRange)) {
+            return null;
+        }
+
+        $trimmed = trim($priceRange);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        if (preg_match('/^\${1,4}$/', $trimmed) === 1) {
+            return $trimmed;
+        }
+
+        if (preg_match_all('/\d+(?:\.\d+)?/', $trimmed, $m) >= 1) {
+            $numbers = array_map('floatval', $m[0]);
+            $val = count($numbers) >= 2
+                ? ($numbers[0] + $numbers[1]) / 2
+                : $numbers[0];
+
+            return match (true) {
+                $val < 15 => '$',
+                $val < 30 => '$$',
+                $val < 50 => '$$$',
+                default => '$$$$',
+            };
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract a venue blurb from the page's meta description tags (og:description
+     * first, then twitter:description, then plain name=description), falling back
+     * to the JSON-LD structured-data description (Restaurant/Organization schema)
+     * when no meta tag carries a usable blurb. Returns a trimmed string only when
+     * it is long enough to be a real description; junk and empty values return
+     * null so nothing bogus is persisted. The venue's own website is the
+     * authoritative free source for its description, so the scrape phase can
+     * close the description gap without burning AI quota.
+     */
+    private function extractDescription(DOMDocument $dom, DOMXPath $xpath): ?string
+    {
+        $patterns = [
+            "//meta[@property='og:description']",
+            "//meta[@name='twitter:description']",
+            "//meta[@name='description']",
+        ];
+
+        foreach ($patterns as $pattern) {
+            $nodes = $xpath->query($pattern);
+            if ($nodes === false || $nodes->length === 0) {
+                continue;
+            }
+            foreach ($nodes as $node) {
+                if (! $node instanceof \DOMElement) {
+                    continue;
+                }
+                $content = trim($node->getAttribute('content'));
+                if (strlen($content) >= 20) {
+                    return $content;
+                }
+            }
+        }
+
+        return $this->extractJsonLdDescription($xpath);
+    }
+
+    /**
+     * Extract a venue blurb from the page's JSON-LD structured data: the first
+     * script[type=application/ld+json] carrying a string `description` of at
+     * least 20 characters. Handles both a single object and an array of objects
+     * (matching extractHoursFromJsonLd). Non-string or too-short values are
+     * skipped so a "Tiny blurb" or numeric junk is never persisted as a blurb.
+     */
+    private function extractJsonLdDescription(DOMXPath $xpath): ?string
+    {
+        $scripts = $xpath->query("//script[@type='application/ld+json']");
+        if ($scripts === false) {
+            return null;
+        }
+
+        foreach ($scripts as $script) {
+            if (! $script instanceof \DOMNode) {
+                continue;
+            }
+            $json = trim($script->textContent);
+            if ($json === '') {
+                continue;
+            }
+
+            try {
+                $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\Throwable $e) {
+                continue;
+            }
+
+            $objects = is_array($data) && (isset($data[0]['@type']) || (isset($data[0]) && is_array($data[0])))
+                ? $data
+                : [$data];
+
+            foreach ($objects as $object) {
+                if (! is_array($object)) {
+                    continue;
+                }
+                $description = $object['description'] ?? null;
+                if (is_string($description) && strlen(trim($description)) >= 20) {
+                    return trim($description);
                 }
             }
         }

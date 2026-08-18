@@ -92,6 +92,35 @@ class AiEnrichRestaurantsTest extends TestCase
         $this->assertSame($expectedIds, $pushed);
     }
 
+    public function test_among_equally_needy_higher_popularity_dispatches_first(): void
+    {
+        $low = Restaurant::factory()->create([
+            'price_range' => null,
+            'description' => null,
+            'phone' => null,
+            'website_url' => null,
+            'popularity_score' => 0.1,
+        ]);
+        $high = Restaurant::factory()->create([
+            'price_range' => null,
+            'description' => null,
+            'phone' => null,
+            'website_url' => null,
+            'popularity_score' => 0.9,
+        ]);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:ai-enrich');
+        $command->assertExitCode(0);
+        $command->run();
+
+        /** @var array<int, EnrichRestaurantWithAi> $jobs */
+        $jobs = Queue::pushed(EnrichRestaurantWithAi::class); /* @phpstan-ignore staticMethod.notFound */
+        $pushed = collect($jobs)->map->restaurantId->all();
+
+        $this->assertSame([$high->id, $low->id], $pushed);
+    }
+
     public function test_dry_run_dispatches_nothing(): void
     {
         Restaurant::factory()->create();

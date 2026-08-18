@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Restaurant;
 use App\Services\AiEnrichmentService;
+use App\Services\CuisineTagMapper;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -58,6 +59,7 @@ class EnrichRestaurantWithAi implements ShouldQueue
      */
     public function handle(
         AiEnrichmentService $aiEnrichment,
+        CuisineTagMapper $cuisineTagMapper,
     ): void {
         $restaurant = Restaurant::find($this->restaurantId);
 
@@ -124,10 +126,15 @@ class EnrichRestaurantWithAi implements ShouldQueue
                 }
             }
 
-            // Store cuisines in ai_metadata (cuisine attachment is handled separately if needed)
+            // Store cuisines in ai_metadata and attach them to the pivot so
+            // cuisine_match (0.50) can fire for rows that were previously
+            // untagged. Only names that normalize to a SEEDED cuisine slug are
+            // attached; existing tags are never detached.
+            $cuisineIds = [];
             if (! empty($enriched['cuisines']) && is_array($enriched['cuisines'])) {
                 $aiMetadata['cuisines'] = $enriched['cuisines'];
                 $aiMetadata['fields_updated'][] = 'cuisines';
+                $cuisineIds = $cuisineTagMapper->idsForNames(array_values($enriched['cuisines']));
             }
 
             // Store the ai_metadata
@@ -135,8 +142,12 @@ class EnrichRestaurantWithAi implements ShouldQueue
 
             // Update the restaurant
             if (! empty($updates)) {
-                DB::transaction(function () use ($restaurant, $updates, $aiMetadata) {
+                DB::transaction(function () use ($restaurant, $updates, $aiMetadata, $cuisineIds) {
                     $restaurant->update($updates);
+
+                    if ($cuisineIds !== []) {
+                        $restaurant->cuisines()->syncWithoutDetaching($cuisineIds);
+                    }
 
                     $changes = [];
                     foreach ($aiMetadata['fields_updated'] as $field) {

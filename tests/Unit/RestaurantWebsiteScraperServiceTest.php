@@ -101,6 +101,31 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
         Http::assertSentCount(2); // 1 robots.txt + 1 page fetch
     }
 
+    public function test_scrape_ignores_stale_legacy_cache_from_before_new_extraction_fields(): void
+    {
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><body><div itemprop="openingHours">Mo-Fr 09:00-17:00</div></body></html>',
+                200
+            ),
+        ]);
+
+        // Seed the old unversioned cache key with a pre-extraction payload that
+        // carries NONE of the fields added in the description/price iterations.
+        // A versionless key would return this stale blob for up to 7 days and
+        // the daily scrape budget would be wasted on rows that never gain the
+        // new fields.
+        $legacyKey = 'website_scrape:'.md5('https://example.com/');
+        Cache::put($legacyKey, ['opening_hours' => null, 'menu_url' => null], now()->addDays(7));
+
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertIsArray($result);
+        // robots.txt (1) + page fetch (1) = the legacy entry must NOT be reused.
+        Http::assertSentCount(2);
+    }
+
     public function test_scrape_extracts_opening_hours_from_microdata(): void
     {
         Http::fake([
@@ -221,6 +246,227 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
 
         $result = $this->service->scrape('https://example.com/');
 
+        $this->assertNull($result);
+    }
+
+    public function test_scrape_extracts_description_from_og_description(): void
+    {
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><head>'
+                .'<meta property="og:description" content="Family-owned Mexican taqueria serving handmade tortillas since 1985.">'
+                .'</head><body></body></html>',
+                200
+            ),
+        ]);
+
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertIsArray($result);
+        $this->assertSame('Family-owned Mexican taqueria serving handmade tortillas since 1985.', $result['description']);
+    }
+
+    public function test_scrape_extracts_description_from_meta_name_fallback(): void
+    {
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><head>'
+                .'<meta name="description" content="Neighborhood Italian bistro with wood-fired pizza and fresh pasta.">'
+                .'</head><body></body></html>',
+                200
+            ),
+        ]);
+
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertIsArray($result);
+        $this->assertSame('Neighborhood Italian bistro with wood-fired pizza and fresh pasta.', $result['description']);
+    }
+
+    public function test_scrape_extracts_description_from_json_ld(): void
+    {
+        $jsonLd = json_encode([
+            '@type' => 'Restaurant',
+            'name' => 'Example Bistro',
+            'description' => 'Neighborhood Italian bistro with wood-fired pizza and hand-rolled pasta made fresh daily.',
+            'priceRange' => '$$',
+        ]);
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><body><script type="application/ld+json">'.$jsonLd.'</script></body></html>',
+                200
+            ),
+        ]);
+
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertIsArray($result);
+        $this->assertSame(
+            'Neighborhood Italian bistro with wood-fired pizza and hand-rolled pasta made fresh daily.',
+            $result['description']
+        );
+    }
+
+    public function test_scrape_extracts_description_from_json_ld_array(): void
+    {
+        $jsonLd = json_encode([
+            ['@type' => 'WebSite', 'name' => 'Example'],
+            ['@type' => 'Restaurant', 'description' => 'Family-owned taqueria serving handmade tortillas and slow-roasted carnitas since 1985.'],
+        ]);
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><body><script type="application/ld+json">'.$jsonLd.'</script></body></html>',
+                200
+            ),
+        ]);
+
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertIsArray($result);
+        $this->assertSame(
+            'Family-owned taqueria serving handmade tortillas and slow-roasted carnitas since 1985.',
+            $result['description']
+        );
+    }
+
+    public function test_scrape_rejects_short_or_non_string_json_ld_description(): void
+    {
+        $jsonLd = json_encode([
+            '@type' => 'Restaurant',
+            'description' => 'Tiny blurb',
+        ]);
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><body><script type="application/ld+json">'.$jsonLd.'</script></body></html>',
+                200
+            ),
+        ]);
+
+        // A too-short JSON-LD blurb is not a useful description; when it is the
+        // only extractable field the scrape returns null rather than junk.
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertNull($result);
+    }
+
+    public function test_scrape_prefers_meta_description_over_json_ld(): void
+    {
+        $jsonLd = json_encode([
+            '@type' => 'Restaurant',
+            'description' => 'JSON-LD blurb that is definitely long enough to qualify as a real restaurant description.',
+        ]);
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><head>'
+                .'<meta name="description" content="Meta blurb that is also long enough to count as a real description text.">'
+                .'</head><body><script type="application/ld+json">'.$jsonLd.'</script></body></html>',
+                200
+            ),
+        ]);
+
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertIsArray($result);
+        $this->assertSame(
+            'Meta blurb that is also long enough to count as a real description text.',
+            $result['description'],
+            'the meta description source must stay the preferred source over JSON-LD'
+        );
+    }
+
+    public function test_scrape_extracts_price_range_from_json_ld(): void
+    {
+        $jsonLd = json_encode([
+            '@type' => 'Restaurant',
+            'name' => 'Example Bistro',
+            'priceRange' => '$$',
+        ]);
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><body><script type="application/ld+json">'.$jsonLd.'</script></body></html>',
+                200
+            ),
+        ]);
+
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertIsArray($result);
+        $this->assertSame('$$', $result['price_range']);
+    }
+
+    public function test_scrape_extracts_price_range_from_numeric_json_ld(): void
+    {
+        $jsonLd = json_encode([
+            '@type' => 'Restaurant',
+            'name' => 'Example Diner',
+            'priceRange' => '$10-20',
+        ]);
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><body><script type="application/ld+json">'.$jsonLd.'</script></body></html>',
+                200
+            ),
+        ]);
+
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertIsArray($result);
+        $this->assertSame('$$', $result['price_range']);
+    }
+
+    public function test_scrape_rejects_bogus_json_ld_price_range(): void
+    {
+        $jsonLd = json_encode([
+            '@type' => 'Restaurant',
+            'name' => 'Example Lounge',
+            'priceRange' => 'Price on request',
+        ]);
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><body><script type="application/ld+json">'.$jsonLd.'</script></body></html>',
+                200
+            ),
+        ]);
+
+        // A non-dollars, non-numeric price value is not a usable price range;
+        // when it is the only extractable field the scrape returns null.
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertNull($result);
+    }
+
+    public function test_scrape_does_not_extract_short_or_empty_description(): void
+    {
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><head>'
+                .'<meta name="description" content="Just a few words">'
+                .'</head><body></body></html>',
+                200
+            ),
+        ]);
+
+        $result = $this->service->scrape('https://example.com/');
+
+        // A too-short meta blurb is not a useful description; when it is the
+        // only extractable field the scrape returns null rather than junk.
         $this->assertNull($result);
     }
 

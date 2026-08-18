@@ -77,6 +77,64 @@ class DataHygieneCommandTest extends TestCase
         $this->assertSame('AK', $fresh->state);
     }
 
+    public function test_backfills_missing_state_from_us_style_address(): void
+    {
+        $r = $this->restaurant([
+            'state' => null,
+            'address' => '622 E Adams St, Phoenix, AZ 85004',
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('AZ', $fresh->state);
+    }
+
+    public function test_does_not_derive_state_when_address_has_no_state_zip_tail(): void
+    {
+        $r = $this->restaurant([
+            'state' => null,
+            'address' => 'West Southern Avenue, 706, Mesa, 85210',
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNull($fresh->state, 'address without a ST ZIP tail must leave state null');
+    }
+
+    public function test_preserves_existing_state_over_address_derived(): void
+    {
+        $r = $this->restaurant([
+            'state' => 'TX',
+            'address' => '622 E Adams St, Phoenix, AZ 85004',
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('TX', $fresh->state, 'existing state must never be overwritten');
+    }
+
+    public function test_dry_run_reports_derived_state_without_persisting(): void
+    {
+        $r = $this->restaurant([
+            'state' => null,
+            'address' => '622 E Adams St, Phoenix, AZ 85004',
+        ]);
+
+        /** @var PendingCommand $cmd */
+        $cmd = $this->artisan('restaurants:data-hygiene');
+        $cmd->expectsOutputToContain('State normalized: 1');
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNull($fresh->state);
+    }
+
     public function test_clears_non_us_junk_states_to_null(): void
     {
         foreach (['Hauts-De-France', 'Île-De-France', 'Ontario'] as $junk) {
@@ -98,6 +156,92 @@ class DataHygieneCommandTest extends TestCase
         $fresh = $r->fresh();
         $this->assertNotNull($fresh);
         $this->assertSame('Long Beach', $fresh->city);
+    }
+
+    public function test_backfills_missing_city_from_us_style_address(): void
+    {
+        $r = $this->restaurant([
+            'city' => null,
+            'address' => '622 E Adams St, Phoenix, AZ 85004',
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('Phoenix', $fresh->city);
+    }
+
+    public function test_backfills_missing_city_from_osm_style_address_with_zip(): void
+    {
+        $r = $this->restaurant([
+            'city' => null,
+            'address' => 'West Southern Avenue, 706, Mesa, 85210',
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('Mesa', $fresh->city);
+    }
+
+    public function test_backfills_missing_city_from_osm_style_address_without_zip(): void
+    {
+        $r = $this->restaurant([
+            'city' => null,
+            'address' => 'North 28th Drive, 12418, Phoenix',
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('Phoenix', $fresh->city);
+    }
+
+    public function test_does_not_derive_city_when_address_has_none(): void
+    {
+        $r = $this->restaurant([
+            'city' => null,
+            'address' => 'Forbes Road, 170, 02184',
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNull($fresh->city, 'address without a city token must leave city null');
+    }
+
+    public function test_preserves_existing_city_over_address_derived(): void
+    {
+        $r = $this->restaurant([
+            'city' => 'Austin',
+            'address' => '622 E Adams St, Phoenix, AZ 85004',
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true]);
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('Austin', $fresh->city, 'existing city must never be overwritten');
+    }
+
+    public function test_dry_run_reports_derived_city_without_persisting(): void
+    {
+        $r = $this->restaurant([
+            'city' => null,
+            'address' => '622 E Adams St, Phoenix, AZ 85004',
+        ]);
+
+        /** @var PendingCommand $cmd */
+        $cmd = $this->artisan('restaurants:data-hygiene');
+        $cmd->expectsOutputToContain('City normalized: 1');
+
+        $fresh = $r->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNull($fresh->city);
     }
 
     public function test_collapses_double_spaces_in_name_and_address(): void
@@ -192,6 +336,126 @@ class DataHygieneCommandTest extends TestCase
 
         $this->assertDatabaseMissing('restaurants', ['id' => $dupe->id]);
         $this->assertDatabaseHas('restaurants', ['id' => $keep->id]);
+    }
+
+    public function test_merges_same_name_city_state_rows_with_nearby_coords(): void
+    {
+        $keep = $this->restaurant([
+            'name' => 'Prox Dupe',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.26,
+            'longitude' => -97.74,
+            'website_url' => 'https://prox.example',
+            'phone' => null,
+        ]);
+        $dupe = $this->restaurant([
+            'name' => 'Prox Dupe',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.2602,
+            'longitude' => -97.7401,
+            'phone' => null,
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true]);
+
+        $this->assertDatabaseHas('restaurants', ['id' => $keep->id]);
+        $this->assertDatabaseMissing('restaurants', ['id' => $dupe->id]);
+        $this->assertSame('https://prox.example', Restaurant::findOrFail($keep->id)->website_url);
+    }
+
+    public function test_does_not_merge_same_name_city_state_chain_locations(): void
+    {
+        $a = $this->restaurant([
+            'name' => 'Chain Grill',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.26,
+            'longitude' => -97.74,
+        ]);
+        $b = $this->restaurant([
+            'name' => 'Chain Grill',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.28,
+            'longitude' => -97.76,
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true]);
+
+        $this->assertDatabaseHas('restaurants', ['id' => $a->id]);
+        $this->assertDatabaseHas('restaurants', ['id' => $b->id]);
+    }
+
+    public function test_proximity_merge_respects_limit_budget(): void
+    {
+        $exactKeep = $this->restaurant([
+            'name' => 'Budget Exact',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.26,
+            'longitude' => -97.74,
+            'phone' => null,
+        ]);
+        $exactDupe = $this->restaurant([
+            'name' => 'Budget Exact',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.26,
+            'longitude' => -97.74,
+            'phone' => null,
+        ]);
+        $proxKeep = $this->restaurant([
+            'name' => 'Budget Prox',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.27,
+            'longitude' => -97.75,
+            'phone' => null,
+        ]);
+        $proxDupe = $this->restaurant([
+            'name' => 'Budget Prox',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.2702,
+            'longitude' => -97.7501,
+            'phone' => null,
+        ]);
+
+        $this->artisan('restaurants:data-hygiene', ['--apply' => true, '--limit' => 1]);
+
+        $this->assertDatabaseHas('restaurants', ['id' => $exactKeep->id]);
+        $this->assertDatabaseMissing('restaurants', ['id' => $exactDupe->id]);
+        $this->assertDatabaseHas('restaurants', ['id' => $proxKeep->id]);
+        $this->assertDatabaseHas('restaurants', ['id' => $proxDupe->id]);
+    }
+
+    public function test_dry_run_reports_proximity_pairs_without_merging(): void
+    {
+        $keep = $this->restaurant([
+            'name' => 'Dry Prox',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.26,
+            'longitude' => -97.74,
+            'phone' => null,
+        ]);
+        $dupe = $this->restaurant([
+            'name' => 'Dry Prox',
+            'city' => 'Austin',
+            'state' => 'TX',
+            'latitude' => 30.2602,
+            'longitude' => -97.7401,
+            'phone' => null,
+        ]);
+
+        /** @var PendingCommand $cmd */
+        $cmd = $this->artisan('restaurants:data-hygiene');
+        $cmd->expectsOutputToContain('Proximity duplicate pairs merged: 1');
+
+        $this->assertDatabaseHas('restaurants', ['id' => $keep->id]);
+        $this->assertDatabaseHas('restaurants', ['id' => $dupe->id]);
     }
 
     public function test_dry_run_makes_no_changes(): void
