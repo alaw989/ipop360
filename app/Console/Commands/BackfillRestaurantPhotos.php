@@ -104,8 +104,11 @@ class BackfillRestaurantPhotos extends Command
         }
 
         // Websites first: they have the most reliable (venue-owned) image source.
+        // Within each group, the highest-popularity rows first, so the daily
+        // --limit budget is spent on the most search-visible restaurants.
         $rows = (clone $query)
             ->orderByRaw('CASE WHEN website_url IS NOT NULL AND website_url != \'\' THEN 0 ELSE 1 END')
+            ->orderByDesc('popularity_score')
             ->orderBy('id')
             ->limit($limit > 0 ? $limit : $total)
             ->get();

@@ -85,8 +85,15 @@ class AiEnrichRestaurants extends Command
 
             // Neediest first: rows missing the most AI-fillable fields get
             // dispatched before rows that are already mostly complete, so the
-            // free AI quota closes the deepest gaps first.
-            $restaurants = $restaurants->sortByDesc(fn ($restaurant) => $this->missingFieldCount($restaurant))->values();
+            // free AI quota closes the deepest gaps first. Among equally needy
+            // rows, the higher search impact (popularity_score) row dispatches
+            // first — the quota is spent on the most-visible rows first.
+            $restaurants = $restaurants
+                ->sortByDesc(fn ($restaurant) => [
+                    $this->missingFieldCount($restaurant),
+                    (float) ($restaurant->popularity_score ?? 0),
+                ])
+                ->values();
         }
 
         if ($restaurants->isEmpty()) {

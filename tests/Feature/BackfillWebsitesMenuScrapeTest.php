@@ -20,7 +20,7 @@ class BackfillWebsitesMenuScrapeTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * @param  array{opening_hours: mixed, menu_url: string|null, photo_url: string|null, photos: string[]}|null  $returnValue
+     * @param  array{opening_hours: mixed, menu_url: string|null, photo_url: string|null, photos: string[], description?: string|null}|null  $returnValue
      */
     private function scraperMock(?array $returnValue): RestaurantWebsiteScraperService
     {
@@ -145,6 +145,106 @@ class BackfillWebsitesMenuScrapeTest extends TestCase
         $restaurant = Restaurant::where('name', 'Complete Row')->firstOrFail();
         $this->assertSame('https://complete.example/menu', $restaurant->menu_url);
         $this->assertSame('Mo-Fr 09:00-17:00', $restaurant->opening_hours);
+    }
+
+    public function test_scrapes_and_persists_description_from_own_site(): void
+    {
+        Restaurant::factory()->create([
+            'name' => 'Describe Me',
+            'website_url' => 'https://describeme.example',
+            'menu_url' => 'https://describeme.example/menu',
+            'opening_hours' => 'Mo-Su 11:00-21:00',
+            'description' => null,
+            'social_links_count' => 1,
+        ]);
+
+        $this->app->instance(RestaurantWebsiteScraperService::class, $this->scraperMock([
+            'opening_hours' => 'Mo-Su 11:00-21:00',
+            'menu_url' => 'https://describeme.example/menu',
+            'photo_url' => null,
+            'photos' => [],
+            'description' => 'Family-owned Mexican taqueria serving handmade tortillas since 1985.',
+        ]));
+
+        $this->artisan('restaurants:backfill-websites');
+
+        $restaurant = Restaurant::where('name', 'Describe Me')->firstOrFail();
+        $this->assertSame('Family-owned Mexican taqueria serving handmade tortillas since 1985.', $restaurant->description);
+    }
+
+    public function test_does_not_overwrite_existing_description(): void
+    {
+        Restaurant::factory()->create([
+            'name' => 'Keeps Own Description',
+            'website_url' => 'https://keepsown.example',
+            'menu_url' => 'https://keepsown.example/menu',
+            'opening_hours' => 'Mo-Su 11:00-21:00',
+            'description' => 'Our own verified blurb.',
+            'social_links_count' => 1,
+        ]);
+
+        $this->app->instance(RestaurantWebsiteScraperService::class, $this->scraperMock([
+            'opening_hours' => 'Mo-Su 11:00-21:00',
+            'menu_url' => 'https://keepsown.example/menu',
+            'photo_url' => null,
+            'photos' => [],
+            'description' => 'A scraped blurb that must not win.',
+        ]));
+
+        $this->artisan('restaurants:backfill-websites');
+
+        $restaurant = Restaurant::where('name', 'Keeps Own Description')->firstOrFail();
+        $this->assertSame('Our own verified blurb.', $restaurant->description);
+    }
+
+    public function test_scrapes_and_persists_price_range_from_own_site(): void
+    {
+        Restaurant::factory()->create([
+            'name' => 'Price Me',
+            'website_url' => 'https://priceme.example',
+            'menu_url' => 'https://priceme.example/menu',
+            'opening_hours' => 'Mo-Su 11:00-21:00',
+            'price_range' => null,
+            'social_links_count' => 1,
+        ]);
+
+        $this->app->instance(RestaurantWebsiteScraperService::class, $this->scraperMock([
+            'opening_hours' => 'Mo-Su 11:00-21:00',
+            'menu_url' => 'https://priceme.example/menu',
+            'photo_url' => null,
+            'photos' => [],
+            'price_range' => '$$',
+        ]));
+
+        $this->artisan('restaurants:backfill-websites');
+
+        $restaurant = Restaurant::where('name', 'Price Me')->firstOrFail();
+        $this->assertSame('$$', $restaurant->price_range);
+    }
+
+    public function test_does_not_overwrite_existing_price_range(): void
+    {
+        Restaurant::factory()->create([
+            'name' => 'Keeps Own Price',
+            'website_url' => 'https://keepsprice.example',
+            'menu_url' => 'https://keepsprice.example/menu',
+            'opening_hours' => 'Mo-Su 11:00-21:00',
+            'price_range' => '$$$',
+            'social_links_count' => 1,
+        ]);
+
+        $this->app->instance(RestaurantWebsiteScraperService::class, $this->scraperMock([
+            'opening_hours' => 'Mo-Su 11:00-21:00',
+            'menu_url' => 'https://keepsprice.example/menu',
+            'photo_url' => null,
+            'photos' => [],
+            'price_range' => '$',
+        ]));
+
+        $this->artisan('restaurants:backfill-websites');
+
+        $restaurant = Restaurant::where('name', 'Keeps Own Price')->firstOrFail();
+        $this->assertSame('$$$', $restaurant->price_range);
     }
 
     public function test_restaurant_without_website_url_is_skipped(): void

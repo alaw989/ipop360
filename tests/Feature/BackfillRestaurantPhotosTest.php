@@ -100,6 +100,25 @@ class BackfillRestaurantPhotosTest extends TestCase
         $cmd->assertExitCode(0);
     }
 
+    public function test_backfill_prioritizes_highest_popularity_rows_within_limit(): void
+    {
+        $low = $this->restaurant(['website_url' => 'https://low.example', 'popularity_score' => 0.1]);
+        $mid = $this->restaurant(['website_url' => 'https://mid.example', 'popularity_score' => 0.5]);
+        $high = $this->restaurant(['website_url' => 'https://high.example', 'popularity_score' => 0.9]);
+
+        $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
+        $scraper->shouldReceive('searchImageForRestaurant')->andReturnUsing(function (Restaurant $r) {
+            return 'https://cdn.example/photo-'.$r->id.'.jpg';
+        });
+        $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
+
+        $this->artisan('restaurants:backfill-photos', ['--apply' => true, '--limit' => 2]);
+
+        $this->assertNotNull($high->fresh()?->photo_url, 'highest-popularity row must be backfilled first');
+        $this->assertNotNull($mid->fresh()?->photo_url, 'second-highest-popularity row must be backfilled');
+        $this->assertNull($low->fresh()?->photo_url, 'lowest-popularity row must wait for the next run when the daily budget is spent');
+    }
+
     public function test_backfill_skips_recently_verified_dead_row_within_cooldown(): void
     {
         $r = $this->restaurant([

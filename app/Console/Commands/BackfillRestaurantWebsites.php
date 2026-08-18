@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use App\Models\RestaurantSocialLink;
+use App\Services\CuisineTagMapper;
 use App\Services\RestaurantWebsiteScraperService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
@@ -43,14 +44,31 @@ class BackfillRestaurantWebsites extends Command
         '/toasttab\.com/i', '/toast\.site/i', '/uorder\.io/i', '/bentoobox\.net/i',
     ];
 
-    public function handle(RestaurantWebsiteScraperService $scraper): int
+    /**
+     * Trailing qualifiers stripped from a cached venue's Google place type
+     * before it is matched to a seeded cuisine ("Chinese restaurant" →
+     * "Chinese"). Multi-word types ("Noodle house" → "Noodle") survive the
+     * strip and simply fail to match a seeded cuisine, which is the safe
+     * outcome. A type that IS a qualifier alone ("Bar") is left intact so it
+     * can never collapse to an empty string.
+     *
+     * @var string[]
+     */
+    private const CUISINE_TYPE_QUALIFIERS = [
+        'restaurant', 'bar', 'grill', 'kitchen', 'house', 'place', 'shop',
+        'store', 'cafe', 'café', 'eatery', 'deli', 'joint', 'stand', 'catering',
+        'caterer', 'lounge', 'diner', 'takeaway', 'takeout', 'bakery', 'bistro',
+        'pub', 'buffet', 'food', 'cuisine', 'supplier', 'suppliers', 'parlor',
+    ];
+
+    public function handle(RestaurantWebsiteScraperService $scraper, CuisineTagMapper $cuisineTagMapper): int
     {
         $dryRun = $this->option('dry-run');
         $skipCache = $this->option('skip-cache');
         $skipSearch = $this->option('skip-search');
 
         if (! $skipCache) {
-            $this->matchFromCache($dryRun);
+            $this->matchFromCache($dryRun, $cuisineTagMapper);
         }
 
         $remaining = $this->countMissing();
@@ -83,7 +101,7 @@ class BackfillRestaurantWebsites extends Command
         return self::SUCCESS;
     }
 
-    private function matchFromCache(bool $dryRun): void
+    private function matchFromCache(bool $dryRun, CuisineTagMapper $cuisineTagMapper): void
     {
         $this->line('Building cache index...');
         $phoneIndex = [];
@@ -92,19 +110,38 @@ class BackfillRestaurantWebsites extends Command
         foreach (self::CACHE_SOURCES as $source) {
             $entries = ExternalApiCache::where('source', $source)->get();
             foreach ($entries as $entry) {
+                // Some sources (preview) persist ONE restaurant object per
+                // cache row rather than a list of venues; treat a non-list
+                // payload as a single-venue list so its scalar fields are not
+                // iterated as venues (which crashed parseExtractedPrice).
                 $venues = $entry->data;
+                if (! array_is_list($venues)) {
+                    $venues = [$venues];
+                }
                 foreach ($venues as $venue) {
                     $website = $venue['website'] ?? $venue['website_url'] ?? null;
-                    if (empty($website)) {
-                        continue;
-                    }
                     $parsedPrice = $this->parseExtractedPrice($venue);
                     $entryData = [
                         '_website' => $website,
                         '_price_range' => $parsedPrice,
                         '_phone' => $venue['phone'] ?? null,
                         '_description' => $this->sanitizeDescription($venue['description'] ?? null),
+                        '_address' => $this->sanitizeAddress($venue['address'] ?? null),
+                        '_opening_hours' => $this->normalizeCacheHours(
+                            $venue['opening_hours'] ?? $venue['operating_hours'] ?? null
+                        ),
+                        '_photo' => $this->sanitizeCachePhoto($venue['thumbnail'] ?? null),
+                        '_rating' => $this->sanitizeCacheRating($venue['rating'] ?? null),
+                        '_review_count' => $this->sanitizeCacheReviewCount($venue['reviews'] ?? null),
+                        '_cuisine_ids' => $this->cacheCuisineIds($venue, $cuisineTagMapper),
                     ];
+                    // Index the venue only if it carries at least one field the
+                    // cache phase can backfill. Website-less cached venues (which
+                    // may still hold an address/phone/price/description) must not
+                    // be skipped entirely, or those gaps go unserved.
+                    if ($this->entryHasNothingUseful($entryData)) {
+                        continue;
+                    }
                     $name = $this->normalize($venue['title'] ?? $venue['name'] ?? '');
                     if ($name !== '') {
                         $nameIndex[$name] = $entryData;
@@ -127,6 +164,11 @@ class BackfillRestaurantWebsites extends Command
         $phonesBackfilled = 0;
         $pricesBackfilled = 0;
         $descriptionsBackfilled = 0;
+        $addressesBackfilled = 0;
+        $hoursBackfilled = 0;
+        $photosBackfilled = 0;
+        $ratingsBackfilled = 0;
+        $cuisinesBackfilled = 0;
 
         foreach ($missing as $restaurant) {
             $entryData = null;
@@ -164,6 +206,19 @@ class BackfillRestaurantWebsites extends Command
                 if (empty($restaurant->description) && is_string($entryData['_description'])) {
                     $updates['description'] = $entryData['_description'];
                 }
+                if (empty($restaurant->address) && is_string($entryData['_address'])) {
+                    $updates['address'] = $entryData['_address'];
+                }
+                if (empty($restaurant->opening_hours) && is_array($entryData['_opening_hours'])) {
+                    $updates['opening_hours'] = $entryData['_opening_hours'];
+                }
+                if (empty($restaurant->photo_url) && is_string($entryData['_photo'])) {
+                    $updates['photo_url'] = $entryData['_photo'];
+                }
+                if (($restaurant->google_rating === null || $restaurant->google_rating <= 0) && is_float($entryData['_rating'])) {
+                    $updates['google_rating'] = $entryData['_rating'];
+                    $updates['google_review_count'] = $entryData['_review_count'] ?? 0;
+                }
                 if (! empty($updates) && ! $dryRun) {
                     $restaurant->update($updates);
                     Log::channel('enrichment')->info('Cache backfill from cached search data', [
@@ -173,6 +228,11 @@ class BackfillRestaurantWebsites extends Command
                         'price_range' => $updates['price_range'] ?? null,
                         'phone' => $updates['phone'] ?? null,
                         'description' => $updates['description'] ?? null,
+                        'address' => $updates['address'] ?? null,
+                        'opening_hours' => $updates['opening_hours'] ?? null,
+                        'photo_url' => $updates['photo_url'] ?? null,
+                        'google_rating' => $updates['google_rating'] ?? null,
+                        'google_review_count' => $updates['google_review_count'] ?? null,
                     ]);
                 }
                 if (isset($updates['phone'])) {
@@ -183,6 +243,33 @@ class BackfillRestaurantWebsites extends Command
                 }
                 if (isset($updates['description'])) {
                     $descriptionsBackfilled++;
+                }
+                if (isset($updates['address'])) {
+                    $addressesBackfilled++;
+                }
+                if (isset($updates['opening_hours'])) {
+                    $hoursBackfilled++;
+                }
+                if (isset($updates['photo_url'])) {
+                    $photosBackfilled++;
+                }
+                if (isset($updates['google_rating'])) {
+                    $ratingsBackfilled++;
+                }
+                // Attach cached Google place types as cuisine tags — fill-empty
+                // only: a restaurant that already carries evidence-backed tags
+                // is never touched (the audit sweep owns tag hygiene), and an
+                // untagged row becomes cuisine-searchable for free.
+                if ($entryData['_cuisine_ids'] !== [] && $restaurant->cuisines()->doesntExist()) {
+                    if (! $dryRun) {
+                        $restaurant->cuisines()->attach($entryData['_cuisine_ids']);
+                        Log::channel('enrichment')->info('Cuisine tags backfilled from cached search data', [
+                            'restaurant_id' => $restaurant->id,
+                            'restaurant_name' => $restaurant->name,
+                            'cuisine_ids' => $entryData['_cuisine_ids'],
+                        ]);
+                    }
+                    $cuisinesBackfilled++;
                 }
                 $hits++;
                 if (isset($updates['website_url'])) {
@@ -195,12 +282,18 @@ class BackfillRestaurantWebsites extends Command
         $this->line("  Phone backfilled for {$phonesBackfilled} restaurant(s).");
         $this->line("  Price backfilled for {$pricesBackfilled} restaurant(s).");
         $this->line("  Description backfilled for {$descriptionsBackfilled} restaurant(s).");
+        $this->line("  Address backfilled for {$addressesBackfilled} restaurant(s).");
+        $this->line("  Opening hours backfilled for {$hoursBackfilled} restaurant(s).");
+        $this->line("  Photos backfilled for {$photosBackfilled} restaurant(s).");
+        $this->line("  Ratings backfilled for {$ratingsBackfilled} restaurant(s).");
+        $this->line("  Cuisine tags backfilled for {$cuisinesBackfilled} restaurant(s).");
     }
 
     /**
      * Restaurants the cache phase may enrich: those missing a website URL, a
-     * phone number, a price range or a description (fill-empty all from the
-     * cached live-search venue data, free of charge — no web search, no AI quota).
+     * phone number, a price range, a description, an address, opening hours, a
+     * photo or a google rating (fill-empty all from the cached live-search
+     * venue data, free of charge — no web search, no AI quota).
      *
      * @return Builder<Restaurant>
      */
@@ -217,8 +310,183 @@ class BackfillRestaurantWebsites extends Command
                     $price->whereNull('price_range')->orWhere('price_range', '');
                 })->orWhere(function ($description) {
                     $description->whereNull('description')->orWhere('description', '');
-                });
+                })->orWhere(function ($address) {
+                    $address->whereNull('address')->orWhere('address', '');
+                })->orWhere(function ($hours) {
+                    $hours->whereNull('opening_hours')->orWhere('opening_hours', '')->orWhere('opening_hours', '[]');
+                })->orWhere(function ($photo) {
+                    $photo->whereNull('photo_url')->orWhere('photo_url', '');
+                })->orWhere(function ($rating) {
+                    $rating->whereNull('google_rating')->orWhere('google_rating', '<=', 0);
+                })->orWhereDoesntHave('cuisines');
             });
+    }
+
+    /**
+     * Whether a cached venue's entry data has nothing the cache phase can
+     * backfill (all fields empty). Used to skip vacuous cache entries instead
+     * of indexing them for nothing.
+     *
+     * @param  array<string, mixed>  $entryData
+     */
+    private function entryHasNothingUseful(array $entryData): bool
+    {
+        foreach (['_website', '_price_range', '_phone', '_description', '_address', '_opening_hours', '_photo', '_rating', '_review_count', '_cuisine_ids'] as $key) {
+            if (! empty($entryData[$key])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Normalize a cached venue's opening_hours into the app's stored shape, or
+     * null when it cannot be trusted. Two cache shapes are understood:
+     *   - a raw OSM-style hours string (one that actually contains a HH:MM time
+     *     marker) → raw-text form; junk (e.g. "closed") is rejected;
+     *   - a SerpApi per-day operating_hours map ("monday" => "11 AM–9 PM") →
+     *     structured form, keeping only single-range days with a usable time
+     *     pair; closed / multi-range / junk days are skipped.
+     * Anything else is rejected so nothing bogus is persisted. Matches
+     * LiveVenuePersister::normalizeOpeningHours' raw-text convention and the
+     * OpeningHours component's structured shape, which the website scraper also
+     * emits.
+     *
+     * @return array{structured: false, raw_text: string}|array{structured: true, hours: list<array{day: string, open: string, close: string}>}|null
+     */
+    private function normalizeCacheHours(mixed $hours): ?array
+    {
+        if (is_array($hours)) {
+            return $this->normalizeCacheHoursMap($hours);
+        }
+
+        if (! is_string($hours)) {
+            return null;
+        }
+
+        $trimmed = trim($hours);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        // Raw OSM hours always carry a 24h HH:MM marker ("Mo-Su 11:00-21:00").
+        if (preg_match('/\b\d{1,2}:\d{2}\b/', $trimmed) !== 1) {
+            return null;
+        }
+
+        return ['structured' => false, 'raw_text' => $trimmed];
+    }
+
+    /**
+     * Convert a SerpApi operating_hours per-day map into the app's structured
+     * shape, or null when no day carries a usable single time range. Days that
+     * are closed, multi-range ("11 AM–1 PM, 3–8 PM") or unparseable are
+     * skipped; a map with nothing usable yields null so nothing bogus is
+     * persisted.
+     *
+     * @param  array<int|string, mixed>  $map
+     * @return array{structured: true, hours: list<array{day: string, open: string, close: string}>}|null
+     */
+    private function normalizeCacheHoursMap(array $map): ?array
+    {
+        $structured = [];
+
+        foreach ($map as $day => $range) {
+            if (! is_string($day) || ! is_string($range)) {
+                continue;
+            }
+
+            $dayName = $this->normalizeCacheDayName($day);
+            if ($dayName === null) {
+                continue;
+            }
+
+            $parsed = $this->parseCacheHoursRange($range);
+            if ($parsed === null) {
+                continue;
+            }
+
+            $structured[] = [
+                'day' => $dayName,
+                'open' => $parsed[0],
+                'close' => $parsed[1],
+            ];
+        }
+
+        return $structured === [] ? null : ['structured' => true, 'hours' => $structured];
+    }
+
+    /**
+     * Map a SerpApi operating_hours day key (lowercase full name) to the
+     * title-cased name the OpeningHours component renders, or null for a key
+     * that is not a day.
+     */
+    private function normalizeCacheDayName(string $day): ?string
+    {
+        $map = [
+            'monday' => 'Monday',
+            'tuesday' => 'Tuesday',
+            'wednesday' => 'Wednesday',
+            'thursday' => 'Thursday',
+            'friday' => 'Friday',
+            'saturday' => 'Saturday',
+            'sunday' => 'Sunday',
+        ];
+
+        return $map[strtolower(trim($day))] ?? null;
+    }
+
+    /**
+     * Split a SerpApi day's hours value ("11 AM–9 PM", "12 PM–1 AM") into an
+     * [open, close] time pair, or null when it cannot be trusted. Closed days,
+     * multi-range days (which the structured shape cannot express) and
+     * digit-less junk are rejected.
+     *
+     * @return array{string, string}|null
+     */
+    private function parseCacheHoursRange(string $range): ?array
+    {
+        $trimmed = trim($range);
+        if ($trimmed === '' || strtolower($trimmed) === 'closed' || str_contains($trimmed, ',')) {
+            return null;
+        }
+
+        if (preg_match('/^(.+?)\s*[–—-]\s*(.+)$/u', $trimmed, $m) !== 1) {
+            return null;
+        }
+
+        $open = trim($m[1]);
+        $close = trim($m[2]);
+
+        if ($open === '' || $close === '' || preg_match('/\d/', $open) !== 1 || preg_match('/\d/', $close) !== 1) {
+            return null;
+        }
+
+        // "4–9 PM" means 4 PM–9 PM: propagate the closer's meridiem onto an
+        // opener that lacks one so the rendered row reads cleanly.
+        if (preg_match('/(AM|PM)$/i', $open) !== 1 && preg_match('/(AM|PM)$/i', $close, $mm) === 1) {
+            $open .= ' '.strtoupper($mm[1]);
+        }
+
+        return [$open, $close];
+    }
+
+    /**
+     * A cached venue address worth storing, or null. Rejects missing,
+     * non-string and implausibly short values so no junk string is persisted.
+     */
+    private function sanitizeAddress(mixed $address): ?string
+    {
+        if (! is_string($address)) {
+            return null;
+        }
+
+        $trimmed = trim($address);
+
+        // A real street address carries at least a number + street name; a
+        // one-or-two token string ("x", "Main St") is junk, not a usable address.
+        return strlen($trimmed) >= 8 && str_contains($trimmed, ' ') ? $trimmed : null;
     }
 
     /**
@@ -237,6 +505,26 @@ class BackfillRestaurantWebsites extends Command
     }
 
     /**
+     * A cached venue photo worth storing, or null. Accepts a http(s) image URL
+     * (SerpApi venue thumbnails), rejecting non-strings and junk so nothing
+     * bogus is persisted as the card photo.
+     */
+    private function sanitizeCachePhoto(mixed $photo): ?string
+    {
+        if (! is_string($photo)) {
+            return null;
+        }
+
+        $trimmed = trim($photo);
+
+        if (! str_starts_with($trimmed, 'http://') && ! str_starts_with($trimmed, 'https://')) {
+            return null;
+        }
+
+        return $trimmed;
+    }
+
+    /**
      * Normalize a cached venue phone to the corpus's 10-digit convention
      * (digits only, last 10). Returns null for missing or implausibly short
      * values so nothing bogus is stored.
@@ -250,6 +538,39 @@ class BackfillRestaurantWebsites extends Command
         $digits = substr((string) preg_replace('/\D+/', '', (string) $phone), -10);
 
         return strlen($digits) === 10 ? $digits : null;
+    }
+
+    /**
+     * A cached venue Google rating worth storing, or null. Accepts only a
+     * numeric value within Google's 0-5 scale (rounded to one decimal, matching
+     * RestaurantValidationService::clampRating), rejecting non-numeric and
+     * out-of-range values so nothing bogus is persisted as a quality signal.
+     */
+    private function sanitizeCacheRating(mixed $rating): ?float
+    {
+        if (! is_numeric($rating)) {
+            return null;
+        }
+
+        $value = (float) $rating;
+
+        return $value > 0 && $value <= 5 ? round($value, 1) : null;
+    }
+
+    /**
+     * A cached venue review count worth storing, or null. Accepts only a
+     * positive integer; rejects missing, non-numeric and zero/negative values
+     * so a review count is never persisted without a usable rating behind it.
+     */
+    private function sanitizeCacheReviewCount(mixed $reviews): ?int
+    {
+        if (! is_numeric($reviews)) {
+            return null;
+        }
+
+        $value = (int) $reviews;
+
+        return $value > 0 ? $value : null;
     }
 
     /** @param array<string, mixed> $venue */
@@ -280,6 +601,67 @@ class BackfillRestaurantWebsites extends Command
         }
 
         return null;
+    }
+
+    /**
+     * Map a cached venue's Google place types ("Chinese restaurant") to seeded
+     * cuisine ids. Trailing non-cuisine qualifiers are stripped ("Chinese
+     * restaurant" → "Chinese") before CuisineTagMapper matches against the
+     * seeded names, so a venue tagged "Thai restaurant" yields the thai tag.
+     * Types that don't normalize to a seeded cuisine ("Pizza restaurant",
+     * "Bar", "Caterer") are skipped; an empty list is returned when nothing
+     * maps. Uses the same conservative normalization as the AI enrichment job,
+     * so unseeded names never create phantom pivot rows.
+     *
+     * @param  array<string, mixed>  $venue
+     * @return list<int>
+     */
+    private function cacheCuisineIds(array $venue, CuisineTagMapper $cuisineTagMapper): array
+    {
+        $types = $venue['types'] ?? $venue['type'] ?? null;
+        if (is_string($types)) {
+            $types = [$types];
+        }
+        if (! is_array($types)) {
+            return [];
+        }
+
+        $names = [];
+        foreach ($types as $type) {
+            $name = $this->stripCuisineQualifier((string) $type);
+            if ($name !== '') {
+                $names[] = $name;
+            }
+        }
+
+        return $names === [] ? [] : $cuisineTagMapper->idsForNames($names);
+    }
+
+    /**
+     * Strip a trailing non-cuisine qualifier from a Google place type, leaving
+     * the cuisine core intact. A type that IS a qualifier on its own ("Bar") is
+     * left as-is so it can never collapse to an empty string.
+     */
+    private function stripCuisineQualifier(string $type): string
+    {
+        $trimmed = trim($type);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        foreach (self::CUISINE_TYPE_QUALIFIERS as $qualifier) {
+            $suffix = ' '.$qualifier;
+            if (str_ends_with(strtolower($trimmed), $suffix)) {
+                $stripped = trim(substr($trimmed, 0, -strlen($suffix)));
+                if ($stripped !== '') {
+                    return $stripped;
+                }
+
+                return $trimmed;
+            }
+        }
+
+        return $trimmed;
     }
 
     private function webSearch(bool $dryRun): void
@@ -596,13 +978,15 @@ class BackfillRestaurantWebsites extends Command
     }
 
     /**
-     * Scrape menu URLs + opening hours from the websites of restaurants that
-     * have a website_url but are missing menu_url or opening_hours (menu_url
-     * was the corpus's biggest gap: 92% of active rows). Fill-empty only —
-     * existing menu_url/opening_hours are never clobbered, and rows missing
-     * only opening_hours are revisited until both fields are filled. Bounded
-     * per run by {@see self::MENU_SCRAPE_DAILY_LIMIT} and driven by the same
-     * per-domain cache as the rest of the scraper.
+     * Scrape menu URLs + opening hours + description + price range from the
+     * websites of restaurants that have a website_url but are missing menu_url,
+     * opening_hours, description or price_range (description and price_range are
+     * the corpus's biggest gaps — 96% and 94% of active rows — previously served
+     * only by cache + quota-bound AI). Fill-empty only — existing values are
+     * never clobbered, and rows missing only some fields are revisited until
+     * every field is filled. Bounded per run by
+     * {@see self::MENU_SCRAPE_DAILY_LIMIT} and driven by the same per-domain
+     * cache as the rest of the scraper.
      */
     private function scrapeMenuData(RestaurantWebsiteScraperService $scraper, bool $dryRun): void
     {
@@ -612,7 +996,9 @@ class BackfillRestaurantWebsites extends Command
             ->where('website_url', '!=', '')
             ->where(function ($q) {
                 $q->whereNull('menu_url')->orWhere('menu_url', '')
-                    ->orWhereNull('opening_hours')->orWhere('opening_hours', '');
+                    ->orWhereNull('opening_hours')->orWhere('opening_hours', '')
+                    ->orWhereNull('description')->orWhere('description', '')
+                    ->orWhereNull('price_range')->orWhere('price_range', '');
             })
             ->orderByRaw('COALESCE(popularity_score, 0) DESC')
             ->orderBy('id')
@@ -625,7 +1011,7 @@ class BackfillRestaurantWebsites extends Command
             return;
         }
 
-        $this->info("Scraping menu URLs + hours for {$total} restaurant(s)...");
+        $this->info("Scraping menu URLs + hours + description + price for {$total} restaurant(s)...");
 
         $bar = $this->output->createProgressBar($total);
         $bar->start();
@@ -642,7 +1028,7 @@ class BackfillRestaurantWebsites extends Command
 
                 $scraped = $scraper->scrape($restaurant->website_url);
 
-                if ($scraped !== null && (! empty($scraped['menu_url']) || ! empty($scraped['opening_hours']))) {
+                if ($scraped !== null && (! empty($scraped['menu_url']) || ! empty($scraped['opening_hours']) || ! empty($scraped['description']) || ! empty($scraped['price_range']))) {
                     $updates = [];
 
                     if (! empty($scraped['menu_url']) && empty($restaurant->menu_url)) {
@@ -651,15 +1037,23 @@ class BackfillRestaurantWebsites extends Command
                     if (! empty($scraped['opening_hours']) && empty($restaurant->opening_hours)) {
                         $updates['opening_hours'] = $scraped['opening_hours'];
                     }
+                    if (! empty($scraped['description']) && empty($restaurant->description)) {
+                        $updates['description'] = $scraped['description'];
+                    }
+                    if (! empty($scraped['price_range']) && empty($restaurant->price_range)) {
+                        $updates['price_range'] = $scraped['price_range'];
+                    }
 
                     if (! $dryRun && ! empty($updates)) {
                         $restaurant->update($updates);
-                        Log::channel('enrichment')->info('Menu URL + hours backfilled from website scrape', [
+                        Log::channel('enrichment')->info('Menu URL + hours + description + price backfilled from website scrape', [
                             'restaurant_id' => $restaurant->id,
                             'restaurant_name' => $restaurant->name,
                             'website_url' => $restaurant->website_url,
                             'menu_url' => $scraped['menu_url'] ?? null,
                             'opening_hours' => $scraped['opening_hours'] ?? null,
+                            'description' => $scraped['description'] ?? null,
+                            'price_range' => $scraped['price_range'] ?? null,
                         ]);
                     }
 
@@ -678,7 +1072,7 @@ class BackfillRestaurantWebsites extends Command
 
         $bar->finish();
         $this->newLine();
-        $this->line("  Menu/hours scraped for {$found} restaurant(s).");
+        $this->line("  Menu/hours/description/price scraped for {$found} restaurant(s).");
     }
 
     private function guessFromTitle(bool $dryRun): void

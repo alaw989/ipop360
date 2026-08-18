@@ -17,9 +17,9 @@ use Illuminate\Support\Facades\Log;
  *
  * Runs daily and deterministically cleans the corpus in-place:
  *   1. normalizes state (full names → abbreviations, lowercase → uppercase,
- *      foreign/junk → null), city (title-case with small-word exceptions),
- *      name/address whitespace (collapse double spaces, strip trailing), and
- *      phone (digits-only);
+ *      foreign/junk → null), city (backfills missing city from the address,
+ *      then title-cases with small-word exceptions), name/address whitespace
+ *      (collapse double spaces, strip trailing), and phone (digits-only);
  *   2. merges true duplicates (exact name+city+coords, and same-phone+city
  *      groups) reusing {@see RestaurantDeduplicationService::mergePair} —
  *      chain locations with the same name but different city/coords are never
@@ -194,13 +194,13 @@ class DataHygiene extends Command
         foreach ($restaurants as $restaurant) {
             $updates = [];
 
-            $state = $this->normalizeState($restaurant->state);
+            $state = $this->normalizeState($restaurant->state, $restaurant->address);
             if ($state !== $restaurant->state) {
                 $updates['state'] = $state;
                 $this->normalizationCounts['state']++;
             }
 
-            $city = $this->titleCaseCity($restaurant->city);
+            $city = $this->normalizeCity($restaurant->city, $restaurant->address);
             if ($city !== $restaurant->city) {
                 $updates['city'] = $city;
                 $this->normalizationCounts['city']++;
@@ -743,10 +743,20 @@ class DataHygiene extends Command
         return $this->enrichStats;
     }
 
-    private function normalizeState(?string $state): ?string
+    /**
+     * Normalize a restaurant's state: full names → abbreviations, lowercase →
+     * uppercase, foreign/junk → null. When the state is missing/blank, derive
+     * one from the address's "ST ZIP" tail (the audit's missing-state rows
+     * still carry an address). Never overwrites a present state — the address
+     * only ever fills the gap.
+     */
+    private function normalizeState(?string $state, ?string $address = null): ?string
     {
-        if ($state === null) {
-            return null;
+        if ($state === null || trim($state) === '') {
+            $state = $this->deriveStateFromAddress($address);
+            if ($state === null) {
+                return null;
+            }
         }
 
         $state = $this->collapseWhitespace($state);
@@ -765,6 +775,33 @@ class DataHygiene extends Command
         }
 
         return null;
+    }
+
+    /**
+     * Derive a state abbreviation from a US-style address tail ("... Phoenix,
+     * AZ 85004" → "AZ"), or null when the address cannot name one. Guarded so
+     * OSM-style numeric-zip tails and foreign postal codes never yield a bogus
+     * state.
+     */
+    private function deriveStateFromAddress(?string $address): ?string
+    {
+        if ($address === null) {
+            return null;
+        }
+
+        $parts = array_values(array_filter(
+            array_map('trim', explode(',', $address)),
+            fn ($part) => $part !== ''
+        ));
+
+        $last = $parts[count($parts) - 1] ?? null;
+        if ($last === null || preg_match('/^([A-Z]{2})\s+\d{5}(?:-\d{4})?$/', $last, $m) !== 1) {
+            return null;
+        }
+
+        $abbr = strtoupper($m[1]);
+
+        return in_array($abbr, self::STATE_ABBREVIATIONS, true) ? $abbr : null;
     }
 
     private function titleCaseCity(?string $city): ?string
@@ -792,6 +829,87 @@ class DataHygiene extends Command
         }
 
         return implode(' ', $out);
+    }
+
+    /**
+     * Normalize a restaurant's city: keep a present city and title-case it; when
+     * the city is missing/blank, derive one from the address (the audit's "262
+     * missing city" rows all still carry an address). Never overwrites a present
+     * city — the address only ever fills the gap.
+     */
+    private function normalizeCity(?string $city, ?string $address): ?string
+    {
+        if ($city === null || trim($city) === '') {
+            $city = $this->deriveCityFromAddress($address);
+        }
+
+        return $this->titleCaseCity($city);
+    }
+
+    /**
+     * Derive a plausible city from a street address, or null when the address
+     * cannot name one. Supports the two shapes the corpus mixes:
+     *   - US style: "622 E Adams St, Phoenix, AZ 85004" — city sits right
+     *     before the "ST ZIP" tail.
+     *   - OSM style: "West Southern Avenue, 706, Mesa, 85210" — street, house
+     *     number, city, zip; city is the segment before the numeric zip.
+     * Guarded so a street-only address, an address without a city segment, or a
+     * junk tail (foreign postal codes) never yields a bogus city.
+     */
+    private function deriveCityFromAddress(?string $address): ?string
+    {
+        if ($address === null) {
+            return null;
+        }
+
+        $parts = array_values(array_filter(
+            array_map('trim', explode(',', $address)),
+            fn ($part) => $part !== ''
+        ));
+
+        $count = count($parts);
+        if ($count < 2) {
+            return null;
+        }
+
+        $last = $parts[$count - 1];
+
+        // US "ST ZIP" tail: "Phoenix, AZ 85004".
+        if (preg_match('/^[A-Z]{2}\s+\d{5}(?:-\d{4})?$/', $last) === 1) {
+            return $this->plausibleCity($parts[$count - 2]);
+        }
+
+        // OSM numeric-zip tail: "Mesa, 85210".
+        if (preg_match('/^\d{5}(?:-\d{4})?$/', $last) === 1 && $count >= 3) {
+            return $this->plausibleCity($parts[$count - 2]);
+        }
+
+        // OSM without zip: "North 28th Drive, 12418, Phoenix".
+        if ($count === 3 && preg_match('/^\d+$/', $parts[1]) === 1) {
+            return $this->plausibleCity($parts[2]);
+        }
+
+        return null;
+    }
+
+    /**
+     * A city token worth persisting, or null. Rejects digit-led tokens (house
+     * numbers, zip codes), very short tokens, and non-letter junk so nothing
+     * bogus is stored as a city.
+     */
+    private function plausibleCity(?string $candidate): ?string
+    {
+        if ($candidate === null) {
+            return null;
+        }
+
+        $candidate = trim($candidate);
+
+        if (mb_strlen($candidate) < 2 || preg_match('/^\d/', $candidate) === 1) {
+            return null;
+        }
+
+        return preg_match('/^[A-Za-z][A-Za-z .\'\-]+$/', $candidate) === 1 ? $candidate : null;
     }
 
     private function collapseWhitespace(?string $value): ?string
