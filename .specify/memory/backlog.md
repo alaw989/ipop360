@@ -518,15 +518,38 @@ thresholds and runs PHP 8.4**; **the scheduler is hardened: telemetry,
 explicit mutex expiries, no enrichment-window collisions, single-driver cron,
 and an operator `scheduler:report` gate**; CI + deploy green.
 
-## Next goals (in priority order)
+**Scheduler health alert** — PR #121 (direct follow-up): new `scheduler:health`
+command (read-only) emails `ADMIN_NOTIFY_EMAILS` when any command never-fired /
+failed / hung / ran off-schedule / stopped firing / over-fired; scheduled daily
+15:00; new `SchedulerHealthAlert` notification with per-category bullets;
+extracted the detection logic into a shared `SchedulerProblemDetector` (one
+source of truth for the drift/cadence/fire-count math); fixed the drift
+`allowCurrentDate` bug that would have flagged a command whose slot is the
+current minute (incl. scheduler:health itself). Manifest 16→17. PHPUnit
+901→904.
 
-### 9. Restaurant data-gap remediation
-- **Audit finding (8,282 active rows):** description 83% missing, menu_url 92%,
-  price_range 75%, no cuisine tag 68%, phone 46%, photo 39%, opening_hours 32%;
-  440 dupe name+city+state groups; 37 non-2-char states; 262 missing city.
-  Search/ranking reads these — cuisine_match (0.50) can't fire for untagged rows.
-- **Goal:** `restaurant data-gap remediation: map every gap to its owning scheduled command / SearchController and tune to close it — AI-enrich → description/price/phone; website-scrape → hours/menu; context backfill → photo; data-hygiene → state/dupes; enrichment → cuisine tags; prioritize by search impact; extend data-hygiene to the 440 dupe groups + 37 bad states`
-- **Gate:** `composer test && npm run build`
+## ✅ Done (2026-08-18 session, continued)
+
+9. **Restaurant data-gap remediation** — PR #122 (opencode-loop, 20 iters /
+   18 accepted, 0 stalls, final iter DONE; capped at 20). Closes the largest
+   **free-source** gaps (no SerpApi/AI quota): description (96.5% missing) via
+   meta + JSON-LD extraction in `RestaurantWebsiteScraperService`; price_range
+   (94%) via JSON-LD `priceRange`; google_rating/review_count (95%) from cached
+   SerpApi venue data; website-scrape cache v2 key so 7-day TTL can't serve
+   pre-extraction blobs; photo backfill now spends its 200-row budget by
+   popularity_score (search impact); data-hygiene proximity merge (440 dupe
+   groups). PHPUnit 904→977. Rebased onto current master pre-PR. Merged +
+   deployed + live-verified (site + api 200, backfill commands + scheduler 17
+   intact).
+
+**Current floor:** 977 PHPUnit tests + 1068 vitest tests; PHPStan level 8 over
+`app/ + tests/` with a zero baseline; pint clean; **CI enforces coverage
+thresholds and runs PHP 8.4**; **the scheduler is hardened with an operator
+`scheduler:health` alert gate, and the biggest free-source restaurant data gaps
+(description/price/rating/photo/dupes) are being closed by their owning
+scheduled commands**; CI + deploy green.
+
+## Next goals (in priority order)
 
 ### 10. Pull prod DB → local
 - **Audit finding:** local MySQL `ipop360` has 2 stale seed rows; prod has
