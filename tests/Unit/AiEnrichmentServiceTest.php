@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\AiEnrichmentService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -19,7 +20,11 @@ class AiEnrichmentServiceTest extends TestCase
 {
     private const PRIMARY_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-    private const FALLBACK_URL = 'https://models.inference.ai.azure.com/chat/completions';
+    private const FALLBACK_BASE_URL = 'https://api.cerebras.ai/v1';
+
+    private const FALLBACK_MODEL = 'gpt-oss-120b';
+
+    private const FALLBACK_URL = self::FALLBACK_BASE_URL.'/chat/completions';
 
     private AiEnrichmentService $service;
 
@@ -42,6 +47,18 @@ class AiEnrichmentServiceTest extends TestCase
             'base_url' => 'https://api.groq.com/openai/v1',
             'model' => 'openai/gpt-oss-120b',
             'fallback' => $fallback === null ? [] : [$fallback],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function fallbackProvider(string $apiKey = 'pk-fallback'): array
+    {
+        return [
+            'api_key' => $apiKey,
+            'base_url' => self::FALLBACK_BASE_URL,
+            'model' => self::FALLBACK_MODEL,
         ];
     }
 
@@ -133,10 +150,7 @@ class AiEnrichmentServiceTest extends TestCase
 
     public function test_rate_limited_primary_falls_back_to_second_provider(): void
     {
-        config(['services.ai' => $this->providerConfig(
-            [],
-            ['api_key' => 'pk-fallback', 'base_url' => 'https://models.inference.ai.azure.com', 'model' => 'gpt-4o-mini'],
-        )]);
+        config(['services.ai' => $this->providerConfig([], $this->fallbackProvider())]);
 
         Http::fake([
             self::PRIMARY_URL => Http::response('', 429),
@@ -153,15 +167,50 @@ class AiEnrichmentServiceTest extends TestCase
         $this->assertSame(['Italian'], $result['cuisines']);
     }
 
-    public function test_non_429_failure_returns_null_without_fallback(): void
+    public function test_5xx_primary_fails_over_to_fallback(): void
     {
-        config(['services.ai' => $this->providerConfig(
-            [],
-            ['api_key' => 'pk-fallback', 'base_url' => 'https://models.inference.ai.azure.com', 'model' => 'gpt-4o-mini'],
-        )]);
+        config(['services.ai' => $this->providerConfig([], $this->fallbackProvider())]);
 
         Http::fake([
             self::PRIMARY_URL => Http::response('', 500),
+            self::FALLBACK_URL => Http::response($this->chatResponse((string) json_encode([
+                'price_range' => '$',
+            ]))),
+        ]);
+
+        $result = $this->service->enrichRestaurant(['name' => 'Test']);
+
+        $this->assertIsArray($result);
+        $this->assertSame('$', $result['price_range']);
+
+        Http::assertSentCount(2);
+    }
+
+    public function test_connection_error_fails_over_to_fallback(): void
+    {
+        config(['services.ai' => $this->providerConfig([], $this->fallbackProvider())]);
+
+        Http::fake([
+            self::PRIMARY_URL => fn () => throw new ConnectionException('Connection refused'),
+            self::FALLBACK_URL => Http::response($this->chatResponse((string) json_encode([
+                'price_range' => '$',
+            ]))),
+        ]);
+
+        $result = $this->service->enrichRestaurant(['name' => 'Test']);
+
+        $this->assertIsArray($result);
+        $this->assertSame('$', $result['price_range']);
+
+        Http::assertSent(fn ($request) => $request->url() === self::FALLBACK_URL);
+    }
+
+    public function test_non_retryable_4xx_short_circuits_without_fallback(): void
+    {
+        config(['services.ai' => $this->providerConfig([], $this->fallbackProvider())]);
+
+        Http::fake([
+            self::PRIMARY_URL => Http::response('', 401),
         ]);
 
         $this->assertNull($this->service->enrichRestaurant(['name' => 'Test']));
@@ -171,10 +220,7 @@ class AiEnrichmentServiceTest extends TestCase
 
     public function test_all_providers_rate_limited_throws_runtime_exception(): void
     {
-        config(['services.ai' => $this->providerConfig(
-            [],
-            ['api_key' => 'pk-fallback', 'base_url' => 'https://models.inference.ai.azure.com', 'model' => 'gpt-4o-mini'],
-        )]);
+        config(['services.ai' => $this->providerConfig([], $this->fallbackProvider())]);
 
         Http::fake([
             self::PRIMARY_URL => Http::response('', 429),
@@ -189,10 +235,7 @@ class AiEnrichmentServiceTest extends TestCase
 
     public function test_empty_fallback_api_key_is_skipped_and_all_exhausted_throws(): void
     {
-        config(['services.ai' => $this->providerConfig(
-            [],
-            ['api_key' => '', 'base_url' => 'https://models.inference.ai.azure.com', 'model' => 'gpt-4o-mini'],
-        )]);
+        config(['services.ai' => $this->providerConfig([], $this->fallbackProvider(''))]);
 
         Http::fake([
             self::PRIMARY_URL => Http::response('', 429),
@@ -256,10 +299,7 @@ class AiEnrichmentServiceTest extends TestCase
 
     public function test_request_exception_from_transport_is_caught_and_falls_back(): void
     {
-        config(['services.ai' => $this->providerConfig(
-            [],
-            ['api_key' => 'pk-fallback', 'base_url' => 'https://models.inference.ai.azure.com', 'model' => 'gpt-4o-mini'],
-        )]);
+        config(['services.ai' => $this->providerConfig([], $this->fallbackProvider())]);
 
         /** @var Response $rateLimitResponse */
         $rateLimitResponse = Http::response('', 429);
@@ -275,5 +315,18 @@ class AiEnrichmentServiceTest extends TestCase
 
         $this->assertIsArray($result);
         $this->assertSame('42 Fallback St', $result['normalized_address']);
+    }
+
+    public function test_fallback_config_defaults_to_cerebras(): void
+    {
+        $fallbacks = config('services.ai.fallback');
+        $this->assertIsArray($fallbacks);
+        $this->assertArrayHasKey(0, $fallbacks);
+
+        $fallback = $fallbacks[0];
+        $this->assertIsArray($fallback);
+
+        $this->assertSame(self::FALLBACK_BASE_URL, $fallback['base_url']);
+        $this->assertSame(self::FALLBACK_MODEL, $fallback['model']);
     }
 }

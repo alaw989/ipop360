@@ -1,18 +1,12 @@
 # Iteration Notes
 
 ## Goal
-make the app feel mobile-native while staying in the browser: give Search a mobile filter sheet (reuse shadcn Sheet, side=bottom like CuisinePicker/LocationPicker) + a mobile map toggle; upgrade TopNav mobile menu to a Sheet/drawer; add a sticky action bar (call/directions/website) to the restaurant detail page; add viewport-fit=cover + safe-area padding; tune Leaflet for touch; verify in a 375px viewport and desktop that nothing regresses
+Fix the AI enrichment fallback chain in AiEnrichmentService so enrichment has real resilience when the primary provider is unavailable. (1) It currently only fails over to the fallback provider on HTTP 429; any other error (5xx, 401, connection/network failure) short-circuits and returns null without trying the fallback — make it fail over to the next provider on 5xx and connection/network errors too, while keeping genuinely non-retryable 4xx (400/401/403/404) as a hard stop. (2) The GitHub Models fallback (gpt-4o-mini at models.inference.ai.azure.com) returns 404 on prod and is effectively dead weight — correct the fallback config (model name / base URL / or a working free provider) so the chain provides real coverage when the primary is down or rate-limited. Add or extend unit tests in AiEnrichmentServiceTest covering: 5xx fail-over, connection-error fail-over, non-retryable 4xx short-circuit, and the corrected fallback provider selection. Keep all existing tests green and match the project's TDD + PHPStan level 8 conventions.
 
 ## State
-Done: (1) sticky action bar; (2) Search mobile filter sheet; (3) Search mobile map toggle; (4) TopNav mobile menu → side=right Sheet drawer; (5) `viewport-fit=cover` meta + safe-area padding on bottom sheets; (6) Leaflet touch tuning — `dragging: !Browser.mobile`, `tapHold: Browser.mobile`, `scrollWheelZoom: false`; (7) accessible `SheetTitle`/`SheetDescription` on the two new sheets (new `SheetTitle.vue`/`SheetDescription.vue` UI components) — clears reka-ui DialogTitle/Description console warnings; (8) verified in 375px + desktop: filter sheet, map toggle, drawer, sticky action bar (fixed bottom:0, Call/Directions/Website), viewport meta; mobile toggles hidden on desktop, no regressions.
-Next: post-loop hardening gate (pint → composer test → npm run build → phpstan → coverage) — run after loop.
-Gotchas: Leaflet `Browser.mobile` is a named export (SearchMap uses `leaflet.Browser`, DetailMap uses `L.Browser`); CuisinePicker/LocationPicker sheets still lack a11y titles (pre-existing, out of scope).
+- Fail-over extended beyond 429: now retries next provider on 5xx + connection errors (408/409/425 too); non-retryable 4xx (400/401/403/404) still hard-stops. Implemented in AiEnrichmentService::callProviders/tryProvider via isRetryableStatus.
+- GitHub Models fallback (retired 2026-07-30, 404) replaced with Cerebras defaults (api.cerebras.ai/v1, gpt-oss-120b) in config/services.php, .env, .env.example, deploy.yml comment.
+- 17 tests pass; PHPStan 0 errors; Pint clean. Next: full test suite + run the loop's AiEnrichmentServiceTest gate, then consider operator approval/shipping.
 
 ## Log
-- [7] Added SheetTitle/SheetDescription UI components and wired them into the Search filter sheet + TopNav drawer; added tests; cleared reka-ui a11y warnings; ran full 375px + desktop browser verification (no regressions) and `npm run build`.
-- [6] Leaflet touch tuning: dragging disabled on mobile (page scroll wins), tapHold panning, scrollWheelZoom off; added map-option tests to SearchMap/DetailMap specs.
-- [5] viewport-fit=cover meta + safe-area bottom padding on CuisinePicker/Search/LocationPicker sheets; added HomeControllerTest viewport assertion.
-- [4] TopNav mobile menu → side=right Sheet drawer with header/close button; dropped manual Escape/outside-click handlers (reka-ui native).
-- [3] Search mobile map toggle: Map/List button swaps main column between list and inline SearchMap (xl:hidden).
-- [2] Search mobile filter sheet: `Filters` toggle (lg:hidden) + side=bottom Sheet wrapping SearchFilters; fixed banner-dismiss test button targeting.
-- [1] Added sticky action bar (Call/Directions/Website) to restaurant detail page — new component, tests, Show.vue integration, safe-area padding.
+- Extend fail-over to 5xx/connection errors; move fallback to Cerebras (GitHub Models retired). Tests red→green, PHPStan/Pint clean.
