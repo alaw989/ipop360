@@ -27,11 +27,11 @@ class SchedulerManifestTest extends TestCase
         'uptime:canary' => '*/15 * * * *',
         'restaurants:enrich --throttled' => '0 4 * * *',
         'seo:sitemap' => '15 10 * * *',
-        'restaurants:backfill-websites' => '45 11 * * *',
+        'restaurants:backfill-websites --limit=400' => '45 11 * * *',
         'restaurants:backfill-photos --apply --limit=200 --min-photos=2' => '45 13 * * *',
         'restaurants:backfill-photos --verify --apply --limit=200' => '30 12 * * 3',
-        'restaurants:scrape-social' => '45 10 * * *',
-        'restaurants:scrape-social --force' => '0 12 * * 6',
+        'restaurants:scrape-social --limit=400' => '45 10 * * *',
+        'restaurants:scrape-social --force --limit=1500' => '0 12 * * 6',
         'restaurants:refresh-awards' => '30 11 * * 0',
         'restaurants:update-engagement' => '30 0 * * *',
         'restaurants:data-hygiene --apply --limit=200' => '0 1 * * *',
@@ -119,7 +119,7 @@ class SchedulerManifestTest extends TestCase
 
         $this->assertTrue(
             $this->slotMinutes('restaurants:backfill-photos --apply --limit=200 --min-photos=2', $schedule)
-            > $this->slotMinutes('restaurants:backfill-websites', $schedule),
+            > $this->slotMinutes('restaurants:backfill-websites --limit=400', $schedule),
             'backfill-photos --apply must run AFTER backfill-websites (it sources og:image from '
             .'the website_url that backfill-websites populates)'
         );

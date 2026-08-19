@@ -758,10 +758,10 @@ class RestaurantEnrichmentService
     /**
      * Throttled enrichment for all cities with SerpApi quota protection.
      * Rotates through city×cuisine combos, skipping cache-fresh ones,
-     * and stops when the combos-per-run cap, per-run cap, or monthly budget
-     * is reached.
+     * and stops when the combos-per-run cap, per-run cap, monthly budget,
+     * or wall-clock max runtime is reached.
      *
-     * @return array{combos_processed: int, combos_cap_reached: bool, total_processed: int, real_calls_made: int, cache_hits_skipped: int, quota_exhausted: bool, per_run_cap_reached: bool}
+     * @return array{combos_processed: int, combos_cap_reached: bool, total_processed: int, real_calls_made: int, cache_hits_skipped: int, quota_exhausted: bool, per_run_cap_reached: bool, max_runtime_reached: bool}
      */
     public function enrichAllCitiesThrottled(): array
     {
@@ -777,12 +777,15 @@ class RestaurantEnrichmentService
                 'cache_hits_skipped' => 0,
                 'quota_exhausted' => false,
                 'per_run_cap_reached' => false,
+                'max_runtime_reached' => false,
             ];
         }
 
         $perRunCap = config('restaurant-finder.enrich.per_run_cap', 40);
         $monthlyBudget = config('restaurant-finder.enrich.monthly_budget', 40);
         $combosPerRun = (int) config('restaurant-finder.enrich.combos_per_run', 60);
+        $maxRuntimeMinutes = (float) config('restaurant-finder.enrich.max_runtime_minutes', 300);
+        $startedAt = microtime(true);
 
         $realCallsThisMonth = $this->countRealSerpApiCallsLast30Days();
         $realCallsThisRun = 0;
@@ -792,17 +795,33 @@ class RestaurantEnrichmentService
         $quotaExhausted = false;
         $perRunCapReached = false;
         $combosCapReached = false;
+        $maxRuntimeReached = false;
 
         Log::channel('enrichment')->info('Starting throttled enrichment', [
             'per_run_cap' => $perRunCap,
             'monthly_budget' => $monthlyBudget,
             'combos_per_run' => $combosPerRun,
+            'max_runtime_minutes' => $maxRuntimeMinutes,
             'real_calls_this_month' => $realCallsThisMonth,
         ]);
 
         $combos = $this->buildCityCuisineGrid($cities, $cuisines);
 
         foreach ($combos as $combo) {
+            // Wall-clock guard: a fail-open free-source sweep (per-venue website
+            // scrape + image search) can take ~15h for 60 combos and outlive the
+            // schedule mutex, overlapping the next day's run. Bound the total run
+            // so it always finishes within the mutex window.
+            if ($maxRuntimeMinutes > 0 && ((microtime(true) - $startedAt) / 60) >= $maxRuntimeMinutes) {
+                $maxRuntimeReached = true;
+                Log::channel('enrichment')->info('Throttled enrichment max runtime reached, stopping', [
+                    'elapsed_minutes' => round((microtime(true) - $startedAt) / 60, 1),
+                    'max_runtime_minutes' => $maxRuntimeMinutes,
+                    'combos_processed' => $combosProcessed,
+                ]);
+                break;
+            }
+
             if ($combosProcessed >= $combosPerRun) {
                 $combosCapReached = true;
                 break;
@@ -916,6 +935,7 @@ class RestaurantEnrichmentService
             'quota_exhausted' => $quotaExhausted,
             'per_run_cap_reached' => $perRunCapReached,
             'combos_cap_reached' => $combosCapReached,
+            'max_runtime_reached' => $maxRuntimeReached,
         ]);
 
         return [
@@ -926,6 +946,7 @@ class RestaurantEnrichmentService
             'cache_hits_skipped' => $cacheHitsSkipped,
             'quota_exhausted' => $quotaExhausted,
             'per_run_cap_reached' => $perRunCapReached,
+            'max_runtime_reached' => $maxRuntimeReached,
         ];
     }
 

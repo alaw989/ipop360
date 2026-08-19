@@ -32,7 +32,11 @@ class SchedulerHealthCommand extends Command
 
         $aggregates = $report->aggregate($days);
         $registered = $this->registeredCommands();
-        $detected = $detector->detect($aggregates, $registered, $tolerance, $days, now());
+        // scheduler:health flags ITSELF as an unfinished run because its own
+        // completion telemetry is written only after handle() returns. Exclude it
+        // from the hung check so the daily alert isn't a self-referential false
+        // positive (its failures are still reported).
+        $detected = $detector->detect($aggregates, $registered, $tolerance, $days, now(), ['scheduler:health']);
 
         if (! $detected['has_problem']) {
             $this->info('Scheduler healthy: no problems in the last '.$days.' day(s).');
