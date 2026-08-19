@@ -292,4 +292,26 @@ class ScrapeRestaurantSocialLinksCommandTest extends TestCase
 
         $this->assertDatabaseCount('restaurant_social_links', 3);
     }
+
+    public function test_limit_option_bounds_the_number_of_restaurants_scraped(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            Restaurant::factory()->create([
+                'is_active' => true,
+                'website_url' => "https://example{$i}.com",
+                'social_links_count' => 0,
+            ]);
+        }
+
+        $scraperMock = $this->makeScraperMock(['instagram' => 'https://instagram.com/venue']);
+        $this->app->instance(RestaurantWebsiteScraperService::class, $scraperMock);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:scrape-social', ['--limit' => 2]);
+        $command->assertSuccessful()
+            ->expectsOutputToContain('Done. 2 updated, 0 skipped, 0 errors.');
+        $command->run();
+
+        $this->assertDatabaseCount('restaurant_social_links', 2);
+    }
 }

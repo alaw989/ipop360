@@ -354,6 +354,7 @@ class EnrichRestaurants extends Command
                 ['Real SerpApi calls made', $result['real_calls_made']],
                 ['Cache hits skipped', $result['cache_hits_skipped']],
                 ['Combo cap reached?', $result['combos_cap_reached'] ? 'Yes' : 'No'],
+                ['Max runtime reached?', $result['max_runtime_reached'] ? 'Yes' : 'No'],
                 ['Quota exhausted?', $result['quota_exhausted'] ? 'Yes' : 'No'],
             ]
         );

@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Log;
 
 class ScrapeRestaurantSocialLinks extends Command
 {
-    protected $signature = 'restaurants:scrape-social {--force : Re-scrape all, even if already scraped}';
+    protected $signature = 'restaurants:scrape-social {--force : Re-scrape all, even if already scraped}
+                            {--limit=0 : Max restaurants to scrape (0 = unlimited)}';
 
     protected $description = 'Scrape restaurant websites for social media links';
 
@@ -25,6 +26,11 @@ class ScrapeRestaurantSocialLinks extends Command
 
         if (! $force) {
             $query->where('social_links_count', 0);
+        }
+
+        $limit = (int) $this->option('limit');
+        if ($limit > 0) {
+            $query->limit($limit);
         }
 
         $total = $query->count();

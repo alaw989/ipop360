@@ -21,6 +21,11 @@ final class SchedulerProblemDetector
      * @param  array<string, string>  $registered  bare command => cron expression
      * @param  int  $days  Telemetry window length (days) — bounds the over-fired
      *                     slot-count so it is consistent with the report window.
+     * @param  list<string>  $excludeFromHung  Commands to skip in the hung/
+     *                                         unfinished check — the reporter
+     *                                         command (scheduler:health) flags
+     *                                         itself because its own completion
+     *                                         is recorded only after it returns.
      * @return array{
      *     has_problem: bool,
      *     flagged: list<string>,
@@ -33,11 +38,17 @@ final class SchedulerProblemDetector
      *     over_fired: array<string, array{fires:int, expected:int}>,
      * }
      */
-    public function detect(array $aggregates, array $registered, int $tolerance, int $days, \DateTimeInterface $now): array
+    public function detect(array $aggregates, array $registered, int $tolerance, int $days, \DateTimeInterface $now, array $excludeFromHung = []): array
     {
         $neverFired = array_values(array_filter(
             array_keys($registered),
-            fn (string $command) => ! isset($aggregates[$command]),
+            // A command is only "never fired" if it had at least one scheduled
+            // slot within the window but produced no fire. Weekly commands (e.g.
+            // refresh-awards on Sunday) have no slot in a 1-day window, so they
+            // must NOT be flagged — otherwise the daily health alert is pure noise
+            // six days out of seven.
+            fn (string $command) => ! isset($aggregates[$command])
+                && $this->expectedFiresInWindow($registered[$command], $this->windowStart($now, $days), $now) > 0,
         ));
 
         $failed = array_filter($aggregates, fn (array $agg) => $agg['failed'] > 0);
@@ -49,7 +60,7 @@ final class SchedulerProblemDetector
         // top of raw history. Compare structured starts against (attributable)
         // completions + failures only.
         $hung = array_filter(
-            $aggregates,
+            array_diff_key($aggregates, array_fill_keys($excludeFromHung, true)),
             fn (array $agg) => $agg['structured_started'] > ($agg['completed'] + $agg['failed']),
         );
 

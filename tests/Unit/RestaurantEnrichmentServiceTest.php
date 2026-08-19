@@ -97,6 +97,7 @@ class RestaurantEnrichmentServiceTest extends TestCase
             'cache_hits_skipped' => 0,
             'quota_exhausted' => false,
             'per_run_cap_reached' => false,
+            'max_runtime_reached' => false,
         ], $result);
     }
 
@@ -119,6 +120,7 @@ class RestaurantEnrichmentServiceTest extends TestCase
             'cache_hits_skipped' => 0,
             'quota_exhausted' => false,
             'per_run_cap_reached' => false,
+            'max_runtime_reached' => false,
         ], $result);
     }
 
@@ -291,5 +293,70 @@ class RestaurantEnrichmentServiceTest extends TestCase
         $this->assertSame(2, $result['combos_processed']);
         $this->assertSame(2, $result['total_processed']);
         $this->assertTrue($result['quota_exhausted']);
+    }
+
+    /**
+     * Wall-clock guard disabled (0): the run is bounded only by the combo cap /
+     * quota caps and never sets max_runtime_reached. Guards the default config.
+     */
+    public function test_max_runtime_zero_disables_the_guard(): void
+    {
+        Config::set('restaurant-finder.cities', [
+            'Mobile' => [30.69, -88.04],
+            'Austin' => [30.27, -97.74],
+            'Boulder' => [40.01, -105.27],
+        ]);
+        Config::set('restaurant-finder.cuisines', ['Taco']);
+        Config::set('restaurant-finder.enrich.monthly_budget', 1000);
+        Config::set('restaurant-finder.enrich.per_run_cap', 1000);
+        Config::set('restaurant-finder.enrich.combos_per_run', 100);
+        Config::set('restaurant-finder.enrich.max_runtime_minutes', 0);
+
+        Cuisine::factory()->create(['slug' => 'taco', 'name' => 'Taco']);
+
+        $result = $this->makeService(
+            fn ($mock) => $mock->shouldReceive('isProviderExhausted')->andReturn(true),
+            function ($bizData, $overpass, $socrata) {
+                $bizData->shouldReceive('poolRequestsFor')->andReturn([]);
+                $overpass->shouldReceive('poolRequestsFor')->andReturn([]);
+                $socrata->shouldReceive('poolRequestsFor')->andReturn([]);
+            }
+        )->enrichAllCitiesThrottled();
+
+        $this->assertFalse($result['max_runtime_reached']);
+        $this->assertSame(3, $result['combos_processed']);
+    }
+
+    /**
+     * Wall-clock guard triggers: a fail-open free-source sweep that runs past
+     * max_runtime_minutes must stop early (not walk the whole grid for hours).
+     * A tiny threshold guarantees the guard fires before the grid is exhausted.
+     */
+    public function test_max_runtime_guard_stops_the_run_early(): void
+    {
+        Config::set('restaurant-finder.cities', [
+            'Mobile' => [30.69, -88.04],
+            'Austin' => [30.27, -97.74],
+            'Boulder' => [40.01, -105.27],
+        ]);
+        Config::set('restaurant-finder.cuisines', ['Taco']);
+        Config::set('restaurant-finder.enrich.monthly_budget', 1000);
+        Config::set('restaurant-finder.enrich.per_run_cap', 1000);
+        Config::set('restaurant-finder.enrich.combos_per_run', 100);
+        Config::set('restaurant-finder.enrich.max_runtime_minutes', 0.00001);
+
+        Cuisine::factory()->create(['slug' => 'taco', 'name' => 'Taco']);
+
+        $result = $this->makeService(
+            fn ($mock) => $mock->shouldReceive('isProviderExhausted')->andReturn(true),
+            function ($bizData, $overpass, $socrata) {
+                $bizData->shouldReceive('poolRequestsFor')->andReturn([]);
+                $overpass->shouldReceive('poolRequestsFor')->andReturn([]);
+                $socrata->shouldReceive('poolRequestsFor')->andReturn([]);
+            }
+        )->enrichAllCitiesThrottled();
+
+        $this->assertTrue($result['max_runtime_reached']);
+        $this->assertLessThan(3, $result['combos_processed']);
     }
 }

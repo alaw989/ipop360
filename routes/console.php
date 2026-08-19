@@ -70,13 +70,13 @@ Schedule::command('seo:sitemap')
 // Schedule website backfill (runs at 11:45 AM UTC, after the 04:00–~10:00
 // throttled-enrichment window and the 10:45 social scrape, avoiding SQLite
 // write-lock contention with the long enrichment sweep)
-Schedule::command('restaurants:backfill-websites')
+Schedule::command('restaurants:backfill-websites --limit=400')
     ->dailyAt('11:45')
-    ->withoutOverlapping(120)
+    ->withoutOverlapping(240)
     ->onOneServer()
-    ->description('Backfill missing website URLs from cache, web search, and domain guessing')
+    ->description('Backfill missing website URLs from cache, web search, and domain guessing (bounded)')
     ->onFailure(function () {
-        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:backfill-websites']);
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:backfill-websites --limit=400']);
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 
@@ -123,25 +123,28 @@ Schedule::command('restaurants:backfill-photos --verify --apply --limit=200')
 // Schedule social link scraping (runs at 10:45 AM UTC daily, after the
 // 04:00–~10:00 throttled-enrichment window so it never contends for the
 // SQLite write lock during the long free-source sweep)
-Schedule::command('restaurants:scrape-social')
+Schedule::command('restaurants:scrape-social --limit=400')
     ->dailyAt('10:45')
-    ->withoutOverlapping(60)
+    ->withoutOverlapping(240)
     ->onOneServer()
-    ->description('Scrape new restaurant websites for social media links')
+    ->description('Scrape new restaurant websites for social media links (bounded)')
     ->onFailure(function () {
-        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:scrape-social']);
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:scrape-social --limit=400']);
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 
 // Saturday at 12:00 — refresh all existing social links (honours 30-day cache).
 // After the 04:00–~10:00 enrichment window to avoid SQLite write-lock contention.
-Schedule::command('restaurants:scrape-social --force')
+// Bounded so the weekly full re-scrape completes in a bounded window instead of
+// running for days, overlapping the next run, and tripping the unfinished-runs
+// health flag.
+Schedule::command('restaurants:scrape-social --force --limit=1500')
     ->weeklyOn(6, '12:00')
-    ->withoutOverlapping(240)
+    ->withoutOverlapping(360)
     ->onOneServer()
-    ->description('Weekly re-scrape of all social media links')
+    ->description('Weekly re-scrape of social media links (bounded)')
     ->onFailure(function () {
-        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:scrape-social --force']);
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:scrape-social --force --limit=1500']);
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 

@@ -148,6 +148,7 @@ jobs:
             --exclude 'storage/logs/*' \
             --exclude 'database/database.sqlite' \
             --exclude 'public/hot' \
+            --exclude 'public/sitemap.xml' \
             --exclude '.phpunit.result.cache' \
             -e "ssh -i ~/.ssh/deploy_key" \
             ./ \
@@ -288,8 +289,9 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
-            "cd ${{ secrets.DEPLOY_PATH }} && \
+             "cd ${{ secrets.DEPLOY_PATH }} && \
              sudo chown -R www-data:www-data storage database bootstrap/cache && \
+             sudo install -o www-data -g www-data /dev/null public/sitemap.xml && \
              sudo -u www-data php8.4 artisan migrate --force && \
              (sudo -u www-data php8.4 artisan config:cache || echo 'config:cache failed (non-fatal)') && \
              (sudo -u www-data php8.4 artisan route:cache || echo 'route:cache failed (non-fatal)') && \

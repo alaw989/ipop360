@@ -650,6 +650,17 @@ return [
         // website jobs. Sized so the 04:00 run finishes before 05:00 (~1m/combo);
         // need-ordering means the cap spends each night on the neediest cities.
         'combos_per_run' => (int) env('ENRICH_COMBOS_PER_RUN', 60),
+
+        // Hard wall-clock cap (minutes) on a single throttled-enrichment run.
+        // The combos_per_run cap bounds real SerpApi calls, but in SerpApi
+        // fail-open mode the free-source sweep (per-venue website scrape +
+        // image search) is what dominates wall time — measured up to ~15h for
+        // 60 combos. Without a wall-clock guard a fail-open run outlives the
+        // 360-min schedule mutex and overlaps the next day's run (the process
+        // was observed alive for 2+ days, repeatedly flagged "unfinished" by
+        // scheduler:health). Kept under the 360-min mutex so a run always ends
+        // in time for the next tick. 0 disables the guard.
+        'max_runtime_minutes' => (int) env('ENRICH_MAX_RUNTIME_MINUTES', 300),
     ],
 
     /*
