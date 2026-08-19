@@ -1,14 +1,15 @@
 # Iteration Notes
 
 ## Goal
-Bring the homepage stats row (Restaurants 39398, Cuisines 59, Cities 1484) up INTO the hero, directly underneath the search button, and display it dramatically: light text over the dark hero, larger numerals, icons, subtle separators. Fade the row in on load and count the numbers up from 0 to their target on load; respect prefers-reduced-motion (no count-up, instant/no fade). Remove the now-redundant separate StatsBand section from the Welcome idle template (the row now lives in the hero). Pass the existing stats prop into HeroBanner and add a reusable count-up implementation. Add or extend vitest specs (HeroBanner, the count-up logic, Welcome) and keep the HomeControllerTest stats/viewport assertions passing. Verify no regression in a 375px viewport and desktop.
+Fix the AI enrichment fallback chain in AiEnrichmentService so enrichment has real resilience when the primary provider is unavailable. (1) It currently only fails over to the fallback provider on HTTP 429; any other error (5xx, 401, connection/network failure) short-circuits and returns null without trying the fallback — make it fail over to the next provider on 5xx and connection/network errors too, while keeping genuinely non-retryable 4xx (400/401/403/404) as a hard stop. (2) The GitHub Models fallback (gpt-4o-mini at models.inference.ai.azure.com) returns 404 on prod and is effectively dead weight — correct the fallback config (model name / base URL / or a working free provider) so the chain provides real coverage when the primary is down or rate-limited. Add or extend unit tests in AiEnrichmentServiceTest covering: 5xx fail-over, connection-error fail-over, non-retryable 4xx short-circuit, and the corrected fallback provider selection. Keep all existing tests green and match the project's TDD + PHPStan level 8 conventions.
 
 ## State
-GOAL COMPLETE. Stats row lives in hero (fade-in, staggered count-up, reduced-motion aware, a11y list); useCountUp skips re-animation on unchanged target post-settle. StatsBand removed; stats prop wired into HeroBanner. Full gate green (vitest 1099, HomeControllerTest 20/164, vue-tsc). No improvement remains.
+- Goal fully achieved: fail-over on 5xx/connection/retryable-4xx (408/409/425), hard-stop on 400/401/403/404, fallback = Cerebras. Re-verified: 23 tests green, PHPStan 0 errors, Pint clean.
+- No loop work remains. Next: operator approval/shipping (local-first).
 
 ## Log
-- ITER-8: verified full goal end-to-end — HeroBanner/useCountUp specs (29) + HomeControllerTest (20/164, stats+viewport assertions) green; no remaining gap.
-- ITER-7: useCountUp skips re-animation when target unchanged post-settle (settledTarget guard); 2 new specs. 1099 vitest green.
-- ITER-6: HeroBanner stats a11y — `role="list"`/`listitem`, per-item `aria-label` using final stats target, animated numeral+label aria-hidden. 1097 vitest + vue-tsc green.
-- ITER-5: useCountUp `delay` param (setTimeout, cleared on unmount, skipped under reduced-motion); HeroBanner staggers 0/80/160. 1096 vitest + vue-tsc green.
-- ITER-4: compacted stats row for 375px (px-3/gap-1.5/text-2xl/h-4; sm restores px-10/gap-2/text-4xl/h-5); Playwright no-clip at 375/1440. 1095 vitest green.
+- Re-verified full gate (23 tests, PHPStan 0, Pint clean); goal complete, no remaining loop work.
+- Add retryable 4xx (408/409/425) data-provider fail-over test; 20→23 green, PHPStan/Pint clean.
+- Blank stale ghp_ fallback PAT in .env so dead fallback doesn't fire; gate green.
+- Data-provider 4xx hard-stop coverage (400/401/403/404) via PHPUnit attribute; 17→20 tests green, PHPStan/Pint clean.
+- Extend fail-over to 5xx/connection errors; move fallback to Cerebras (GitHub Models retired). Tests red→green, PHPStan/Pint clean.

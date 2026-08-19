@@ -172,11 +172,14 @@ class EnrichRestaurantWithAi implements ShouldQueue
                 ]);
             }
         } catch (\Throwable $e) {
-            Log::warning('AI enrichment job failed', [
+            // Best-effort enrichment: a provider outage (all AI providers down /
+            // rate-limited / unreachable) must NOT fail the job or 500 the
+            // requesting live-search call. Log and skip this row — the next
+            // scheduled enrichment pass retries it.
+            Log::warning('AI enrichment job skipped (provider unavailable)', [
                 'restaurant_id' => $restaurant->id,
                 'message' => $e->getMessage(),
             ]);
-            throw $e;
         }
     }
 
