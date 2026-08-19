@@ -225,5 +225,20 @@ describe('HeroBanner', () => {
             const row = wrapper.find('.hero-stats-fade')
             expect(row.exists()).toBe(true)
         })
+
+        it('sizes the stats row to fit a 375px viewport (compact mobile, dramatic desktop)', () => {
+            const wrapper = mountComponent()
+            const items = wrapper.findAll('.hero-stats-fade .flex.flex-col')
+            expect(items).toHaveLength(3)
+            for (const item of items) {
+                expect(item.classes()).toContain('px-3')
+                expect(item.classes()).toContain('sm:px-10')
+            }
+            const numerals = wrapper.findAll('.tabular-nums')
+            for (const numeral of numerals) {
+                expect(numeral.classes()).toContain('text-2xl')
+                expect(numeral.classes()).toContain('sm:text-4xl')
+            }
+        })
     })
 })

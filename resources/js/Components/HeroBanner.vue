@@ -206,10 +206,10 @@ function onDetect() {
                                     class="h-10 w-px bg-white/20"
                                     aria-hidden="true"
                                 />
-                                <div class="flex flex-col items-center px-6 sm:px-10">
-                                    <div class="flex items-baseline gap-2">
-                                        <component :is="item.icon" class="h-5 w-5 text-white/70" aria-hidden="true" />
-                                        <span class="text-3xl font-bold tabular-nums text-white sm:text-4xl">
+                                <div class="flex flex-col items-center px-3 sm:px-10">
+                                    <div class="flex items-baseline gap-1.5 sm:gap-2">
+                                        <component :is="item.icon" class="h-4 w-4 text-white/70 sm:h-5 sm:w-5" aria-hidden="true" />
+                                        <span class="text-2xl font-bold tabular-nums text-white sm:text-4xl">
                                             {{ formatNumber(item.getValue()) }}
                                         </span>
                                     </div>
