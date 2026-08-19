@@ -219,5 +219,11 @@ describe('HeroBanner', () => {
             await nextTick()
             expect(wrapper.text()).toContain('Restaurants')
         })
+
+        it('applies the hero-stats-fade entrance class to the stats row', () => {
+            const wrapper = mountComponent()
+            const row = wrapper.find('.hero-stats-fade')
+            expect(row.exists()).toBe(true)
+        })
     })
 })

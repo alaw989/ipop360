@@ -198,7 +198,7 @@ function onDetect() {
                     </div>
 
                     <!-- Stats row -->
-                    <div class="mt-10 flex items-center justify-center">
+                    <div class="hero-stats-fade mt-10 flex items-center justify-center">
                         <div class="flex items-center">
                             <template v-for="(item, i) in statsItems" :key="item.label">
                                 <div
