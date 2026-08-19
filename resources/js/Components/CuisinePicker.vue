@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import {
     Command,
     CommandEmpty,
@@ -103,6 +103,7 @@ const triggerClasses = computed(() => [
         </SheetTrigger>
         <SheetContent side="bottom" class="h-[85vh] p-0 pb-[env(safe-area-inset-bottom)]" :show-close-button="false" @open-auto-focus.prevent>
             <div class="flex items-center justify-between border-b border-border px-4 py-3">
+                <SheetTitle class="text-sm">Choose a cuisine</SheetTitle>
                 <div class="mx-auto h-1 w-10 rounded-full bg-muted-foreground/30" />
                 <button
                     class="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -114,6 +115,7 @@ const triggerClasses = computed(() => [
                     </svg>
                 </button>
             </div>
+            <SheetDescription class="sr-only">Choose a cuisine from the list</SheetDescription>
             <Command v-if="!drillCategory" class="flex flex-1 flex-col">
                 <CommandInput placeholder="Search cuisines..." :autoFocus="false" />
                 <CommandList>

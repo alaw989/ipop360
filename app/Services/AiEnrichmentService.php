@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -90,21 +91,31 @@ class AiEnrichmentService
 
             try {
                 return $this->tryProvider($prompt, $provider);
+            } catch (ConnectionException $e) {
+                $lastException = $e;
+                Log::warning('AI provider connection error, trying fallback', [
+                    'provider' => $provider['base_url'],
+                    'message' => $e->getMessage(),
+                ]);
             } catch (RequestException $e) {
                 $lastException = $e;
 
-                if ($e->response->status() !== 429) {
-                    Log::warning('AI provider returned non-retryable error', [
+                $status = $e->response->status();
+
+                if ($this->isRetryableStatus($status)) {
+                    Log::info('AI provider unavailable ('.$status.'), trying fallback', [
                         'provider' => $provider['base_url'],
-                        'status' => $e->response->status(),
                     ]);
 
-                    return null;
+                    continue;
                 }
 
-                Log::info('AI provider rate-limited, trying fallback', [
+                Log::warning('AI provider returned non-retryable error', [
                     'provider' => $provider['base_url'],
+                    'status' => $status,
                 ]);
+
+                return null;
             } catch (\Throwable $e) {
                 $lastException = $e;
                 Log::warning('AI provider threw exception, trying fallback', [
@@ -149,6 +160,21 @@ class AiEnrichmentService
     }
 
     /**
+     * A response status is retryable (fail over to the next provider) when it
+     * indicates the provider is rate-limited (429), temporarily unavailable
+     * (5xx), or otherwise failing server-side. Client errors that are never
+     * going to succeed on another provider — 400/401/403/404 — are a hard stop.
+     */
+    private function isRetryableStatus(int $status): bool
+    {
+        if ($status === 429 || $status >= 500) {
+            return true;
+        }
+
+        return in_array($status, [408, 425, 409], true);
+    }
+
+    /**
      * @param  array<string, mixed>  $provider
      * @return array<string, mixed>|null
      */
@@ -176,14 +202,16 @@ class AiEnrichmentService
             ]);
 
         if ($response->failed()) {
-            Log::warning('AI enrichment request failed', [
-                'provider' => $provider['base_url'],
-                'status' => $response->status(),
-            ]);
+            $status = $response->status();
 
-            if ($response->status() === 429) {
+            if ($this->isRetryableStatus($status)) {
                 throw new RequestException($response);
             }
+
+            Log::warning('AI enrichment request failed', [
+                'provider' => $provider['base_url'],
+                'status' => $status,
+            ]);
 
             return null;
         }

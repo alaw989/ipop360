@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
 import { useIsMobile } from '@/composables/useIsMobile'
 import { useKeyboardOffset } from '@/composables/useKeyboardOffset'
@@ -137,6 +137,7 @@ const triggerClasses = computed(() => [
         </SheetTrigger>
         <SheetContent side="bottom" class="max-h-[85vh] p-0" :show-close-button="false" :style="{ maxHeight: `calc(85vh - ${keyboardHeight}px)`, paddingBottom: `calc(${keyboardHeight}px + env(safe-area-inset-bottom))` }">
             <div class="flex items-center justify-between border-b border-border px-4 py-3">
+                <SheetTitle class="text-sm">Choose a city</SheetTitle>
                 <div class="mx-auto h-1 w-10 rounded-full bg-muted-foreground/30" />
                 <button
                     class="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -148,6 +149,7 @@ const triggerClasses = computed(() => [
                     </svg>
                 </button>
             </div>
+            <SheetDescription class="sr-only">Choose a city to search restaurants in</SheetDescription>
             <div class="flex flex-col">
                 <div class="relative border-b border-border">
                     <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

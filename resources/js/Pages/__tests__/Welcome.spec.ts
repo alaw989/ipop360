@@ -139,7 +139,8 @@ const stubs = {
     },
     AppFooter: { template: '<footer class="app-footer-stub">Footer</footer>' },
     HeroBanner: {
-        props: ['categories', 'location', 'detectingLocation'],
+        name: 'HeroBanner',
+        props: ['categories', 'location', 'detectingLocation', 'stats'],
         emits: ['cuisineSelect', 'locationUpdate', 'coords', 'detect', 'search'],
         template: '<div class="hero-banner-stub"><button class="search-btn" @click="$emit(\'search\')">Search</button></div>',
     },
@@ -167,10 +168,6 @@ const stubs = {
     BlogPreview: {
         props: ['posts'],
         template: '<div class="blog-preview-stub" />',
-    },
-    StatsBand: {
-        props: ['stats'],
-        template: '<div class="stats-band-stub"><span class="restaurant-stat">{{ stats.restaurants }}</span><span class="cuisine-stat">{{ stats.cuisines }}</span><span class="city-stat">{{ stats.cities }}</span></div>',
     },
     ResultsGrid: {
         props: ['phase', 'restaurants', 'resultCount', 'sort', 'sortOptions', 'nextPageUrl', 'searchError', 'loadMoreError', 'lat', 'lng', 'selectedCuisine', 'shouldStagger', 'isResorting'],
@@ -369,21 +366,16 @@ describe('Welcome', () => {
         it('staggers the idle-phase sections so they cascade in', () => {
             const wrapper = mountWelcome()
             const delays = wrapper.findAll('.scroll-reveal-stub').map(n => n.attributes('data-delay'))
-            expect(delays).toEqual(['0', '80', '160', '240', '320'])
+            expect(delays).toEqual(['0', '80', '160', '240'])
         })
     })
 
-    describe('stats band', () => {
-        it('renders StatsBand', () => {
-            const wrapper = mountWelcome()
-            expect(wrapper.find('.stats-band-stub').exists()).toBe(true)
-        })
-
-        it('passes stats counts to StatsBand', () => {
+    describe('hero stats', () => {
+        it('passes stats counts to HeroBanner', () => {
             const wrapper = mountWelcome({ stats: { restaurants: 321, cuisines: 45, cities: 12 } })
-            expect(wrapper.find('.restaurant-stat').text()).toBe('321')
-            expect(wrapper.find('.cuisine-stat').text()).toBe('45')
-            expect(wrapper.find('.city-stat').text()).toBe('12')
+            const hero = wrapper.findComponent({ name: 'HeroBanner' })
+            expect(hero.exists()).toBe(true)
+            expect(hero.props('stats')).toEqual({ restaurants: 321, cuisines: 45, cities: 12 })
         })
     })
 
