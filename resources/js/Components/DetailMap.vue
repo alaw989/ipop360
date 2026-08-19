@@ -46,7 +46,7 @@ async function initMap() {
     attributionControl: true,
     dragging: !L.Browser.mobile,
     tapHold: L.Browser.mobile,
-    scrollWheelZoom: false,
+    scrollWheelZoom: !L.Browser.mobile,
   })
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

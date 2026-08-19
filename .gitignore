@@ -44,3 +44,8 @@ Thumbs.db
 
 # Test coverage reports
 /coverage
+
+# Playwright E2E artifacts
+/test-results
+/playwright-report
+/blob-report

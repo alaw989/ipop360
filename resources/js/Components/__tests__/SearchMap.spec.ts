@@ -241,20 +241,20 @@ describe('SearchMap', () => {
         expect(outer.classes()).toContain('bg-card')
     })
 
-    it('enables dragging on desktop and disables scroll-wheel zoom', async () => {
+    it('enables dragging and scroll-wheel zoom on desktop', async () => {
         await mountComponent()
         expect(leafletMap).toHaveBeenCalledWith(
             expect.any(HTMLElement),
-            expect.objectContaining({ dragging: true, tapHold: false, scrollWheelZoom: false }),
+            expect.objectContaining({ dragging: true, tapHold: false, scrollWheelZoom: true }),
         )
     })
 
-    it('disables one-finger dragging on mobile so the page can scroll', async () => {
+    it('disables one-finger dragging and scroll-wheel zoom on mobile so the page can scroll', async () => {
         mockBrowser.mobile = true
         await mountComponent()
         expect(leafletMap).toHaveBeenCalledWith(
             expect.any(HTMLElement),
-            expect.objectContaining({ dragging: false, tapHold: true }),
+            expect.objectContaining({ dragging: false, tapHold: true, scrollWheelZoom: false }),
         )
     })
 })

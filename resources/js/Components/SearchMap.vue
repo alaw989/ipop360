@@ -37,7 +37,7 @@ onMounted(async () => {
         attributionControl: true,
         dragging: !leaflet.Browser.mobile,
         tapHold: leaflet.Browser.mobile,
-        scrollWheelZoom: false,
+        scrollWheelZoom: !leaflet.Browser.mobile,
     }).setView(center.value, 12);
 
     leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

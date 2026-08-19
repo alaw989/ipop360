@@ -188,6 +188,7 @@ const structuredData = computed(() => {
                                         class="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                                         @click="filtersOpen = false"
                                         aria-label="Close"
+                                        data-testid="filter-close"
                                     >
                                         <X :size="16" />
                                     </button>
