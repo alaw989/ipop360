@@ -15,7 +15,6 @@ import CategoryGrid from '@/Components/CategoryGrid.vue'
 import PopularCuisines from '@/Components/PopularCuisines.vue'
 import PopularRestaurants from '@/Components/PopularRestaurants.vue'
 import BlogPreview from '@/Components/BlogPreview.vue'
-import StatsBand from '@/Components/StatsBand.vue'
 // Lazy-load the results tree (ResultsGrid + RestaurantCard + CardGallery + …) so
 // it isn't on the idle homepage entry chunk — it renders only in the results
 // phase (spec-061 bundle diet).
@@ -377,6 +376,7 @@ function dismissLoadMoreError() {
                     :categories="bannerCategories"
                     :location="persistedLocation"
                     :detecting-location="detectingLocation"
+                    :stats="stats"
                     @cuisine-select="onCuisineSelect"
                     @location-update="onLocationUpdate"
                     @coords="onCoords"
@@ -390,10 +390,6 @@ function dismissLoadMoreError() {
                  sections cascade in instead of snapping into view simultaneously. -->
             <template v-if="phase === 'idle'">
                 <ScrollReveal :delay="0">
-                    <StatsBand :stats="stats" />
-                </ScrollReveal>
-
-                <ScrollReveal :delay="80">
                     <CategoryGrid
                         :categories="categories"
                         :loading="dataLoading"
@@ -402,7 +398,7 @@ function dismissLoadMoreError() {
                     />
                 </ScrollReveal>
 
-                <ScrollReveal :delay="160">
+                <ScrollReveal :delay="80">
                     <PopularCuisines
                         :cuisines="popularCuisines"
                         :city="effectiveLocation?.city ?? null"
@@ -412,7 +408,7 @@ function dismissLoadMoreError() {
                     />
                 </ScrollReveal>
 
-                <ScrollReveal :delay="240">
+                <ScrollReveal :delay="160">
                     <PopularRestaurants
                         :restaurants="popularRestaurants"
                         :city="effectiveLocation?.city ?? null"
@@ -420,7 +416,7 @@ function dismissLoadMoreError() {
                     />
                 </ScrollReveal>
 
-                <ScrollReveal :delay="320">
+                <ScrollReveal :delay="240">
                     <BlogPreview :posts="props.latestPosts" />
                 </ScrollReveal>
             </template>

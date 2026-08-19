@@ -1,18 +1,10 @@
 # Iteration Notes
 
 ## Goal
-make the app feel mobile-native while staying in the browser: give Search a mobile filter sheet (reuse shadcn Sheet, side=bottom like CuisinePicker/LocationPicker) + a mobile map toggle; upgrade TopNav mobile menu to a Sheet/drawer; add a sticky action bar (call/directions/website) to the restaurant detail page; add viewport-fit=cover + safe-area padding; tune Leaflet for touch; verify in a 375px viewport and desktop that nothing regresses
+Bring the homepage stats row (Restaurants 39398, Cuisines 59, Cities 1484) up INTO the hero, directly underneath the search button, and display it dramatically: light text over the dark hero, larger numerals, icons, subtle separators. Fade the row in on load and count the numbers up from 0 to their target on load; respect prefers-reduced-motion (no count-up, instant/no fade). Remove the now-redundant separate StatsBand section from the Welcome idle template (the row now lives in the hero). Pass the existing stats prop into HeroBanner and add a reusable count-up implementation. Add or extend vitest specs (HeroBanner, the count-up logic, Welcome) and keep the HomeControllerTest stats/viewport assertions passing. Verify no regression in a 375px viewport and desktop.
 
 ## State
-Done: (1) sticky action bar; (2) Search mobile filter sheet; (3) Search mobile map toggle; (4) TopNav mobile menu → side=right Sheet drawer; (5) `viewport-fit=cover` meta + safe-area padding on bottom sheets; (6) Leaflet touch tuning — `dragging: !Browser.mobile`, `tapHold: Browser.mobile`, `scrollWheelZoom: false`; (7) accessible `SheetTitle`/`SheetDescription` on the two new sheets (new `SheetTitle.vue`/`SheetDescription.vue` UI components) — clears reka-ui DialogTitle/Description console warnings; (8) verified in 375px + desktop: filter sheet, map toggle, drawer, sticky action bar (fixed bottom:0, Call/Directions/Website), viewport meta; mobile toggles hidden on desktop, no regressions.
-Next: post-loop hardening gate (pint → composer test → npm run build → phpstan → coverage) — run after loop.
-Gotchas: Leaflet `Browser.mobile` is a named export (SearchMap uses `leaflet.Browser`, DetailMap uses `L.Browser`); CuisinePicker/LocationPicker sheets still lack a11y titles (pre-existing, out of scope).
+Moved stats row into HeroBanner under search button: light text, larger numerals, icons, separators; added reusable useCountUp composable (count-up on load, respects prefers-reduced-motion). Passed stats prop into HeroBanner; removed StatsBand usage from Welcome idle template + deleted StatsBand component/spec; renumbered ScrollReveal delays. All vitest (1093) + vue-tsc + HomeControllerTest (20) pass.
 
 ## Log
-- [7] Added SheetTitle/SheetDescription UI components and wired them into the Search filter sheet + TopNav drawer; added tests; cleared reka-ui a11y warnings; ran full 375px + desktop browser verification (no regressions) and `npm run build`.
-- [6] Leaflet touch tuning: dragging disabled on mobile (page scroll wins), tapHold panning, scrollWheelZoom off; added map-option tests to SearchMap/DetailMap specs.
-- [5] viewport-fit=cover meta + safe-area bottom padding on CuisinePicker/Search/LocationPicker sheets; added HomeControllerTest viewport assertion.
-- [4] TopNav mobile menu → side=right Sheet drawer with header/close button; dropped manual Escape/outside-click handlers (reka-ui native).
-- [3] Search mobile map toggle: Map/List button swaps main column between list and inline SearchMap (xl:hidden).
-- [2] Search mobile filter sheet: `Filters` toggle (lg:hidden) + side=bottom Sheet wrapping SearchFilters; fixed banner-dismiss test button targeting.
-- [1] Added sticky action bar (Call/Directions/Website) to restaurant detail page — new component, tests, Show.vue integration, safe-area padding.
+- ITER-1: hero stats row + useCountUp composable; removed StatsBand; specs for HeroBanner/useCountUp/Welcome; delays 0/80/160/240.

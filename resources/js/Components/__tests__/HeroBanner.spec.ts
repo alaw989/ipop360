@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import HeroBanner from '@/Components/HeroBanner.vue'
 
 vi.mock('@/lib/slideshow', () => ({
@@ -51,6 +52,7 @@ interface MountOptions {
     categories?: any[]
     location?: { city: string | null; state: string | null }
     detectingLocation?: boolean
+    stats?: { restaurants: number; cuisines: number; cities: number }
 }
 
 function mountComponent(options: MountOptions = {}) {
@@ -59,6 +61,7 @@ function mountComponent(options: MountOptions = {}) {
             categories: options.categories ?? makeCategories(),
             location: options.location ?? { city: 'Austin', state: 'TX' },
             detectingLocation: options.detectingLocation ?? false,
+            stats: options.stats ?? { restaurants: 39398, cuisines: 59, cities: 1484 },
         },
     })
 }
@@ -180,5 +183,41 @@ describe('HeroBanner', () => {
         const logoLink = wrapper.find('a[aria-label="iPop360 home"]')
         expect(logoLink.exists()).toBe(true)
         expect(logoLink.attributes('href')).toBe('/')
+    })
+
+    describe('stats row', () => {
+        beforeEach(() => {
+            Object.defineProperty(window, 'matchMedia', {
+                value: vi.fn().mockReturnValue({ matches: true }),
+                writable: true,
+                configurable: true,
+            })
+        })
+
+        afterEach(() => {
+            vi.restoreAllMocks()
+        })
+
+        it('renders the three stat labels', async () => {
+            const wrapper = mountComponent()
+            await nextTick()
+            expect(wrapper.text()).toContain('Restaurants')
+            expect(wrapper.text()).toContain('Cuisines')
+            expect(wrapper.text()).toContain('Cities')
+        })
+
+        it('renders stat values formatted with thousands separators', async () => {
+            const wrapper = mountComponent({ stats: { restaurants: 39398, cuisines: 59, cities: 1484 } })
+            await nextTick()
+            expect(wrapper.text()).toContain('39,398')
+            expect(wrapper.text()).toContain('59')
+            expect(wrapper.text()).toContain('1,484')
+        })
+
+        it('renders zero stats without error', async () => {
+            const wrapper = mountComponent({ stats: { restaurants: 0, cuisines: 0, cities: 0 } })
+            await nextTick()
+            expect(wrapper.text()).toContain('Restaurants')
+        })
     })
 })

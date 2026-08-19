@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 import CuisinePicker from '@/Components/CuisinePicker.vue'
 import LocationPicker from '@/Components/LocationPicker.vue'
 import BrandLogo from '@/Components/BrandLogo.vue'
 import { Badge } from '@/components/ui/badge'
+import { ChefHat, MapPin, UtensilsCrossed } from '@lucide/vue'
 import { slides } from '@/lib/slideshow'
+import { useCountUp } from '@/composables/useCountUp'
 
 interface Category {
     id: number
@@ -21,10 +23,17 @@ interface Location {
     state: string | null
 }
 
+interface Stats {
+    restaurants: number
+    cuisines: number
+    cities: number
+}
+
 interface Props {
     categories: Category[]
     location: Location
     detectingLocation: boolean
+    stats: Stats
 }
 
 interface Emits {
@@ -35,8 +44,22 @@ interface Emits {
     (e: 'search'): void
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+
+const statsItems = computed(() => [
+    { icon: UtensilsCrossed, label: 'Restaurants', value: props.stats.restaurants },
+    { icon: ChefHat, label: 'Cuisines', value: props.stats.cuisines },
+    { icon: MapPin, label: 'Cities', value: props.stats.cities },
+])
+
+const restaurantCount = useCountUp(() => props.stats.restaurants)
+const cuisineCount = useCountUp(() => props.stats.cuisines)
+const cityCount = useCountUp(() => props.stats.cities)
+
+function formatNumber(value: number): string {
+    return value.toLocaleString('en-US')
+}
 
 const currentSlide = ref(0)
 const isPaused = ref(false)
@@ -172,6 +195,30 @@ function onDetect() {
                             </span>
                             <span v-else>Search</span>
                         </Button>
+                    </div>
+
+                    <!-- Stats row -->
+                    <div class="mt-10 flex items-center justify-center">
+                        <div class="flex items-center">
+                            <template v-for="(item, i) in statsItems" :key="item.label">
+                                <div
+                                    v-if="i > 0"
+                                    class="h-10 w-px bg-white/20"
+                                    aria-hidden="true"
+                                />
+                                <div class="flex flex-col items-center px-6 sm:px-10">
+                                    <div class="flex items-baseline gap-2">
+                                        <component :is="item.icon" class="h-5 w-5 text-white/70" aria-hidden="true" />
+                                        <span class="text-3xl font-bold tabular-nums text-white sm:text-4xl">
+                                            {{ formatNumber(i === 0 ? restaurantCount : i === 1 ? cuisineCount : cityCount) }}
+                                        </span>
+                                    </div>
+                                    <span class="mt-1 text-xs uppercase tracking-widest text-white/70 sm:text-sm">
+                                        {{ item.label }}
+                                    </span>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                 </div>
             </div>
