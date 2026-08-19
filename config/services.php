@@ -57,14 +57,17 @@ return [
         'api_key' => env('AI_API_KEY'),
         'base_url' => env('AI_BASE_URL', 'https://api.groq.com/openai/v1'),
         'model' => env('AI_MODEL', 'openai/gpt-oss-120b'),
-        // Fallback provider chain — tried when primary returns 429 (rate-limited).
-        // Each entry needs api_key, base_url, and model. Currently configured for
-        // GitHub Models (free with GitHub PAT).
+        // Fallback provider chain — tried when the primary is rate-limited (429),
+        // returns a 5xx, or is unreachable (connection/network error).
+        // Each entry needs api_key, base_url, and model. Defaults to Cerebras
+        // (free trial, OpenAI-compatible, serves gpt-oss-120b) — the previous
+        // GitHub Models endpoint (models.inference.ai.azure.com / gpt-4o-mini)
+        // was retired on 2026-07-30 and returns 404.
         'fallback' => [
             [
                 'api_key' => env('AI_FALLBACK_KEY'),
-                'base_url' => env('AI_FALLBACK_URL', 'https://models.inference.ai.azure.com'),
-                'model' => env('AI_FALLBACK_MODEL', 'gpt-4o-mini'),
+                'base_url' => env('AI_FALLBACK_URL', 'https://api.cerebras.ai/v1'),
+                'model' => env('AI_FALLBACK_MODEL', 'gpt-oss-120b'),
             ],
         ],
     ],

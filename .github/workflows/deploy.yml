@@ -196,7 +196,7 @@ jobs:
             && echo 'AI_API_KEY injected into .env'
 
       - name: Inject AI fallback key into server .env
-        # GitHub Models free tier (gpt-4o-mini) used when Groq is rate-limited.
+        # Cerebras free tier (gpt-oss-120b) used when Groq is rate-limited/down.
         env:
           AI_FALLBACK_KEY: ${{ secrets.AI_FALLBACK_KEY }}
         if: ${{ env.AI_FALLBACK_KEY != '' }}
