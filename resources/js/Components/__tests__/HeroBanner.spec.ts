@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import HeroBanner from '@/Components/HeroBanner.vue'
 
 vi.mock('@/lib/slideshow', () => ({
@@ -51,6 +52,7 @@ interface MountOptions {
     categories?: any[]
     location?: { city: string | null; state: string | null }
     detectingLocation?: boolean
+    stats?: { restaurants: number; cuisines: number; cities: number }
 }
 
 function mountComponent(options: MountOptions = {}) {
@@ -59,6 +61,7 @@ function mountComponent(options: MountOptions = {}) {
             categories: options.categories ?? makeCategories(),
             location: options.location ?? { city: 'Austin', state: 'TX' },
             detectingLocation: options.detectingLocation ?? false,
+            stats: options.stats ?? { restaurants: 39398, cuisines: 59, cities: 1484 },
         },
     })
 }
@@ -180,5 +183,74 @@ describe('HeroBanner', () => {
         const logoLink = wrapper.find('a[aria-label="iPop360 home"]')
         expect(logoLink.exists()).toBe(true)
         expect(logoLink.attributes('href')).toBe('/')
+    })
+
+    describe('stats row', () => {
+        beforeEach(() => {
+            Object.defineProperty(window, 'matchMedia', {
+                value: vi.fn().mockReturnValue({ matches: true }),
+                writable: true,
+                configurable: true,
+            })
+        })
+
+        afterEach(() => {
+            vi.restoreAllMocks()
+        })
+
+        it('renders the three stat labels', async () => {
+            const wrapper = mountComponent()
+            await nextTick()
+            expect(wrapper.text()).toContain('Restaurants')
+            expect(wrapper.text()).toContain('Cuisines')
+            expect(wrapper.text()).toContain('Cities')
+        })
+
+        it('renders stat values formatted with thousands separators', async () => {
+            const wrapper = mountComponent({ stats: { restaurants: 39398, cuisines: 59, cities: 1484 } })
+            await nextTick()
+            expect(wrapper.text()).toContain('39,398')
+            expect(wrapper.text()).toContain('59')
+            expect(wrapper.text()).toContain('1,484')
+        })
+
+        it('renders zero stats without error', async () => {
+            const wrapper = mountComponent({ stats: { restaurants: 0, cuisines: 0, cities: 0 } })
+            await nextTick()
+            expect(wrapper.text()).toContain('Restaurants')
+        })
+
+        it('applies the hero-stats-fade entrance class to the stats row', () => {
+            const wrapper = mountComponent()
+            const row = wrapper.find('.hero-stats-fade')
+            expect(row.exists()).toBe(true)
+        })
+
+        it('marks the stats row as an accessible list with final-value aria-labels', () => {
+            const wrapper = mountComponent({ stats: { restaurants: 39398, cuisines: 59, cities: 1484 } })
+            const list = wrapper.find('.hero-stats-fade[role="list"]')
+            expect(list.exists()).toBe(true)
+            expect(list.attributes('aria-label')).toBe('Popularity statistics')
+            const items = wrapper.findAll('[role="listitem"]')
+            expect(items).toHaveLength(3)
+            expect(items[0].attributes('aria-label')).toBe('39,398 Restaurants')
+            expect(items[1].attributes('aria-label')).toBe('59 Cuisines')
+            expect(items[2].attributes('aria-label')).toBe('1,484 Cities')
+        })
+
+        it('sizes the stats row to fit a 375px viewport (compact mobile, dramatic desktop)', () => {
+            const wrapper = mountComponent()
+            const items = wrapper.findAll('.hero-stats-fade .flex.flex-col')
+            expect(items).toHaveLength(3)
+            for (const item of items) {
+                expect(item.classes()).toContain('px-3')
+                expect(item.classes()).toContain('sm:px-10')
+            }
+            const numerals = wrapper.findAll('.tabular-nums')
+            for (const numeral of numerals) {
+                expect(numeral.classes()).toContain('text-2xl')
+                expect(numeral.classes()).toContain('sm:text-4xl')
+            }
+        })
     })
 })
