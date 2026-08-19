@@ -187,6 +187,26 @@ class AiEnrichmentServiceTest extends TestCase
         Http::assertSentCount(2);
     }
 
+    #[DataProvider('retryableStatusProvider')]
+    public function test_retryable_4xx_fails_over_to_fallback(int $status): void
+    {
+        config(['services.ai' => $this->providerConfig([], $this->fallbackProvider())]);
+
+        Http::fake([
+            self::PRIMARY_URL => Http::response('', $status),
+            self::FALLBACK_URL => Http::response($this->chatResponse((string) json_encode([
+                'price_range' => '$',
+            ]))),
+        ]);
+
+        $result = $this->service->enrichRestaurant(['name' => 'Test']);
+
+        $this->assertIsArray($result);
+        $this->assertSame('$', $result['price_range']);
+
+        Http::assertSentCount(2);
+    }
+
     public function test_connection_error_fails_over_to_fallback(): void
     {
         config(['services.ai' => $this->providerConfig([], $this->fallbackProvider())]);
@@ -218,6 +238,16 @@ class AiEnrichmentServiceTest extends TestCase
         $this->assertNull($this->service->enrichRestaurant(['name' => 'Test']));
 
         Http::assertSentCount(1);
+    }
+
+    /** @return array<string, array{int}> */
+    public static function retryableStatusProvider(): array
+    {
+        return [
+            'request timeout' => [408],
+            'conflict' => [409],
+            'too early' => [425],
+        ];
     }
 
     /** @return array<string, array{int}> */
