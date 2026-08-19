@@ -6,7 +6,8 @@ Fix the AI enrichment fallback chain in AiEnrichmentService so enrichment has re
 ## State
 - Fail-over extended beyond 429: now retries next provider on 5xx + connection errors (408/409/425 too); non-retryable 4xx (400/401/403/404) still hard-stops. Implemented in AiEnrichmentService::callProviders/tryProvider via isRetryableStatus.
 - GitHub Models fallback (retired 2026-07-30, 404) replaced with Cerebras defaults (api.cerebras.ai/v1, gpt-oss-120b) in config/services.php, .env, .env.example, deploy.yml comment.
-- 17 tests pass; PHPStan 0 errors; Pint clean. Next: full test suite + run the loop's AiEnrichmentServiceTest gate, then consider operator approval/shipping.
+- 20 tests pass (4xx short-circuit test now data-provides all 400/401/403/404); PHPStan 0 errors; Pint clean. Next: full test suite + run the loop's AiEnrichmentServiceTest gate, then operator approval/shipping.
 
 ## Log
+- Data-provider 4xx hard-stop coverage (400/401/403/404) via PHPUnit attribute; 17→20 tests green, PHPStan/Pint clean.
 - Extend fail-over to 5xx/connection errors; move fallback to Cerebras (GitHub Models retired). Tests red→green, PHPStan/Pint clean.

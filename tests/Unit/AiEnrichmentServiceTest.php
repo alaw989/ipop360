@@ -8,6 +8,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -205,17 +206,29 @@ class AiEnrichmentServiceTest extends TestCase
         Http::assertSent(fn ($request) => $request->url() === self::FALLBACK_URL);
     }
 
-    public function test_non_retryable_4xx_short_circuits_without_fallback(): void
+    #[DataProvider('nonRetryableStatusProvider')]
+    public function test_non_retryable_4xx_short_circuits_without_fallback(int $status): void
     {
         config(['services.ai' => $this->providerConfig([], $this->fallbackProvider())]);
 
         Http::fake([
-            self::PRIMARY_URL => Http::response('', 401),
+            self::PRIMARY_URL => Http::response('', $status),
         ]);
 
         $this->assertNull($this->service->enrichRestaurant(['name' => 'Test']));
 
         Http::assertSentCount(1);
+    }
+
+    /** @return array<string, array{int}> */
+    public static function nonRetryableStatusProvider(): array
+    {
+        return [
+            'bad request' => [400],
+            'unauthorized' => [401],
+            'forbidden' => [403],
+            'not found' => [404],
+        ];
     }
 
     public function test_all_providers_rate_limited_throws_runtime_exception(): void
