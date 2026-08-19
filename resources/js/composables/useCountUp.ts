@@ -16,11 +16,13 @@ export function useCountUp(target: CountUpTarget, duration = 1000, delay = 0) {
     const getTarget = toGetter(target)
     let rafId: number | null = null
     let timeoutId: ReturnType<typeof setTimeout> | null = null
+    let settledTarget: number | null = null
 
     function animateTo(to: number) {
         if (rafId !== null) cancelAnimationFrame(rafId)
         if (prefersReducedMotion() || to === value.value) {
             value.value = to
+            settledTarget = to
             return
         }
         const from = value.value
@@ -33,17 +35,22 @@ export function useCountUp(target: CountUpTarget, duration = 1000, delay = 0) {
                 rafId = requestAnimationFrame(tick)
             } else {
                 value.value = to
+                settledTarget = to
             }
         }
         rafId = requestAnimationFrame(tick)
     }
 
     function run() {
+        const target = getTarget()
+        if (target === settledTarget && value.value === settledTarget) {
+            return
+        }
         if (delay > 0 && !prefersReducedMotion()) {
             if (timeoutId !== null) clearTimeout(timeoutId)
-            timeoutId = setTimeout(() => animateTo(getTarget()), delay)
+            timeoutId = setTimeout(() => animateTo(target), delay)
         } else {
-            animateTo(getTarget())
+            animateTo(target)
         }
     }
 

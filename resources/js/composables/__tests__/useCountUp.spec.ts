@@ -72,4 +72,43 @@ describe('useCountUp', () => {
         expect(result.value).toBe(100)
         rafSpy.mockRestore()
     })
+
+    it('does not re-animate when the target is unchanged after settling', async () => {
+        window.matchMedia = vi.fn().mockReturnValue({ matches: false }) as any
+        const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+            cb(999999)
+            return 1
+        })
+        const target = ref(100)
+        const { result } = mountComposable(() => target.value)
+        await nextTick()
+        expect(result.value).toBe(100)
+        expect(rafSpy).toHaveBeenCalledTimes(1)
+
+        await nextTick()
+        target.value = 100
+        await nextTick()
+        expect(result.value).toBe(100)
+        expect(rafSpy).toHaveBeenCalledTimes(1)
+        rafSpy.mockRestore()
+    })
+
+    it('re-animates when the target changes to a new value', async () => {
+        window.matchMedia = vi.fn().mockReturnValue({ matches: false }) as any
+        const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+            cb(999999)
+            return 1
+        })
+        const target = ref(100)
+        const { result } = mountComposable(() => target.value)
+        await nextTick()
+        expect(result.value).toBe(100)
+        expect(rafSpy).toHaveBeenCalledTimes(1)
+
+        target.value = 250
+        await nextTick()
+        expect(result.value).toBe(250)
+        expect(rafSpy).toHaveBeenCalledTimes(2)
+        rafSpy.mockRestore()
+    })
 })
