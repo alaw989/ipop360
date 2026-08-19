@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
 import { Menu, X } from '@lucide/vue'
 import BrandLogo from '@/Components/BrandLogo.vue'
 import { Badge } from '@/components/ui/badge'
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
 interface Props {
     sticky?: boolean
@@ -18,38 +19,14 @@ const props = withDefaults(defineProps<Props>(), {
 const canManageBlog = computed(() => ['admin', 'editor'].includes(usePage().props.auth?.user?.role ?? ''))
 
 const mobileMenuOpen = ref(false)
-const navEl = ref<HTMLElement | null>(null)
 
 function closeMobileMenu() {
     mobileMenuOpen.value = false
 }
-
-function onEscape(event: KeyboardEvent) {
-    if (event.key === 'Escape' && mobileMenuOpen.value) {
-        closeMobileMenu()
-    }
-}
-
-function onClickOutside(event: PointerEvent) {
-    if (mobileMenuOpen.value && navEl.value && !navEl.value.contains(event.target as Node)) {
-        closeMobileMenu()
-    }
-}
-
-onMounted(() => {
-    document.addEventListener('keydown', onEscape)
-    document.addEventListener('pointerdown', onClickOutside)
-})
-
-onUnmounted(() => {
-    document.removeEventListener('keydown', onEscape)
-    document.removeEventListener('pointerdown', onClickOutside)
-})
 </script>
 
 <template>
     <nav
-        ref="navEl"
         class="z-50"
         :class="[
             props.transparent
@@ -143,108 +120,94 @@ onUnmounted(() => {
                     </Link>
                 </div>
 
-                <!-- Mobile menu toggle -->
-                <button
-                    type="button"
-                    class="flex h-10 w-10 items-center justify-center rounded-md transition-colors md:hidden"
-                    :class="props.transparent
-                        ? 'text-white/80 hover:bg-white/10 hover:text-white'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
-                    :aria-label="mobileMenuOpen ? 'Close menu' : 'Open menu'"
-                    :aria-expanded="mobileMenuOpen"
-                    data-testid="menu-toggle"
-                    @click="mobileMenuOpen = !mobileMenuOpen"
-                >
-                    <Menu v-if="!mobileMenuOpen" class="h-5 w-5" />
-                    <X v-else class="h-5 w-5" />
-                </button>
-            </div>
-        </div>
-
-        <!-- Mobile menu -->
-        <div
-            v-if="mobileMenuOpen"
-            class="md:hidden"
-            :class="props.transparent ? 'bg-black/40 backdrop-blur-sm' : 'border-t border-border'"
-            data-testid="mobile-menu"
-        >
-            <div class="mx-auto max-w-7xl px-4 py-2 sm:px-6 lg:px-8">
-                <div class="flex flex-col pb-2">
-                    <Link
-                        href="/restaurants"
-                        class="rounded-md px-2 py-2 text-sm transition-colors"
-                        :class="props.transparent
-                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
-                            : 'text-muted-foreground hover:bg-muted hover:text-primary'"
-                        @click="closeMobileMenu"
-                    >
-                        Browse
-                    </Link>
-                    <Link
-                        href="/leaderboard"
-                        class="rounded-md px-2 py-2 text-sm transition-colors"
-                        :class="props.transparent
-                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
-                            : 'text-muted-foreground hover:bg-muted hover:text-primary'"
-                        @click="closeMobileMenu"
-                    >
-                        Leaderboard
-                    </Link>
-                    <Link
-                        href="/blog"
-                        class="rounded-md px-2 py-2 text-sm transition-colors"
-                        :class="props.transparent
-                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
-                            : 'text-muted-foreground hover:bg-muted hover:text-primary'"
-                        @click="closeMobileMenu"
-                    >
-                        Blog
-                    </Link>
-                    <Link
-                        v-if="$page.props.auth?.user"
-                        href="/favorites"
-                        class="rounded-md px-2 py-2 text-sm transition-colors"
-                        :class="props.transparent
-                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
-                            : 'text-muted-foreground hover:bg-muted hover:text-primary'"
-                        @click="closeMobileMenu"
-                    >
-                        Favorites
-                    </Link>
-                    <Link
-                        v-if="$page.props.auth?.user"
-                        href="/dashboard"
-                        class="rounded-md px-2 py-2 text-sm transition-colors"
-                        :class="props.transparent
-                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
-                        @click="closeMobileMenu"
-                    >
-                        Dashboard
-                    </Link>
-                    <Link
-                        v-if="canManageBlog"
-                        :href="route('admin.blog.index')"
-                        class="rounded-md px-2 py-2 text-sm transition-colors"
-                        :class="props.transparent
-                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
-                            : 'text-muted-foreground hover:bg-muted hover:text-primary'"
-                        @click="closeMobileMenu"
-                    >
-                        Manage Blog
-                    </Link>
-                    <Link
-                        v-else-if="!$page.props.auth?.user"
-                        href="/login"
-                        class="rounded-md px-2 py-2 text-sm transition-colors"
-                        :class="props.transparent
-                            ? 'text-white/80 hover:bg-white/10 hover:text-white'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
-                        @click="closeMobileMenu"
-                    >
-                        Login
-                    </Link>
-                </div>
+                <!-- Mobile menu drawer -->
+                <Sheet v-model:open="mobileMenuOpen">
+                    <SheetTrigger as-child>
+                        <button
+                            type="button"
+                            class="flex h-10 w-10 items-center justify-center rounded-md transition-colors md:hidden"
+                            :class="props.transparent
+                                ? 'text-white/80 hover:bg-white/10 hover:text-white'
+                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
+                            :aria-label="mobileMenuOpen ? 'Close menu' : 'Open menu'"
+                            :aria-expanded="mobileMenuOpen"
+                            data-testid="menu-toggle"
+                        >
+                            <Menu v-if="!mobileMenuOpen" class="h-5 w-5" />
+                            <X v-else class="h-5 w-5" />
+                        </button>
+                    </SheetTrigger>
+                    <SheetContent side="right" class="w-80 p-0 sm:w-80" :show-close-button="false">
+                        <div class="flex h-16 items-center justify-between border-b border-border px-4">
+                            <SheetTitle class="text-sm">Menu</SheetTitle>
+                            <button
+                                type="button"
+                                class="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                aria-label="Close menu"
+                                data-testid="mobile-menu-close"
+                                @click="closeMobileMenu"
+                            >
+                                <X class="h-5 w-5" />
+                            </button>
+                        </div>
+                        <SheetDescription class="sr-only">Site navigation</SheetDescription>
+                        <nav class="flex flex-col gap-1 px-3 py-3" data-testid="mobile-menu">
+                            <Link
+                                href="/restaurants"
+                                class="rounded-md px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
+                                @click="closeMobileMenu"
+                            >
+                                Browse
+                            </Link>
+                            <Link
+                                href="/leaderboard"
+                                class="rounded-md px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
+                                @click="closeMobileMenu"
+                            >
+                                Leaderboard
+                            </Link>
+                            <Link
+                                href="/blog"
+                                class="rounded-md px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
+                                @click="closeMobileMenu"
+                            >
+                                Blog
+                            </Link>
+                            <Link
+                                v-if="$page.props.auth?.user"
+                                href="/favorites"
+                                class="rounded-md px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
+                                @click="closeMobileMenu"
+                            >
+                                Favorites
+                            </Link>
+                            <Link
+                                v-if="$page.props.auth?.user"
+                                href="/dashboard"
+                                class="rounded-md px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
+                                @click="closeMobileMenu"
+                            >
+                                Dashboard
+                            </Link>
+                            <Link
+                                v-if="canManageBlog"
+                                :href="route('admin.blog.index')"
+                                class="rounded-md px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
+                                @click="closeMobileMenu"
+                            >
+                                Manage Blog
+                            </Link>
+                            <Link
+                                v-else-if="!$page.props.auth?.user"
+                                href="/login"
+                                class="rounded-md px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
+                                @click="closeMobileMenu"
+                            >
+                                Login
+                            </Link>
+                        </nav>
+                    </SheetContent>
+                </Sheet>
             </div>
         </div>
     </nav>

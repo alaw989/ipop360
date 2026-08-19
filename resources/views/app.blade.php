@@ -2,7 +2,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="no-js">
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
         <!-- Progressive enhancement: swap no-js → js as early as possible so
              JS-gated styles (e.g. the homepage .scroll-reveal hidden state) only

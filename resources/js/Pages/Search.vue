@@ -7,7 +7,9 @@ import SearchResultCard from '@/Components/SearchResultCard.vue';
 import SearchMap from '@/Components/SearchMap.vue';
 import SeoMeta from '@/Components/SeoMeta.vue';
 import JsonLd from '@/Components/JsonLd.vue';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { SlidersHorizontal, X, Map, List } from '@lucide/vue';
 import { useSeo, generateItemListJsonLd } from '@/composables/useSeo';
 import { useBaseUrl } from '@/composables/useBaseUrl';
 import type { Restaurant } from '@/types/restaurant';
@@ -33,6 +35,8 @@ const props = defineProps<{
 }>();
 
 const isLoading = ref(false);
+const filtersOpen = ref(false);
+const showMap = ref(false);
 const dismissedLocationBanner = ref(localStorage.getItem('dismissedLocationBanner') === '1');
 
 function dismissLocationBanner() {
@@ -152,6 +156,52 @@ const structuredData = computed(() => {
                         </p>
                     </div>
                     <div class="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            class="gap-1.5 xl:hidden"
+                            data-testid="mobile-map-toggle"
+                            @click="showMap = !showMap"
+                        >
+                            <Map v-if="!showMap" :size="14" />
+                            <List v-else :size="14" />
+                            {{ showMap ? 'List' : 'Map' }}
+                        </Button>
+                        <Sheet v-model:open="filtersOpen">
+                            <SheetTrigger as-child>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    class="gap-1.5 lg:hidden"
+                                    data-testid="mobile-filter-toggle"
+                                >
+                                    <SlidersHorizontal :size="14" />
+                                    Filters
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent side="bottom" class="max-h-[85vh] p-0 pb-[env(safe-area-inset-bottom)]" :show-close-button="false">
+                                <SheetTitle class="sr-only">Filters</SheetTitle>
+                                <SheetDescription class="sr-only">Filter restaurants by price, category, and distance</SheetDescription>
+                                <div class="flex items-center justify-between border-b border-border px-4 py-3">
+                                    <div class="mx-auto h-1 w-10 rounded-full bg-muted-foreground/30" />
+                                    <button
+                                        class="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                        @click="filtersOpen = false"
+                                        aria-label="Close"
+                                    >
+                                        <X :size="16" />
+                                    </button>
+                                </div>
+                                <div class="overflow-y-auto px-4 py-4">
+                                    <SearchFilters
+                                        :filters="filters"
+                                        :filterOptions="filterOptions"
+                                        @update="handleFilterChange"
+                                        @clear="clearAll"
+                                    />
+                                </div>
+                            </SheetContent>
+                        </Sheet>
                         <label for="search-sort" class="text-sm text-muted-foreground">Sort:</label>
                         <select
                             id="search-sort"
@@ -166,8 +216,18 @@ const structuredData = computed(() => {
                     </div>
                 </div>
 
-                <!-- Skeleton loader -->
-                <div v-if="isLoading" class="space-y-6">
+                <!-- Mobile map view -->
+                <div v-if="showMap" class="xl:hidden" data-testid="mobile-map">
+                    <SearchMap
+                        :restaurants="restaurants.data"
+                        :lat="filters['lat'] as string"
+                        :lng="filters['lng'] as string"
+                    />
+                </div>
+
+                <template v-else>
+                    <!-- Skeleton loader -->
+                    <div v-if="isLoading" class="space-y-6">
                     <div v-for="i in 5" :key="'skel-' + i" class="flex animate-pulse rounded-xl border bg-card">
                         <div class="h-44 w-44 shrink-0 rounded-l-xl bg-muted" />
                         <div class="flex-1 space-y-3 p-5">
@@ -232,6 +292,7 @@ const structuredData = computed(() => {
                         </Button>
                     </div>
                 </div>
+                </template>
             </main>
 
             <!-- Right column: map -->

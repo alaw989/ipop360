@@ -21,12 +21,14 @@ const leafletMap = vi.fn(() => mockMapInstance)
 const leafletTileLayer = vi.fn(() => mockTileLayer)
 const leafletDivIcon = vi.fn(() => ({}))
 const leafletMarker = vi.fn(() => mockMarker)
+const mockBrowser = { mobile: false }
 
 vi.mock('leaflet', () => ({
     map: leafletMap,
     tileLayer: leafletTileLayer,
     divIcon: leafletDivIcon,
     marker: leafletMarker,
+    Browser: mockBrowser,
 }))
 
 vi.mock('leaflet/dist/leaflet.css', () => ({}))
@@ -75,6 +77,7 @@ async function mountComponent(props: Record<string, unknown> = {}) {
 describe('SearchMap', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mockBrowser.mobile = false
     })
 
     it('renders the map container div', async () => {
@@ -236,5 +239,22 @@ describe('SearchMap', () => {
         expect(outer.classes()).toContain('rounded-xl')
         expect(outer.classes()).toContain('border')
         expect(outer.classes()).toContain('bg-card')
+    })
+
+    it('enables dragging on desktop and disables scroll-wheel zoom', async () => {
+        await mountComponent()
+        expect(leafletMap).toHaveBeenCalledWith(
+            expect.any(HTMLElement),
+            expect.objectContaining({ dragging: true, tapHold: false, scrollWheelZoom: false }),
+        )
+    })
+
+    it('disables one-finger dragging on mobile so the page can scroll', async () => {
+        mockBrowser.mobile = true
+        await mountComponent()
+        expect(leafletMap).toHaveBeenCalledWith(
+            expect.any(HTMLElement),
+            expect.objectContaining({ dragging: false, tapHold: true }),
+        )
     })
 })

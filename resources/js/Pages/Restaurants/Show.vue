@@ -7,6 +7,7 @@ import DetailMap from '@/Components/DetailMap.vue';
 import CardGallery from '@/Components/CardGallery.vue';
 import SocialLinks from '@/Components/SocialLinks.vue';
 import OpeningHours from '@/Components/OpeningHours.vue';
+import RestaurantActionBar from '@/Components/RestaurantActionBar.vue';
 import { getRestaurantGradient } from '@/composables/useRestaurantDisplay';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -115,7 +116,7 @@ function handleMenuClick(): void {
         <!-- Structured data — Inertia <Head> drops <script> tags, so inject via JsonLd -->
         <JsonLd :data="structuredData" />
 
-        <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-7xl px-4 pt-8 pb-24 sm:px-6 md:pb-8 lg:px-8">
             <!-- Back link -->
             <a
                 v-if="categorySlug"
@@ -277,5 +278,7 @@ function handleMenuClick(): void {
                 />
             </div>
         </div>
+
+        <RestaurantActionBar :restaurant="restaurant" />
     </AppLayout>
 </template>
