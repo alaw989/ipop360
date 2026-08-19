@@ -52,9 +52,9 @@ const cuisineCount = useCountUp(() => props.stats.cuisines, 1000, 80)
 const cityCount = useCountUp(() => props.stats.cities, 1000, 160)
 
 const statsItems = computed(() => [
-    { icon: UtensilsCrossed, label: 'Restaurants', getValue: () => restaurantCount.value },
-    { icon: ChefHat, label: 'Cuisines', getValue: () => cuisineCount.value },
-    { icon: MapPin, label: 'Cities', getValue: () => cityCount.value },
+    { icon: UtensilsCrossed, label: 'Restaurants', getValue: () => restaurantCount.value, target: () => props.stats.restaurants },
+    { icon: ChefHat, label: 'Cuisines', getValue: () => cuisineCount.value, target: () => props.stats.cuisines },
+    { icon: MapPin, label: 'Cities', getValue: () => cityCount.value, target: () => props.stats.cities },
 ])
 
 function formatNumber(value: number): string {
@@ -198,7 +198,11 @@ function onDetect() {
                     </div>
 
                     <!-- Stats row -->
-                    <div class="hero-stats-fade mt-10 flex items-center justify-center">
+                    <div
+                        class="hero-stats-fade mt-10 flex items-center justify-center"
+                        role="list"
+                        aria-label="Popularity statistics"
+                    >
                         <div class="flex items-center">
                             <template v-for="(item, i) in statsItems" :key="item.label">
                                 <div
@@ -206,14 +210,18 @@ function onDetect() {
                                     class="h-10 w-px bg-white/20"
                                     aria-hidden="true"
                                 />
-                                <div class="flex flex-col items-center px-3 sm:px-10">
+                                <div
+                                    class="flex flex-col items-center px-3 sm:px-10"
+                                    role="listitem"
+                                    :aria-label="`${formatNumber(item.target())} ${item.label}`"
+                                >
                                     <div class="flex items-baseline gap-1.5 sm:gap-2">
                                         <component :is="item.icon" class="h-4 w-4 text-white/70 sm:h-5 sm:w-5" aria-hidden="true" />
-                                        <span class="text-2xl font-bold tabular-nums text-white sm:text-4xl">
+                                        <span class="text-2xl font-bold tabular-nums text-white sm:text-4xl" aria-hidden="true">
                                             {{ formatNumber(item.getValue()) }}
                                         </span>
                                     </div>
-                                    <span class="mt-1 text-xs uppercase tracking-widest text-white/70 sm:text-sm">
+                                    <span class="mt-1 text-xs uppercase tracking-widest text-white/70 sm:text-sm" aria-hidden="true">
                                         {{ item.label }}
                                     </span>
                                 </div>

@@ -226,6 +226,18 @@ describe('HeroBanner', () => {
             expect(row.exists()).toBe(true)
         })
 
+        it('marks the stats row as an accessible list with final-value aria-labels', () => {
+            const wrapper = mountComponent({ stats: { restaurants: 39398, cuisines: 59, cities: 1484 } })
+            const list = wrapper.find('.hero-stats-fade[role="list"]')
+            expect(list.exists()).toBe(true)
+            expect(list.attributes('aria-label')).toBe('Popularity statistics')
+            const items = wrapper.findAll('[role="listitem"]')
+            expect(items).toHaveLength(3)
+            expect(items[0].attributes('aria-label')).toBe('39,398 Restaurants')
+            expect(items[1].attributes('aria-label')).toBe('59 Cuisines')
+            expect(items[2].attributes('aria-label')).toBe('1,484 Cities')
+        })
+
         it('sizes the stats row to fit a 375px viewport (compact mobile, dramatic desktop)', () => {
             const wrapper = mountComponent()
             const items = wrapper.findAll('.hero-stats-fade .flex.flex-col')
