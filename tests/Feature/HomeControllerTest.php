@@ -31,6 +31,14 @@ class HomeControllerTest extends TestCase
         $response->assertSee("document.documentElement.classList.replace('no-js', 'js')", false);
     }
 
+    public function test_viewport_meta_opts_into_safe_area_insets(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertSee('viewport-fit=cover', false);
+    }
+
     public function test_landing_page_passes_categories_to_view(): void
     {
         $category = CuisineCategory::factory()->create([

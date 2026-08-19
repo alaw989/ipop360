@@ -557,6 +557,28 @@ scheduled commands**; CI + deploy green.
 - **Goal:** `pull the latest prod DB to local: mysqldump prod ipop360 excluding runtime tables (pulse_*, sessions, cache*, jobs*, failed_jobs, password_reset_tokens) → ~16MB core; restore into local MySQL; verify restaurants count ≈ 8,282 and the dev server on :8090 serves real data`
 - **Gate:** manual verify (row count + dev server)
 
+### 11. Mobile UX audit & re-visualization
+- **Audit finding:** app works but doesn't feel native on phones. Search
+  degrades the most — filters and map are hard-hidden below lg/xl
+  (`Search.vue:128,238`), so mobile users can't filter (price/category/
+  distance) or see a map at all. Main nav mobile menu is a plain dropdown
+  (`TopNav.vue:164-249`), not a drawer; no bottom nav anywhere. Restaurant
+  detail (`Restaurants/Show.vue`) is a long single column with no sticky
+  call/directions/website action bar. No `viewport-fit=cover` / safe-area
+  `env(safe-area-inset-*)` handling, so bottom Sheets/pickers sit under the
+  notch/home bar. Leaflet has no touch/gesture tuning and never renders on
+  mobile search. (Pickers via shadcn bottom-Sheet already work — good pattern
+  to extend.)
+- **Goal:** `make the app feel mobile-native while staying in the browser:
+  give Search a mobile filter sheet (reuse shadcn Sheet, side=bottom like
+  CuisinePicker/LocationPicker) + a mobile map toggle; upgrade TopNav mobile
+  menu to a Sheet/drawer; add a sticky action bar (call/directions/website)
+  to the restaurant detail page; add viewport-fit=cover + safe-area padding;
+  tune Leaflet for touch; verify in a 375px viewport and desktop that
+  nothing regresses`
+- **Gate:** manual verify on a phone-sized viewport (filters, map, nav,
+  sticky actions) + full suite green
+
 ---
 
 ## ✅ Done (2026-08-15 session, continued)

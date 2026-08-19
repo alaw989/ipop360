@@ -121,6 +121,7 @@ const stubs = {
   CardGallery: { template: '<div class="card-gallery-stub" />', props: ['photos', 'gradient', 'alt', 'aspect', 'multi', 'eager', 'roundedClass'] },
   SocialLinks: { template: '<div class="social-links-stub" />', props: ['links', 'restaurantId'] },
   OpeningHours: { template: '<div class="opening-hours-stub" />', props: ['hours'] },
+  RestaurantActionBar: { template: '<div class="action-bar-stub" />', props: ['restaurant'] },
   Card: { template: '<div class="card-stub"><slot /></div>' },
   CardContent: { template: '<div class="card-content-stub"><slot /></div>' },
   Badge: { template: '<span class="badge-stub"><slot /></span>', props: ['variant'] },
@@ -462,6 +463,13 @@ describe('Restaurants/Show', () => {
         restaurant: makeRestaurant({ photo_url: 'https://img.com/hero.jpg' }),
       })
       expect(wrapper.find('.card-gallery-stub').exists()).toBe(true)
+    })
+  })
+
+  describe('sticky action bar', () => {
+    it('renders the action bar', () => {
+      const wrapper = mountComponent()
+      expect(wrapper.find('.action-bar-stub').exists()).toBe(true)
     })
   })
 

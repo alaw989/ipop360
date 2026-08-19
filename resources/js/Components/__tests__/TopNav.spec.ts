@@ -30,6 +30,14 @@ vi.mock('@inertiajs/vue3', async () => {
 const stubs = {
     BrandLogo: { template: '<svg data-testid="logo" />' },
     Badge: { template: '<span><slot /></span>' },
+    Sheet: { template: '<div><slot /></div>' },
+    SheetTrigger: { template: '<div><slot /></div>' },
+    SheetContent: {
+        props: ['side'],
+        template: '<div :data-side="side" data-testid="mobile-menu-sheet"><slot /></div>',
+    },
+    SheetTitle: { template: '<h2 data-testid="sheet-title"><slot /></h2>' },
+    SheetDescription: { template: '<p data-testid="sheet-description"><slot /></p>' },
 }
 
 function mountNav(role: 'admin' | 'editor' | 'user' | null, sticky = true, transparent = false) {
@@ -134,81 +142,45 @@ describe('TopNav', () => {
         expect(wrapper.find('[data-testid="menu-toggle"]').classes()).toContain('md:hidden')
     })
 
-    it('keeps the mobile menu collapsed by default', () => {
+    it('renders the mobile menu as a right-side drawer', () => {
         const wrapper = mountNav(null)
-        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
+        expect(wrapper.find('[data-testid="mobile-menu-sheet"]').attributes('data-side')).toBe('right')
     })
 
-    it('opens the mobile menu when the toggle is clicked', async () => {
+    it('renders public links inside the mobile drawer', () => {
         const wrapper = mountNav(null)
-        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
         const menu = wrapper.find('[data-testid="mobile-menu"]')
-        expect(menu.exists()).toBe(true)
+        expect(menu.findAll('a[href="/restaurants"]').length).toBeGreaterThan(0)
+        expect(menu.findAll('a[href="/leaderboard"]').length).toBeGreaterThan(0)
+        expect(menu.findAll('a[href="/blog"]').length).toBeGreaterThan(0)
         expect(menu.findAll('a[href="/login"]').length).toBeGreaterThan(0)
     })
 
-    it('renders auth-dependent links inside the mobile menu', async () => {
+    it('renders auth-dependent links inside the mobile drawer', () => {
         const wrapper = mountNav('user')
-        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
         const menu = wrapper.find('[data-testid="mobile-menu"]')
         expect(menu.findAll('a[href="/favorites"]').length).toBeGreaterThan(0)
         expect(menu.findAll('a[href="/dashboard"]').length).toBeGreaterThan(0)
     })
 
-    it('renders the Manage Blog link inside the mobile menu for admins', async () => {
+    it('renders the Manage Blog link inside the mobile drawer for admins', () => {
         const wrapper = mountNav('admin')
-        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
         const menu = wrapper.find('[data-testid="mobile-menu"]')
         expect(menu.findAll('a[href="/admin/blog"]').length).toBeGreaterThan(0)
     })
 
-    it('closes the mobile menu when the toggle is clicked again', async () => {
+    it('renders a close button inside the mobile drawer', () => {
         const wrapper = mountNav(null)
-        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
-        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
-        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
+        expect(wrapper.find('[data-testid="mobile-menu-close"]').exists()).toBe(true)
     })
 
-    it('closes the mobile menu when a nav link is clicked', async () => {
+    it('renders an accessible title in the mobile drawer', () => {
         const wrapper = mountNav(null)
-        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
-        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(true)
-        await wrapper.find('[data-testid="mobile-menu"] a[href="/login"]').trigger('click')
-        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
+        expect(wrapper.find('[data-testid="sheet-title"]').text()).toBe('Menu')
     })
 
-    it('closes the mobile menu when the Escape key is pressed', async () => {
+    it('renders an accessible description in the mobile drawer', () => {
         const wrapper = mountNav(null)
-        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
-        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(true)
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
-        await wrapper.vm.$nextTick()
-        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
-    })
-
-    it('keeps the mobile menu open when Escape is pressed while closed', async () => {
-        const wrapper = mountNav(null)
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
-        await wrapper.vm.$nextTick()
-        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
-    })
-
-    it('closes the mobile menu when clicking outside the nav', async () => {
-        const wrapper = mountNav(null)
-        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
-        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(true)
-        document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
-        await wrapper.vm.$nextTick()
-        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(false)
-    })
-
-    it('does not close the mobile menu when clicking inside it', async () => {
-        const wrapper = mountNav(null)
-        await wrapper.find('[data-testid="menu-toggle"]').trigger('click')
-        const menu = wrapper.find('[data-testid="mobile-menu"]')
-        expect(menu.exists()).toBe(true)
-        menu.trigger('pointerdown')
-        await wrapper.vm.$nextTick()
-        expect(wrapper.find('[data-testid="mobile-menu"]').exists()).toBe(true)
+        expect(wrapper.find('[data-testid="sheet-description"]').exists()).toBe(true)
     })
 })

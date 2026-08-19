@@ -101,7 +101,7 @@ const triggerClasses = computed(() => [
                 </svg>
             </button>
         </SheetTrigger>
-        <SheetContent side="bottom" class="h-[85vh] p-0" :show-close-button="false" @open-auto-focus.prevent>
+        <SheetContent side="bottom" class="h-[85vh] p-0 pb-[env(safe-area-inset-bottom)]" :show-close-button="false" @open-auto-focus.prevent>
             <div class="flex items-center justify-between border-b border-border px-4 py-3">
                 <div class="mx-auto h-1 w-10 rounded-full bg-muted-foreground/30" />
                 <button

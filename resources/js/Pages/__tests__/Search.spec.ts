@@ -33,6 +33,11 @@ const stubs = {
     SearchFilters: { template: '<div />' },
     SearchResultCard: { template: '<div />' },
     SearchMap: { template: '<div />' },
+    Sheet: { template: '<div><slot /></div>' },
+    SheetTrigger: { template: '<div><slot /></div>' },
+    SheetContent: { template: '<div data-testid="filter-sheet"><slot /></div>' },
+    SheetTitle: { template: '<h2 data-testid="sheet-title"><slot /></h2>' },
+    SheetDescription: { template: '<p data-testid="sheet-description"><slot /></p>' },
 }
 
 const baseProps = {
@@ -80,7 +85,8 @@ describe('Search location banner', () => {
     it('dismisses location banner on button click', async () => {
         const wrapper = mountSearch({ filters: { distance: '10' } })
         expect(wrapper.text()).toContain('Enable location sharing')
-        await wrapper.find('button').trigger('click')
+        const dismissBtn = wrapper.findAll('button').find((b) => b.text().trim() === 'Dismiss')
+        await dismissBtn!.trigger('click')
         expect(wrapper.text()).not.toContain('Enable location sharing')
         expect(localStorage.getItem('dismissedLocationBanner')).toBe('1')
     })
@@ -102,6 +108,67 @@ describe('Search handleFilterChange', () => {
             { cuisine: 'chinese' },
             expect.objectContaining({ preserveState: true, replace: true }),
         )
+    })
+})
+
+describe('Search mobile filter sheet', () => {
+    it('renders a mobile filter toggle button', () => {
+        const wrapper = mountSearch()
+        expect(wrapper.find('[data-testid="mobile-filter-toggle"]').exists()).toBe(true)
+    })
+
+    it('hides the filter toggle on desktop (lg:hidden)', () => {
+        const wrapper = mountSearch()
+        expect(wrapper.find('[data-testid="mobile-filter-toggle"]').classes()).toContain('lg:hidden')
+    })
+
+    it('renders the filter sheet content', () => {
+        const wrapper = mountSearch()
+        expect(wrapper.find('[data-testid="filter-sheet"]').exists()).toBe(true)
+    })
+
+    it('renders an accessible title and description in the filter sheet', () => {
+        const wrapper = mountSearch()
+        expect(wrapper.find('[data-testid="sheet-title"]').text()).toBe('Filters')
+        expect(wrapper.find('[data-testid="sheet-description"]').exists()).toBe(true)
+    })
+
+    it('opens the filter sheet when the toggle is clicked', async () => {
+        const wrapper = mountSearch()
+        await wrapper.find('[data-testid="mobile-filter-toggle"]').trigger('click')
+        expect(wrapper.find('[data-testid="filter-sheet"]').exists()).toBe(true)
+    })
+})
+
+describe('Search mobile map toggle', () => {
+    it('renders a mobile map toggle button', () => {
+        const wrapper = mountSearch()
+        expect(wrapper.find('[data-testid="mobile-map-toggle"]').exists()).toBe(true)
+    })
+
+    it('hides the map toggle on desktop (xl:hidden)', () => {
+        const wrapper = mountSearch()
+        expect(wrapper.find('[data-testid="mobile-map-toggle"]').classes()).toContain('xl:hidden')
+    })
+
+    it('shows the results list by default (map view hidden)', () => {
+        const wrapper = mountSearch()
+        expect(wrapper.find('[data-testid="mobile-map"]').exists()).toBe(false)
+    })
+
+    it('shows the map view when toggled', async () => {
+        const wrapper = mountSearch()
+        await wrapper.find('[data-testid="mobile-map-toggle"]').trigger('click')
+        expect(wrapper.find('[data-testid="mobile-map"]').exists()).toBe(true)
+    })
+
+    it('returns to the list view when toggled again', async () => {
+        const wrapper = mountSearch()
+        const toggle = wrapper.find('[data-testid="mobile-map-toggle"]')
+        await toggle.trigger('click')
+        expect(wrapper.find('[data-testid="mobile-map"]').exists()).toBe(true)
+        await toggle.trigger('click')
+        expect(wrapper.find('[data-testid="mobile-map"]').exists()).toBe(false)
     })
 })
 
