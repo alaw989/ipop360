@@ -3,8 +3,10 @@ import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import CuisinePicker from '@/Components/CuisinePicker.vue'
 
+const isMobile = ref(false)
+
 vi.mock('@/composables/useIsMobile', () => ({
-    useIsMobile: () => ({ isMobile: ref(false) }),
+    useIsMobile: () => ({ isMobile }),
 }))
 
 const categories = [
@@ -45,6 +47,8 @@ function createWrapper(overrides: Record<string, unknown> = {}) {
                 Sheet: slotStub,
                 SheetTrigger: slotStub,
                 SheetContent: slotStub,
+                SheetTitle: { template: '<h2 data-testid="sheet-title"><slot /></h2>' },
+                SheetDescription: { template: '<p data-testid="sheet-description"><slot /></p>' },
                 Command: slotStub,
                 CommandInput: { template: '<input data-test="cmd-input" />' },
                 CommandList: slotStub,
@@ -195,5 +199,15 @@ describe('CuisinePicker', () => {
         expect(btn.classes()).toEqual(
             expect.arrayContaining(['border-white/30', 'text-white/70']),
         )
+    })
+
+    it('renders accessible SheetTitle and SheetDescription on mobile', () => {
+        isMobile.value = true
+        const wrapper = createWrapper()
+
+        expect(wrapper.find('[data-testid="sheet-title"]').text()).toBe('Choose a cuisine')
+        expect(wrapper.find('[data-testid="sheet-description"]').exists()).toBe(true)
+
+        isMobile.value = false
     })
 })

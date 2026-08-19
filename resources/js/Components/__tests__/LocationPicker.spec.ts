@@ -3,8 +3,10 @@ import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import LocationPicker from '@/Components/LocationPicker.vue'
 
+const isMobile = ref(false)
+
 vi.mock('@/composables/useIsMobile', () => ({
-    useIsMobile: () => ({ isMobile: ref(false) }),
+    useIsMobile: () => ({ isMobile }),
 }))
 
 vi.mock('@/composables/useKeyboardOffset', () => ({
@@ -32,6 +34,8 @@ function createWrapper(overrides: Record<string, unknown> = {}) {
                 Sheet: slotStub,
                 SheetTrigger: slotStub,
                 SheetContent: slotStub,
+                SheetTitle: { template: '<h2 data-testid="sheet-title"><slot /></h2>' },
+                SheetDescription: { template: '<p data-testid="sheet-description"><slot /></p>' },
             },
         },
     })
@@ -225,5 +229,15 @@ describe('LocationPicker', () => {
         const wrapper = createWrapper({ detecting: true })
         const btn = wrapper.find('button')
         expect(btn.classes()).toContain('animate-pulse')
+    })
+
+    it('renders accessible SheetTitle and SheetDescription on mobile', () => {
+        isMobile.value = true
+        const wrapper = createWrapper()
+
+        expect(wrapper.find('[data-testid="sheet-title"]').text()).toBe('Choose a city')
+        expect(wrapper.find('[data-testid="sheet-description"]').exists()).toBe(true)
+
+        isMobile.value = false
     })
 })
