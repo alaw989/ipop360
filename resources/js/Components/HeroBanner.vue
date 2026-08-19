@@ -47,9 +47,9 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const restaurantCount = useCountUp(() => props.stats.restaurants)
-const cuisineCount = useCountUp(() => props.stats.cuisines)
-const cityCount = useCountUp(() => props.stats.cities)
+const restaurantCount = useCountUp(() => props.stats.restaurants, 1000, 0)
+const cuisineCount = useCountUp(() => props.stats.cuisines, 1000, 80)
+const cityCount = useCountUp(() => props.stats.cities, 1000, 160)
 
 const statsItems = computed(() => [
     { icon: UtensilsCrossed, label: 'Restaurants', getValue: () => restaurantCount.value },

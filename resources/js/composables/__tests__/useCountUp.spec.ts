@@ -3,12 +3,12 @@ import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { useCountUp } from '@/composables/useCountUp'
 
-function mountComposable(target: number | (() => number), duration = 1000) {
+function mountComposable(target: number | (() => number), duration = 1000, delay = 0) {
     let result: ReturnType<typeof useCountUp> | null = null
     const wrapper = mount(
         defineComponent({
             setup() {
-                result = useCountUp(target, duration)
+                result = useCountUp(target, duration, delay)
                 return () => h('div')
             },
         }),
@@ -56,5 +56,20 @@ describe('useCountUp', () => {
         target.value = 250
         await nextTick()
         expect(result.value).toBe(250)
+    })
+
+    it('delays the count-up by the given delay and starts at 0 before it fires', async () => {
+        window.matchMedia = vi.fn().mockReturnValue({ matches: false }) as any
+        const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+            cb(999999)
+            return 1
+        })
+        const { result } = mountComposable(100, 1000, 200)
+        expect(result.value).toBe(0)
+        await vi.advanceTimersByTimeAsync(199)
+        expect(result.value).toBe(0)
+        await vi.advanceTimersByTimeAsync(1)
+        expect(result.value).toBe(100)
+        rafSpy.mockRestore()
     })
 })

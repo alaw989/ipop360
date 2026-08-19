@@ -11,10 +11,11 @@ function prefersReducedMotion(): boolean {
     return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 }
 
-export function useCountUp(target: CountUpTarget, duration = 1000) {
+export function useCountUp(target: CountUpTarget, duration = 1000, delay = 0) {
     const value = ref(0)
     const getTarget = toGetter(target)
     let rafId: number | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
 
     function animateTo(to: number) {
         if (rafId !== null) cancelAnimationFrame(rafId)
@@ -38,13 +39,19 @@ export function useCountUp(target: CountUpTarget, duration = 1000) {
     }
 
     function run() {
-        animateTo(getTarget())
+        if (delay > 0 && !prefersReducedMotion()) {
+            if (timeoutId !== null) clearTimeout(timeoutId)
+            timeoutId = setTimeout(() => animateTo(getTarget()), delay)
+        } else {
+            animateTo(getTarget())
+        }
     }
 
     watch(getTarget, run)
     onMounted(run)
     onUnmounted(() => {
         if (rafId !== null) cancelAnimationFrame(rafId)
+        if (timeoutId !== null) clearTimeout(timeoutId)
     })
 
     return value
