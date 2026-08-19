@@ -47,15 +47,15 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const statsItems = computed(() => [
-    { icon: UtensilsCrossed, label: 'Restaurants', value: props.stats.restaurants },
-    { icon: ChefHat, label: 'Cuisines', value: props.stats.cuisines },
-    { icon: MapPin, label: 'Cities', value: props.stats.cities },
-])
-
 const restaurantCount = useCountUp(() => props.stats.restaurants)
 const cuisineCount = useCountUp(() => props.stats.cuisines)
 const cityCount = useCountUp(() => props.stats.cities)
+
+const statsItems = computed(() => [
+    { icon: UtensilsCrossed, label: 'Restaurants', getValue: () => restaurantCount.value },
+    { icon: ChefHat, label: 'Cuisines', getValue: () => cuisineCount.value },
+    { icon: MapPin, label: 'Cities', getValue: () => cityCount.value },
+])
 
 function formatNumber(value: number): string {
     return value.toLocaleString('en-US')
@@ -210,7 +210,7 @@ function onDetect() {
                                     <div class="flex items-baseline gap-2">
                                         <component :is="item.icon" class="h-5 w-5 text-white/70" aria-hidden="true" />
                                         <span class="text-3xl font-bold tabular-nums text-white sm:text-4xl">
-                                            {{ formatNumber(i === 0 ? restaurantCount : i === 1 ? cuisineCount : cityCount) }}
+                                            {{ formatNumber(item.getValue()) }}
                                         </span>
                                     </div>
                                     <span class="mt-1 text-xs uppercase tracking-widest text-white/70 sm:text-sm">
