@@ -127,6 +127,18 @@ describe('Blog Index page', () => {
         expect(link.exists()).toBe(true)
     })
 
+    it('shows a placeholder when a post image fails to load', async () => {
+        const wrapper = mountBlogIndex({
+            posts: {
+                data: [makeBlogPost({ featured_image: '/img/broken.jpg', title: 'Broken Image Post' })],
+                links: [],
+            },
+        })
+        expect(wrapper.find('img').exists()).toBe(true)
+        await wrapper.find('img').trigger('error')
+        expect(wrapper.find('img').exists()).toBe(false)
+    })
+
     it('shows pagination when links.length > 3', () => {
         const wrapper = mountBlogIndex({
             posts: {

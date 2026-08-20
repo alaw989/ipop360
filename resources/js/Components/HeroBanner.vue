@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, type Component } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 import CuisinePicker from '@/Components/CuisinePicker.vue'
@@ -47,15 +47,28 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const restaurantCount = useCountUp(() => props.stats.restaurants, 1000, 0)
-const cuisineCount = useCountUp(() => props.stats.cuisines, 1000, 80)
-const cityCount = useCountUp(() => props.stats.cities, 1000, 160)
+interface StatDef {
+    icon: Component
+    label: string
+    target: () => number
+}
 
-const statsItems = computed(() => [
-    { icon: UtensilsCrossed, label: 'Restaurants', getValue: () => restaurantCount.value, target: () => props.stats.restaurants },
-    { icon: ChefHat, label: 'Cuisines', getValue: () => cuisineCount.value, target: () => props.stats.cuisines },
-    { icon: MapPin, label: 'Cities', getValue: () => cityCount.value, target: () => props.stats.cities },
-])
+const statDefs: StatDef[] = [
+    { icon: UtensilsCrossed, label: 'Restaurants', target: () => props.stats.restaurants },
+    { icon: ChefHat, label: 'Cuisines', target: () => props.stats.cuisines },
+    { icon: MapPin, label: 'Cities', target: () => props.stats.cities },
+]
+
+const counts = statDefs.map((def, i) => useCountUp(def.target, 1000, i * 80))
+
+const statsItems = computed(() =>
+    statDefs.map((def, i) => ({
+        icon: def.icon,
+        label: def.label,
+        value: counts[i]!.value,
+        target: def.target(),
+    })),
+)
 
 function formatNumber(value: number): string {
     return value.toLocaleString('en-US')
@@ -213,12 +226,12 @@ function onDetect() {
                                 <div
                                     class="flex flex-col items-center px-3 sm:px-10"
                                     role="listitem"
-                                    :aria-label="`${formatNumber(item.target())} ${item.label}`"
+                                    :aria-label="`${formatNumber(item.target)} ${item.label}`"
                                 >
                                     <div class="flex items-baseline gap-1.5 sm:gap-2">
                                         <component :is="item.icon" class="h-4 w-4 text-white/70 sm:h-5 sm:w-5" aria-hidden="true" />
                                         <span class="text-2xl font-bold tabular-nums text-white sm:text-4xl" aria-hidden="true">
-                                            {{ formatNumber(item.getValue()) }}
+                                            {{ formatNumber(item.value) }}
                                         </span>
                                     </div>
                                     <span class="mt-1 text-xs uppercase tracking-widest text-white/70 sm:text-sm" aria-hidden="true">

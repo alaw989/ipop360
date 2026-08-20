@@ -122,6 +122,13 @@ describe('Blog Show page', () => {
         expect(wrapper.find('img').exists()).toBe(false)
     })
 
+    it('shows a placeholder when the featured image fails to load', async () => {
+        const wrapper = mountBlogShow({ featured_image: 'https://example.com/broken.jpg' })
+        expect(wrapper.find('img').exists()).toBe(true)
+        await wrapper.find('img').trigger('error')
+        expect(wrapper.find('img').exists()).toBe(false)
+    })
+
     it('renders post body as inner HTML', () => {
         const wrapper = mountBlogShow({ body: '<p>Hello <strong>world</strong></p>' })
         expect(wrapper.html()).toContain('<p>Hello <strong>world</strong></p>')

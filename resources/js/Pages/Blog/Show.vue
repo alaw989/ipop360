@@ -2,9 +2,10 @@
 import { computed } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { ArrowLeft, Calendar, User } from '@lucide/vue'
+import { ArrowLeft, Calendar, PenLine, User } from '@lucide/vue'
 import { useSeo, generateArticleJsonLd } from '@/composables/useSeo'
 import { useBaseUrl } from '@/composables/useBaseUrl'
+import { useImageFallback } from '@/composables/useImageFallback'
 import JsonLd from '@/Components/JsonLd.vue'
 import SeoMeta from '@/Components/SeoMeta.vue'
 
@@ -24,6 +25,8 @@ const props = defineProps<{
 }>()
 
 const baseUrl = useBaseUrl()
+
+const { failed: imageFailed, markFailed: markImageFailed } = useImageFallback()
 
 const publishedLabel = computed(() => {
     if (!props.post.published_at) return ''
@@ -82,11 +85,18 @@ const jsonLd = generateArticleJsonLd({
             </header>
 
             <img
-                v-if="post.featured_image"
+                v-if="post.featured_image && !imageFailed"
                 :src="post.featured_image"
                 :alt="post.title"
+                @error="markImageFailed"
                 class="mb-8 aspect-video w-full rounded-xl object-cover"
             />
+            <div
+                v-else-if="post.featured_image"
+                class="mb-8 flex aspect-video w-full items-center justify-center rounded-xl bg-gradient-to-br from-muted/50 via-muted/30 to-muted/10"
+            >
+                <PenLine class="h-16 w-16 text-foreground opacity-20" />
+            </div>
 
             <div
                 class="prose prose-neutral max-w-none dark:prose-invert"

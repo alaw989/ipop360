@@ -98,6 +98,32 @@ describe('BlogPreview', () => {
         expect(img.attributes('alt')).toBe('Test Post Title')
     })
 
+    it('constrains the hero card to the featured image native width', () => {
+        const wrapper = mountComponent([makePost({ featured_image: '/img/test.jpg' })])
+        expect(wrapper.html()).toContain('max-w-[1067px]')
+        expect(wrapper.html()).toContain('mx-auto')
+    })
+
+    it('shows the placeholder when the hero image fails to load', async () => {
+        const wrapper = mountComponent([makePost({ featured_image: '/img/broken.jpg' })])
+        expect(wrapper.find('img').exists()).toBe(true)
+        await wrapper.find('img').trigger('error')
+        expect(wrapper.find('img').exists()).toBe(false)
+        expect(wrapper.text()).toContain('No image')
+    })
+
+    it('shows the placeholder when a grid image fails to load', async () => {
+        const posts = [
+            makePost({ id: 1, title: 'Hero', featured_image: '/img/hero.jpg' }),
+            makePost({ id: 2, title: 'Grid', featured_image: '/img/grid-broken.jpg' }),
+        ]
+        const wrapper = mountComponent(posts)
+        expect(wrapper.findAll('img')).toHaveLength(2)
+        await wrapper.findAll('img')[1].trigger('error')
+        expect(wrapper.findAll('img')).toHaveLength(1)
+        expect(wrapper.text()).toContain('No image')
+    })
+
     it('renders a gradient placeholder on the hero when no image', () => {
         const wrapper = mountComponent([makePost({ featured_image: null })])
         expect(wrapper.find('img').exists()).toBe(false)

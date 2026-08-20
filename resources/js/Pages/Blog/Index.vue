@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
-import { Calendar, ChevronRight, Search } from '@lucide/vue'
+import { Calendar, ChevronRight, PenLine, Search } from '@lucide/vue'
 import { useSeo } from '@/composables/useSeo'
 import { useBaseUrl } from '@/composables/useBaseUrl'
 import SeoMeta from '@/Components/SeoMeta.vue'
@@ -35,6 +35,12 @@ const props = defineProps<{
 }>()
 
 const baseUrl = useBaseUrl()
+
+const failedImageIds = ref<Set<number>>(new Set())
+
+function markImageFailed(id: number) {
+    failedImageIds.value = new Set(failedImageIds.value).add(id)
+}
 
 function formatDate(value: string | null): string {
     if (!value) return ''
@@ -128,13 +134,23 @@ const seoData = useSeo({
                             class="group overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-md"
                         >
                             <Link :href="`/blog/${post.slug}`">
-                                <div v-if="post.featured_image" class="aspect-video overflow-hidden bg-muted">
+                                <div
+                                    v-if="post.featured_image && !failedImageIds.has(post.id)"
+                                    class="aspect-video overflow-hidden bg-muted"
+                                >
                                     <img
                                         :src="post.featured_image"
                                         :alt="post.title"
+                                        @error="() => markImageFailed(post.id)"
                                         class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                                         loading="lazy"
                                     />
+                                </div>
+                                <div
+                                    v-else
+                                    class="flex aspect-video items-center justify-center bg-gradient-to-br from-muted/50 via-muted/30 to-muted/10"
+                                >
+                                    <PenLine class="h-10 w-10 text-foreground opacity-20" />
                                 </div>
                                 <div class="p-5">
                                     <p class="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">

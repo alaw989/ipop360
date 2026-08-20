@@ -16,6 +16,17 @@ function mountComposable(target: number | (() => number), duration = 1000, delay
     return { wrapper, result: result! }
 }
 
+function mockMotion(reduced: boolean) {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: reduced }) as any
+}
+
+function mockRaf() {
+    return vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+        cb(999999)
+        return 1
+    })
+}
+
 describe('useCountUp', () => {
     beforeEach(() => {
         vi.useFakeTimers()
@@ -31,25 +42,19 @@ describe('useCountUp', () => {
         expect(result.value).toBe(0)
     })
 
-    it('jumps instantly to the target when prefers-reduced-motion is set', () => {
-        window.matchMedia = vi.fn().mockReturnValue({ matches: true }) as any
+    it.each([
+        { reduced: true, rafCalls: 0, label: 'prefers-reduced-motion is set' },
+        { reduced: false, rafCalls: 1, label: 'motion is allowed' },
+    ])('jumps instantly to the target when $label', ({ reduced, rafCalls }) => {
+        mockMotion(reduced)
+        const raf = mockRaf()
         const { result } = mountComposable(100)
         expect(result.value).toBe(100)
-    })
-
-    it('animates up to the target over time', () => {
-        window.matchMedia = vi.fn().mockReturnValue({ matches: false }) as any
-        const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
-            cb(1000)
-            return 1
-        })
-        const { result } = mountComposable(100)
-        expect(result.value).toBe(100)
-        rafSpy.mockRestore()
+        expect(raf).toHaveBeenCalledTimes(rafCalls)
     })
 
     it('tracks a reactive target function', async () => {
-        window.matchMedia = vi.fn().mockReturnValue({ matches: true }) as any
+        mockMotion(true)
         const target = ref(100)
         const { result } = mountComposable(() => target.value)
         expect(result.value).toBe(100)
@@ -59,56 +64,31 @@ describe('useCountUp', () => {
     })
 
     it('delays the count-up by the given delay and starts at 0 before it fires', async () => {
-        window.matchMedia = vi.fn().mockReturnValue({ matches: false }) as any
-        const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
-            cb(999999)
-            return 1
-        })
+        mockMotion(false)
+        mockRaf()
         const { result } = mountComposable(100, 1000, 200)
         expect(result.value).toBe(0)
         await vi.advanceTimersByTimeAsync(199)
         expect(result.value).toBe(0)
         await vi.advanceTimersByTimeAsync(1)
         expect(result.value).toBe(100)
-        rafSpy.mockRestore()
     })
 
-    it('does not re-animate when the target is unchanged after settling', async () => {
-        window.matchMedia = vi.fn().mockReturnValue({ matches: false }) as any
-        const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
-            cb(999999)
-            return 1
-        })
+    it.each([
+        { next: 100, rafCalls: 1, label: 'does not re-animate when the target is unchanged after settling' },
+        { next: 250, rafCalls: 2, label: 're-animates when the target changes to a new value' },
+    ])('$label', async ({ next, rafCalls }) => {
+        mockMotion(false)
+        const raf = mockRaf()
         const target = ref(100)
         const { result } = mountComposable(() => target.value)
         await nextTick()
         expect(result.value).toBe(100)
-        expect(rafSpy).toHaveBeenCalledTimes(1)
+        expect(raf).toHaveBeenCalledTimes(1)
 
+        target.value = next
         await nextTick()
-        target.value = 100
-        await nextTick()
-        expect(result.value).toBe(100)
-        expect(rafSpy).toHaveBeenCalledTimes(1)
-        rafSpy.mockRestore()
-    })
-
-    it('re-animates when the target changes to a new value', async () => {
-        window.matchMedia = vi.fn().mockReturnValue({ matches: false }) as any
-        const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
-            cb(999999)
-            return 1
-        })
-        const target = ref(100)
-        const { result } = mountComposable(() => target.value)
-        await nextTick()
-        expect(result.value).toBe(100)
-        expect(rafSpy).toHaveBeenCalledTimes(1)
-
-        target.value = 250
-        await nextTick()
-        expect(result.value).toBe(250)
-        expect(rafSpy).toHaveBeenCalledTimes(2)
-        rafSpy.mockRestore()
+        expect(result.value).toBe(next)
+        expect(raf).toHaveBeenCalledTimes(rafCalls)
     })
 })
