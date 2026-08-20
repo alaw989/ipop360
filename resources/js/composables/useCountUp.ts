@@ -20,23 +20,23 @@ export function useCountUp(target: CountUpTarget, duration = 1000, delay = 0) {
 
     function animateTo(to: number) {
         if (rafId !== null) cancelAnimationFrame(rafId)
+        settledTarget = to
         if (prefersReducedMotion() || to === value.value) {
             value.value = to
-            settledTarget = to
             return
         }
         const from = value.value
         const start = performance.now()
         const tick = (now: number) => {
             const progress = Math.min((now - start) / duration, 1)
+            if (progress >= 1) {
+                value.value = to
+                rafId = null
+                return
+            }
             const eased = 1 - Math.pow(1 - progress, 3)
             value.value = Math.round(from + (to - from) * eased)
-            if (progress < 1) {
-                rafId = requestAnimationFrame(tick)
-            } else {
-                value.value = to
-                settledTarget = to
-            }
+            rafId = requestAnimationFrame(tick)
         }
         rafId = requestAnimationFrame(tick)
     }

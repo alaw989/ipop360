@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -25,6 +24,8 @@ use Illuminate\Support\Facades\Log;
  */
 class AiEnrichmentService
 {
+    private const SYSTEM_PROMPT = 'You are a data normalization assistant for restaurant data. Extract structured information and normalize it. NEVER invent ratings or scores - only extract structural/attribute fields that are present or can be reasonably inferred. Return valid JSON only.';
+
     /**
      * @param  array<string, mixed>  $restaurantData
      * @return array<string, mixed>|null
@@ -91,36 +92,23 @@ class AiEnrichmentService
 
             try {
                 return $this->tryProvider($prompt, $provider);
-            } catch (ConnectionException $e) {
-                $lastException = $e;
-                Log::warning('AI provider connection error, trying fallback', [
-                    'provider' => $provider['base_url'],
-                    'message' => $e->getMessage(),
-                ]);
-            } catch (RequestException $e) {
-                $lastException = $e;
+            } catch (\Throwable $e) {
+                $status = $e instanceof RequestException ? $e->response->status() : null;
 
-                $status = $e->response->status();
-
-                if ($this->isRetryableStatus($status)) {
-                    Log::info('AI provider unavailable ('.$status.'), trying fallback', [
+                if ($status !== null && ! $this->isRetryableStatus($status)) {
+                    Log::warning('AI provider returned non-retryable error', [
                         'provider' => $provider['base_url'],
+                        'status' => $status,
                     ]);
 
-                    continue;
+                    return null;
                 }
 
-                Log::warning('AI provider returned non-retryable error', [
-                    'provider' => $provider['base_url'],
-                    'status' => $status,
-                ]);
-
-                return null;
-            } catch (\Throwable $e) {
                 $lastException = $e;
-                Log::warning('AI provider threw exception, trying fallback', [
+                Log::warning('AI provider failed, trying fallback', [
                     'provider' => $provider['base_url'],
                     'message' => $e->getMessage(),
+                    'status' => $status,
                 ]);
             }
         }
@@ -190,7 +178,7 @@ class AiEnrichmentService
                 'messages' => [
                     [
                         'role' => 'system',
-                        'content' => 'You are a data normalization assistant for restaurant data. Extract structured information and normalize it. NEVER invent ratings or scores - only extract structural/attribute fields that are present or can be reasonably inferred. Return valid JSON only.',
+                        'content' => self::SYSTEM_PROMPT,
                     ],
                     [
                         'role' => 'user',

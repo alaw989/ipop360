@@ -11,8 +11,6 @@ const props = defineProps<DialogTitleProps & { class?: HTMLAttributes['class'] }
   <DialogTitle
     data-slot="sheet-title"
     :class="cn('text-foreground font-semibold', props.class)"
-    :as="props.as!"
-    :as-child="props.asChild!"
   >
     <slot />
   </DialogTitle>
