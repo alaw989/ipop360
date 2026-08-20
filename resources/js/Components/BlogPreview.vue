@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import { ArrowRight, Calendar, PenLine, Star, Tag, User } from '@lucide/vue'
 import { Card, CardContent } from '@/components/ui/card'
+import { useImageFallback } from '@/composables/useImageFallback'
 
 interface BlogPost {
     id: number
@@ -22,6 +23,15 @@ const props = defineProps<{
 
 const heroPost = computed(() => props.posts[0] ?? null)
 const gridPosts = computed(() => props.posts.slice(1))
+
+const { failed: heroImageFailed, markFailed: markHeroImageFailed, reset: resetHeroImageFailed } = useImageFallback()
+const failedGridIds = ref<Set<number>>(new Set())
+
+watch(heroPost, resetHeroImageFailed)
+
+function markGridImageFailed(id: number) {
+    failedGridIds.value = new Set(failedGridIds.value).add(id)
+}
 
 function formatDate(value: string | null): string {
     if (!value) return ''
@@ -49,13 +59,14 @@ function formatDate(value: string | null): string {
             <!-- Hero post -->
             <Card
                 v-if="heroPost"
-                class="group mb-6 overflow-hidden transition-shadow hover:shadow-md"
+                class="group mx-auto mb-6 max-w-[1067px] overflow-hidden transition-shadow hover:shadow-md"
             >
                 <Link :href="`/blog/${heroPost.slug}`" class="relative block aspect-video overflow-hidden sm:aspect-[21/9]">
                     <img
-                        v-if="heroPost.featured_image"
+                        v-if="heroPost.featured_image && !heroImageFailed"
                         :src="heroPost.featured_image"
                         :alt="heroPost.title"
+                        @error="markHeroImageFailed"
                         class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                     <div
@@ -119,9 +130,10 @@ function formatDate(value: string | null): string {
                     <Link :href="`/blog/${post.slug}`" class="block h-full">
                         <div class="aspect-video overflow-hidden bg-muted">
                             <img
-                                v-if="post.featured_image"
+                                v-if="post.featured_image && !failedGridIds.has(post.id)"
                                 :src="post.featured_image"
                                 :alt="post.title"
+                                @error="() => markGridImageFailed(post.id)"
                                 class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                                 loading="lazy"
                             />
