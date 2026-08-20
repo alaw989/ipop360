@@ -19,6 +19,17 @@
 >   > logs/opencode-loop-<slug>.out 2>&1 < /dev/null &
 > ```
 >
+> **Model by goal difficulty (token economy, 2026-08-19):** routine/mechanical
+> goals (coverage bumps, config, docs, small refactors) → cheaper/faster
+> `opencode-go/deepseek-v4-flash` (drop `:high`, thinking tokens are the
+> expensive output ones). Hard/ambiguous goals (new features, orchestration,
+> anything needing deep reasoning) → `opencode-go/deepseek-v4-pro:high`. Pick
+> once per run, never switch mid-loop. The harness starts a **fresh session per
+> iteration** by default (relay notes are the carried state), logs a per-run
+> token ledger to `logs/opencode-loop-<ts>/context.csv`, and prints an aggregate
+> + `opencode stats` summary at exit — use the ledger to spot runaway
+> per-iteration context.
+>
 > Then monitor `logs/opencode-loop-<slug>.out` (tail + grep the emoji status
 > lines). The loop commits each accepted iteration and stops on ALL_DONE or cap;
 > it never pushes or opens PRs.
@@ -551,33 +562,78 @@ scheduled commands**; CI + deploy green.
 
 ## Next goals (in priority order)
 
-### 10. Pull prod DB → local
-- **Audit finding:** local MySQL `ipop360` has 2 stale seed rows; prod has
-  ~8,282. `.env` already points at local MySQL. Runtime tables are ~120MB noise.
-- **Goal:** `pull the latest prod DB to local: mysqldump prod ipop360 excluding runtime tables (pulse_*, sessions, cache*, jobs*, failed_jobs, password_reset_tokens) → ~16MB core; restore into local MySQL; verify restaurants count ≈ 8,282 and the dev server on :8090 serves real data`
-- **Gate:** manual verify (row count + dev server)
+### ✅ Done (2026-08-19) — hero stats, AI fallback, sheet a11y, component coverage
+Ran as **one PR each, in sequence, via opencode-loop on independent branches off master** (no merge between goals; each stopped after opening its PR). All `opencode-go/deepseek-v4-flash`, fresh-session token-economy mode (avg ~30-40k tokens/iteration, ALL_DONE early).
 
-### 11. Mobile UX audit & re-visualization
-- **Audit finding:** app works but doesn't feel native on phones. Search
-  degrades the most — filters and map are hard-hidden below lg/xl
-  (`Search.vue:128,238`), so mobile users can't filter (price/category/
-  distance) or see a map at all. Main nav mobile menu is a plain dropdown
-  (`TopNav.vue:164-249`), not a drawer; no bottom nav anywhere. Restaurant
-  detail (`Restaurants/Show.vue`) is a long single column with no sticky
-  call/directions/website action bar. No `viewport-fit=cover` / safe-area
-  `env(safe-area-inset-*)` handling, so bottom Sheets/pickers sit under the
-  notch/home bar. Leaflet has no touch/gesture tuning and never renders on
-  mobile search. (Pickers via shadcn bottom-Sheet already work — good pattern
-  to extend.)
-- **Goal:** `make the app feel mobile-native while staying in the browser:
-  give Search a mobile filter sheet (reuse shadcn Sheet, side=bottom like
-  CuisinePicker/LocationPicker) + a mobile map toggle; upgrade TopNav mobile
-  menu to a Sheet/drawer; add a sticky action bar (call/directions/website)
-  to the restaurant detail page; add viewport-fit=cover + safe-area padding;
-  tune Leaflet for touch; verify in a 375px viewport and desktop that
-  nothing regresses`
-- **Gate:** manual verify on a phone-sized viewport (filters, map, nav,
-  sticky actions) + full suite green
+1. **Hero stats** — PR #125: Restaurants/Cuisines/Cities row moved INTO the hero under search, dramatic white-on-hero display, new `useCountUp` composable (fade-in + count-up on load, `prefers-reduced-motion`-aware), `StatsBand` section removed. PHPUnit 987, vitest 1099.
+2. **AI enrichment fallback** — PR #126: `AiEnrichmentService` now fails over on 5xx/connection/retryable-4xx (408/409/425), hard-stops only on 400/401/403/404; fallback default → **Cerebras** (`gpt-oss-120b`; GitHub Models endpoint retired/404). `EnrichRestaurantWithAi` job now **fail-soft** (no 500 on live search). PHPUnit 996.
+3. **Sheet a11y** — PR #127: `SheetTitle`/`SheetDescription` on CuisinePicker/LocationPicker (clears reka-ui a11y warnings). vitest 1094.
+4. **New-component coverage** — PR #128: specs for `SheetTitle.vue`/`SheetDescription.vue` (were 0%). vitest 1102.
+
+> **Merge order matters:** #125-#128 each branch off master, so every PR after #126 inherits the pre-existing `RestaurantControllerTest` live-search failures until **#126 merges first**. Merge in order 126 → 125 → 127 → 128, then deploy.
+
+### ✅ Done (2026-08-19) — Optimize & refactor + blog image fallback
+15. **Optimize & refactor the just-shipped PRs (hero stats, AI fallback, sheets)**
+    — PR #129 (opencode-loop, 6 iterations, ALL_DONE, model `deepseek-v4-flash`):
+    (1) `useCountUp` + `HeroBanner`: 3× `useCountUp` + `statsItems` collapsed to a
+    `statDefs` array; `animateTo`/`run` simplified; `useCountUp.spec.ts`
+    parameterized (`it.each`). (2) `AiEnrichmentService::callProviders`: 3
+    near-identical catch/continue blocks → one retryable → next-provider path;
+    literal system prompt → `SYSTEM_PROMPT` class constant. (3) `SheetTitle`/
+    `SheetDescription` + specs: DRY'd via a shared `sheet.spec.helpers.ts` factory;
+    dropped unneeded `as`/`asChild` forwarding (reka-ui defaults). **Post-loop
+    hardening (loop's `--check` was vitest+composer only, missed the build gate):**
+    `HeroBanner` `counts[i]!` (`noUncheckedIndexedAccess`), removed `:as`/`:as-child`
+    bindings (breaks `exactOptionalPropertyTypes`), dropped 2 unsupported
+    `as`-forwarding spec tests. PHPUnit 996, vitest 1109.
+    **Bundled in the same PR — blog image fallback** (direct fix, merged with #129):
+    dead `featured_image` URLs now degrade to the "No image" placeholder instead of
+    a broken `<img>` — new `useImageFallback` composable wired into `BlogPreview`
+    (hero+grid), `Blog/Index`, `Blog/Show`; hero capped at `max-w-[1067px] mx-auto`
+    so the 1067px source is never upscaled. vitest 1109 → **1117**. Merged +
+    deployed + live-verified (/, /api 200). **Prod data (Part 2):** the Pita & Naan
+    featured post's dead Google `gps-cs-s` image (hard 403) replaced with a valid,
+    verified food photo from the restaurant's own CDN (`Gyro Plate`, 1067×1067,
+    `200 image/jpeg`) — live homepage + blog detail now serve the working image.
+
+**Current floor:** 996 PHPUnit + 1117 vitest; PHPStan level 8 zero baseline; pint
+clean; CI enforces coverage + PHP 8.4; CI + deploy green.
+
+### 12. Bundle-size / Core Web Vitals pass
+- **Audit finding:** the build's `vendor-*.js` is 1.94MB (438KB gzip) and `Edit-*.js` 801KB. Likely code-splitting wins, but needs a measurement baseline before scoping.
+- **Goal:** `measure Lighthouse/Core Web Vitals on the homepage + key routes, identify the largest bundles and any LCP/CLS/INP regressions, then split/trim the biggest offenders; re-measure and confirm no Core Web Vitals regression`
+- **Gate:** Lighthouse before/after on / and /restaurants; full suite green.
+
+### 13. Search result-quality audit
+- **Audit finding:** dedup/merge edge cases and match precision across the 5 live sources are hard to bound and need data analysis first.
+- **Goal:** `audit search result quality (dedup/merge edge cases, cross-source match precision, distance/phone/name conflicts) with data, fix the highest-impact issues, and pin behavior with tests`
+- **Gate:** data-driven audit doc + fixes + full suite green.
+- **Note:** larger/unbounded — scope after #12.
+
+### 14. Homepage trending/popular-cuisines improvement — PENDING OPERATOR CHOICE
+- **Audit finding:** "Trending" is ranked popularity + mild recency decay (no real momentum signal); "Popular cuisines" is a frequency breakdown of just the top-18 restaurants (noisy); small-city fallback to global is silent.
+- **Pick one:** (a) add an engagement/velocity signal so recent activity ranks; (b) rank cuisines across a larger restaurant set; (c) label global results honestly when a city has no local data.
+
+### 10. ✅ Pull prod DB → local — DONE
+- **Audit finding (stale):** the audit claimed local MySQL had 2 seed rows and prod
+  ~8,282; in reality prod was **39,398** restaurants and local was behind at 38,263.
+- **Done 2026-08-19:** backed up local data tables (11M), dumped prod MySQL
+  excluding runtime tables (`pulse_*`, sessions, cache, jobs*, failed_jobs,
+  password_reset_tokens) → 13M, restored into local MySQL, removed both dumps.
+  Verified: local restaurants = **39,398** (matches prod), 8 users, 59 cuisines;
+  dev server :8090 serves real data (home 200, API returns real names). Runtime
+  tables (jobs/pulse/sessions) left untouched locally. Note: local `users` now
+  mirrors prod (login accounts = prod's 8). Safety backup kept at
+  `/tmp/ipop360-local-backup-20260819_135439.sql.gz`.
+
+### 11. ✅ Mobile UX audit & re-visualization — SHIPPED
+- PR #123 (opencode-loop, ALL_DONE) merged 2026-08-19 + deployed + live-verified
+  (/, /api 200). Search mobile filter sheet (shadcn Sheet side=bottom),
+  mobile map toggle, TopNav → side=right Sheet drawer, sticky
+  call/directions/website action bar on restaurant detail, viewport-fit=cover
+  + safe-area padding, Leaflet touch tuning, accessible SheetTitle/SheetDescription,
+  Playwright mobile E2E pass. Full hardening gate green on the shipped tree
+  (Pint, PHPStan 0, PHPUnit 978, vitest 1092, build, coverage).
 
 ---
 

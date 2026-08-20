@@ -21,6 +21,12 @@
 | `opencode-loop N --goal "…" --check "…"` | Finite-cap iterative improvement loop driving `opencode run` (installed at `~/.local/bin/opencode-loop`) — see `.specify/memory/backlog.md` for the next goal |
 | `./vendor/bin/phpstan analyse` | PHPStan level 8 over `app/ + tests/` (zero baseline — `phpstan-baseline.neon` deleted; 18 regex `ignoreErrors` patterns remain in `phpstan.neon` for mockery/Model limitations) |
 
+In agentic/loop sessions prefer **quiet command flags** so output stays out of
+the model's context: `npx vitest run <file> --reporter=dot`, `composer test
+--compact` (failures only), and tail/two-line versions of anything noisy.
+Delegate grep-heavy or exploratory reads to a subagent; read known files at
+their exact path instead of searching for them.
+
 ## Get running locally
 
 To stand up the full local environment (server + queue + scheduler + vite):
