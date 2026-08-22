@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-22
 
-**Status**: PROPOSED (backlog #13 data-sampling follow-up)
+**Status**: SHIPPED (`1c684ab`, 2026-08-22)
 
 **Series**: Follow-up to spec-094 (VenueShape contract + mergeVenues field-fold correctness, shipped 2026-08-22 as the rating-family-independence + SerpApi enrichment-shape fix).
 
