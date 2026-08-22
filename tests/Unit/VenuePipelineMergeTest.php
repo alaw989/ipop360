@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\VenuePipeline;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -178,5 +179,62 @@ class VenuePipelineMergeTest extends TestCase
         $merged = $this->pipeline->mergeVenues($target, $source);
 
         $this->assertSame('https://example.com', $merged['website_url']);
+    }
+
+    /**
+     * spec-105: raw upstream APIs sometimes return an empty string instead
+     * of omitting a key — BizDataApiService::normalizeResults builds
+     * `phone => $b['phone'] ?? null`, but a raw `phone: ""` (confirmed
+     * against real cached BizData responses) survives the `??` chain as
+     * `''`, not `null`. A strict `=== null` fold gate then never fires even
+     * though the target has no usable phone number.
+     */
+    public function test_merge_folds_phone_when_target_phone_is_empty_string_not_null(): void
+    {
+        $target = ['name' => 'X', 'lat' => 1.0, 'lng' => 1.0, 'phone' => ''];
+        $source = ['name' => 'X', 'lat' => 1.0, 'lng' => 1.0, 'phone' => '(734) 738-6754'];
+
+        $merged = $this->pipeline->mergeVenues($target, $source);
+
+        $this->assertSame('(734) 738-6754', $merged['phone']);
+    }
+
+    /**
+     * @return array<string, array{string, mixed, mixed}>
+     */
+    public static function blankFieldProvider(): array
+    {
+        return [
+            'opening_hours empty string' => ['opening_hours', '', ['monday' => '9am-9pm']],
+            'features empty array' => ['features', [], ['takeaway' => 'yes']],
+            'address empty string' => ['address', '', '123 Main St'],
+            'website_url empty string' => ['website_url', '', 'https://example.com'],
+        ];
+    }
+
+    #[DataProvider('blankFieldProvider')]
+    public function test_merge_folds_field_when_target_value_is_empty_not_null(string $field, mixed $blankValue, mixed $realValue): void
+    {
+        $target = ['name' => 'X', 'lat' => 1.0, 'lng' => 1.0, $field => $blankValue];
+        $source = ['name' => 'X', 'lat' => 1.0, 'lng' => 1.0, $field => $realValue];
+
+        $merged = $this->pipeline->mergeVenues($target, $source);
+
+        $this->assertSame($realValue, $merged[$field]);
+    }
+
+    /**
+     * A literal 0 is real data (a genuinely free price_range, or a review
+     * count of 0 in a family that already has SOME rating), not "absent" —
+     * the blank-check must not treat 0/false the same as null/''/[].
+     */
+    public function test_merge_does_not_treat_zero_as_blank(): void
+    {
+        $target = ['name' => 'X', 'lat' => 1.0, 'lng' => 1.0, 'price_range' => 0];
+        $source = ['name' => 'X', 'lat' => 1.0, 'lng' => 1.0, 'price_range' => 3];
+
+        $merged = $this->pipeline->mergeVenues($target, $source);
+
+        $this->assertSame(0, $merged['price_range'], 'a real 0 is not overwritten by the source');
     }
 }

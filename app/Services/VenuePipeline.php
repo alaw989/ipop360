@@ -232,8 +232,16 @@ class VenuePipeline
             $sourceValue = $source[$field] ?? null;
             $targetValue = $target[$field] ?? null;
 
-            // If target has no value, take from source
-            if ($targetValue === null && $sourceValue !== null) {
+            // If target has no usable value, take from source. "No usable
+            // value" is broader than === null: several normalizers build
+            // their output with `$raw['field'] ?? null` chains, and raw
+            // upstream APIs sometimes return the key as "" or [] instead of
+            // omitting it (e.g. BizData's raw `phone: ""`) — `??` doesn't
+            // fall through on those, so a strict null check left the source's
+            // real value stranded (spec-105). Numeric 0/false are NOT
+            // treated as blank — a literal 0 price_range or review_count is
+            // real data.
+            if ($this->isBlank($targetValue) && ! $this->isBlank($sourceValue)) {
                 $merged[$field] = $sourceValue;
             }
         }
@@ -295,6 +303,17 @@ class VenuePipeline
         }
 
         return $merged;
+    }
+
+    /**
+     * "No usable value" for merge-fold purposes: null, empty string, or an
+     * empty array. Deliberately NOT true for 0/0.0/false — a literal numeric
+     * 0 (e.g. price_range, or a review_count in an already-active rating
+     * family) is real data, not absence (spec-105).
+     */
+    private function isBlank(mixed $value): bool
+    {
+        return $value === null || $value === '' || $value === [];
     }
 
     /**
