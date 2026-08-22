@@ -162,6 +162,30 @@ class SerpApiServiceTest extends TestCase
         $this->assertSame(0, $blank['google_review_count']);
     }
 
+    /**
+     * spec-094: normalizeForEnrichment previously omitted website_url and
+     * place_types entirely, so a SerpApi-only enrichment venue silently lost
+     * its website on persist and lost place_types-based cuisine evidence
+     * (CuisineMatcher::venueMatchesCuisine reads place_types) — a real venue
+     * with only place_types evidence (no cuisine keyword in its name) could
+     * fail to get its cuisine tag attached during offline enrichment.
+     */
+    public function test_normalize_for_enrichment_carries_website_url_and_place_types(): void
+    {
+        $enriched = $this->service->normalizeForEnrichment([
+            'name' => 'Siam Orchid',
+            'website_url' => 'https://siamorchid.example.com',
+            'place_types' => ['Thai restaurant'],
+        ]);
+
+        $this->assertSame('https://siamorchid.example.com', $enriched['website_url']);
+        $this->assertSame(['Thai restaurant'], $enriched['place_types']);
+
+        $blank = $this->service->normalizeForEnrichment([]);
+        $this->assertNull($blank['website_url']);
+        $this->assertSame([], $blank['place_types']);
+    }
+
     public function test_cache_key_rounds_coordinates_so_jitter_does_not_mint_new_entries(): void
     {
         $a = $this->service->cacheKeyFor(37.77494, -122.41941, 'Italian');

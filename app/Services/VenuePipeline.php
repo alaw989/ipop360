@@ -228,10 +228,6 @@ class VenuePipeline
 
         $merged = $target;
 
-        // Prefer the row that has rating data
-        $sourceHasRating = ! empty($source['yelp_rating']) || ! empty($source['google_rating']);
-        $targetHasRating = ! empty($target['yelp_rating']) || ! empty($target['google_rating']);
-
         foreach ($fields as $field) {
             $sourceValue = $source[$field] ?? null;
             $targetValue = $target[$field] ?? null;
@@ -239,16 +235,30 @@ class VenuePipeline
             // If target has no value, take from source
             if ($targetValue === null && $sourceValue !== null) {
                 $merged[$field] = $sourceValue;
-
-                continue;
             }
+        }
 
-            // If source has rating and target doesn't, prefer source's rating fields
+        // Rating families (google/yelp) are handled separately from the
+        // null-gate loop above: `google_review_count`/`yelp_review_count`
+        // default to 0 (not null) on every normalizer, so the null-gate never
+        // fires for them — a target with review_count=0 would silently keep
+        // that 0 even when the source carries a real count, which then
+        // shrinks PopularityScoreService's Bayesian quality fully to the mean
+        // (spec-094). Fixed per-family (not a single "has any rating" flag,
+        // which let an existing yelp_rating block an update to google_rating/
+        // google_review_count from a source that only has google data).
+        foreach ([
+            'google' => ['google_rating', 'google_review_count'],
+            'yelp' => ['yelp_rating', 'yelp_review_count'],
+        ] as [$ratingField, $reviewField]) {
+            $sourceHasRating = ! empty($source[$ratingField]);
+            $targetHasRating = ! empty($target[$ratingField]);
+
             if ($sourceHasRating && ! $targetHasRating) {
-                if (in_array($field, ['yelp_rating', 'google_rating', 'google_review_count', 'yelp_review_count'])) {
-                    if ($sourceValue !== null) {
-                        $merged[$field] = $sourceValue;
-                    }
+                $merged[$ratingField] = $source[$ratingField];
+
+                if (($source[$reviewField] ?? null) !== null) {
+                    $merged[$reviewField] = $source[$reviewField];
                 }
             }
         }
