@@ -32,11 +32,12 @@ class SchedulerHealthCommand extends Command
 
         $aggregates = $report->aggregate($days);
         $registered = $this->registeredCommands();
+        $expiryMinutes = $this->registeredExpiryMinutes();
         // scheduler:health flags ITSELF as an unfinished run because its own
         // completion telemetry is written only after handle() returns. Exclude it
         // from the hung check so the daily alert isn't a self-referential false
         // positive (its failures are still reported).
-        $detected = $detector->detect($aggregates, $registered, $tolerance, $days, now(), ['scheduler:health']);
+        $detected = $detector->detect($aggregates, $registered, $tolerance, $days, now(), ['scheduler:health'], $expiryMinutes);
 
         if (! $detected['has_problem']) {
             $this->info('Scheduler healthy: no problems in the last '.$days.' day(s).');
@@ -107,6 +108,23 @@ class SchedulerHealthCommand extends Command
                 (string) preg_replace('/^\S+\s+\S+\s+/', '', $event->command ?? '') => $event->getExpression(),
             ])
             ->sortKeys()
+            ->all();
+    }
+
+    /**
+     * @return array<string, int> Bare artisan command + args => its own
+     *                            withoutOverlapping() mutex TTL in minutes,
+     *                            used as the hung-check grace period.
+     */
+    private function registeredExpiryMinutes(): array
+    {
+        /** @var Schedule $schedule */
+        $schedule = app(Schedule::class);
+
+        return collect($schedule->events())
+            ->mapWithKeys(fn ($event) => [
+                (string) preg_replace('/^\S+\s+\S+\s+/', '', $event->command ?? '') => (int) $event->expiresAt,
+            ])
             ->all();
     }
 }

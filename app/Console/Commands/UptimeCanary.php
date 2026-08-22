@@ -154,7 +154,13 @@ class UptimeCanary extends Command
 
         $this->notifyIfDegraded($status, $checks);
 
-        return $status === 'ok' ? Command::SUCCESS : Command::FAILURE;
+        // Only a genuine outage (critical) fails the scheduled run. A soft
+        // "degraded" blip (a 5s external-API timeout, a stale social scrape,
+        // crossing the SerpApi circuit-breaker threshold) is real information
+        // — still logged and still eligible for the consecutive-failure
+        // webhook above — but shouldn't pollute scheduler-health telemetry
+        // with a "failed" run every time something transient happens.
+        return $status === 'critical' ? Command::FAILURE : Command::SUCCESS;
     }
 
     /**

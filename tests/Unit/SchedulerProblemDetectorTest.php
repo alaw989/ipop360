@@ -104,6 +104,78 @@ class SchedulerProblemDetectorTest extends TestCase
         $this->assertSame(['scheduler:health'], array_keys($detected['hung']));
     }
 
+    public function test_hung_flags_immediately_when_no_expiry_map_supplied(): void
+    {
+        // Backward compatibility: omitting $expiryMinutes entirely reproduces
+        // the old "flag the instant there's a dangling start" behavior.
+        $aggregates = [
+            'restaurants:backfill-websites --limit=400' => $this->aggregate(
+                structured_started: 1,
+                started_ats: ['2026-08-19T11:45:00+00:00'],
+            ),
+        ];
+
+        $detected = $this->detector->detect(
+            $aggregates,
+            ['restaurants:backfill-websites --limit=400' => '45 11 * * *'],
+            15,
+            1,
+            $this->now,
+        );
+
+        $this->assertSame(['restaurants:backfill-websites --limit=400'], array_keys($detected['hung']));
+    }
+
+    public function test_hung_grace_period_not_flagged_when_still_within_own_expiry_budget(): void
+    {
+        // restaurants:backfill-websites fires 11:45 with a 240-minute mutex
+        // (worst case 15:45). Checked at 15:00 (195 minutes after start) it's
+        // still within its own declared runtime budget — a dangling start
+        // here is a healthy still-running job, not a hang.
+        $aggregates = [
+            'restaurants:backfill-websites --limit=400' => $this->aggregate(
+                structured_started: 1,
+                started_ats: ['2026-08-19T11:45:00+00:00'],
+            ),
+        ];
+
+        $detected = $this->detector->detect(
+            $aggregates,
+            ['restaurants:backfill-websites --limit=400' => '45 11 * * *'],
+            15,
+            1,
+            $this->now,
+            [],
+            ['restaurants:backfill-websites --limit=400' => 240],
+        );
+
+        $this->assertSame([], array_keys($detected['hung']));
+    }
+
+    public function test_hung_grace_period_flagged_once_own_expiry_budget_elapses(): void
+    {
+        // Same command/timestamps as above, but with a mutex TTL shorter than
+        // the elapsed time (195 minutes) — a genuine hang past its own budget.
+        $aggregates = [
+            'restaurants:backfill-websites --limit=400' => $this->aggregate(
+                structured_started: 1,
+                started_ats: ['2026-08-19T11:45:00+00:00'],
+            ),
+        ];
+
+        $detected = $this->detector->detect(
+            $aggregates,
+            ['restaurants:backfill-websites --limit=400' => '45 11 * * *'],
+            15,
+            1,
+            $this->now,
+            [],
+            ['restaurants:backfill-websites --limit=400' => 60],
+        );
+
+        $this->assertSame(['restaurants:backfill-websites --limit=400'], array_keys($detected['hung']));
+    }
+
     public function test_over_fired_still_detected(): void
     {
         // daily command fired 3x in a window with 2 daily slots → over-fired.

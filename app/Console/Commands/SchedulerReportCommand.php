@@ -35,6 +35,7 @@ class SchedulerReportCommand extends Command
         $now = now();
         $aggregates = $report->aggregate($days);
         $registered = $this->registeredCommands();
+        $expiryMinutes = $this->registeredExpiryMinutes();
 
         $hasProblem = false;
 
@@ -96,7 +97,7 @@ class SchedulerReportCommand extends Command
             );
         }
 
-        $problems = $detector->detect($aggregates, $registered, $tolerance, $days, $now);
+        $problems = $detector->detect($aggregates, $registered, $tolerance, $days, $now, expiryMinutes: $expiryMinutes);
         $hasProblem = $problems['has_problem'];
         $neverFired = $problems['never_fired'];
         $withFailures = $problems['failed'];
@@ -269,6 +270,23 @@ class SchedulerReportCommand extends Command
                 (string) preg_replace('/^\S+\s+\S+\s+/', '', $event->command ?? '') => $event->getExpression(),
             ])
             ->sortKeys()
+            ->all();
+    }
+
+    /**
+     * @return array<string, int> Bare artisan command + args => its own
+     *                            withoutOverlapping() mutex TTL in minutes,
+     *                            used as the hung-check grace period.
+     */
+    private function registeredExpiryMinutes(): array
+    {
+        /** @var Schedule $schedule */
+        $schedule = app(Schedule::class);
+
+        return collect($schedule->events())
+            ->mapWithKeys(fn ($event) => [
+                (string) preg_replace('/^\S+\s+\S+\s+/', '', $event->command ?? '') => (int) $event->expiresAt,
+            ])
             ->all();
     }
 

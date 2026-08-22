@@ -147,6 +147,32 @@ class SchedulerManifestTest extends TestCase
         );
     }
 
+    public function test_only_the_two_monitoring_commands_run_during_maintenance_mode(): void
+    {
+        // uptime:canary and scheduler:health are read-only/log-based, so they opt
+        // into evenInMaintenanceMode() — otherwise every deploy's artisan down/up
+        // window silently skips their tick, producing false never_fired/off_schedule
+        // alerts. Every other (write-capable) command must keep skipping during
+        // maintenance — running mid-migration risks real data issues.
+        /** @var Schedule $schedule */
+        $schedule = app(Schedule::class);
+
+        $runsDuringMaintenance = ['uptime:canary', 'scheduler:health'];
+
+        foreach ($schedule->events() as $event) {
+            $command = $this->commandName($event->command);
+            $expected = in_array($command, $runsDuringMaintenance, true);
+
+            $this->assertSame(
+                $expected,
+                $event->runsInMaintenanceMode(),
+                $expected
+                    ? "event [{$command}] must keep evenInMaintenanceMode() enabled"
+                    : "event [{$command}] must NOT run during maintenance mode (it writes data)"
+            );
+        }
+    }
+
     public function test_every_scheduled_command_resolves_to_a_registered_artisan_command(): void
     {
         // A scheduled command referencing a command class that was renamed or

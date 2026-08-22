@@ -33,10 +33,15 @@ Schedule::command('apicache:gc')
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 
 // Schedule uptime canary (runs every 15 minutes)
+// Runs even during deploy maintenance windows: it's read-only/log-based (no
+// DB writes, no migration-sensitive state), and a health check that goes
+// dark for every deploy window is exactly when you'd most want a live
+// signal (e.g. is the DB actually reachable mid-migration).
 Schedule::command('uptime:canary')
     ->everyFifteenMinutes()
     ->withoutOverlapping(5)
     ->onOneServer()
+    ->evenInMaintenanceMode()
     ->description('Check application health and uptime')
     ->onFailure(function () {
         Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'uptime:canary']);
@@ -231,10 +236,14 @@ Schedule::command('restaurants:verify-websites --limit=200')
 // the 13:45 photo backfill — completes). Reads scheduler telemetry and emails
 // the configured operator addresses when any command never fired, failed, hung,
 // ran off-schedule, stopped firing, or over-fired in the last day. Read-only.
+// Runs even during deploy maintenance windows for the same reason as
+// uptime:canary above: it's read-only/log-based, and a deploy blackout is
+// exactly when it should still be able to alert on what it sees.
 Schedule::command('scheduler:health')
     ->dailyAt('15:00')
     ->withoutOverlapping(30)
     ->onOneServer()
+    ->evenInMaintenanceMode()
     ->description('Alert operators when any scheduled command has a problem')
     ->onFailure(function () {
         Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'scheduler:health']);

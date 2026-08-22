@@ -58,7 +58,9 @@ class UptimeCanaryCommandTest extends TestCase
 
         /** @var PendingCommand $command */
         $command = $this->artisan('uptime:canary');
-        $command->assertFailed()
+        // "degraded" no longer fails the run (only "critical" does) — a soft
+        // condition like this shouldn't pollute scheduler-health telemetry.
+        $command->assertSuccessful()
             ->expectsOutputToContain('no social links found');
         $command->run();
     }
@@ -83,7 +85,7 @@ class UptimeCanaryCommandTest extends TestCase
 
         /** @var PendingCommand $command */
         $command = $this->artisan('uptime:canary');
-        $command->assertFailed()
+        $command->assertSuccessful()
             ->expectsOutputToContain('not run in');
         $command->run();
     }
@@ -118,7 +120,7 @@ class UptimeCanaryCommandTest extends TestCase
 
         /** @var PendingCommand $command */
         $command = $this->artisan('uptime:canary');
-        $command->assertFailed()
+        $command->assertSuccessful()
             ->expectsOutputToContain('exhausted');
         $command->run();
     }
@@ -154,7 +156,7 @@ class UptimeCanaryCommandTest extends TestCase
 
         /** @var PendingCommand $command */
         $command = $this->artisan('uptime:canary');
-        $command->assertFailed()
+        $command->assertSuccessful()
             ->expectsOutputToContain('near limit');
         $command->run();
     }

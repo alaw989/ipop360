@@ -26,6 +26,14 @@ final class SchedulerProblemDetector
      *                                         command (scheduler:health) flags
      *                                         itself because its own completion
      *                                         is recorded only after it returns.
+     * @param  array<string, int>  $expiryMinutes  bare command => its own
+     *                                             withoutOverlapping() mutex
+     *                                             TTL in minutes. Used as the
+     *                                             hung-check grace period: a
+     *                                             command that's still within
+     *                                             its own declared runtime
+     *                                             budget is legitimately
+     *                                             still running, not hung.
      * @return array{
      *     has_problem: bool,
      *     flagged: list<string>,
@@ -38,7 +46,7 @@ final class SchedulerProblemDetector
      *     over_fired: array<string, array{fires:int, expected:int}>,
      * }
      */
-    public function detect(array $aggregates, array $registered, int $tolerance, int $days, \DateTimeInterface $now, array $excludeFromHung = []): array
+    public function detect(array $aggregates, array $registered, int $tolerance, int $days, \DateTimeInterface $now, array $excludeFromHung = [], array $expiryMinutes = []): array
     {
         $neverFired = array_values(array_filter(
             array_keys($registered),
@@ -59,9 +67,31 @@ final class SchedulerProblemDetector
         // completions would false-flag every command once telemetry is live on
         // top of raw history. Compare structured starts against (attributable)
         // completions + failures only.
+        //
+        // A dangling start isn't necessarily hung — it may simply still be
+        // running. Only flag it once its own declared withoutOverlapping()
+        // mutex would have expired (its real worst-case runtime budget);
+        // before that it's indistinguishable from a healthy long run. E.g.
+        // restaurants:backfill-websites fires at 11:45 with a 240-minute
+        // mutex (worst case 15:45); scheduler:health checks at 15:00 — a run
+        // still inside its own budget at check time is not a problem.
         $hung = array_filter(
             array_diff_key($aggregates, array_fill_keys($excludeFromHung, true)),
-            fn (array $agg) => $agg['structured_started'] > ($agg['completed'] + $agg['failed']),
+            function (array $agg, string $command) use ($expiryMinutes, $now) {
+                if ($agg['structured_started'] <= ($agg['completed'] + $agg['failed'])) {
+                    return false;
+                }
+
+                $last = $agg['last_started_at'] ?? null;
+                if ($last === null) {
+                    return true;
+                }
+
+                $expiry = $expiryMinutes[$command] ?? 0;
+
+                return Carbon::parse($last)->diffInMinutes($now, false) > $expiry;
+            },
+            ARRAY_FILTER_USE_BOTH,
         );
 
         $offSchedule = [];
