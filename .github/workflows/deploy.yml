@@ -230,6 +230,25 @@ jobs:
                  "cat >> ${{ secrets.DEPLOY_PATH }}/.env" \
             && echo 'GOOGLE_CSE keys injected into .env'
 
+      - name: Inject admin notify emails into server .env
+        # .env is rsync-excluded and server-managed. ADMIN_NOTIFY_EMAILS feeds
+        # scheduler-health alerts (SchedulerHealthCommand) and new-user-registration
+        # notifications (RegisteredUserController) — same pattern as the API-key
+        # injections above. Idempotent: sed removes any prior line first. Skipped
+        # entirely if no secret is set.
+        env:
+          ADMIN_NOTIFY_EMAILS: ${{ secrets.ADMIN_NOTIFY_EMAILS }}
+        if: ${{ env.ADMIN_NOTIFY_EMAILS != '' }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && sed -i '/^ADMIN_NOTIFY_EMAILS=/d' .env" \
+            && printf 'ADMIN_NOTIFY_EMAILS=%s\n' "$ADMIN_NOTIFY_EMAILS" \
+               | ssh -i ~/.ssh/deploy_key \
+                 ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+                 "cat >> ${{ secrets.DEPLOY_PATH }}/.env" \
+            && echo 'ADMIN_NOTIFY_EMAILS injected into .env'
+
       - name: Ensure Node 22 on droplet (for the Inertia SSR server)
         # The SSR process (spec-063) runs `node bootstrap/ssr/ssr.js`. The droplet
         # only ships php8.4, so ensure Node 22 matches the build runner.
