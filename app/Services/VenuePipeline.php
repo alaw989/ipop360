@@ -228,27 +228,45 @@ class VenuePipeline
 
         $merged = $target;
 
-        // Prefer the row that has rating data
-        $sourceHasRating = ! empty($source['yelp_rating']) || ! empty($source['google_rating']);
-        $targetHasRating = ! empty($target['yelp_rating']) || ! empty($target['google_rating']);
-
         foreach ($fields as $field) {
             $sourceValue = $source[$field] ?? null;
             $targetValue = $target[$field] ?? null;
 
-            // If target has no value, take from source
-            if ($targetValue === null && $sourceValue !== null) {
+            // If target has no usable value, take from source. "No usable
+            // value" is broader than === null: several normalizers build
+            // their output with `$raw['field'] ?? null` chains, and raw
+            // upstream APIs sometimes return the key as "" or [] instead of
+            // omitting it (e.g. BizData's raw `phone: ""`) — `??` doesn't
+            // fall through on those, so a strict null check left the source's
+            // real value stranded (spec-105). Numeric 0/false are NOT
+            // treated as blank — a literal 0 price_range or review_count is
+            // real data.
+            if ($this->isBlank($targetValue) && ! $this->isBlank($sourceValue)) {
                 $merged[$field] = $sourceValue;
-
-                continue;
             }
+        }
 
-            // If source has rating and target doesn't, prefer source's rating fields
+        // Rating families (google/yelp) are handled separately from the
+        // null-gate loop above: `google_review_count`/`yelp_review_count`
+        // default to 0 (not null) on every normalizer, so the null-gate never
+        // fires for them — a target with review_count=0 would silently keep
+        // that 0 even when the source carries a real count, which then
+        // shrinks PopularityScoreService's Bayesian quality fully to the mean
+        // (spec-094). Fixed per-family (not a single "has any rating" flag,
+        // which let an existing yelp_rating block an update to google_rating/
+        // google_review_count from a source that only has google data).
+        foreach ([
+            'google' => ['google_rating', 'google_review_count'],
+            'yelp' => ['yelp_rating', 'yelp_review_count'],
+        ] as [$ratingField, $reviewField]) {
+            $sourceHasRating = ! empty($source[$ratingField]);
+            $targetHasRating = ! empty($target[$ratingField]);
+
             if ($sourceHasRating && ! $targetHasRating) {
-                if (in_array($field, ['yelp_rating', 'google_rating', 'google_review_count', 'yelp_review_count'])) {
-                    if ($sourceValue !== null) {
-                        $merged[$field] = $sourceValue;
-                    }
+                $merged[$ratingField] = $source[$ratingField];
+
+                if (($source[$reviewField] ?? null) !== null) {
+                    $merged[$reviewField] = $source[$reviewField];
                 }
             }
         }
@@ -285,6 +303,17 @@ class VenuePipeline
         }
 
         return $merged;
+    }
+
+    /**
+     * "No usable value" for merge-fold purposes: null, empty string, or an
+     * empty array. Deliberately NOT true for 0/0.0/false — a literal numeric
+     * 0 (e.g. price_range, or a review_count in an already-active rating
+     * family) is real data, not absence (spec-105).
+     */
+    private function isBlank(mixed $value): bool
+    {
+        return $value === null || $value === '' || $value === [];
     }
 
     /**
