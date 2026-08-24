@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ExternalApiCache;
+use App\Models\SerpApiCallLog;
 use App\Services\Http\RequestSpec;
 use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -301,7 +302,7 @@ class LiveSearchService
         $freeQuota = (int) config('restaurant-finder.serpapi.free_quota', 250);
         $fraction = (float) config('restaurant-finder.serpapi.circuit_breaker_fraction', 0.8);
         $limit = $freeQuota > 0 ? (int) ceil($freeQuota * $fraction) : 0;
-        $callsLast30d = ExternalApiCache::stats()['serpapi_calls_last_30d'];
+        $callsLast30d = SerpApiCallLog::countLast30Days();
 
         if ($limit > 0 && $callsLast30d >= $limit) {
             Log::warning('SerpApi circuit breaker tripped; live fetches paused', [

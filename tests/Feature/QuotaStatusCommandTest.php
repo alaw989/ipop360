@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ExternalApiCache;
+use App\Models\SerpApiCallLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
@@ -80,8 +81,13 @@ class QuotaStatusCommandTest extends TestCase
             'expires_at' => Carbon::now()->addDays(3),
         ]);
 
-        // 12 (test entries) + 1 (expiring-soon) = 13 serpapi calls in last 30 days
-        // old-entry is outside 30 days, so not counted
+        // 12 (test entries) + 1 (expiring-soon) = 13 real SerpApi call attempts
+        // (spec-106: "Calls made" reads SerpApiCallLog, an append-only log,
+        // not the ExternalApiCache row count above).
+        for ($i = 0; $i < 13; $i++) {
+            SerpApiCallLog::record();
+        }
+
         /** @var PendingCommand $command */
         $command = $this->artisan('quota:status');
         $command->assertExitCode(0)
@@ -133,6 +139,7 @@ class QuotaStatusCommandTest extends TestCase
             'fetched_at' => Carbon::now()->subDays(5),
             'expires_at' => Carbon::now()->addDays(30),
         ]);
+        SerpApiCallLog::record();
 
         /** @var PendingCommand $command */
         $command = $this->artisan('quota:status');
@@ -249,6 +256,7 @@ class QuotaStatusCommandTest extends TestCase
                 'fetched_at' => Carbon::now()->subDays($i + 1),
                 'expires_at' => Carbon::now()->addDays(30),
             ]);
+            SerpApiCallLog::record();
         }
 
         /** @var PendingCommand $command */

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ExternalApiCache;
+use App\Models\SerpApiCallLog;
 use App\Services\SerpApiService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -85,13 +86,7 @@ class SerpApiQuotaGuardTest extends TestCase
         Config::set('restaurant-finder.serpapi.circuit_breaker_fraction', 0.5);
 
         for ($i = 0; $i < 5; $i++) {
-            ExternalApiCache::create([
-                'source' => 'serpapi',
-                'external_id' => "prior-{$i}",
-                'data' => [],
-                'fetched_at' => now()->subDay(),
-                'expires_at' => now()->addDays(30),
-            ]);
+            SerpApiCallLog::record();
         }
 
         $this->fakeSources();
@@ -111,13 +106,7 @@ class SerpApiQuotaGuardTest extends TestCase
         Config::set('restaurant-finder.serpapi.read_path_guard', false); // master kill-switch
 
         for ($i = 0; $i < 5; $i++) {
-            ExternalApiCache::create([
-                'source' => 'serpapi',
-                'external_id' => "prior-{$i}",
-                'data' => [],
-                'fetched_at' => now()->subDay(),
-                'expires_at' => now()->addDays(30),
-            ]);
+            SerpApiCallLog::record();
         }
 
         $this->fakeSources();
@@ -136,20 +125,14 @@ class SerpApiQuotaGuardTest extends TestCase
         Config::set('restaurant-finder.serpapi.circuit_breaker_fraction', 0.5);
 
         for ($i = 0; $i < 4; $i++) {
-            ExternalApiCache::create([
-                'source' => 'serpapi',
-                'external_id' => "prior-{$i}",
-                'data' => [],
-                'fetched_at' => now()->subDay(),
-                'expires_at' => now()->addDays(30),
-            ]);
+            SerpApiCallLog::record();
         }
 
         $this->fakeSources();
         $this->getJson('/api/restaurants?lat=40.75&lng=-74.05&cuisine=italian');
 
         $this->assertSame(
-            5,
+            1,
             ExternalApiCache::where('source', 'serpapi')->count(),
             'below the threshold the live fetch proceeds and caches'
         );
@@ -172,7 +155,7 @@ class SerpApiQuotaGuardTest extends TestCase
         // which writes an empty row under a DIFFERENT key than the live search.
         Http::fake(['serpapi.com/*' => Http::response(['error' => 'boom'], 500)]);
         $this->assertNull(app(SerpApiService::class)->fetchRaw(30.69, -88.04, 'vietnamese'));
-        $this->assertSame(1, ExternalApiCache::stats()['serpapi_calls_last_30d']);
+        $this->assertSame(1, SerpApiCallLog::countLast30Days(), 'the failed call must be recorded in the true call-attempt log the breaker reads');
 
         // Live search at a cache-cold location must now skip SerpApi entirely.
         $this->fakeSources();

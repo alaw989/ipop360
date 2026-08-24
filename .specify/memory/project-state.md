@@ -34,6 +34,18 @@
 **Current floor (as of 2026-08-15):** 812 PHPUnit + 1056 vitest; PHPStan level 8 zero baseline;
 pint clean; CI enforces coverage + PHP 8.4; CI + deploy green.
 
+## 2026-08-24 — spec-106 (SerpApi call count undercounts real quota usage)
+
+User-reported live bug (not a backlog goal): admin dashboard showed a
+provider-confirmed "SerpApi exhausted" badge alongside a usage box claiming
+58% used, 105 remaining. Root cause + fix on branch
+`feat/serpapi-call-log-quota-fix` (off `master`, not `feat/venue-shape-merge-fold`
+which is unrelated spec-105 work): see `specs/106-…md` and the `history.md`
+entry. New `SerpApiCallLog` model is now the source of truth for SerpApi
+quota decisions (circuit breaker, enrichment budget, dashboard, uptime
+canary, quota:status) — `ExternalApiCache::stats()['serpapi_calls_last_30d']`
+is a cache-inventory stat only, do not use it for quota logic again.
+
 ## In-flight work (check before starting anything new)
 
 As of 2026-08-22 the working tree has **uncommitted** work on branch

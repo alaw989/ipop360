@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BlogPost;
 use App\Models\Cuisine;
-use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
+use App\Models\SerpApiCallLog;
 use App\Models\User;
 use App\Services\SerpApiService;
 use Illuminate\Support\Facades\DB;
@@ -18,22 +18,22 @@ class DashboardController extends Controller
     public function __invoke(): Response
     {
         // SerpApi quota
-        $stats = ExternalApiCache::stats();
         $freeQuota = (int) config('restaurant-finder.serpapi.free_quota', 250);
         $circuitBreakerThreshold = (int) ceil($freeQuota * (float) config('restaurant-finder.serpapi.circuit_breaker_fraction', 0.8));
         $enrichBudget = (int) config('restaurant-finder.enrich.monthly_budget', 150);
-        $serpapiCalls = $stats['serpapi_calls_last_30d'];
+        $serpapiCalls = SerpApiCallLog::countLast30Days();
+        $serpapiExhausted = app(SerpApiService::class)->isProviderExhausted();
 
         $serpapiQuota = [
             'calls_used' => $serpapiCalls,
             'free_quota' => $freeQuota,
-            'remaining' => max(0, $freeQuota - $serpapiCalls),
-            'pct_used' => $freeQuota > 0 ? round(($serpapiCalls / $freeQuota) * 100) : 0,
+            'remaining' => $serpapiExhausted ? 0 : max(0, $freeQuota - $serpapiCalls),
+            'pct_used' => $serpapiExhausted ? 100 : ($freeQuota > 0 ? round(($serpapiCalls / $freeQuota) * 100) : 0),
             'circuit_breaker_threshold' => $circuitBreakerThreshold,
-            'circuit_breaker_tripped' => $serpapiCalls >= $circuitBreakerThreshold,
+            'circuit_breaker_tripped' => $serpapiExhausted || $serpapiCalls >= $circuitBreakerThreshold,
             'enrich_budget' => $enrichBudget,
-            'enrich_budget_exhausted' => $serpapiCalls >= $enrichBudget,
-            'serpapi_exhausted' => app(SerpApiService::class)->isProviderExhausted(),
+            'enrich_budget_exhausted' => $serpapiExhausted || $serpapiCalls >= $enrichBudget,
+            'serpapi_exhausted' => $serpapiExhausted,
         ];
 
         // Entity counts

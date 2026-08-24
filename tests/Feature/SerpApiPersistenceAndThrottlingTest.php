@@ -6,6 +6,7 @@ use App\Models\Cuisine;
 use App\Models\CuisineCategory;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
+use App\Models\SerpApiCallLog;
 use App\Services\RestaurantEnrichmentService;
 use App\Services\SerpApiService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -316,14 +317,10 @@ class SerpApiPersistenceAndThrottlingTest extends TestCase
             'slug' => 'italian',
         ]);
 
-        // Pre-populate cache with 1 entry to simulate monthly budget reached
-        ExternalApiCache::create([
-            'source' => 'serpapi',
-            'external_id' => 'serpapi:existing-entry',
-            'data' => [],
-            'fetched_at' => now()->subDays(15), // Within 30-day window
-            'expires_at' => now()->addDays(15),
-        ]);
+        // Pre-populate the real call-attempt log with 1 entry to simulate
+        // monthly budget reached (spec-106: quota decisions read
+        // SerpApiCallLog, not ExternalApiCache's cache-row-dedup count).
+        SerpApiCallLog::record();
 
         Http::fake([
             'bizdata-web.vercel.app/*' => Http::response(['businesses' => []], 200),

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
+use App\Models\SerpApiCallLog;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -109,13 +110,7 @@ class UptimeCanaryCommandTest extends TestCase
         ]);
 
         for ($i = 0; $i < 3; $i++) {
-            ExternalApiCache::create([
-                'source' => 'serpapi',
-                'external_id' => "serp-{$i}",
-                'data' => ['name' => "Entry {$i}"],
-                'fetched_at' => now()->subDays(2),
-                'expires_at' => now()->addDays(28),
-            ]);
+            SerpApiCallLog::record();
         }
 
         /** @var PendingCommand $command */
@@ -145,13 +140,7 @@ class UptimeCanaryCommandTest extends TestCase
         ]);
 
         for ($i = 0; $i < 7; $i++) {
-            ExternalApiCache::create([
-                'source' => 'serpapi',
-                'external_id' => "serp-{$i}",
-                'data' => ['name' => "Entry {$i}"],
-                'fetched_at' => now()->subDays(2),
-                'expires_at' => now()->addDays(28),
-            ]);
+            SerpApiCallLog::record();
         }
 
         /** @var PendingCommand $command */

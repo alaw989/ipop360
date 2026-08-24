@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ExternalApiCache;
+use App\Models\SerpApiCallLog;
 use App\Services\SerpApiService;
 use GuzzleHttp\Psr7\Response as PsrResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -102,6 +103,7 @@ class SerpApiExhaustionTest extends TestCase
         $this->assertSame([], $result);
         $this->assertSame(1, ExternalApiCache::where('source', 'serpapi')->count());
         $this->assertSame(1, ExternalApiCache::stats()['serpapi_calls_last_30d']);
+        $this->assertSame(1, SerpApiCallLog::countLast30Days());
     }
 
     /**
@@ -123,6 +125,7 @@ class SerpApiExhaustionTest extends TestCase
 
         $this->assertSame([], $result);
         $this->assertSame(1, ExternalApiCache::where('source', 'serpapi')->count());
+        $this->assertSame(1, SerpApiCallLog::countLast30Days());
     }
 
     /**
@@ -152,6 +155,7 @@ class SerpApiExhaustionTest extends TestCase
 
         $this->assertNull($service->fetchRaw(27.95, -82.45, 'vietnamese'));
         $this->assertSame(1, ExternalApiCache::where('source', 'serpapi')->count());
+        $this->assertSame(1, SerpApiCallLog::countLast30Days());
     }
 
     /**
@@ -177,6 +181,7 @@ class SerpApiExhaustionTest extends TestCase
         $this->assertSame([], $service->search(27.95, -82.45, 'vietnamese'));
 
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'serpapi.com'));
+        $this->assertSame(0, SerpApiCallLog::countLast30Days(), 'a suppressed (never-fired) call must not be logged as a real attempt');
     }
 
     public function test_fetch_raw_does_not_fire_live_call_when_provider_exhausted(): void
@@ -195,6 +200,62 @@ class SerpApiExhaustionTest extends TestCase
         $this->assertNull($service->fetchRaw(27.95, -82.45, 'vietnamese'));
 
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'serpapi.com'));
+        $this->assertSame(0, SerpApiCallLog::countLast30Days(), 'a suppressed (never-fired) call must not be logged as a real attempt');
+    }
+
+    /**
+     * search() (the direct-call, non-pool path) must also log every real
+     * outbound attempt, success or failure — this is the counter the
+     * dashboard and circuit breaker now read instead of the cache-row proxy.
+     */
+    public function test_search_records_a_call_attempt_on_success(): void
+    {
+        $service = $this->serviceWithKey();
+        Http::fake([
+            'serpapi.com/*' => Http::response(['local_results' => [
+                ['title' => 'Guard Test Pizzeria'],
+            ]], 200),
+        ]);
+
+        $service->search(27.95, -82.45, 'vietnamese');
+
+        $this->assertSame(1, SerpApiCallLog::countLast30Days());
+    }
+
+    /**
+     * spec-106: ExternalApiCache::stats()['serpapi_calls_last_30d'] counts
+     * DISTINCT cache rows (an upsert-by-key store), not real call attempts —
+     * so repeat calls against the SAME key (e.g. a failed/empty result
+     * retried after its short TTL expires) stay invisible to it forever.
+     * SerpApiCallLog is append-only and must count every real attempt.
+     */
+    public function test_repeated_calls_against_same_key_are_undercounted_by_cache_rows_but_not_by_call_log(): void
+    {
+        $service = $this->serviceWithKey();
+        $cacheKey = $service->cacheKeyFor(27.95, -82.45, 'vietnamese');
+
+        Http::fake(['serpapi.com/*' => Http::response(['error' => 'boom'], 500)]);
+
+        // Three real outbound attempts against the identical cache key,
+        // simulating retries after each empty-row TTL (2h) expires — travel
+        // forward between calls so findByKey() doesn't just serve the still-
+        // fresh cached empty result instead of firing again.
+        $service->fetchRaw(27.95, -82.45, 'vietnamese');
+        $this->travel(3)->hours();
+        $service->fetchRaw(27.95, -82.45, 'vietnamese');
+        $this->travel(3)->hours();
+        $service->fetchRaw(27.95, -82.45, 'vietnamese');
+
+        $this->assertSame(
+            1,
+            ExternalApiCache::where('external_id', $cacheKey)->count(),
+            'the old proxy metric collapses all 3 real calls into one upserted row'
+        );
+        $this->assertSame(
+            3,
+            SerpApiCallLog::countLast30Days(),
+            'the true call-attempt log must count all 3 real calls'
+        );
     }
 
     /**

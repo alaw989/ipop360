@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\ExternalApiCache;
+use App\Models\SerpApiCallLog;
 use App\Services\SerpApiService;
 use Illuminate\Console\Command;
 
@@ -31,7 +32,7 @@ class QuotaStatusCommand extends Command
         // Quota figures
         $freeQuota = config('restaurant-finder.serpapi.free_quota', 250);
         $monthlyBudget = config('restaurant-finder.enrich.monthly_budget', 40);
-        $burned = $stats['serpapi_calls_last_30d'];
+        $burned = SerpApiCallLog::countLast30Days();
         $remainingFromQuota = max(0, $freeQuota - $burned);
         $remainingFromBudget = max(0, $monthlyBudget - $burned);
 
@@ -58,7 +59,6 @@ class QuotaStatusCommand extends Command
         if ($providerExhausted) {
             $this->warn('  Provider status: EXHAUSTED — the SerpApi account reports "out of searches".');
             $this->warn('  Live fetches are paused; free sources (BizData/Overpass/Socrata) still serve.');
-            $this->warn('  The cache-store tracker undercounts actual usage; re-enable once the account is topped up.');
         } else {
             $this->line('  Provider status: available (no exhaustion flag set).');
         }
