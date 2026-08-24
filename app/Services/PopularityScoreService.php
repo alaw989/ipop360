@@ -38,6 +38,11 @@ class PopularityScoreService
         'pageviews_count' => 0.10,
         'social_link_clicks_count' => 0.05,
         'menu_click_count' => 0.05,
+        // Tracked live by EngagementController + nightly restaurants:update-engagement
+        // alongside the other engagement counters; added to scoring here (were
+        // previously omitted with no documented reason).
+        'directions_clicks_count' => 0.05,
+        'call_clicks_count' => 0.05,
     ];
 
     /**
@@ -59,6 +64,8 @@ class PopularityScoreService
         'pageviews_count' => 'log_count',
         'social_link_clicks_count' => 'log_count',
         'menu_click_count' => 'log_count',
+        'directions_clicks_count' => 'log_count',
+        'call_clicks_count' => 'log_count',
     ];
 
     /**

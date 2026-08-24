@@ -33,6 +33,7 @@ class SchedulerManifestTest extends TestCase
         'restaurants:backfill-photos --verify --apply --limit=200' => '30 12 * * 3',
         'restaurants:scrape-social --limit=400' => '45 10 * * *',
         'restaurants:scrape-social --force --limit=1500' => '0 12 * * 6',
+        'restaurants:reverify-social-links' => '30 10 * * 0',
         'restaurants:refresh-awards' => '30 11 * * 0',
         'restaurants:update-engagement' => '30 0 * * *',
         'restaurants:data-hygiene --apply --limit=200' => '0 1 * * *',
@@ -59,7 +60,7 @@ class SchedulerManifestTest extends TestCase
         $this->assertSame(
             $expected,
             $scheduled,
-            'the scheduler manifest must contain exactly these 17 commands — add/remove a '
+            'the scheduler manifest must contain exactly these 19 commands — add/remove a '
             .'route in routes/console.php AND update this map together'
         );
     }

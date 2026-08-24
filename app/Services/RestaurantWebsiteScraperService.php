@@ -43,6 +43,9 @@ class RestaurantWebsiteScraperService
     /** Timeout for HTTP requests (seconds). */
     private const REQUEST_TIMEOUT = 10;
 
+    /** Timeout for a discovered social-profile reachability check (seconds) — spec-109. */
+    private const VERIFY_TIMEOUT = 5;
+
     /** Maximum retry attempts for transient HTTP failures. */
     private const MAX_RETRIES = 3;
 
@@ -377,6 +380,58 @@ class RestaurantWebsiteScraperService
         }
 
         return $platforms;
+    }
+
+    /**
+     * Verify a discovered social profile URL is actually reachable, rather
+     * than trusting a regex match against the restaurant's own site (spec-109
+     * — extractSocialLinks captures the first pattern match verbatim with no
+     * check that the profile exists; a dead link, typo'd handle, or stale
+     * placeholder previously counted identically to a live profile). Applies
+     * the same SSRF guard used for the restaurant's own site to the
+     * discovered URL, then a short-timeout HEAD (falling back to a ranged GET
+     * for platforms that reject HEAD, e.g. Instagram). A single failure does
+     * NOT delete/reject the link — callers keep the row and record the
+     * failure so it can be retried; only `verified_at` gates scoring.
+     */
+    public function verifyProfileUrl(string $url): bool
+    {
+        if (config('restaurant-finder.website_scraper.ssrf_guard', true) && ! $this->isSafeUrl($url)) {
+            return false;
+        }
+
+        try {
+            $response = Http::timeout(self::VERIFY_TIMEOUT)
+                ->withUserAgent(self::USER_AGENT)
+                ->withOptions(['allow_redirects' => $this->redirectOptions()])
+                ->head($url);
+
+            if ($response->successful() || $response->redirect()) {
+                return true;
+            }
+
+            if ($response->status() !== 405) {
+                return false;
+            }
+        } catch (\Throwable $e) {
+            Log::debug('Social profile verification HEAD failed', ['url' => $url, 'error' => $e->getMessage()]);
+
+            return false;
+        }
+
+        try {
+            $response = Http::timeout(self::VERIFY_TIMEOUT)
+                ->withUserAgent(self::USER_AGENT)
+                ->withOptions(['allow_redirects' => $this->redirectOptions()])
+                ->withHeaders(['Range' => 'bytes=0-2047'])
+                ->get($url);
+
+            return $response->successful() || $response->redirect();
+        } catch (\Throwable $e) {
+            Log::debug('Social profile verification GET fallback failed', ['url' => $url, 'error' => $e->getMessage()]);
+
+            return false;
+        }
     }
 
     /**

@@ -61,7 +61,7 @@ class DeduplicateRestaurantsTest extends TestCase
         $keep = $this->restaurant('Dupe Test', 'Austin', 30.26, -97.74);
         $dupe = $this->restaurant('Dupe Test', 'Austin', 30.26, -97.74);
 
-        RestaurantSocialLink::create(['restaurant_id' => $dupe->id, 'platform' => 'instagram', 'url' => 'https://ig.example/dupe']);
+        RestaurantSocialLink::create(['restaurant_id' => $dupe->id, 'platform' => 'instagram', 'url' => 'https://ig.example/dupe', 'verified_at' => now()]);
 
         $this->artisan('restaurants:dedupe', ['--apply' => true]);
 
@@ -78,10 +78,10 @@ class DeduplicateRestaurantsTest extends TestCase
         $dupe = $this->restaurant('Dupe Test', 'Austin', 30.26, -97.74);
 
         // Both rows have facebook — a true duplicate platform, keep the kept row's.
-        RestaurantSocialLink::create(['restaurant_id' => $keep->id, 'platform' => 'facebook', 'url' => 'https://fb.example/keep']);
-        RestaurantSocialLink::create(['restaurant_id' => $dupe->id, 'platform' => 'facebook', 'url' => 'https://fb.example/dupe']);
+        RestaurantSocialLink::create(['restaurant_id' => $keep->id, 'platform' => 'facebook', 'url' => 'https://fb.example/keep', 'verified_at' => now()]);
+        RestaurantSocialLink::create(['restaurant_id' => $dupe->id, 'platform' => 'facebook', 'url' => 'https://fb.example/dupe', 'verified_at' => now()]);
         // Only the dupe has twitter — repointed.
-        RestaurantSocialLink::create(['restaurant_id' => $dupe->id, 'platform' => 'twitter', 'url' => 'https://tw.example/dupe']);
+        RestaurantSocialLink::create(['restaurant_id' => $dupe->id, 'platform' => 'twitter', 'url' => 'https://tw.example/dupe', 'verified_at' => now()]);
 
         $this->artisan('restaurants:dedupe', ['--apply' => true]);
 

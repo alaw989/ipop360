@@ -36,6 +36,7 @@ class SchedulerExpiryTest extends TestCase
         'restaurants:scrape-social --limit=400' => 240,
         'restaurants:scrape-social --force --limit=1500' => 360,
         'restaurants:refresh-awards' => 180,
+        'restaurants:reverify-social-links' => 60,
         'restaurants:update-engagement' => 30,
         'restaurants:data-hygiene --apply --limit=200' => 180,
         'restaurants:ai-enrich' => 180,

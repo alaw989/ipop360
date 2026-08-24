@@ -288,6 +288,14 @@ return [
             'pageviews_count' => env('RANK_WEIGHT_PAGEVIEWS', 0.10),
             'social_link_clicks_count' => env('RANK_WEIGHT_SOCIAL_LINK_CLICKS', 0.05),
             'menu_click_count' => env('RANK_WEIGHT_MENU_CLICKS', 0.05),
+            // directions_clicks_count / call_clicks_count are tracked live by
+            // EngagementController and aggregated nightly by
+            // restaurants:update-engagement alongside the other engagement
+            // counters, but were never added to the scoring weight table —
+            // an undocumented omission, not a deliberate exclusion. Weighted
+            // the same as menu_click_count/social_link_clicks_count (0.05).
+            'directions_clicks_count' => env('RANK_WEIGHT_DIRECTIONS_CLICKS', 0.05),
+            'call_clicks_count' => env('RANK_WEIGHT_CALL_CLICKS', 0.05),
         ],
 
         // spec-081: on a cuisine-scoped search, when enough confident matches
@@ -744,6 +752,19 @@ return [
     'website_scraper' => [
         'ssrf_guard' => filter_var(env('WEBSITE_SCRAPER_SSRF_GUARD', true), FILTER_VALIDATE_BOOL),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Social link verification (spec-109)
+    |--------------------------------------------------------------------------
+    | social_links_count previously counted any platform URL regex-extracted
+    | from a restaurant's own website with no check the profile was actually
+    | reachable. When true, only links with a confirmed HTTP reachability
+    | check (RestaurantWebsiteScraperService::verifyProfileUrl) count toward
+    | social_links_count. Kill-switch: set false to revert to the raw
+    | distinct-platform count if verification proves too strict/flaky.
+    */
+    'require_verified_social_links' => filter_var(env('RANK_REQUIRE_VERIFIED_SOCIAL', true), FILTER_VALIDATE_BOOL),
 
     /*
     |--------------------------------------------------------------------------

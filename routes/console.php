@@ -182,6 +182,20 @@ Schedule::command('restaurants:refresh-awards')
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 
+// Re-verify previously-checked social profile links so link rot (an account
+// deleted/renamed after initial verification) decays out of social_links_count
+// instead of counting a dead profile forever. Weekly, ahead of the Sunday
+// award backfill.
+Schedule::command('restaurants:reverify-social-links')
+    ->weeklyOn(0, '10:30')
+    ->withoutOverlapping(60)
+    ->onOneServer()
+    ->description('Re-verify previously-checked social profile links')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:reverify-social-links']);
+    })
+    ->tap(fn ($event) => SchedulerTelemetry::attach($event));
+
 // Aggregate engagement data into restaurant counters (runs at 00:30 UTC,
 // before the 02:00 scoring run, so scores reflect the freshest engagement data)
 Schedule::command('restaurants:update-engagement')

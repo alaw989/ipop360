@@ -42,8 +42,8 @@ row with no data scores **0.0**.
 | **Overpass / OSM** | free, no key | existence, location, cuisine, hours, address | coverage backfill + data-completeness |
 | **Wikidata SPARQL** | free, no key | Michelin/award records (low coverage) | `has_award` |
 | **Nominatim (OSM)** | free | geocoding | `GeolocationService` |
-| **Website social scrape** | free | instagram/facebook/tiktok/twitter/youtube links | `social_links_count` |
-| **Engagement tracking** | free | website/directions/call/pageview/menu clicks | engagement counters |
+| **Website social scrape** | free | instagram/facebook/tiktok/twitter/youtube links, HTTP-verified | `social_links_count` |
+| **Engagement tracking** | free | website/directions/call/pageview/menu/social clicks | engagement counters (all 7 now scored) |
 | Foursquare Places | basic free; **rating is premium** | name, address, phone, website, categories | parked |
 | Google Places | paid | rating, review_count, photo | optional bonus |
 | Outscraper | paid | popular-times busyness | optional bonus |
@@ -62,6 +62,7 @@ row with no data scores **0.0**.
 | `cuisine_match` | **0.50** | live scoped-search stamp | only on cuisine-scoped live search |
 | `data_completeness` | **0.05** | field coverage | **yes** (always computable) |
 | `social_link_clicks_count` / `menu_click_count` | 0.05 each | engagement | only when clicks exist (>0) |
+| `directions_clicks_count` / `call_clicks_count` | 0.05 each | engagement | only when clicks exist (>0) |
 | `popular_times_avg_busyness` | 0.0 | Outscraper (optional) | min-max, opt-in |
 | `yelp_rating` / `yelp_review_count` | 0.0 | — | removed |
 | `google_rating` / `google_review_count` | 0.0 | — | folded into `quality` |
@@ -72,9 +73,20 @@ mean instead of winning (see *Bayesian quality* below). For a rated venue with
 no engagement/social data, quality renormalizes to ~0.78. Weights need not sum
 to 1 because the active set is always renormalized (see *Redistribution*).
 
-Engagement signals total 0.40 but only activate once clicks exist. spec-104
-fixed the engagement pipeline (previously only ~5 of 6,500 rows had any), so
-this weight now has a path to fire for real traffic.
+Engagement signals total 0.50 (was 0.40) but only activate once clicks exist.
+spec-104 fixed the engagement pipeline (previously only ~5 of 6,500 rows had
+any), so this weight now has a path to fire for real traffic. As of the
+2026-08 ranking audit, live activation is still near-zero at current traffic
+(`website_clicks` ~0.1%, `pageviews` ~0.8%, `social_link_clicks`/`menu_click`
+~0.0%) — this weight block is scaffolding for future traffic growth, not
+currently load-bearing on the live corpus.
+
+`directions_clicks_count` and `call_clicks_count` are tracked live
+(`EngagementController`) and aggregated nightly
+(`restaurants:update-engagement`) exactly like the other five engagement
+counters, but were omitted from the scoring weight table with no documented
+reason — an oversight, now closed. They're weighted the same as
+`menu_click_count`/`social_link_clicks_count` (0.05 each).
 
 spec-104 rebalance (data-driven, verified on live data): `social_links_count`
 raised 0.10→0.20 so the 76% unrated cohort differentiates (spread 2× wider);
@@ -111,8 +123,9 @@ Normalization is **per-method** (`PopularityScoreService::METHODS`):
 
 - **Bayesian** → `quality` (see above).
 - **Log count** → `website_clicks_count`, `pageviews_count`, `social_links_count`,
-  `social_link_clicks_count`, `menu_click_count`: `log(1+n) / log(1+denom)`
-  where `denom = max(collection max, floor)`.
+  `social_link_clicks_count`, `menu_click_count`, `directions_clicks_count`,
+  `call_clicks_count`: `log(1+n) / log(1+denom)` where
+  `denom = max(collection max, floor)`.
 - **Inverse distance** → `proximity`: `1 / (1 + distance_km / scale_km)`
   (scale defaults to 2.0; at 2km score = 0.5, at 0 distance score = 1.0).
 - **Completeness ratio** → `data_completeness` (0–1, already normalized).
@@ -137,10 +150,39 @@ row — no dedicated column. The ten fields:
 | website_url | `website_url` | BizData / OSM / backfill |
 | photo_url | `photo_url` | BizData / Wikimedia image enrichment |
 | features | `features` | OSM tag extraction |
-| social_links_count | `social_links_count` | website social scrape |
+| social_links_count | `social_links_count` | website social scrape (verified-only) |
 
 A field counts as populated when non-null and (for strings) non-empty. A fully
 free-enriched row typically reaches 9/10 (social_links_count often 0) ≈ 0.90.
+
+## Social link verification (spec-109)
+
+Before spec-109, `social_links_count` counted any platform URL
+`extractSocialLinks` regex-matched on the restaurant's own website HTML —
+with no check the discovered profile was actually reachable. A dead link,
+typo'd handle, or stale placeholder counted identically to a live profile.
+
+Now, `ScrapeRestaurantSocialLinks`/`BackfillRestaurantWebsites` call
+`RestaurantWebsiteScraperService::verifyProfileUrl()` for each discovered URL
+(SSRF-guarded, short-timeout HEAD with a ranged-GET fallback for platforms
+that reject HEAD) and stamp `restaurant_social_links.verified_at` on success
+or `last_check_failed_at` on failure. **A failed check does not delete the
+row** — it's kept for recall/debugging; only `verified_at` gates scoring.
+`social_links_count` is recomputed via `Restaurant::countScoredSocialLinks()`,
+which counts only `verified_at IS NOT NULL` rows when
+`RANK_REQUIRE_VERIFIED_SOCIAL` (default true) is on — set it false to revert
+to the pre-spec-109 raw distinct-platform count if verification proves too
+strict/flaky in practice.
+
+A weekly `restaurants:reverify-social-links` job re-checks previously-checked
+links (oldest-checked first) so link rot decays a dead profile out of scoring
+instead of counting it forever, and gives a previously-failed link another
+chance in case of a transient failure or a since-fixed site.
+
+Tightening this signal to verified-only links is expected to reduce the
+30.7%-unrated-above-lowest-rated overlap noted below (fewer unrated venues
+will have a nonzero `social_links_count`); re-run `ranking:audit` after
+deploy to confirm.
 
 ## Redistribution
 

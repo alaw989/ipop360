@@ -130,6 +130,25 @@ class Restaurant extends Model
     }
 
     /**
+     * Count of social links that should feed social_links_count scoring —
+     * verified-only when RANK_REQUIRE_VERIFIED_SOCIAL is on (spec-109),
+     * otherwise every distinct platform row regardless of reachability
+     * (pre-spec-109 behavior, the kill-switch fallback). Callers that create/
+     * recompute rows on $this->socialLinks() should re-count via this method
+     * rather than a bare count() so the two never drift.
+     */
+    public function countScoredSocialLinks(): int
+    {
+        $query = $this->socialLinks();
+
+        if (config('restaurant-finder.require_verified_social_links', true)) {
+            $query->whereNotNull('verified_at');
+        }
+
+        return $query->count();
+    }
+
+    /**
      * @param  Builder<Restaurant>  $query
      * @return Builder<Restaurant>
      */

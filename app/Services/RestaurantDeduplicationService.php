@@ -129,8 +129,10 @@ class RestaurantDeduplicationService
             // Recompute the kept row's denormalized social counter so repointed
             // links are reflected (the scraping pipeline maintains it, but the
             // dedupe moved rows underneath it).
-            $socialCount = RestaurantSocialLink::where('restaurant_id', $keepId)->count();
-            Restaurant::where('id', $keepId)->update(['social_links_count' => $socialCount]);
+            $keptRestaurant = Restaurant::find($keepId);
+            if ($keptRestaurant !== null) {
+                $keptRestaurant->update(['social_links_count' => $keptRestaurant->countScoredSocialLinks()]);
+            }
         }
 
         Log::channel('enrichment')->info($apply ? 'Dedupe merged pair' : 'Dedupe would merge pair', [
