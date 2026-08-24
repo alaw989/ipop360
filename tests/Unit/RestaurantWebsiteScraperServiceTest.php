@@ -686,8 +686,13 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
 
     public function test_verify_profile_url_returns_true_for_a_redirect(): void
     {
+        // allow_redirects auto-follows the 301 via Guzzle, so the redirect
+        // target must be faked too — otherwise an unfaked target falls
+        // through to a REAL outbound request (flaky in CI: sometimes passes,
+        // sometimes fails/times out depending on network reachability).
         Http::fake([
             'https://instagram.com/realvenue' => Http::response('', 301, ['Location' => 'https://instagram.com/realvenue/']),
+            'https://instagram.com/realvenue/' => Http::response('', 200),
         ]);
 
         $this->assertTrue($this->service->verifyProfileUrl('https://instagram.com/realvenue'));
