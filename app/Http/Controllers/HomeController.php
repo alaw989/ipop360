@@ -7,6 +7,7 @@ use App\Models\Cuisine;
 use App\Models\CuisineCategory;
 use App\Models\Restaurant;
 use App\Services\GeolocationService;
+use App\Support\StateAbbreviations;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -52,6 +53,14 @@ class HomeController extends Controller
      */
     private function getHomepageData(?string $city, ?string $state): array
     {
+        // Geolocation sources (IP lookup, GPS reverse-geocode, city-search
+        // autocomplete) hand back full state names, but the DB's real
+        // convention is the 2-letter abbreviation — normalize once here so
+        // every query below matches actual data. Falls back to the original
+        // value when unrecognized, so junk input still behaves like a
+        // guaranteed non-match rather than becoming `where('state', null)`.
+        $state = $state ? (StateAbbreviations::toAbbreviation($state) ?? $state) : $state;
+
         $categories = $this->getScopedCategories($city, $state);
 
         $popularRestaurants = collect();
