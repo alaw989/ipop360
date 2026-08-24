@@ -124,18 +124,18 @@ class SchedulerReportTest extends TestCase
 
     public function test_command_reports_all_registered_commands_in_the_header(): void
     {
-        // The operational "confirm all 16 fire on time" workflow depends on
-        // scheduler:report LISTING every registered command in its header count
-        // ("Registered commands: 17"), even when none have telemetry yet. If the
-        // command set drifts, the count diverges from 16 and this fails. (We
-        // assert the header count rather than each table cell — the test's
-        // narrow BufferedOutput truncates long table cells, while the header is
-        // rendered whole.)
+        // The operational "confirm all commands fire on time" workflow depends
+        // on scheduler:report LISTING every registered command in its header
+        // count ("Registered commands: 18"), even when none have telemetry
+        // yet. If the command set drifts, the count diverges and this fails.
+        // (We assert the header count rather than each table cell — the
+        // test's narrow BufferedOutput truncates long table cells, while the
+        // header is rendered whole.)
         $this->app->instance(SchedulerTelemetryReport::class, new SchedulerTelemetryReport($this->dir));
 
         /** @var PendingCommand $command */
         $command = $this->artisan('scheduler:report', ['--days' => 7]);
-        $command->expectsOutputToContain('Registered commands: 17')
+        $command->expectsOutputToContain('Registered commands: 18')
             ->expectsOutputToContain('NEVER FIRED')
             ->assertSuccessful();
     }
@@ -650,7 +650,7 @@ class SchedulerReportTest extends TestCase
     public function test_command_prints_healthy_verdict_when_all_commands_fired(): void
     {
         // The item-5 workflow needs one scannable line: when every registered
-        // command is healthy, print "Verdict: all 17 registered commands healthy".
+        // command is healthy, print "Verdict: all 18 registered commands healthy".
         $this->travelTo(Carbon::parse('2026-08-17 10:00:30', 'UTC'));
 
         /** @var Schedule $schedule */
@@ -671,14 +671,14 @@ class SchedulerReportTest extends TestCase
 
         /** @var PendingCommand $command */
         $command = $this->artisan('scheduler:report', ['--days' => 7]);
-        $command->expectsOutputToContain('Verdict: all 17 registered commands healthy')
+        $command->expectsOutputToContain('Verdict: all 18 registered commands healthy')
             ->assertSuccessful();
     }
 
     public function test_command_prints_problem_verdict_with_flagged_count(): void
     {
         // When a command never fired, the verdict names the flagged count so the
-        // operator sees "15 healthy, 1 problem" at a glance.
+        // operator sees "17 healthy, 1 problem" at a glance.
         $this->travelTo(Carbon::parse('2026-08-17 10:00:30', 'UTC'));
 
         /** @var Schedule $schedule */
@@ -702,7 +702,7 @@ class SchedulerReportTest extends TestCase
 
         /** @var PendingCommand $command */
         $command = $this->artisan('scheduler:report', ['--days' => 7]);
-        $command->expectsOutputToContain('Verdict: 1 of 17 registered commands have a problem (see above); 16 healthy')
+        $command->expectsOutputToContain('Verdict: 1 of 18 registered commands have a problem (see above); 17 healthy')
             ->assertSuccessful();
     }
 
@@ -724,7 +724,7 @@ class SchedulerReportTest extends TestCase
 
         $this->assertIsArray($doc);
         $this->assertFalse($doc['healthy']);
-        $this->assertSame(17, $doc['registered_count']);
+        $this->assertSame(18, $doc['registered_count']);
         $this->assertSame(0, $doc['healthy_count']);
         $this->assertContains('restaurants:score', $doc['problems']['unfinished_runs']);
     }
@@ -770,7 +770,7 @@ class SchedulerReportTest extends TestCase
         $this->assertIsArray($doc);
         $this->assertTrue($doc['healthy']);
         $this->assertSame(0, $doc['problem_count']);
-        $this->assertSame(17, $doc['healthy_count']);
+        $this->assertSame(18, $doc['healthy_count']);
     }
 
     public function test_json_output_includes_runtime_and_drift_telemetry(): void
@@ -792,7 +792,7 @@ class SchedulerReportTest extends TestCase
 
         $this->assertIsArray($doc);
         $this->assertContains('stale:command', $doc['unregistered']);
-        $this->assertSame(17, count($doc['commands']), 'orphaned command must live in "unregistered", not "commands"');
+        $this->assertSame(18, count($doc['commands']), 'orphaned command must live in "unregistered", not "commands"');
     }
 
     public function test_json_output_reports_unregistered_telemetry_commands(): void
@@ -814,7 +814,7 @@ class SchedulerReportTest extends TestCase
 
         $this->assertIsArray($doc);
         $this->assertContains('stale:command', $doc['unregistered']);
-        $this->assertSame(17, count($doc['commands']), 'orphaned command must live in "unregistered", not "commands"');
+        $this->assertSame(18, count($doc['commands']), 'orphaned command must live in "unregistered", not "commands"');
     }
 
     public function test_json_output_includes_last_failure_output(): void

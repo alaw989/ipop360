@@ -34,17 +34,29 @@
 **Current floor (as of 2026-08-15):** 812 PHPUnit + 1056 vitest; PHPStan level 8 zero baseline;
 pint clean; CI enforces coverage + PHP 8.4; CI + deploy green.
 
-## 2026-08-24 — spec-106 (SerpApi call count undercounts real quota usage)
+## 2026-08-24 — spec-106 + spec-107 (SerpApi quota accounting + live account-status sync)
 
 User-reported live bug (not a backlog goal): admin dashboard showed a
 provider-confirmed "SerpApi exhausted" badge alongside a usage box claiming
-58% used, 105 remaining. Root cause + fix on branch
+58% used, 105 remaining. spec-106 root cause + fix on branch
 `feat/serpapi-call-log-quota-fix` (off `master`, not `feat/venue-shape-merge-fold`
 which is unrelated spec-105 work): see `specs/106-…md` and the `history.md`
 entry. New `SerpApiCallLog` model is now the source of truth for SerpApi
 quota decisions (circuit breaker, enrichment budget, dashboard, uptime
 canary, quota:status) — `ExternalApiCache::stats()['serpapi_calls_last_30d']`
 is a cache-inventory stat only, do not use it for quota logic again.
+
+Follow-up spec-107 (same session, branch `feat/serpapi-account-status-sync`):
+right after spec-106 deployed, a direct check against SerpApi's own
+`/account.json` (zero quota cost, verified live) showed the account truly
+exhausted while the fresh dashboard read 0/250 clean — because the app's
+counters are self-reported from its own call history, with no history yet.
+Added a `serpapi:sync-account-status` scheduled command (every 15 min,
+zero quota) that pulls the provider-confirmed snapshot and reconciles the
+local exhausted flag against it — see `specs/107-…md`. Also flagged
+separately (not yet acted on): the SerpApi key is committed in plaintext at
+`SHARED_TASK_NOTES.md:52` and matches the currently-active `.env` key — not
+a low-risk placeholder as an earlier memory note assumed; needs rotation.
 
 ## In-flight work (check before starting anything new)
 

@@ -25,6 +25,7 @@ class SchedulerManifestTest extends TestCase
         'restaurants:score' => '0 2 * * *',
         'apicache:gc' => '0 3 * * *',
         'uptime:canary' => '*/15 * * * *',
+        'serpapi:sync-account-status' => '*/15 * * * *',
         'restaurants:enrich --throttled' => '0 4 * * *',
         'seo:sitemap' => '15 10 * * *',
         'restaurants:backfill-websites --limit=400' => '45 11 * * *',

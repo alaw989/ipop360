@@ -23,6 +23,15 @@ defineProps<{
         enrich_budget: number;
         enrich_budget_exhausted: boolean;
         serpapi_exhausted: boolean;
+        live_account: {
+            total_searches_left: number | null;
+            searches_per_month: number | null;
+            this_month_usage: number | null;
+            account_status: string | null;
+            plan_name: string | null;
+            plan_renewal_date: string | null;
+            synced_at: string;
+        } | null;
     };
     scrapeHealth: {
         last_social_scrape: string | null;
@@ -53,6 +62,15 @@ function quotaColor(pct: number): string {
     if (pct >= 90) return 'text-red-600 dark:text-red-400';
     if (pct >= 70) return 'text-amber-600 dark:text-amber-400';
     return 'text-emerald-600 dark:text-emerald-400';
+}
+
+function syncedAgo(isoTimestamp: string): string {
+    const minutes = Math.max(0, Math.round((Date.now() - new Date(isoTimestamp).getTime()) / 60000));
+    if (minutes < 1) return 'just now';
+    if (minutes === 1) return '1 minute ago';
+    if (minutes < 60) return `${minutes} minutes ago`;
+    const hours = Math.round(minutes / 60);
+    return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
 }
 
 function pctColor(pct: number): string {
@@ -155,6 +173,27 @@ function gapBadgeVariant(gap: string): 'default' | 'secondary' | 'destructive' |
                 <!-- SerpApi Quota -->
                 <div class="mb-8">
                     <h3 class="mb-4 text-lg font-semibold text-gray-900">SerpApi Quota</h3>
+
+                    <Card class="mb-4">
+                        <CardHeader class="pb-2">
+                            <CardTitle class="text-sm font-medium text-muted-foreground">SerpApi Account (live, provider-confirmed)</CardTitle>
+                        </CardHeader>
+                        <CardContent v-if="serpapiQuota.live_account">
+                            <div class="text-2xl font-bold">
+                                {{ serpapiQuota.live_account.total_searches_left ?? '?' }} / {{ serpapiQuota.live_account.searches_per_month ?? '?' }} left
+                            </div>
+                            <p class="mt-1 text-xs text-muted-foreground">
+                                {{ serpapiQuota.live_account.account_status ?? 'Status unknown' }}
+                                <span v-if="serpapiQuota.live_account.plan_renewal_date"> · renews {{ serpapiQuota.live_account.plan_renewal_date }}</span>
+                            </p>
+                            <p class="mt-1 text-xs text-muted-foreground">
+                                Synced {{ syncedAgo(serpapiQuota.live_account.synced_at) }}
+                            </p>
+                        </CardContent>
+                        <CardContent v-else>
+                            <p class="text-sm text-muted-foreground">Not yet synced — runs every 15 minutes.</p>
+                        </CardContent>
+                    </Card>
 
                     <Card v-if="serpapiQuota.serpapi_exhausted" class="mb-4 border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950">
                         <CardContent class="flex items-center gap-2 py-4">

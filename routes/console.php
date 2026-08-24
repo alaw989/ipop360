@@ -48,6 +48,20 @@ Schedule::command('uptime:canary')
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 
+// Sync SerpApi's own /account.json into the local exhausted-flag + dashboard
+// snapshot (spec-107). Zero quota cost (account-info call, not /search) — 15
+// min keeps the flag/display fresh well within the old blind 24h self-heal
+// window it supersedes.
+Schedule::command('serpapi:sync-account-status')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(5)
+    ->onOneServer()
+    ->description('Sync SerpApi account status from the provider (zero quota cost)')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'serpapi:sync-account-status']);
+    })
+    ->tap(fn ($event) => SchedulerTelemetry::attach($event));
+
 // Schedule throttled DB enrichment (runs daily at 4 AM UTC)
 // Uses --throttled flag for quota protection, rotates through city×cuisine combos
 // Mutex expiry 360m covers the full ~5h35m run: even a hard-crashed run releases
