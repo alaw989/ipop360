@@ -952,14 +952,18 @@ class BackfillRestaurantWebsites extends Command
 
                     if ($links !== null) {
                         RestaurantSocialLink::where('restaurant_id', $restaurant->id)->delete();
+                        $now = now();
                         foreach ($links as $platform => $url) {
+                            $verified = $scraper->verifyProfileUrl($url);
                             RestaurantSocialLink::create([
                                 'restaurant_id' => $restaurant->id,
                                 'platform' => $platform,
                                 'url' => $url,
+                                'verified_at' => $verified ? $now : null,
+                                'last_check_failed_at' => $verified ? null : $now,
                             ]);
                         }
-                        $restaurant->update(['social_links_count' => count($links)]);
+                        $restaurant->update(['social_links_count' => $restaurant->countScoredSocialLinks()]);
                     }
                 } catch (\Throwable $e) {
                     Log::channel('enrichment')->warning('Social scrape failed during website backfill', [

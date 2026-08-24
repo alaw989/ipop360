@@ -70,15 +70,19 @@ class ScrapeRestaurantSocialLinks extends Command
                         $restaurant->socialLinks()->delete();
 
                         $platforms = [];
+                        $now = now();
                         foreach ($links as $platform => $url) {
+                            $verified = $scraper->verifyProfileUrl($url);
                             $restaurant->socialLinks()->create([
                                 'platform' => $platform,
                                 'url' => $url,
+                                'verified_at' => $verified ? $now : null,
+                                'last_check_failed_at' => $verified ? null : $now,
                             ]);
-                            $platforms[] = $platform;
+                            $platforms[] = $platform.($verified ? '' : ':unverified');
                         }
 
-                        $restaurant->update(['social_links_count' => count($links)]);
+                        $restaurant->update(['social_links_count' => $restaurant->countScoredSocialLinks()]);
                         $scraped++;
 
                         $scrapedRestaurants[] = [

@@ -36,6 +36,8 @@ class RankingWeightsConfigTest extends TestCase
             'pageviews_count' => 0.10,
             'social_link_clicks_count' => 0.05,
             'menu_click_count' => 0.05,
+            'directions_clicks_count' => 0.05,
+            'call_clicks_count' => 0.05,
         ];
     }
 
@@ -56,6 +58,8 @@ class RankingWeightsConfigTest extends TestCase
             'RANK_WEIGHT_PAGEVIEWS',
             'RANK_WEIGHT_SOCIAL_LINK_CLICKS',
             'RANK_WEIGHT_MENU_CLICKS',
+            'RANK_WEIGHT_DIRECTIONS_CLICKS',
+            'RANK_WEIGHT_CALL_CLICKS',
         ];
     }
 

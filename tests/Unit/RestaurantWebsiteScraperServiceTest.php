@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\RestaurantWebsiteScraperService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
@@ -672,5 +673,61 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
         $this->assertNotNull($result);
         $this->assertArrayHasKey('facebook', $result);
         $this->assertEquals('https://www.facebook.com/RealPage', $result['facebook']);
+    }
+
+    public function test_verify_profile_url_returns_true_for_a_reachable_url(): void
+    {
+        Http::fake([
+            'https://instagram.com/realvenue' => Http::response('', 200),
+        ]);
+
+        $this->assertTrue($this->service->verifyProfileUrl('https://instagram.com/realvenue'));
+    }
+
+    public function test_verify_profile_url_returns_true_for_a_redirect(): void
+    {
+        Http::fake([
+            'https://instagram.com/realvenue' => Http::response('', 301, ['Location' => 'https://instagram.com/realvenue/']),
+        ]);
+
+        $this->assertTrue($this->service->verifyProfileUrl('https://instagram.com/realvenue'));
+    }
+
+    public function test_verify_profile_url_returns_false_for_a_dead_link(): void
+    {
+        Http::fake([
+            'https://instagram.com/deadhandle' => Http::response('', 404),
+        ]);
+
+        $this->assertFalse($this->service->verifyProfileUrl('https://instagram.com/deadhandle'));
+    }
+
+    public function test_verify_profile_url_falls_back_to_ranged_get_when_head_is_disallowed(): void
+    {
+        Http::fake(function ($request) {
+            if ($request->method() === 'HEAD') {
+                return Http::response('', 405);
+            }
+
+            return Http::response('<html>profile page</html>', 200);
+        });
+
+        $this->assertTrue($this->service->verifyProfileUrl('https://instagram.com/realvenue'));
+    }
+
+    public function test_verify_profile_url_returns_false_on_connection_failure(): void
+    {
+        Http::fake([
+            'https://instagram.com/*' => fn () => throw new ConnectionException('timed out'),
+        ]);
+
+        $this->assertFalse($this->service->verifyProfileUrl('https://instagram.com/realvenue'));
+    }
+
+    public function test_verify_profile_url_returns_false_when_ssrf_guard_blocks_the_url(): void
+    {
+        Config::set('restaurant-finder.website_scraper.ssrf_guard', true);
+
+        $this->assertFalse($this->service->verifyProfileUrl('http://127.0.0.1/social'));
     }
 }

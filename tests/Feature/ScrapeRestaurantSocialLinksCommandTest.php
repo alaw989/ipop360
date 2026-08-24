@@ -19,6 +19,7 @@ class ScrapeRestaurantSocialLinksCommandTest extends TestCase
     {
         $mock = $this->createMock(RestaurantWebsiteScraperService::class);
         $mock->method('scrapeSocial')->willReturn($returnValue);
+        $mock->method('verifyProfileUrl')->willReturn(true);
 
         return $mock;
     }
@@ -313,5 +314,81 @@ class ScrapeRestaurantSocialLinksCommandTest extends TestCase
         $command->run();
 
         $this->assertDatabaseCount('restaurant_social_links', 2);
+    }
+
+    public function test_stamps_verified_at_for_reachable_links_and_stores_row(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'is_active' => true,
+            'website_url' => 'https://example.com',
+            'social_links_count' => 0,
+        ]);
+
+        $scraperMock = $this->makeScraperMock(['instagram' => 'https://instagram.com/venue']);
+        $this->app->instance(RestaurantWebsiteScraperService::class, $scraperMock);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:scrape-social');
+        $command->assertSuccessful()->run();
+
+        $restaurant->refresh();
+        $this->assertSame(1, $restaurant->social_links_count);
+        $link = RestaurantSocialLink::where('restaurant_id', $restaurant->id)->firstOrFail();
+        $this->assertNotNull($link->verified_at);
+        $this->assertNull($link->last_check_failed_at);
+    }
+
+    public function test_unreachable_link_is_stored_but_excluded_from_social_links_count(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'is_active' => true,
+            'website_url' => 'https://example.com',
+            'social_links_count' => 0,
+        ]);
+
+        $mock = $this->createMock(RestaurantWebsiteScraperService::class);
+        $mock->method('scrapeSocial')->willReturn([
+            'instagram' => 'https://instagram.com/dead-handle',
+        ]);
+        $mock->method('verifyProfileUrl')->willReturn(false);
+        $this->app->instance(RestaurantWebsiteScraperService::class, $mock);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:scrape-social');
+        $command->assertSuccessful()->run();
+
+        $restaurant->refresh();
+        // The row is kept for recall/debugging, but an unverified link does
+        // not count toward the scored social_links_count.
+        $this->assertSame(0, $restaurant->social_links_count);
+        $this->assertDatabaseCount('restaurant_social_links', 1);
+        $link = RestaurantSocialLink::where('restaurant_id', $restaurant->id)->firstOrFail();
+        $this->assertNull($link->verified_at);
+        $this->assertNotNull($link->last_check_failed_at);
+    }
+
+    public function test_kill_switch_reverts_to_raw_count_when_verification_disabled(): void
+    {
+        config(['restaurant-finder.require_verified_social_links' => false]);
+
+        $restaurant = Restaurant::factory()->create([
+            'is_active' => true,
+            'website_url' => 'https://example.com',
+            'social_links_count' => 0,
+        ]);
+
+        $mock = $this->createMock(RestaurantWebsiteScraperService::class);
+        $mock->method('scrapeSocial')->willReturn([
+            'instagram' => 'https://instagram.com/dead-handle',
+        ]);
+        $mock->method('verifyProfileUrl')->willReturn(false);
+        $this->app->instance(RestaurantWebsiteScraperService::class, $mock);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:scrape-social');
+        $command->assertSuccessful()->run();
+
+        $restaurant->refresh();
+        $this->assertSame(1, $restaurant->social_links_count);
     }
 }
