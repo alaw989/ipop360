@@ -113,6 +113,18 @@ truth — the original spec-106 contradiction (exhausted badge vs. a clean
 usage box) cannot recur, since the sync actively drives the exhausted flag
 rather than the flag drifting independently of it.
 
+**Follow-up hardening (2026-08-24, same day):** a subsequent docs-only push
+through the full deploy pipeline revealed that `deploy.yml`'s "Migrate +
+build caches" step runs `artisan cache:clear` on every deploy, wiping the
+entire database cache store — including this spec's snapshot AND the
+`serpapi_provider_exhausted` flag. Not a correctness bug (fails safe: no
+snapshot just shows "not yet synced," never a false-healthy signal), but
+the dashboard went dark on every deploy until the next 15-minute tick.
+Fixed by running `serpapi:sync-account-status` (non-fatal) immediately
+after `cache:clear` in the same step — live-verified: after the next
+deploy the card showed fresh data (`0/250 left`, exhausted banner present)
+within ~1 minute, no 15-minute wait. See PR #135, commit `87d101a`.
+
 Original verification plan (superseded by the above, kept for reference):
 after deploy, confirm the GHA deploy succeeds, then either wait ~15 minutes
 for the first scheduled tick or manually run

@@ -58,10 +58,21 @@ merged to master (`3471d74`, `3367a86`), GHA-green, LIVE-VERIFIED**: the
 dashboard now shows the real account state (`0/250 left, "Your account has
 run out of searches.", renews 2026-09-19`) with every signal (exhausted
 banner, Usage, Circuit Breaker, Enrich Budget, Live Read Path) agreeing —
-the original contradiction cannot recur. Also flagged separately (not yet
-acted on): the SerpApi key is committed in plaintext at
-`SHARED_TASK_NOTES.md:52` and matches the currently-active `.env` key — not
-a low-risk placeholder as an earlier memory note assumed; needs rotation.
+the original contradiction cannot recur.
+
+**Follow-up hardening same day (PR #135, `87d101a`):** discovered live that
+`deploy.yml`'s "Migrate + build caches" step runs `artisan cache:clear` on
+EVERY deploy, wiping the entire database cache store — including spec-107's
+snapshot and the `serpapi_provider_exhausted` flag. Not a correctness bug
+(fails safe) but the dashboard went dark until the next 15-min scheduler
+tick on every deploy. Fixed by running `serpapi:sync-account-status`
+immediately after `cache:clear` in the same step — live-verified: the next
+deploy showed fresh data within ~1 minute, no dark window.
+
+Also flagged separately (not yet acted on): the SerpApi key is committed in
+plaintext at `SHARED_TASK_NOTES.md:52` and matches the currently-active
+`.env` key — not a low-risk placeholder as an earlier memory note assumed;
+needs rotation.
 
 ## In-flight work (check before starting anything new)
 
