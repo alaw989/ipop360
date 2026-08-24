@@ -22,7 +22,8 @@ class DashboardController extends Controller
         $circuitBreakerThreshold = (int) ceil($freeQuota * (float) config('restaurant-finder.serpapi.circuit_breaker_fraction', 0.8));
         $enrichBudget = (int) config('restaurant-finder.enrich.monthly_budget', 150);
         $serpapiCalls = SerpApiCallLog::countLast30Days();
-        $serpapiExhausted = app(SerpApiService::class)->isProviderExhausted();
+        $serpApi = app(SerpApiService::class);
+        $serpapiExhausted = $serpApi->isProviderExhausted();
 
         $serpapiQuota = [
             'calls_used' => $serpapiCalls,
@@ -34,6 +35,7 @@ class DashboardController extends Controller
             'enrich_budget' => $enrichBudget,
             'enrich_budget_exhausted' => $serpapiExhausted || $serpapiCalls >= $enrichBudget,
             'serpapi_exhausted' => $serpapiExhausted,
+            'live_account' => $serpApi->cachedAccountSnapshot(),
         ];
 
         // Entity counts

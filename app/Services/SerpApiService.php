@@ -26,6 +26,15 @@ class SerpApiService
     private const EXHAUSTED_RETRY_HOURS = 24;
 
     /**
+     * Cache key for the periodic account-status snapshot synced from
+     * SerpApi's own /account.json (spec-107) — the provider-confirmed truth,
+     * not an inference from this app's own call history.
+     */
+    private const ACCOUNT_STATUS_CACHE_KEY = 'serpapi_account_status_snapshot';
+
+    private const ACCOUNT_STATUS_CACHE_HOURS = 2;
+
+    /**
      * Zoom level for the google_maps `ll` parameter (`@lat,lng,<zoom>z`).
      * SerpApi/Google Maps controls the search area via zoom, not a metre
      * radius. 15 ≈ neighborhood/street level, appropriate for "restaurants
@@ -59,6 +68,110 @@ class SerpApiService
             now()->toDateTimeString(),
             now()->addHours(self::EXHAUSTED_RETRY_HOURS),
         );
+    }
+
+    /**
+     * Clear the provider-exhaustion flag early when a fresh account-status
+     * sync confirms searches are actually available again, instead of
+     * waiting out the blind EXHAUSTED_RETRY_HOURS timer.
+     */
+    public function clearProviderExhausted(): void
+    {
+        Cache::forget(self::EXHAUSTED_CACHE_KEY);
+    }
+
+    /**
+     * Fetch SerpApi's own account status (/account.json) — reports
+     * total_searches_left / this_month_usage / plan_renewal_date etc.
+     * directly from the provider. This is an account-info call, NOT the
+     * metered /search endpoint, so it costs zero quota. Pure fetch, no side
+     * effects; returns null on a missing key, HTTP failure, a response
+     * missing the expected fields, or a thrown exception.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function fetchAccountStatus(): ?array
+    {
+        if (empty($this->apiKey)) {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(8)->get('https://serpapi.com/account.json', [
+                'api_key' => $this->apiKey,
+            ]);
+
+            if ($response->failed()) {
+                Log::warning('SerpApi account-status fetch failed', ['status' => $response->status()]);
+
+                return null;
+            }
+
+            $data = $response->json();
+            if (! is_array($data) || ! array_key_exists('total_searches_left', $data)) {
+                Log::warning('SerpApi account-status response missing expected fields');
+
+                return null;
+            }
+
+            return $data;
+        } catch (\Throwable $e) {
+            Log::warning('SerpApi account-status fetch threw exception', ['message' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Sync the account-status snapshot from the provider and reconcile the
+     * local exhausted flag against the authoritative total_searches_left
+     * field. A fetch failure leaves the flag and cached snapshot untouched —
+     * a transient network blip must never wrongly clear a real exhaustion
+     * (or wrongly mark a healthy account dead).
+     *
+     * @return array<string, mixed>|null the synced snapshot, or null on fetch failure
+     */
+    public function syncAccountStatus(): ?array
+    {
+        $data = $this->fetchAccountStatus();
+        if ($data === null) {
+            return null;
+        }
+
+        $snapshot = [
+            'total_searches_left' => $data['total_searches_left'] ?? null,
+            'searches_per_month' => $data['searches_per_month'] ?? null,
+            'this_month_usage' => $data['this_month_usage'] ?? null,
+            'account_status' => $data['account_status'] ?? null,
+            'plan_name' => $data['plan_name'] ?? null,
+            'plan_renewal_date' => $data['plan_renewal_date'] ?? null,
+            'synced_at' => now()->toIso8601String(),
+        ];
+
+        Cache::put(self::ACCOUNT_STATUS_CACHE_KEY, $snapshot, now()->addHours(self::ACCOUNT_STATUS_CACHE_HOURS));
+
+        $searchesLeft = $data['total_searches_left'];
+        if (is_numeric($searchesLeft)) {
+            if ($searchesLeft <= 0) {
+                $this->markProviderExhausted();
+            } else {
+                $this->clearProviderExhausted();
+            }
+        }
+
+        return $snapshot;
+    }
+
+    /**
+     * Read-only accessor for the cached account-status snapshot — no live
+     * network call, so admin dashboard loads stay fast. The scheduled
+     * serpapi:sync-account-status command is the only writer.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function cachedAccountSnapshot(): ?array
+    {
+        return Cache::get(self::ACCOUNT_STATUS_CACHE_KEY);
     }
 
     /**

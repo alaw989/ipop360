@@ -27,6 +27,7 @@ class SchedulerExpiryTest extends TestCase
         'restaurants:score' => 60,
         'apicache:gc' => 30,
         'uptime:canary' => 5,
+        'serpapi:sync-account-status' => 5,
         'restaurants:enrich --throttled' => 360,
         'seo:sitemap' => 30,
         'restaurants:backfill-websites --limit=400' => 240,
