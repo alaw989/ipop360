@@ -88,6 +88,8 @@ class HomeControllerTest extends TestCase
             'city' => 'TestCity',
             'state' => 'TestState',
             'is_active' => true,
+            'photo_url' => 'https://example.com/photo.jpg',
+            'popularity_score' => 0.9,
         ]);
         $restaurant = Restaurant::whereKey($r->id)->firstOrFail();
         $restaurant->cuisines()->attach($cuisine);
@@ -149,6 +151,8 @@ class HomeControllerTest extends TestCase
             'city' => 'Austin',
             'state' => 'Texas',
             'is_active' => true,
+            'photo_url' => 'https://example.com/photo.jpg',
+            'popularity_score' => 0.9,
         ]);
         $restaurant = Restaurant::whereKey($r->id)->firstOrFail();
         $restaurant->cuisines()->attach($cuisine);
@@ -157,6 +161,8 @@ class HomeControllerTest extends TestCase
             'city' => 'Dallas',
             'state' => 'Texas',
             'is_active' => true,
+            'photo_url' => 'https://example.com/photo.jpg',
+            'popularity_score' => 0.9,
         ]);
 
         $response = $this->getJson('/api/homepage-data?city=Austin&state=Texas');
@@ -178,6 +184,7 @@ class HomeControllerTest extends TestCase
             'state' => 'KnownState',
             'is_active' => true,
             'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
         ]);
         $restaurant = Restaurant::whereKey($r->id)->firstOrFail();
         $restaurant->cuisines()->attach($cuisine);
@@ -330,5 +337,78 @@ class HomeControllerTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonMissing(['latestPosts']);
+    }
+
+    public function test_trending_falls_back_to_qualified_global_when_city_candidate_fails_the_floor(): void
+    {
+        // City candidate fails the quality floor (no photo) — must not surface
+        // for the city tier, but a qualified global candidate exists.
+        Restaurant::factory()->create([
+            'city' => 'Austin',
+            'state' => 'Texas',
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => null,
+        ]);
+        $global = Restaurant::factory()->create([
+            'city' => 'NewYork',
+            'state' => 'NewYork',
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ]);
+
+        $response = $this->getJson('/api/homepage-data?city=Austin&state=Texas');
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'popularRestaurants');
+        $response->assertJson([
+            'location' => null,
+            'popularRestaurants' => [['id' => $global->id]],
+        ]);
+    }
+
+    public function test_trending_falls_back_to_unfiltered_global_when_nothing_meets_the_floor(): void
+    {
+        // Nothing anywhere meets the quality floor — must still return the
+        // unfiltered corpus rather than an empty Trending section.
+        $r = Restaurant::factory()->create([
+            'city' => 'Austin',
+            'state' => 'Texas',
+            'is_active' => true,
+            'popularity_score' => 0.1,
+            'photo_url' => null,
+        ]);
+
+        $response = $this->getJson('/api/homepage-data?city=Austin&state=Texas');
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'popularRestaurants');
+        $response->assertJson([
+            'location' => null,
+            'popularRestaurants' => [['id' => $r->id]],
+        ]);
+    }
+
+    public function test_trending_quality_floor_kill_switch_reverts_to_legacy_behavior(): void
+    {
+        config(['restaurant-finder.trending.require_quality_floor' => false]);
+
+        $r = Restaurant::factory()->create([
+            'city' => 'Austin',
+            'state' => 'Texas',
+            'is_active' => true,
+            'popularity_score' => 0.1,
+            'photo_url' => null,
+        ]);
+
+        $response = $this->getJson('/api/homepage-data?city=Austin&state=Texas');
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'popularRestaurants');
+        $response->assertJson([
+            'location' => ['city' => 'Austin', 'state' => 'Texas'],
+            'popularRestaurants' => [['id' => $r->id]],
+        ]);
     }
 }

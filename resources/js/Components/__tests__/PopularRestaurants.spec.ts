@@ -100,9 +100,15 @@ describe('PopularRestaurants', () => {
         expect(wrapper.find('h2').text()).not.toContain(' in ')
     })
 
-    it('renders the subtitle text', () => {
-        const wrapper = mountComponent()
+    it('renders the local subtitle text when city is provided', () => {
+        const wrapper = mountComponent({ city: 'Austin' })
         expect(wrapper.text()).toContain('Top-ranked dining spots right now')
+    })
+
+    it('renders the fallback subtitle text when city is null', () => {
+        const wrapper = mountComponent({ city: null })
+        expect(wrapper.text()).toContain('Popular across iPop360')
+        expect(wrapper.text()).not.toContain('Top-ranked dining spots right now')
     })
 
     it('renders 8 skeleton cards when loading is true', () => {
