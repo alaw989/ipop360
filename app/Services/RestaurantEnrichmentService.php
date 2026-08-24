@@ -6,6 +6,7 @@ use App\Jobs\EnrichRestaurantWithAi;
 use App\Models\Cuisine;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
+use App\Models\SerpApiCallLog;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
@@ -737,9 +738,7 @@ class RestaurantEnrichmentService
      */
     private function countRealSerpApiCallsLast30Days(): int
     {
-        return ExternalApiCache::where('source', 'serpapi')
-            ->where('fetched_at', '>=', now()->subDays(30))
-            ->count();
+        return SerpApiCallLog::countLast30Days();
     }
 
     /**

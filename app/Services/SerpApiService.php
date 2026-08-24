@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ExternalApiCache;
+use App\Models\SerpApiCallLog;
 use App\Services\Http\RequestSpec;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
@@ -139,6 +140,8 @@ class SerpApiService
                     'api_key' => $this->apiKey,
                 ]);
 
+            SerpApiCallLog::record();
+
             if ($response->failed()) {
                 $this->detectProviderExhaustion($response);
                 $this->recordFailedCall($cacheKey);
@@ -160,6 +163,7 @@ class SerpApiService
 
             return $results;
         } catch (\Throwable $e) {
+            SerpApiCallLog::record();
             $this->recordFailedCall($cacheKey);
             Log::warning('SerpApi threw exception', [
                 'message' => $e->getMessage(),
@@ -207,6 +211,8 @@ class SerpApiService
                     'api_key' => $this->apiKey,
                 ]);
 
+            SerpApiCallLog::record();
+
             if ($response->failed()) {
                 $this->detectProviderExhaustion($response);
                 $this->recordFailedCall($cacheKey);
@@ -226,6 +232,7 @@ class SerpApiService
 
             return ['cached' => false, 'data' => $localResults];
         } catch (\Throwable $e) {
+            SerpApiCallLog::record();
             $this->recordFailedCall($cacheKey);
             Log::warning('SerpApi threw exception', [
                 'message' => $e->getMessage(),
@@ -331,6 +338,8 @@ class SerpApiService
     public function consumePoolResponses(array $responses, float $lat, float $lng, ?string $cuisine, string $cacheKey): array
     {
         foreach ($responses as $response) {
+            SerpApiCallLog::record();
+
             if ($response instanceof \Throwable) {
                 $this->recordFailedCall($cacheKey);
 

@@ -135,8 +135,13 @@ class ExternalApiCache extends Model
             ->where('expires_at', '>=', $now)
             ->count();
 
-        // SerpApi calls in last 30 days (represents real API calls)
-        // Schema ensures fetched_at is not null
+        // Distinct SerpApi cache entries touched in the last 30 days. This is
+        // a cache-inventory stat, NOT a call-attempt count: storeByKey()/
+        // recordFailedCall() upsert by cache key, so a key re-fetched after
+        // its TTL expires bumps this same row's fetched_at instead of adding
+        // a new one — real quota decisions must use SerpApiCallLog::
+        // countLast30Days() (an append-only log of actual outbound attempts)
+        // instead of this field. See spec-106.
         $serpapiCallsLast30d = static::where('source', 'serpapi')
             ->where('fetched_at', '>=', $thirtyDaysAgo)
             ->count();

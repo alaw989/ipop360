@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\Cuisine;
 use App\Models\ExternalApiCache;
+use App\Models\SerpApiCallLog;
 use App\Services\AiEnrichmentService;
 use App\Services\BizDataApiService;
 use App\Services\CuisineMatcher;
@@ -127,8 +128,8 @@ class RestaurantEnrichmentServiceTest extends TestCase
     /**
      * Quota guard: once the rolling-30-day real SerpApi call count reaches the
      * monthly budget, throttled enrichment must stop before burning any budget.
-     * The persisted serpapi rows drive countRealSerpApiCallsLast30Days(); the
-     * mock cache key is absent so the combo isn't treated as a fresh/skip.
+     * countRealSerpApiCallsLast30Days() is driven by SerpApiCallLog (spec-106,
+     * an append-only log of real attempts) rather than ExternalApiCache rows.
      */
     public function test_stops_when_monthly_budget_exhausted(): void
     {
@@ -138,21 +139,9 @@ class RestaurantEnrichmentServiceTest extends TestCase
 
         Cuisine::factory()->create(['slug' => 'taco', 'name' => 'Taco']);
 
-        // Two real SerpApi cache entries within the last 30 days → at quota.
-        ExternalApiCache::query()->create([
-            'source' => 'serpapi',
-            'external_id' => 'row-1',
-            'data' => [],
-            'fetched_at' => now(),
-            'expires_at' => now()->addDay(),
-        ]);
-        ExternalApiCache::query()->create([
-            'source' => 'serpapi',
-            'external_id' => 'row-2',
-            'data' => [],
-            'fetched_at' => now()->subDay(),
-            'expires_at' => now()->addDay(),
-        ]);
+        // Two real SerpApi call attempts within the last 30 days → at quota.
+        SerpApiCallLog::record();
+        SerpApiCallLog::record();
 
         $result = $this->makeService()->enrichAllCitiesThrottled();
 
