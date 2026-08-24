@@ -58,14 +58,15 @@ class HomeController extends Controller
         $popularCuisines = collect();
 
         $effectiveLocation = null;
+        $trendingLimit = (int) config('restaurant-finder.trending.limit', 18);
 
         if ($city) {
-            $popularRestaurants = Restaurant::active()
+            $popularRestaurants = Restaurant::active()->trendingQualified()
                 ->with('cuisines')
                 ->where('city', $city)
                 ->where('state', $state)
                 ->orderByDecayedScore()
-                ->limit(18)
+                ->limit($trendingLimit)
                 ->get();
 
             if ($popularRestaurants->isNotEmpty()) {
@@ -74,10 +75,20 @@ class HomeController extends Controller
         }
 
         if ($popularRestaurants->isEmpty()) {
+            $popularRestaurants = Restaurant::active()->trendingQualified()
+                ->with('cuisines')
+                ->orderByDecayedScore()
+                ->limit($trendingLimit)
+                ->get();
+        }
+
+        if ($popularRestaurants->isEmpty()) {
+            // The quality floor filtered out everything (thin/early corpus) —
+            // never show an empty Trending section when there IS data.
             $popularRestaurants = Restaurant::active()
                 ->with('cuisines')
                 ->orderByDecayedScore()
-                ->limit(18)
+                ->limit($trendingLimit)
                 ->get();
         }
 

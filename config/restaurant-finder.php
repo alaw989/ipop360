@@ -768,6 +768,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Homepage "Trending restaurants" quality floor
+    |--------------------------------------------------------------------------
+    | The homepage trending section previously had no eligibility gate beyond
+    | is_active — a barely-populated, unrated, photo-less row could surface
+    | under "Top-ranked dining spots right now" purely by having a recent
+    | updated_at (low decay). require_photo does the real filtering in
+    | practice (a Trending card needs an image); min_popularity_score is
+    | defense-in-depth for future data. Kill-switch: set
+    | TRENDING_REQUIRE_QUALITY_FLOOR=false to revert to the old
+    | gate-free behavior. See Restaurant::scopeTrendingQualified().
+    */
+    'trending' => [
+        'require_quality_floor' => filter_var(env('TRENDING_REQUIRE_QUALITY_FLOOR', true), FILTER_VALIDATE_BOOL),
+        'min_popularity_score' => (float) env('TRENDING_MIN_POPULARITY_SCORE', 0.4),
+        'require_photo' => filter_var(env('TRENDING_REQUIRE_PHOTO', true), FILTER_VALIDATE_BOOL),
+        'limit' => (int) env('TRENDING_LIMIT', 18),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Favorites write path (spec-088)
     |--------------------------------------------------------------------------
     | A client-favorited restaurant is persisted from the request payload. To

@@ -72,7 +72,7 @@ function rankBadge(rank: number) {
                 <span v-if="city"> in {{ city }}</span>
             </h2>
             <p class="mb-6 text-sm text-muted-foreground">
-                Top-ranked dining spots right now
+                {{ city ? 'Top-ranked dining spots right now' : 'Popular across iPop360' }}
             </p>
 
             <div v-if="loading" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

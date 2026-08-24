@@ -210,6 +210,35 @@ them in the constructor with a `DEFAULT_WEIGHTS` fallback for pure unit tests.
 The config's inline comment documents the renormalization reality — keep it in
 sync when weights change.
 
+## Homepage "Trending restaurants" quality floor
+
+This is a **display-layer curation rule**, not part of `PopularityScoreService`
+itself — it gates which persisted rows are even *eligible* to appear in the
+homepage's "Trending restaurants / Top-ranked dining spots right now" section
+(`HomeController::getHomepageData()`), on top of the existing
+`orderByDecayedScore()` ordering.
+
+Before this, the only gate was `is_active` — a barely-populated, unrated,
+photo-less row could surface under "Top-ranked" purely by having a recent
+`updated_at` (low decay). `Restaurant::scopeTrendingQualified()`
+(`app/Models/Restaurant.php`) requires `popularity_score >=
+min_popularity_score` (default 0.4) **and** a non-empty `photo_url` by
+default — `require_photo` does the real filtering in practice (a Trending
+card needs an image); the score floor is defense-in-depth for future data.
+
+Config: `config/restaurant-finder.php` → `trending` (env `TRENDING_*`).
+Kill-switch: `TRENDING_REQUIRE_QUALITY_FLOOR=false` reverts to the old
+gate-free behavior.
+
+`HomeController` applies this in a three-tier fallback so the section is
+never empty: (1) city-scoped + quality-qualified, (2) global +
+quality-qualified, (3) global unfiltered (last resort, only reached if the
+floor filters out the entire corpus). `location` in the API/Inertia payload
+is only set on tier 1 — the frontend (`PopularRestaurants.vue`) uses this to
+switch the subtitle between "Top-ranked dining spots right now" (genuinely
+local) and "Popular across iPop360" (any fallback tier), so a data-thin city
+is never silently shown an unlabeled non-local list.
+
 ## Limitations / future work
 
 - `has_award` is boolean — Michelin stars are not distinguished by count. The

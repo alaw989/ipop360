@@ -158,6 +158,30 @@ class Restaurant extends Model
     }
 
     /**
+     * Eligibility gate for the homepage "Trending restaurants" section, on
+     * top of (not instead of) orderByDecayedScore(). require_photo does the
+     * real filtering in practice; min_popularity_score is defense-in-depth.
+     * Kill-switched via config('restaurant-finder.trending.require_quality_floor').
+     *
+     * @param  Builder<Restaurant>  $query
+     * @return Builder<Restaurant>
+     */
+    public function scopeTrendingQualified(Builder $query): Builder
+    {
+        if (! config('restaurant-finder.trending.require_quality_floor', true)) {
+            return $query;
+        }
+
+        $query->where('popularity_score', '>=', (float) config('restaurant-finder.trending.min_popularity_score', 0.4));
+
+        if (config('restaurant-finder.trending.require_photo', true)) {
+            $query->whereNotNull('photo_url')->where('photo_url', '!=', '');
+        }
+
+        return $query;
+    }
+
+    /**
      * @param  Builder<Restaurant>  $query
      * @return Builder<Restaurant>
      */
