@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-24
 
-**Status**: SHIPPED (2026-08-24)
+**Status**: SHIPPED + LIVE-VERIFIED (2026-08-24)
 
 **Series**: Follow-up to spec-106 (SerpApi call-count undercount fix). Closes
 spec-106's "Known follow-up" note about the exhausted flag's blind 24h
@@ -102,7 +102,19 @@ clean, `npm run build` clean.
 
 ## Verification
 
-After deploy: confirm the GHA deploy succeeds, then either wait ~15 minutes
+**Live-verified 2026-08-24** (GHA deploy `3367a86` green, then the browser
+admin dashboard checked ~13 minutes later after the scheduler's first tick):
+the new card read `0 / 250 left`, `"Your account has run out of searches. ·
+renews 2026-09-19"`, `Synced 1 minute ago`; the existing exhausted banner
+reappeared; Usage `0 / 250, 0 remaining (100%)`; Circuit Breaker `Tripped`;
+Enrich Budget `Exhausted`; Live Read Path `Cache only, 0 calls left this
+cycle`. Every signal on the dashboard now agrees with the provider-confirmed
+truth — the original spec-106 contradiction (exhausted badge vs. a clean
+usage box) cannot recur, since the sync actively drives the exhausted flag
+rather than the flag drifting independently of it.
+
+Original verification plan (superseded by the above, kept for reference):
+after deploy, confirm the GHA deploy succeeds, then either wait ~15 minutes
 for the first scheduled tick or manually run
 `php artisan serpapi:sync-account-status` once (zero quota cost) via SSH,
 and reload `https://ipop360.com/admin` to confirm the new card shows the

@@ -53,8 +53,13 @@ exhausted while the fresh dashboard read 0/250 clean — because the app's
 counters are self-reported from its own call history, with no history yet.
 Added a `serpapi:sync-account-status` scheduled command (every 15 min,
 zero quota) that pulls the provider-confirmed snapshot and reconciles the
-local exhausted flag against it — see `specs/107-…md`. Also flagged
-separately (not yet acted on): the SerpApi key is committed in plaintext at
+local exhausted flag against it — see `specs/107-…md`. **Both 106 and 107
+merged to master (`3471d74`, `3367a86`), GHA-green, LIVE-VERIFIED**: the
+dashboard now shows the real account state (`0/250 left, "Your account has
+run out of searches.", renews 2026-09-19`) with every signal (exhausted
+banner, Usage, Circuit Breaker, Enrich Budget, Live Read Path) agreeing —
+the original contradiction cannot recur. Also flagged separately (not yet
+acted on): the SerpApi key is committed in plaintext at
 `SHARED_TASK_NOTES.md:52` and matches the currently-active `.env` key — not
 a low-risk placeholder as an earlier memory note assumed; needs rotation.
 
