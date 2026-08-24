@@ -74,6 +74,45 @@ plaintext at `SHARED_TASK_NOTES.md:52` and matches the currently-active
 `.env` key — not a low-risk placeholder as an earlier memory note assumed;
 needs rotation.
 
+## 2026-08-24 — directions/call click scoring + verified social links
+
+User-requested engagement-ranking audit found the requested tracking (page
+views, link clicks, social platform counts feeding rank) was **already
+built and live** — see `docs/ranking-metrics.md`. Two real gaps closed:
+
+- `directions_clicks_count`/`call_clicks_count` were tracked live and
+  aggregated nightly alongside the other 5 engagement counters, but never
+  added to `PopularityScoreService`'s weight table — added at 0.05 each.
+  New `EngagementActionSyncTest` guards the live-increment vs. nightly-resync
+  write paths from drifting apart.
+- `social_links_count` counted any platform URL regex-extracted from a
+  restaurant's own website with **no reachability check**. Added
+  `RestaurantWebsiteScraperService::verifyProfileUrl()` (SSRF-guarded HEAD/
+  ranged-GET) + `restaurant_social_links.verified_at`/`last_check_failed_at`;
+  `social_links_count` now counts verified-only links via new
+  `Restaurant::countScoredSocialLinks()`, gated by kill-switch
+  `RANK_REQUIRE_VERIFIED_SOCIAL` (default true). Failed checks keep the row
+  (recall-protective). New weekly `restaurants:reverify-social-links` job
+  decays link rot out of scoring.
+
+**Merged + deployed** (PR #136 `f3205b8`, hotfix PR #137 `b7a0dad` for a
+flaky redirect test — `verifyProfileUrl`'s test auto-followed a 301 via
+Guzzle to an unfaked URL, causing a real outbound network call in CI that
+passed on the PR check and flaked on the push-triggered deploy run; fixed by
+faking the redirect target too). GHA green, deploy green, live-verified via
+API (200 + real results). 1043 backend tests (was 1030).
+
+**Queued follow-up (not yet done — do this in a future session):** re-run
+`php artisan ranking:audit` against prod after ~1 week (gives the Sunday
+10:30 UTC `restaurants:reverify-social-links` job at least one cycle, plus
+several nightly `restaurants:update-engagement` cycles) and diff against
+`docs/ranking-audit-2026-08.md`'s baseline — specifically whether the
+verified-only `social_links_count` change reduced the previously-flagged
+30.7% unrated-above-lowest-rated overlap, and whether
+`directions_clicks_count`/`call_clicks_count` show any live activation yet.
+Append findings as a new dated section (append-only convention) rather than
+editing prior sections. Target: on/after 2026-08-31.
+
 ## In-flight work (check before starting anything new)
 
 As of 2026-08-22 the working tree has **uncommitted** work on branch
