@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\GeolocationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -128,7 +129,7 @@ class GeolocationServiceTest extends TestCase
 
         // Simulate the short negative-cache TTL expiring, without waiting
         // out the full window in the test.
-        \Illuminate\Support\Facades\Cache::forget('geo_full:8.8.5.5');
+        Cache::forget('geo_full:8.8.5.5');
 
         $coords = $this->service->ipLookup('8.8.5.5');
         $this->assertEquals(['lat' => 37.7749, 'lng' => -122.4194], $coords);
