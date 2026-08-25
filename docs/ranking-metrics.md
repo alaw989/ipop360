@@ -54,15 +54,15 @@ row with no data scores **0.0**.
 | Signal | Weight | Source | Always active? |
 |---|---|---|---|
 | `quality` | **0.35** | SerpApi (Bayesian rating, folds in reviews) | only with a quality key **and** a rating |
-| `website_clicks_count` | **0.20** | engagement | only when clicks exist (>0) |
+| `website_clicks_count` | **0.20** | engagement | **yes** (0.0 when absent) |
 | `social_links_count` | **0.20** | website social scrape | only when links found (>0) |
 | `proximity` | **0.15** | User coordinates | live search only (`distance` present) |
-| `pageviews_count` | **0.10** | engagement | only when views exist (>0) |
+| `pageviews_count` | **0.10** | engagement | **yes** (0.0 when absent) |
 | `has_award` | **0.05** | Wikidata (free) | only when `true` (a false award drops out) |
 | `cuisine_match` | **0.50** | live scoped-search stamp | only on cuisine-scoped live search |
 | `data_completeness` | **0.05** | field coverage | **yes** (always computable) |
-| `social_link_clicks_count` / `menu_click_count` | 0.05 each | engagement | only when clicks exist (>0) |
-| `directions_clicks_count` / `call_clicks_count` | 0.05 each | engagement | only when clicks exist (>0) |
+| `social_link_clicks_count` / `menu_click_count` | 0.05 each | engagement | **yes** (0.0 when absent) |
+| `directions_clicks_count` / `call_clicks_count` | 0.05 each | engagement | **yes** (0.0 when absent) |
 | `popular_times_avg_busyness` | 0.0 | Outscraper (optional) | min-max, opt-in |
 | `yelp_rating` / `yelp_review_count` | 0.0 | — | removed |
 | `google_rating` / `google_review_count` | 0.0 | — | folded into `quality` |
@@ -73,12 +73,21 @@ mean instead of winning (see *Bayesian quality* below). For a rated venue with
 no engagement/social data, quality renormalizes to ~0.78. Weights need not sum
 to 1 because the active set is always renormalized (see *Redistribution*).
 
-Engagement signals total 0.50 (was 0.40) but only activate once clicks exist.
-spec-104 fixed the engagement pipeline (previously only ~5 of 6,500 rows had
-any), so this weight now has a path to fire for real traffic. As of the
-2026-08 ranking audit, live activation is still near-zero at current traffic
-(`website_clicks` ~0.1%, `pageviews` ~0.8%, `social_link_clicks`/`menu_click`
-~0.0%) — this weight block is scaffolding for future traffic growth, not
+Engagement signals total 0.50 (was 0.40) and are **always active** (0.0 when
+a count is 0), mirroring `data_completeness` and `cuisine_match`'s
+active-at-zero design. They previously only activated once a count went
+above 0 — but because these six counters are mutated live by the *current*
+user's own pageview/click, and search results are rescored fresh on every
+request, that meant a restaurant's first real engagement click instantly
+expanded its active-weight denominator by up to 0.50 while barely moving the
+numerator, diluting `quality`/`proximity`/`cuisine_match` and crashing its
+rank right after a user interacted with it (fixed; see
+`history.md`). spec-104 fixed the engagement pipeline (previously only
+~5 of 6,500 rows had any), so this weight now has a path to fire for real
+traffic. As of the 2026-08 ranking audit, live activation is still near-zero
+at current traffic (`website_clicks` ~0.1%, `pageviews` ~0.8%,
+`social_link_clicks`/`menu_click` ~0.0%) — this weight block is scaffolding
+for future traffic growth, not
 currently load-bearing on the live corpus.
 
 `directions_clicks_count` and `call_clicks_count` are tracked live

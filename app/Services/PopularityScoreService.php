@@ -75,8 +75,31 @@ class PopularityScoreService
      * weight, so it only activates when a venue actually has one (see the
      * boolean-method branch in isPresent(); spec-104 audit found 0% of the
      * corpus awarded).
+     *
+     * The six engagement-count signals ARE always active (0.0 when the count
+     * is 0), by the same reasoning as cuisine_match's active-at-zero design
+     * (see isPresent()) and spec-082's no_coords_neutral_proximity: these
+     * counts are mutated live, synchronously, by the current user's own
+     * pageview/directions/website/call/menu/social-link clicks
+     * (EngagementController::store), and the search results page recomputes
+     * scores fresh on every request (UnifiedSearchService always re-runs the
+     * live search). If they toggled inactive→active at count 0→1 the way
+     * has_award does, then the moment a user engaged with a restaurant its
+     * active-weight denominator would jump (these six sum to 0.50 weight)
+     * while contributing almost nothing to the numerator — diluting
+     * quality/proximity/cuisine_match and crashing the restaurant's rank
+     * right after the user interacted with it. Keeping them always-active
+     * makes a click strictly non-negative to the score.
      */
-    private const ALWAYS_ACTIVE = ['data_completeness'];
+    private const ALWAYS_ACTIVE = [
+        'data_completeness',
+        'website_clicks_count',
+        'pageviews_count',
+        'directions_clicks_count',
+        'call_clicks_count',
+        'social_link_clicks_count',
+        'menu_click_count',
+    ];
 
     /**
      * Source-agnostic fields that feed data_completeness. All are populate-able

@@ -146,7 +146,8 @@ class RankingAuditCommandTest extends TestCase
     {
         // A name-only row: persisted score is inflated (0.999) but a recompute
         // under the current weights collapses it to name-only completeness
-        // (1/10 = 0.1, the only active signal — data_completeness).
+        // (1/10 = 0.1, weight 0.05) diluted by the six always-active
+        // engagement signals at 0.0 (weight 0.50 combined): (0.05*0.1)/0.55.
         Restaurant::factory()->create([
             'name' => 'Name Only',
             'address' => null,
@@ -174,6 +175,6 @@ class RankingAuditCommandTest extends TestCase
         $this->assertStringContainsString('Recompute mode', $forecast);
         $this->assertStringContainsString('recomputed under current weights', $forecast);
         $this->assertStringNotContainsString('0.999', $forecast);
-        $this->assertStringContainsString('0.1000', $forecast);
+        $this->assertStringContainsString('0.0091', $forecast);
     }
 }

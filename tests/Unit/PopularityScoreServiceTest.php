@@ -63,9 +63,10 @@ class PopularityScoreServiceTest extends TestCase
 
         // Yelp weights are 0 (removed). Proximity + quality are inactive (no
         // distance, no Google rating) and has_award=false is inactive (no award).
-        // Only data_completeness (8/10=0.8, weight 0.05) contributes; its weight
-        // renormalizes to 1.0. = (0.05/0.05)*0.8 = 0.80
-        $this->assertEqualsWithDelta(0.80, $score, 0.001);
+        // data_completeness (8/10=0.8, weight 0.05) plus the six always-active
+        // engagement signals at 0.0 (weight 0.50 combined) share the active
+        // set: total active weight 0.55. = (0.05*0.8)/0.55 = 0.0727
+        $this->assertEqualsWithDelta(0.0727, $score, 0.001);
     }
 
     public function test_no_data_scores_zero(): void
@@ -103,11 +104,12 @@ class PopularityScoreServiceTest extends TestCase
         $score = $this->service->calculateScore($restaurant, $all);
 
         // completeness = 1/10 = 0.1 (only `name` filled; lat/lng are 0 sentinel);
-        // has_award = 0 (inactive). Proximity + quality inactive. Only
-        // data_completeness active (weight 0.05 → renormalized to 1.0).
-        // = (0.05/0.05)*0.1 = 0.10.
+        // has_award = 0 (inactive). Proximity + quality inactive.
+        // data_completeness (weight 0.05) plus the six always-active engagement
+        // signals at 0.0 (weight 0.50 combined) share the active set: total
+        // active weight 0.55. = (0.05*0.1)/0.55 = 0.0091.
         // (With the isFilled bug, lat/lng would count -> completeness 3/10 -> 0.3.)
-        $this->assertEqualsWithDelta(0.10, $score, 0.001);
+        $this->assertEqualsWithDelta(0.0091, $score, 0.001);
     }
 
     public function test_high_quality_outscores_low_quality(): void
@@ -132,8 +134,12 @@ class PopularityScoreServiceTest extends TestCase
         $lowScore = $this->service->calculateScore($low, $all);
 
         $this->assertGreaterThan($lowScore, $highScore);
-        $this->assertGreaterThan(0.7, $highScore);
-        $this->assertLessThan(0.4, $lowScore);
+        // has_award (weight 0.05) plus data_completeness now share the active
+        // set with the six always-active engagement signals (0.0, weight 0.50
+        // combined) — total active weight 0.60 for $high (has_award true) vs
+        // 0.55 for $low (has_award false, inactive).
+        $this->assertGreaterThan(0.12, $highScore);
+        $this->assertLessThan(0.05, $lowScore);
     }
 
     public function test_has_award_boosts_score(): void
@@ -229,10 +235,11 @@ class PopularityScoreServiceTest extends TestCase
 
         // Both venues score identically since they have the same data_completeness
         // and Yelp signals are removed (weight 0). Proximity + quality inactive
-        // (no distance, Yelp-only) and has_award=false is inactive. Only
-        // data_completeness active (weight 0.05 → 1.0). completeness = 8/10 = 0.8
-        // → score = 0.80.
-        $this->assertEqualsWithDelta(0.80, $venueScore, 0.001);
+        // (no distance, Yelp-only) and has_award=false is inactive.
+        // data_completeness (8/10=0.8, weight 0.05) plus the six always-active
+        // engagement signals at 0.0 (weight 0.50 combined) share the active
+        // set: total active weight 0.55. = (0.05*0.8)/0.55 = 0.0727
+        $this->assertEqualsWithDelta(0.0727, $venueScore, 0.001);
     }
 
     public function test_log_floor_prevents_compression(): void
@@ -433,6 +440,47 @@ class PopularityScoreServiceTest extends TestCase
         // Absent → null → INACTIVE (no Cuisine Match signal in the breakdown).
         $absent = $service->calculateBreakdownForArray([], $all);
         $this->assertNotContains('Cuisine Match', collect($absent['signals'])->pluck('label')->toArray());
+    }
+
+    public function test_first_engagement_click_never_lowers_the_score(): void
+    {
+        // Regression: a restaurant with a strong quality/proximity/cuisine_match
+        // score must not crash in rank the instant a user's first pageview,
+        // directions click, or website click flips one of the six engagement
+        // counters from 0 to 1. Before the engagement signals were made
+        // always-active, activating them mid-flight expanded the active-weight
+        // denominator (0.50 combined) with almost no numerator contribution,
+        // diluting the strong signals and cratering the score.
+        $before = $this->makeRestaurant(array_merge($this->fullFreeFields(), [
+            'google_rating' => 4.8,
+            'google_review_count' => 1000,
+            'distance' => 0.5,
+            'cuisine_match' => 1.0,
+            'website_clicks_count' => 0,
+            'pageviews_count' => 0,
+            'directions_clicks_count' => 0,
+        ]));
+        $after = $this->makeRestaurant(array_merge($this->fullFreeFields(), [
+            'google_rating' => 4.8,
+            'google_review_count' => 1000,
+            'distance' => 0.5,
+            'cuisine_match' => 1.0,
+            'website_clicks_count' => 1,
+            'pageviews_count' => 1,
+            'directions_clicks_count' => 1,
+        ]));
+
+        // Uses the real production default weights (quality 0.35, proximity
+        // 0.15, cuisine_match 0.50, plus the engagement signals summing 0.50)
+        // — the scenario is only meaningful under the actual weight set.
+        $scoreBefore = $this->service->calculateScore($before, new Collection([$before]));
+        $scoreAfter = $this->service->calculateScore($after, new Collection([$after]));
+
+        $this->assertGreaterThanOrEqual(
+            $scoreBefore,
+            $scoreAfter,
+            'A restaurant\'s first engagement click must not lower its score.'
+        );
     }
 
     public function test_all_unrated_collection_still_scores_finite_and_differentiated(): void
