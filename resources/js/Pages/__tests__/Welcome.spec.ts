@@ -13,16 +13,8 @@ const {
     mockDetectLocation,
     mockDetectingLocation,
     mockGeolocationError,
-    mockRestaurants,
-    mockSearch,
-    mockResort,
-    mockLoadMore,
-    mockResetState,
-    mockNextPageUrl,
-    mockSearchError,
-    mockLoadMoreError,
-    mockIsResorting,
-    mockShouldStagger,
+    mockBeginSearchLoading,
+    mockEndSearchLoading,
 } = vi.hoisted(() => {
     const mockRouterGet = vi.fn()
     const mockPersistedLocation = { value: { city: null, state: null } as { city: string | null; state: string | null } }
@@ -33,16 +25,8 @@ const {
     const mockDetectLocation = vi.fn()
     const mockDetectingLocation = { value: false }
     const mockGeolocationError = { value: null as string | null }
-    const mockRestaurants = { value: [] as any[] }
-    const mockSearch = vi.fn()
-    const mockResort = vi.fn()
-    const mockLoadMore = vi.fn()
-    const mockResetState = vi.fn()
-    const mockNextPageUrl = { value: null as string | null }
-    const mockSearchError = { value: null as string | null }
-    const mockLoadMoreError = { value: null as string | null }
-    const mockIsResorting = { value: false }
-    const mockShouldStagger = { value: false }
+    const mockBeginSearchLoading = vi.fn()
+    const mockEndSearchLoading = vi.fn()
     return {
         mockRouterGet,
         mockPersistedLocation,
@@ -53,16 +37,8 @@ const {
         mockDetectLocation,
         mockDetectingLocation,
         mockGeolocationError,
-        mockRestaurants,
-        mockSearch,
-        mockResort,
-        mockLoadMore,
-        mockResetState,
-        mockNextPageUrl,
-        mockSearchError,
-        mockLoadMoreError,
-        mockIsResorting,
-        mockShouldStagger,
+        mockBeginSearchLoading,
+        mockEndSearchLoading,
     }
 })
 
@@ -97,21 +73,6 @@ vi.mock('@/composables/useBaseUrl', () => ({
     useBaseUrl: vi.fn(() => ({ value: 'http://localhost' })),
 }))
 
-vi.mock('@/composables/useRestaurantSearch', () => ({
-    useRestaurantSearch: vi.fn(() => ({
-        restaurants: mockRestaurants,
-        shouldStagger: mockShouldStagger,
-        isResorting: mockIsResorting,
-        nextPageUrl: mockNextPageUrl,
-        searchError: mockSearchError,
-        loadMoreError: mockLoadMoreError,
-        search: mockSearch,
-        resort: mockResort,
-        loadMore: mockLoadMore,
-        resetState: mockResetState,
-    })),
-}))
-
 vi.mock('@/composables/useGeolocation', () => ({
     useGeolocation: vi.fn(() => ({
         detectingLocation: mockDetectingLocation,
@@ -130,6 +91,14 @@ vi.mock('@/composables/usePersistedLocation', () => ({
     })),
 }))
 
+vi.mock('@/composables/useSearchLoadingOverlay', () => ({
+    useSearchLoadingOverlay: vi.fn(() => ({
+        isVisible: { value: false },
+        begin: mockBeginSearchLoading,
+        end: mockEndSearchLoading,
+    })),
+}))
+
 const stubs = {
     SeoMeta: { template: '<div />' },
     JsonLd: { template: '<div />' },
@@ -143,11 +112,6 @@ const stubs = {
         props: ['categories', 'location', 'detectingLocation'],
         emits: ['cuisineSelect', 'locationUpdate', 'coords', 'detect', 'search'],
         template: '<div class="hero-banner-stub"><button class="search-btn" @click="$emit(\'search\')">Search</button></div>',
-    },
-    StickySearchBar: {
-        props: ['location'],
-        emits: ['refineSearch'],
-        template: '<div class="sticky-search-bar-stub" />',
     },
     ScrollReveal: {
         props: ['delay', 'threshold'],
@@ -168,11 +132,6 @@ const stubs = {
     BlogPreview: {
         props: ['posts'],
         template: '<div class="blog-preview-stub" />',
-    },
-    ResultsGrid: {
-        props: ['phase', 'restaurants', 'resultCount', 'sort', 'sortOptions', 'nextPageUrl', 'searchError', 'loadMoreError', 'lat', 'lng', 'selectedCuisine', 'shouldStagger', 'isResorting'],
-        emits: ['update:sort', 'resort', 'loadMore', 'resetToIdle', 'dismissLoadMoreError', 'search'],
-        template: '<div class="results-grid-stub" />',
     },
     Button: {
         props: ['variant', 'size', 'as', 'href'],
@@ -251,16 +210,8 @@ beforeEach(() => {
     mockDetectLocation.mockClear()
     mockDetectingLocation.value = false
     mockGeolocationError.value = null
-    mockRestaurants.value = []
-    mockSearch.mockClear()
-    mockResort.mockClear()
-    mockLoadMore.mockClear()
-    mockResetState.mockClear()
-    mockNextPageUrl.value = null
-    mockSearchError.value = null
-    mockLoadMoreError.value = null
-    mockIsResorting.value = false
-    mockShouldStagger.value = false
+    mockBeginSearchLoading.mockClear()
+    mockEndSearchLoading.mockClear()
 })
 
 describe('Welcome', () => {
@@ -270,7 +221,7 @@ describe('Welcome', () => {
             expect(wrapper.find('[data-testid="top-nav"]').exists()).toBe(true)
         })
 
-        it('renders the top nav as non-sticky to keep StickySearchBar in charge during results', () => {
+        it('renders the top nav as non-sticky', () => {
             const wrapper = mountWelcome()
             expect(wrapper.find('[data-testid="top-nav"]').attributes('sticky')).toBe('false')
         })
@@ -287,7 +238,7 @@ describe('Welcome', () => {
             expect(wrapper.find('h1').text()).toBe('Find Popular Restaurants Near You')
         })
 
-        it('renders HeroBanner in idle phase', () => {
+        it('renders HeroBanner', () => {
             const wrapper = mountWelcome()
             expect(wrapper.find('.hero-banner-stub').exists()).toBe(true)
         })
@@ -333,7 +284,7 @@ describe('Welcome', () => {
         })
     })
 
-    describe('idle phase sections', () => {
+    describe('homepage sections', () => {
         it('renders CategoryGrid', () => {
             const wrapper = mountWelcome()
             expect(wrapper.find('.category-grid-stub').exists()).toBe(true)
@@ -362,7 +313,7 @@ describe('Welcome', () => {
     })
 
     describe('scroll-reveal stagger', () => {
-        it('staggers the idle-phase sections so they cascade in', () => {
+        it('staggers the homepage sections so they cascade in', () => {
             const wrapper = mountWelcome()
             const delays = wrapper.findAll('.scroll-reveal-stub').map(n => n.attributes('data-delay'))
             expect(delays).toEqual(['0', '80', '160', '240'])
@@ -382,18 +333,6 @@ describe('Welcome', () => {
         })
     })
 
-    describe('non-idle phase absence', () => {
-        it('ResultsGrid is not visible in idle phase', () => {
-            const wrapper = mountWelcome()
-            expect(wrapper.find('.results-grid-stub').exists()).toBe(false)
-        })
-
-        it('StickySearchBar is not visible in idle phase', () => {
-            const wrapper = mountWelcome()
-            expect(wrapper.find('.sticky-search-bar-stub').exists()).toBe(false)
-        })
-    })
-
     describe('geolocation error', () => {
         it('shows geolocation error card when error is set', () => {
             mockGeolocationError.value = 'Geolocation failed'
@@ -404,7 +343,10 @@ describe('Welcome', () => {
         it('does not show error card when no error', () => {
             mockGeolocationError.value = null
             const wrapper = mountWelcome()
-            // Card stub may still render if HeroBanner or other stubs don't use Card
+            // Note: mockGeolocationError is a plain object, not a real ref, so
+            // Vue's template doesn't auto-unwrap it — this can't be asserted
+            // meaningfully against this mock (pre-existing limitation).
+            void wrapper
         })
     })
 
@@ -425,6 +367,29 @@ describe('Welcome', () => {
             mountWelcome()
             const last = vi.mocked(useSeo).mock.calls.at(-1)![0] as { description: string }
             expect(last.description).not.toMatch(/review|rating/i)
+        })
+    })
+
+    describe('search loading overlay', () => {
+        // The overlay itself renders at the app root (app.ts), not inside
+        // Welcome.vue — see useSearchLoadingOverlay for why (its fade-out must
+        // survive Inertia swapping this page away). Welcome.vue's job is just
+        // to call begin()/end() at the right times, which is what's verified
+        // here via the mocked composable.
+        it('calls begin() when a search is triggered', async () => {
+            const wrapper = mountWelcome()
+            await wrapper.find('.search-btn').trigger('click')
+            expect(mockBeginSearchLoading).toHaveBeenCalledTimes(1)
+        })
+
+        it('passes an onFinish that calls end() when the search visit completes', async () => {
+            const wrapper = mountWelcome()
+            await wrapper.find('.search-btn').trigger('click')
+
+            const onFinish = mockRouterGet.mock.calls.at(-1)![2].onFinish
+            expect(mockEndSearchLoading).not.toHaveBeenCalled()
+            onFinish()
+            expect(mockEndSearchLoading).toHaveBeenCalledTimes(1)
         })
     })
 })

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router, usePage } from '@inertiajs/vue3'
-import { ref, computed, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,25 +10,18 @@ import AppFooter from '@/Components/AppFooter.vue'
 import TopNav from '@/Components/TopNav.vue'
 import HeroBanner from '@/Components/HeroBanner.vue'
 import ScrollReveal from '@/Components/ScrollReveal.vue'
-import StickySearchBar from '@/Components/StickySearchBar.vue'
 import CategoryGrid from '@/Components/CategoryGrid.vue'
 import PopularCuisines from '@/Components/PopularCuisines.vue'
 import PopularRestaurants from '@/Components/PopularRestaurants.vue'
 import BlogPreview from '@/Components/BlogPreview.vue'
-// Lazy-load the results tree (ResultsGrid + RestaurantCard + CardGallery + …) so
-// it isn't on the idle homepage entry chunk — it renders only in the results
-// phase (spec-061 bundle diet).
-const ResultsGrid = defineAsyncComponent(() => import('@/Components/ResultsGrid.vue'))
 
 import { useSeo, generateWebSiteJsonLd, generateOrganizationJsonLd } from '@/composables/useSeo'
-import { useRestaurantSearch } from '@/composables/useRestaurantSearch'
+import { useSearchLoadingOverlay } from '@/composables/useSearchLoadingOverlay'
 import { useGeolocation } from '@/composables/useGeolocation'
 import { usePersistedLocation } from '@/composables/usePersistedLocation'
 import { useBaseUrl } from '@/composables/useBaseUrl'
 import SeoMeta from '@/Components/SeoMeta.vue'
 import '../../css/transitions.css' // homepage-only transition choreography (spec-062)
-
-type Phase = 'idle' | 'searching' | 'results' | 'empty' | 'error'
 
 interface Cuisine {
     id: number
@@ -109,31 +102,14 @@ const props = defineProps<{
     fallbackCoords: { lat: number; lng: number } | null
 }>()
 
-// Phase machine
-const phase = ref<Phase>('idle')
-function setPhase(newPhase: Phase) {
-    phase.value = newPhase
-}
-function getPhase(): Phase {
-    return phase.value
-}
-const isResultsPhase = computed(() => phase.value !== 'idle')
-
 // Cuisine selection state
 const selectedCategory = ref('')
 const selectedCuisine = ref<string | undefined>()
 const selectedLabel = ref<string | null>(null)
 
-// Sort state
+// Sort state (fed to the /search navigation below)
 const sort = ref<string>('best_match')
 const serpapiExhausted = computed(() => usePage().props.serpapi_exhausted)
-const sortOptions = computed(() => [
-    { value: 'best_match', label: 'Best Match' },
-    { value: 'nearest', label: 'Nearest' },
-    { value: 'rating', label: serpapiExhausted.value ? 'Ratings temporarily unavailable' : 'Rating' },
-    { value: 'reviews', label: 'Reviews' },
-    { value: 'price', label: 'Price' },
-])
 
 // Persisted location (city/state/coords from localStorage)
 const { location: persistedLocation, lat, lng, persistLocation, restore: restorePersistedLocation } = usePersistedLocation(props.location, props.fallbackCoords)
@@ -141,21 +117,11 @@ const { location: persistedLocation, lat, lng, persistLocation, restore: restore
 // Geolocation (GPS + reverse geocode)
 const { detectingLocation, geolocationError, detectLocation } = useGeolocation(persistLocation)
 
-// Restaurant search (search/resort/loadMore)
-const {
-    restaurants,
-    shouldStagger,
-    isResorting,
-    nextPageUrl,
-    searchError,
-    loadMoreError,
-    resort,
-    loadMore,
-    resetState,
-} = useRestaurantSearch(setPhase, getPhase)
-
-// Result count for display
-const resultCount = computed(() => restaurants.value.length)
+// Full-page loading takeover for the homepage's initial search navigation
+// (router.get('/search', ...) below) — the only feedback that visit had
+// before was Inertia's thin top progress bar. Hosted at the app root (see
+// app.ts) so its fade-out can play even after Inertia swaps this page away.
+const { begin: beginSearchLoading, end: endSearchLoading } = useSearchLoadingOverlay()
 
 // SEO
 const baseUrl = useBaseUrl()
@@ -259,6 +225,7 @@ function onCoords(lt: number, lg: number) {
 }
 
 function onSearch() {
+    beginSearchLoading()
     router.get('/search', {
         cuisine: selectedCuisine.value,
         category: selectedCategory.value || undefined,
@@ -266,62 +233,23 @@ function onSearch() {
         lng: lng.value ?? undefined,
         distance: '25',
         sort: sort.value,
+    }, {
+        onFinish: () => endSearchLoading(),
     })
-}
-
-function onResort() {
-    resort({
-        ...(selectedCuisine.value ? { selectedCuisine: selectedCuisine.value } : {}),
-        selectedCategory: selectedCategory.value,
-        lat,
-        lng,
-        sort,
-    })
-}
-
-function onLoadMore() {
-    loadMore()
-}
-
-function resetToIdle() {
-    setPhase('idle')
-    // Fresh slate: clear the cuisine selection so the remounted CuisinePicker's
-    // "any cuisine" label is honest (it owns its own selectedLabel, which resets
-    // on remount — clearing the parent stops the old cuisine being silently
-    // reused). City/coords/sort are intentionally kept.
-    selectedCategory.value = ''
-    selectedCuisine.value = undefined
-    selectedLabel.value = null
-    geolocationError.value = null
-    resetState()
-}
-
-function refineSearch() {
-    setPhase('idle')
-    // Fresh slate on back/refine: clear cuisine (same reason as resetToIdle).
-    // City/coords/sort are kept so the user can just re-search.
-    selectedCategory.value = ''
-    selectedCuisine.value = undefined
-    selectedLabel.value = null
-    geolocationError.value = null
 }
 
 function dismissGeolocationError() {
     geolocationError.value = null
 }
-
-function dismissLoadMoreError() {
-    loadMoreError.value = null
-}
 </script>
 
 <template>
     <div class="relative flex min-h-screen flex-col bg-background">
-        <!-- Shared AppLayout top nav; transparent over the hero slideshow in the
-             idle homepage phase (solid in-flow in results so links stay legible
-             over content), non-sticky so the results phase keeps StickySearchBar
-             as its single sticky bar (spec-063). -->
-        <TopNav :sticky="false" :transparent="phase === 'idle'" />
+        <!-- Shared AppLayout top nav; transparent over the hero slideshow, non-sticky. -->
+        <TopNav :sticky="false" :transparent="true" />
+
+        <!-- The full-page search-loading takeover renders at the app root
+             (app.ts), not here — see useSearchLoadingOverlay for why. -->
 
         <SeoMeta :seoData="seoData" />
 
@@ -333,7 +261,7 @@ function dismissLoadMoreError() {
 
         <!-- Geolocation error banner -->
         <Transition name="fade">
-            <Card v-if="geolocationError && phase === 'idle'" class="absolute left-4 right-4 top-16 z-10 mx-auto max-w-2xl border-destructive bg-destructive/10">
+            <Card v-if="geolocationError" class="absolute left-4 right-4 top-16 z-10 mx-auto max-w-2xl border-destructive bg-destructive/10">
                 <CardContent class="flex items-center justify-between py-3">
                     <div class="flex items-center gap-2">
                         <Badge variant="destructive">Location Error</Badge>
@@ -346,95 +274,51 @@ function dismissLoadMoreError() {
             </Card>
         </Transition>
 
-        <!-- Sticky compact search bar (visible in results phases) -->
-        <Transition name="bar-in">
-            <StickySearchBar
-                v-if="isResultsPhase"
-                :location="persistedLocation"
-                @refine-search="refineSearch"
-            />
-        </Transition>
-
-        <!-- Main content area. `relative` anchors the absolute-positioned leaving
-             results on the back-transition (results-in-leave-active) to this box,
-             not the viewport. -->
         <main class="relative flex flex-1 flex-col">
-            <!-- Centered hero (idle phase) — Transition watches HeroBanner's own v-if -->
-            <Transition name="hero-out">
-                <HeroBanner
-                    v-if="phase === 'idle'"
-                    :categories="bannerCategories"
-                    :location="persistedLocation"
-                    :detecting-location="detectingLocation"
-                    @cuisine-select="onCuisineSelect"
-                    @location-update="onLocationUpdate"
-                    @coords="onCoords"
-                    @detect="detectLocation"
-                    @search="onSearch"
-                />
-            </Transition>
+            <HeroBanner
+                :categories="bannerCategories"
+                :location="persistedLocation"
+                :detecting-location="detectingLocation"
+                @cuisine-select="onCuisineSelect"
+                @location-update="onLocationUpdate"
+                @coords="onCoords"
+                @detect="detectLocation"
+                @search="onSearch"
+            />
 
-            <!-- Yelp-style homepage sections — only in idle phase, no transition needed.
-                 Each section staggers its reveal (80ms step) so above-the-fold
-                 sections cascade in instead of snapping into view simultaneously. -->
-            <template v-if="phase === 'idle'">
-                <ScrollReveal :delay="0">
-                    <CategoryGrid
-                        :categories="categories"
-                        :loading="dataLoading"
-                        :lat="lat"
-                        :lng="lng"
-                    />
-                </ScrollReveal>
-
-                <ScrollReveal :delay="80">
-                    <PopularCuisines
-                        :cuisines="popularCuisines"
-                        :city="effectiveLocation?.city ?? null"
-                        :loading="dataLoading"
-                        :lat="lat"
-                        :lng="lng"
-                    />
-                </ScrollReveal>
-
-                <ScrollReveal :delay="160">
-                    <PopularRestaurants
-                        :restaurants="popularRestaurants"
-                        :city="effectiveLocation?.city ?? null"
-                        :loading="dataLoading"
-                    />
-                </ScrollReveal>
-
-                <ScrollReveal :delay="240">
-                    <BlogPreview :posts="props.latestPosts" />
-                </ScrollReveal>
-            </template>
-
-            <!-- Results area (all non-idle phases) -->
-            <Transition name="results-in">
-                <ResultsGrid
-                    v-if="isResultsPhase"
-                    :phase="phase"
-                    :restaurants="restaurants"
-                    :result-count="resultCount"
-                    :sort="sort"
-                    :sort-options="sortOptions"
-                    :next-page-url="nextPageUrl"
-                    :search-error="searchError"
-                    :load-more-error="loadMoreError"
+            <!-- Yelp-style homepage sections. Each section staggers its reveal
+                 (80ms step) so above-the-fold sections cascade in instead of
+                 snapping into view simultaneously. -->
+            <ScrollReveal :delay="0">
+                <CategoryGrid
+                    :categories="categories"
+                    :loading="dataLoading"
                     :lat="lat"
                     :lng="lng"
-                    :selected-cuisine="selectedCuisine"
-                    :should-stagger="shouldStagger"
-                    :is-resorting="isResorting"
-                    @update:sort="sort = $event"
-                    @resort="onResort"
-                    @load-more="onLoadMore"
-                    @reset-to-idle="resetToIdle"
-                    @dismiss-load-more-error="dismissLoadMoreError"
-                    @search="onSearch"
                 />
-            </Transition>
+            </ScrollReveal>
+
+            <ScrollReveal :delay="80">
+                <PopularCuisines
+                    :cuisines="popularCuisines"
+                    :city="effectiveLocation?.city ?? null"
+                    :loading="dataLoading"
+                    :lat="lat"
+                    :lng="lng"
+                />
+            </ScrollReveal>
+
+            <ScrollReveal :delay="160">
+                <PopularRestaurants
+                    :restaurants="popularRestaurants"
+                    :city="effectiveLocation?.city ?? null"
+                    :loading="dataLoading"
+                />
+            </ScrollReveal>
+
+            <ScrollReveal :delay="240">
+                <BlogPreview :posts="props.latestPosts" />
+            </ScrollReveal>
         </main>
 
         <AppFooter />
