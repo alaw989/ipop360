@@ -140,7 +140,7 @@ const stubs = {
     AppFooter: { template: '<footer class="app-footer-stub">Footer</footer>' },
     HeroBanner: {
         name: 'HeroBanner',
-        props: ['categories', 'location', 'detectingLocation', 'stats'],
+        props: ['categories', 'location', 'detectingLocation'],
         emits: ['cuisineSelect', 'locationUpdate', 'coords', 'detect', 'search'],
         template: '<div class="hero-banner-stub"><button class="search-btn" @click="$emit(\'search\')">Search</button></div>',
     },
@@ -229,7 +229,6 @@ function defaultProps(overrides: Record<string, unknown> = {}) {
         latestPosts: [makeBlogPost()],
         location: null,
         fallbackCoords: null,
-        stats: { restaurants: 100, cuisines: 50, cities: 20 },
         ...overrides,
     }
 }
@@ -367,15 +366,6 @@ describe('Welcome', () => {
             const wrapper = mountWelcome()
             const delays = wrapper.findAll('.scroll-reveal-stub').map(n => n.attributes('data-delay'))
             expect(delays).toEqual(['0', '80', '160', '240'])
-        })
-    })
-
-    describe('hero stats', () => {
-        it('passes stats counts to HeroBanner', () => {
-            const wrapper = mountWelcome({ stats: { restaurants: 321, cuisines: 45, cities: 12 } })
-            const hero = wrapper.findComponent({ name: 'HeroBanner' })
-            expect(hero.exists()).toBe(true)
-            expect(hero.props('stats')).toEqual({ restaurants: 321, cuisines: 45, cities: 12 })
         })
     })
 
