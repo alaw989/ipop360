@@ -92,13 +92,6 @@ interface HomepageData {
     }>
     popularRestaurants: Restaurant[]
     location: Location | null
-    stats: Stats
-}
-
-interface Stats {
-    restaurants: number
-    cuisines: number
-    cities: number
 }
 
 const props = defineProps<{
@@ -114,7 +107,6 @@ const props = defineProps<{
     latestPosts: BlogPost[]
     location: Location | null
     fallbackCoords: { lat: number; lng: number } | null
-    stats: Stats
 }>()
 
 // Phase machine
@@ -193,7 +185,6 @@ const categories = ref<Category[]>(props.categories)
 const bannerCategories = ref<Category[]>(props.categories)
 const popularCuisines = ref<HomepageData['popularCuisines']>(props.popularCuisines)
 const popularRestaurants = ref<HomepageData['popularRestaurants']>(props.popularRestaurants)
-const stats = ref<Stats>(props.stats)
 const dataLoading = ref(false)
 
 // Tracks the actual location scope of the data shown (may differ from the
@@ -229,7 +220,6 @@ function fetchHomepageData(city: string | null, state: string | null) {
             popularCuisines.value = data.popularCuisines
             popularRestaurants.value = data.popularRestaurants
             effectiveLocation.value = data.location
-            stats.value = data.stats
         })
         .catch(err => {
             if (err instanceof DOMException && err.name === 'AbortError') return
@@ -376,7 +366,6 @@ function dismissLoadMoreError() {
                     :categories="bannerCategories"
                     :location="persistedLocation"
                     :detecting-location="detectingLocation"
-                    :stats="stats"
                     @cuisine-select="onCuisineSelect"
                     @location-update="onLocationUpdate"
                     @coords="onCoords"

@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, type Component } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import { Button } from '@/components/ui/button'
 import CuisinePicker from '@/Components/CuisinePicker.vue'
 import LocationPicker from '@/Components/LocationPicker.vue'
 import BrandLogo from '@/Components/BrandLogo.vue'
 import { Badge } from '@/components/ui/badge'
-import { ChefHat, MapPin, UtensilsCrossed } from '@lucide/vue'
 import { slides } from '@/lib/slideshow'
-import { useCountUp } from '@/composables/useCountUp'
 
 interface Category {
     id: number
@@ -23,17 +21,10 @@ interface Location {
     state: string | null
 }
 
-interface Stats {
-    restaurants: number
-    cuisines: number
-    cities: number
-}
-
 interface Props {
     categories: Category[]
     location: Location
     detectingLocation: boolean
-    stats: Stats
 }
 
 interface Emits {
@@ -44,35 +35,8 @@ interface Emits {
     (e: 'search'): void
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 const emit = defineEmits<Emits>()
-
-interface StatDef {
-    icon: Component
-    label: string
-    target: () => number
-}
-
-const statDefs: StatDef[] = [
-    { icon: UtensilsCrossed, label: 'Restaurants', target: () => props.stats.restaurants },
-    { icon: ChefHat, label: 'Cuisines', target: () => props.stats.cuisines },
-    { icon: MapPin, label: 'Cities', target: () => props.stats.cities },
-]
-
-const counts = statDefs.map((def, i) => useCountUp(def.target, 1000, i * 80))
-
-const statsItems = computed(() =>
-    statDefs.map((def, i) => ({
-        icon: def.icon,
-        label: def.label,
-        value: counts[i]!.value,
-        target: def.target(),
-    })),
-)
-
-function formatNumber(value: number): string {
-    return value.toLocaleString('en-US')
-}
 
 const currentSlide = ref(0)
 const isPaused = ref(false)
@@ -208,38 +172,6 @@ function onDetect() {
                             </span>
                             <span v-else>Search</span>
                         </Button>
-                    </div>
-
-                    <!-- Stats row -->
-                    <div
-                        class="hero-stats-fade mt-10 flex items-center justify-center"
-                        role="list"
-                        aria-label="Popularity statistics"
-                    >
-                        <div class="flex items-center">
-                            <template v-for="(item, i) in statsItems" :key="item.label">
-                                <div
-                                    v-if="i > 0"
-                                    class="h-10 w-px bg-white/20"
-                                    aria-hidden="true"
-                                />
-                                <div
-                                    class="flex flex-col items-center px-3 sm:px-10"
-                                    role="listitem"
-                                    :aria-label="`${formatNumber(item.target)} ${item.label}`"
-                                >
-                                    <div class="flex items-baseline gap-1.5 sm:gap-2">
-                                        <component :is="item.icon" class="h-4 w-4 text-white/70 sm:h-5 sm:w-5" aria-hidden="true" />
-                                        <span class="text-2xl font-bold tabular-nums text-white sm:text-4xl" aria-hidden="true">
-                                            {{ formatNumber(item.value) }}
-                                        </span>
-                                    </div>
-                                    <span class="mt-1 text-xs uppercase tracking-widest text-white/70 sm:text-sm" aria-hidden="true">
-                                        {{ item.label }}
-                                    </span>
-                                </div>
-                            </template>
-                        </div>
                     </div>
                 </div>
             </div>
