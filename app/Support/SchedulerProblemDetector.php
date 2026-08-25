@@ -22,10 +22,14 @@ final class SchedulerProblemDetector
      * @param  int  $days  Telemetry window length (days) — bounds the over-fired
      *                     slot-count so it is consistent with the report window.
      * @param  list<string>  $excludeFromHung  Commands to skip in the hung/
-     *                                         unfinished check — the reporter
-     *                                         command (scheduler:health) flags
-     *                                         itself because its own completion
-     *                                         is recorded only after it returns.
+     *                                         unfinished and failed checks —
+     *                                         the reporter command
+     *                                         (scheduler:health) is
+     *                                         self-referential in both: its
+     *                                         own completion is recorded only
+     *                                         after it returns, and its
+     *                                         deliberate non-zero exit on a
+     *                                         detected problem isn't a crash.
      * @param  array<string, int>  $expiryMinutes  bare command => its own
      *                                             withoutOverlapping() mutex
      *                                             TTL in minutes. Used as the
@@ -59,7 +63,15 @@ final class SchedulerProblemDetector
                 && $this->expectedFiresInWindow($registered[$command], $this->windowStart($now, $days), $now) > 0,
         ));
 
-        $failed = array_filter($aggregates, fn (array $agg) => $agg['failed'] > 0);
+        // scheduler:health itself exits FAILURE whenever it detects a real
+        // problem elsewhere — that's a deliberate signal, not a crash, but
+        // telemetry logs it identically to one. Without this exclusion it
+        // would flag itself `failed` on every subsequent run for as long as
+        // any other problem persists in the window.
+        $failed = array_filter(
+            array_diff_key($aggregates, array_fill_keys($excludeFromHung, true)),
+            fn (array $agg) => $agg['failed'] > 0,
+        );
 
         // Only runs whose START was recorded by structured telemetry can have
         // their completion attested. Raw cron-redirect fires can't name their

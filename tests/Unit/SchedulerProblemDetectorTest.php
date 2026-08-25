@@ -104,6 +104,47 @@ class SchedulerProblemDetectorTest extends TestCase
         $this->assertSame(['scheduler:health'], array_keys($detected['hung']));
     }
 
+    public function test_failed_skips_excluded_reporter_command(): void
+    {
+        $registered = [
+            'scheduler:health' => '0 15 * * *',
+            'restaurants:scrape-social' => '45 10 * * *',
+        ];
+
+        // Both recorded a failure — scheduler:health's is its own deliberate
+        // FAILURE exit on detecting a problem elsewhere, not a crash.
+        $aggregates = [
+            'scheduler:health' => $this->aggregate(structured_started: 1, failed: 1),
+            'restaurants:scrape-social' => $this->aggregate(structured_started: 1, failed: 1),
+        ];
+
+        $detected = $this->detector->detect(
+            $aggregates,
+            $registered,
+            15,
+            1,
+            $this->now,
+            ['scheduler:health'],
+        );
+
+        $this->assertSame(['restaurants:scrape-social'], array_keys($detected['failed']));
+    }
+
+    public function test_failed_reports_reporter_command_when_not_excluded(): void
+    {
+        $aggregates = ['scheduler:health' => $this->aggregate(structured_started: 1, failed: 1)];
+
+        $detected = $this->detector->detect(
+            $aggregates,
+            ['scheduler:health' => '0 15 * * *'],
+            15,
+            1,
+            $this->now,
+        );
+
+        $this->assertSame(['scheduler:health'], array_keys($detected['failed']));
+    }
+
     public function test_hung_flags_immediately_when_no_expiry_map_supplied(): void
     {
         // Backward compatibility: omitting $expiryMinutes entirely reproduces
