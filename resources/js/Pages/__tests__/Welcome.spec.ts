@@ -5,11 +5,6 @@ import { useSeo } from '@/composables/useSeo'
 
 const {
     mockRouterGet,
-    mockPersistedLocation,
-    mockLat,
-    mockLng,
-    mockPersistLocation,
-    mockRestorePersistedLocation,
     mockDetectLocation,
     mockDetectingLocation,
     mockGeolocationError,
@@ -17,11 +12,6 @@ const {
     mockEndSearchLoading,
 } = vi.hoisted(() => {
     const mockRouterGet = vi.fn()
-    const mockPersistedLocation = { value: { city: null, state: null } as { city: string | null; state: string | null } }
-    const mockLat = { value: null as number | null }
-    const mockLng = { value: null as number | null }
-    const mockPersistLocation = vi.fn()
-    const mockRestorePersistedLocation = vi.fn()
     const mockDetectLocation = vi.fn()
     const mockDetectingLocation = { value: false }
     const mockGeolocationError = { value: null as string | null }
@@ -29,11 +19,6 @@ const {
     const mockEndSearchLoading = vi.fn()
     return {
         mockRouterGet,
-        mockPersistedLocation,
-        mockLat,
-        mockLng,
-        mockPersistLocation,
-        mockRestorePersistedLocation,
         mockDetectLocation,
         mockDetectingLocation,
         mockGeolocationError,
@@ -78,16 +63,6 @@ vi.mock('@/composables/useGeolocation', () => ({
         detectingLocation: mockDetectingLocation,
         geolocationError: mockGeolocationError,
         detectLocation: mockDetectLocation,
-    })),
-}))
-
-vi.mock('@/composables/usePersistedLocation', () => ({
-    usePersistedLocation: vi.fn(() => ({
-        location: mockPersistedLocation,
-        lat: mockLat,
-        lng: mockLng,
-        persistLocation: mockPersistLocation,
-        restore: mockRestorePersistedLocation,
     })),
 }))
 
@@ -202,11 +177,6 @@ function mountWelcome(propsOverrides: Record<string, unknown> = {}) {
 beforeEach(() => {
     mockRouterGet.mockClear()
     mockSerpapiExhausted.value = false
-    mockPersistedLocation.value = { city: null, state: null }
-    mockLat.value = null
-    mockLng.value = null
-    mockPersistLocation.mockClear()
-    mockRestorePersistedLocation.mockClear()
     mockDetectLocation.mockClear()
     mockDetectingLocation.value = false
     mockGeolocationError.value = null

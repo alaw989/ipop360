@@ -7,12 +7,12 @@ vi.mock('@/lib/api', () => ({
     get: vi.fn(),
 }));
 
-function mountComposable(persistLocation = vi.fn()) {
+function mountComposable(setLocation = vi.fn()) {
     let result: ReturnType<typeof useGeolocation> | null = null;
     const wrapper = mount(
         defineComponent({
             setup() {
-                result = useGeolocation(persistLocation);
+                result = useGeolocation(setLocation);
                 return () => h('div');
             },
         }),
@@ -138,8 +138,8 @@ describe('useGeolocation', () => {
             const { get } = await import('@/lib/api');
             vi.mocked(get).mockResolvedValueOnce({ city: 'New York', state: 'NY' });
 
-            const persistLocation = vi.fn();
-            const { result } = mountComposable(persistLocation);
+            const setLocation = vi.fn();
+            const { result } = mountComposable(setLocation);
 
             result.detectLocation();
             fireSuccess({ coords: { latitude: 40.7, longitude: -74.0 } } as GeolocationPosition);
@@ -147,15 +147,15 @@ describe('useGeolocation', () => {
             await vi.waitFor(() => {
                 expect(result.location.value).toEqual({ city: 'New York', state: 'NY' });
             });
-            expect(persistLocation).toHaveBeenCalledWith('New York', 'NY', 40.7, -74.0);
+            expect(setLocation).toHaveBeenCalledWith('New York', 'NY', 40.7, -74.0);
         });
 
         it('handles reverse geocode failure gracefully', async () => {
             const { get } = await import('@/lib/api');
             vi.mocked(get).mockRejectedValueOnce(new Error('Network error'));
 
-            const persistLocation = vi.fn();
-            const { result } = mountComposable(persistLocation);
+            const setLocation = vi.fn();
+            const { result } = mountComposable(setLocation);
 
             result.detectLocation();
             fireSuccess({ coords: { latitude: 40.7, longitude: -74.0 } } as GeolocationPosition);
@@ -166,15 +166,15 @@ describe('useGeolocation', () => {
             expect(result.lat.value).toBe(40.7);
             expect(result.lng.value).toBe(-74.0);
             expect(result.location.value).toEqual({ city: null, state: null });
-            expect(persistLocation).not.toHaveBeenCalled();
+            expect(setLocation).not.toHaveBeenCalled();
         });
 
-        it('skips persistLocation when geocode returns empty result', async () => {
+        it('skips setLocation when geocode returns empty result', async () => {
             const { get } = await import('@/lib/api');
             vi.mocked(get).mockResolvedValueOnce({});
 
-            const persistLocation = vi.fn();
-            const { result } = mountComposable(persistLocation);
+            const setLocation = vi.fn();
+            const { result } = mountComposable(setLocation);
 
             result.detectLocation();
             fireSuccess({ coords: { latitude: 40.7, longitude: -74.0 } } as GeolocationPosition);
@@ -183,7 +183,7 @@ describe('useGeolocation', () => {
                 expect(result.detectingLocation.value).toBe(false);
             });
             expect(result.location.value).toEqual({ city: null, state: null });
-            expect(persistLocation).not.toHaveBeenCalled();
+            expect(setLocation).not.toHaveBeenCalled();
         });
 
         it('passes timeout and accuracy options to getCurrentPosition', () => {

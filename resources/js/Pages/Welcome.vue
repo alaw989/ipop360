@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router, usePage } from '@inertiajs/vue3'
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onUnmounted, watch } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -18,7 +18,6 @@ import BlogPreview from '@/Components/BlogPreview.vue'
 import { useSeo, generateWebSiteJsonLd, generateOrganizationJsonLd } from '@/composables/useSeo'
 import { useSearchLoadingOverlay } from '@/composables/useSearchLoadingOverlay'
 import { useGeolocation } from '@/composables/useGeolocation'
-import { usePersistedLocation } from '@/composables/usePersistedLocation'
 import { useBaseUrl } from '@/composables/useBaseUrl'
 import SeoMeta from '@/Components/SeoMeta.vue'
 import '../../css/transitions.css' // homepage-only transition choreography (spec-062)
@@ -111,11 +110,22 @@ const selectedLabel = ref<string | null>(null)
 const sort = ref<string>('best_match')
 const serpapiExhausted = computed(() => usePage().props.serpapi_exhausted)
 
-// Persisted location (city/state/coords from localStorage)
-const { location: persistedLocation, lat, lng, persistLocation, restore: restorePersistedLocation } = usePersistedLocation(props.location, props.fallbackCoords)
+// Location state, seeded fresh from the server's per-request IP-based guess
+// (HomeController -> GeolocationService::resolveLocation). Not persisted
+// across page loads — every load re-derives location from the request.
+const persistedLocation = ref<Location>(props.location ?? { city: null, state: null })
+const lat = ref<number | null>(props.fallbackCoords?.lat ?? null)
+const lng = ref<number | null>(props.fallbackCoords?.lng ?? null)
 
-// Geolocation (GPS + reverse geocode)
-const { detectingLocation, geolocationError, detectLocation } = useGeolocation(persistLocation)
+function setLocation(city: string | null, state: string | null, lt: number | null, lg: number | null): void {
+    persistedLocation.value = { city, state }
+    lat.value = lt
+    lng.value = lg
+}
+
+// Geolocation (GPS + reverse geocode) — only ever triggered by the explicit
+// "Use my current location" action, never automatically on load.
+const { detectingLocation, geolocationError, detectLocation } = useGeolocation(setLocation)
 
 // Full-page loading takeover for the homepage's initial search navigation
 // (router.get('/search', ...) below) — the only feedback that visit had
@@ -156,10 +166,6 @@ const dataLoading = ref(false)
 // Tracks the actual location scope of the data shown (may differ from the
 // selected city when no restaurants exist for it and fallback kicks in).
 const effectiveLocation = ref<Location | null>(props.location)
-
-onMounted(() => {
-    restorePersistedLocation()
-})
 
 // Abort controller for in-flight homepage-data fetches.
 const homepageAbortController = ref<AbortController | null>(null)
@@ -221,7 +227,7 @@ function onLocationUpdate(newLocation: Location) {
 function onCoords(lt: number, lg: number) {
     lat.value = lt
     lng.value = lg
-    persistLocation(persistedLocation.value.city, persistedLocation.value.state, lt, lg)
+    setLocation(persistedLocation.value.city, persistedLocation.value.state, lt, lg)
 }
 
 function onSearch() {

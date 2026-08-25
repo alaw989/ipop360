@@ -14,7 +14,7 @@ interface GeolocationResult {
     detectLocation: () => Promise<void>;
 }
 
-interface PersistLocationFn {
+interface SetLocationFn {
     (city: string | null, state: string | null, lat: number | null, lng: number | null): void;
 }
 
@@ -22,7 +22,7 @@ interface PersistLocationFn {
  * Composable for GPS geolocation and reverse geocoding.
  * Merges the two GPS+reverse-geocode blocks from Welcome.vue into one flow.
  */
-export function useGeolocation(persistLocation: PersistLocationFn): GeolocationResult {
+export function useGeolocation(setLocation: SetLocationFn): GeolocationResult {
     const lat = ref<number | null>(null);
     const lng = ref<number | null>(null);
     const location = ref<Location>({ city: null, state: null });
@@ -53,7 +53,7 @@ export function useGeolocation(persistLocation: PersistLocationFn): GeolocationR
                             city: data.city ?? null,
                             state: data.state ?? null,
                         };
-                        persistLocation(location.value.city, location.value.state, lat.value, lng.value);
+                        setLocation(location.value.city, location.value.state, lat.value, lng.value);
                     }
                 } catch {
                     // Keep existing coordinates on geocode failure
