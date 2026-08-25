@@ -103,6 +103,19 @@ class RestaurantValidationServiceTest extends TestCase
         $this->assertSame(99, $result['yelp_review_count']);
     }
 
+    public function test_normalize_reconciles_full_state_names_to_abbreviations(): void
+    {
+        $result = $this->service->normalize(['state' => 'Texas']);
+        $this->assertSame('TX', $result['state']);
+    }
+
+    public function test_normalize_leaves_state_abbreviations_and_unrecognized_values_alone(): void
+    {
+        $this->assertSame('TX', $this->service->normalize(['state' => 'TX'])['state']);
+        $this->assertSame('TX', $this->service->normalize(['state' => 'tx'])['state']);
+        $this->assertSame('Nowhere', $this->service->normalize(['state' => 'Nowhere'])['state']);
+    }
+
     public function test_normalize_truncates_name_and_skips_empty_urls(): void
     {
         $result = $this->service->normalize([

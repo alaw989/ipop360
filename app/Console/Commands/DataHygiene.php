@@ -7,6 +7,7 @@ use App\Models\Restaurant;
 use App\Services\AiEnrichmentService;
 use App\Services\RestaurantDeduplicationService;
 use App\Services\RestaurantValidationService;
+use App\Support\StateAbbreviations;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -39,65 +40,6 @@ class DataHygiene extends Command
         {--limit= : Bound the run: merge at most N duplicate pairs and enrich at most N rows (enrich is also capped by the daily AI limit)}';
 
     protected $description = 'Normalize restaurant fields and merge true duplicates (continuous hygiene pass)';
-
-    /**
-     * Full US state/territory names keyed by their uppercase form.
-     *
-     * @var array<string, string>
-     */
-    private const STATE_ABBREVIATIONS = [
-        'ALABAMA' => 'AL',
-        'ALASKA' => 'AK',
-        'ARIZONA' => 'AZ',
-        'ARKANSAS' => 'AR',
-        'CALIFORNIA' => 'CA',
-        'COLORADO' => 'CO',
-        'CONNECTICUT' => 'CT',
-        'DELAWARE' => 'DE',
-        'FLORIDA' => 'FL',
-        'GEORGIA' => 'GA',
-        'HAWAII' => 'HI',
-        'IDAHO' => 'ID',
-        'ILLINOIS' => 'IL',
-        'INDIANA' => 'IN',
-        'IOWA' => 'IA',
-        'KANSAS' => 'KS',
-        'KENTUCKY' => 'KY',
-        'LOUISIANA' => 'LA',
-        'MAINE' => 'ME',
-        'MARYLAND' => 'MD',
-        'MASSACHUSETTS' => 'MA',
-        'MICHIGAN' => 'MI',
-        'MINNESOTA' => 'MN',
-        'MISSISSIPPI' => 'MS',
-        'MISSOURI' => 'MO',
-        'MONTANA' => 'MT',
-        'NEBRASKA' => 'NE',
-        'NEVADA' => 'NV',
-        'NEW HAMPSHIRE' => 'NH',
-        'NEW JERSEY' => 'NJ',
-        'NEW MEXICO' => 'NM',
-        'NEW YORK' => 'NY',
-        'NORTH CAROLINA' => 'NC',
-        'NORTH DAKOTA' => 'ND',
-        'OHIO' => 'OH',
-        'OKLAHOMA' => 'OK',
-        'OREGON' => 'OR',
-        'PENNSYLVANIA' => 'PA',
-        'RHODE ISLAND' => 'RI',
-        'SOUTH CAROLINA' => 'SC',
-        'SOUTH DAKOTA' => 'SD',
-        'TENNESSEE' => 'TN',
-        'TEXAS' => 'TX',
-        'UTAH' => 'UT',
-        'VERMONT' => 'VT',
-        'VIRGINIA' => 'VA',
-        'WASHINGTON' => 'WA',
-        'WEST VIRGINIA' => 'WV',
-        'WISCONSIN' => 'WI',
-        'WYOMING' => 'WY',
-        'DISTRICT OF COLUMBIA' => 'DC',
-    ];
 
     /**
      * Words kept lowercase in city title-casing (unless the first word).
@@ -759,22 +701,7 @@ class DataHygiene extends Command
             }
         }
 
-        $state = $this->collapseWhitespace($state);
-        if ($state === null) {
-            return null;
-        }
-
-        $upper = strtoupper($state);
-
-        if (isset(self::STATE_ABBREVIATIONS[$upper])) {
-            return self::STATE_ABBREVIATIONS[$upper];
-        }
-
-        if (in_array($upper, self::STATE_ABBREVIATIONS, true)) {
-            return $upper;
-        }
-
-        return null;
+        return StateAbbreviations::toAbbreviation($state);
     }
 
     /**
@@ -801,7 +728,7 @@ class DataHygiene extends Command
 
         $abbr = strtoupper($m[1]);
 
-        return in_array($abbr, self::STATE_ABBREVIATIONS, true) ? $abbr : null;
+        return in_array($abbr, StateAbbreviations::MAP, true) ? $abbr : null;
     }
 
     private function titleCaseCity(?string $city): ?string

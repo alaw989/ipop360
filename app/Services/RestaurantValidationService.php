@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Support\StateAbbreviations;
+
 class RestaurantValidationService
 {
     /**
@@ -42,6 +44,10 @@ class RestaurantValidationService
 
         if (isset($attributes['longitude'])) {
             $attributes['longitude'] = $this->clampLongitude((float) $attributes['longitude']);
+        }
+
+        if (! empty($attributes['state'])) {
+            $attributes['state'] = StateAbbreviations::toAbbreviation($attributes['state']) ?? $attributes['state'];
         }
 
         if (! empty($attributes['phone'])) {

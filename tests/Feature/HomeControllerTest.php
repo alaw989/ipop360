@@ -149,7 +149,7 @@ class HomeControllerTest extends TestCase
         $cuisine = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'scoped-cuisine']);
         $r = Restaurant::factory()->create([
             'city' => 'Austin',
-            'state' => 'Texas',
+            'state' => 'TX',
             'is_active' => true,
             'photo_url' => 'https://example.com/photo.jpg',
             'popularity_score' => 0.9,
@@ -159,18 +159,21 @@ class HomeControllerTest extends TestCase
 
         Restaurant::factory()->create([
             'city' => 'Dallas',
-            'state' => 'Texas',
+            'state' => 'TX',
             'is_active' => true,
             'photo_url' => 'https://example.com/photo.jpg',
             'popularity_score' => 0.9,
         ]);
 
+        // Real rows are stored as the 2-letter abbreviation, but a request
+        // can arrive with the spelled-out name (IP/GPS/city-search
+        // geolocation all return full state names) — must still match.
         $response = $this->getJson('/api/homepage-data?city=Austin&state=Texas');
 
         $response->assertStatus(200);
         $response->assertJsonCount(1, 'popularRestaurants');
         $response->assertJson([
-            'location' => ['city' => 'Austin', 'state' => 'Texas'],
+            'location' => ['city' => 'Austin', 'state' => 'TX'],
         ]);
     }
 
@@ -205,7 +208,7 @@ class HomeControllerTest extends TestCase
 
         $r = Restaurant::factory()->create([
             'city' => 'Miami',
-            'state' => 'Florida',
+            'state' => 'FL',
             'is_active' => true,
         ]);
         $restaurant = Restaurant::whereKey($r->id)->firstOrFail();
@@ -345,7 +348,7 @@ class HomeControllerTest extends TestCase
         // for the city tier, but a qualified global candidate exists.
         Restaurant::factory()->create([
             'city' => 'Austin',
-            'state' => 'Texas',
+            'state' => 'TX',
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => null,
@@ -374,7 +377,7 @@ class HomeControllerTest extends TestCase
         // unfiltered corpus rather than an empty Trending section.
         $r = Restaurant::factory()->create([
             'city' => 'Austin',
-            'state' => 'Texas',
+            'state' => 'TX',
             'is_active' => true,
             'popularity_score' => 0.1,
             'photo_url' => null,
@@ -396,7 +399,7 @@ class HomeControllerTest extends TestCase
 
         $r = Restaurant::factory()->create([
             'city' => 'Austin',
-            'state' => 'Texas',
+            'state' => 'TX',
             'is_active' => true,
             'popularity_score' => 0.1,
             'photo_url' => null,
@@ -407,7 +410,30 @@ class HomeControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonCount(1, 'popularRestaurants');
         $response->assertJson([
-            'location' => ['city' => 'Austin', 'state' => 'Texas'],
+            'location' => ['city' => 'Austin', 'state' => 'TX'],
+            'popularRestaurants' => [['id' => $r->id]],
+        ]);
+    }
+
+    public function test_api_data_matches_full_state_name_against_abbreviation_stored_rows(): void
+    {
+        // Regression test: real DB rows store the 2-letter abbreviation, but
+        // IP/GPS/city-search geolocation all hand back the full state name —
+        // a request for "Texas" must still find rows stored as "TX".
+        $r = Restaurant::factory()->create([
+            'city' => 'Austin',
+            'state' => 'TX',
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ]);
+
+        $response = $this->getJson('/api/homepage-data?city=Austin&state=Texas');
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'popularRestaurants');
+        $response->assertJson([
+            'location' => ['city' => 'Austin', 'state' => 'TX'],
             'popularRestaurants' => [['id' => $r->id]],
         ]);
     }
