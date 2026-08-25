@@ -113,6 +113,27 @@ class GeolocationServiceTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_ip_lookup_failure_is_not_cached_for_a_full_day(): void
+    {
+        // A transient failure (rate limit, timeout, outage) should not lock
+        // an IP out of location resolution for 24h — it should be safe to
+        // retry shortly after, once ipapi.co is fixed/faked to succeed.
+        Http::fake([
+            'ipapi.co/*' => Http::sequence()
+                ->push([], 429)
+                ->push(['latitude' => 37.7749, 'longitude' => -122.4194], 200),
+        ]);
+
+        $this->assertNull($this->service->ipLookup('8.8.5.5'));
+
+        // Simulate the short negative-cache TTL expiring, without waiting
+        // out the full window in the test.
+        \Illuminate\Support\Facades\Cache::forget('geo_full:8.8.5.5');
+
+        $coords = $this->service->ipLookup('8.8.5.5');
+        $this->assertEquals(['lat' => 37.7749, 'lng' => -122.4194], $coords);
+    }
+
     public function test_reverse_geocode_returns_city_and_state(): void
     {
         Http::fake([

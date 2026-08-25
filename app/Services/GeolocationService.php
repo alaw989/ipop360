@@ -232,29 +232,42 @@ class GeolocationService
             return null;
         }
 
-        return Cache::remember("geo_full:{$ip}", now()->addDay(), function () use ($ip) {
-            try {
-                $response = Http::timeout(3)->get("https://ipapi.co/{$ip}/json/");
+        $cacheKey = "geo_full:{$ip}";
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached === 'miss' ? null : $cached;
+        }
 
-                if ($response->failed()) {
-                    return null;
-                }
+        try {
+            $response = Http::timeout(3)->get("https://ipapi.co/{$ip}/json/");
 
-                $data = $response->json();
+            if ($response->failed()) {
+                // Short negative cache: a rate limit or transient outage
+                // shouldn't lock this IP out of location resolution for a
+                // full day — retry again in a few minutes instead.
+                Cache::put($cacheKey, 'miss', now()->addMinutes(5));
 
-                if (isset($data['latitude'], $data['longitude'])) {
-                    return [
-                        'lat' => (float) $data['latitude'],
-                        'lng' => (float) $data['longitude'],
-                        'city' => $data['city'] ?? null,
-                        'region' => $data['region'] ?? null,
-                    ];
-                }
-            } catch (\Throwable $e) {
-                Log::debug('IP geolocation lookup failed', ['ip' => $ip, 'error' => $e->getMessage()]);
+                return null;
             }
 
-            return null;
-        });
+            $data = $response->json();
+
+            if (isset($data['latitude'], $data['longitude'])) {
+                $result = [
+                    'lat' => (float) $data['latitude'],
+                    'lng' => (float) $data['longitude'],
+                    'city' => $data['city'] ?? null,
+                    'region' => $data['region'] ?? null,
+                ];
+                Cache::put($cacheKey, $result, now()->addDay());
+
+                return $result;
+            }
+        } catch (\Throwable $e) {
+            Log::debug('IP geolocation lookup failed', ['ip' => $ip, 'error' => $e->getMessage()]);
+            Cache::put($cacheKey, 'miss', now()->addMinutes(5));
+        }
+
+        return null;
     }
 }
