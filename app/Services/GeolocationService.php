@@ -47,31 +47,6 @@ class GeolocationService
     }
 
     /**
-     * @return array{lat: float, lng: float, city: string|null, state: string|null}|null
-     */
-    public function resolveLocation(Request $request): ?array
-    {
-        $coords = $this->resolveCoordinates($request);
-        if ($coords === null) {
-            return null;
-        }
-
-        $ip = $request->ip();
-        if ($ip === null) {
-            return null;
-        }
-
-        $ipData = $this->ipLookupFull($ip);
-
-        return [
-            'lat' => $coords['lat'],
-            'lng' => $coords['lng'],
-            'city' => $ipData['city'] ?? null,
-            'state' => $ipData['region'] ?? null,
-        ];
-    }
-
-    /**
      * @return array{lat: float, lng: float}|null
      */
     public function ipLookup(string $ip): ?array

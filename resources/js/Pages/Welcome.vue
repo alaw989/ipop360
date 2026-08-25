@@ -97,8 +97,6 @@ const props = defineProps<{
     }>
     popularRestaurants: Restaurant[]
     latestPosts: BlogPost[]
-    location: Location | null
-    fallbackCoords: { lat: number; lng: number } | null
 }>()
 
 // Cuisine selection state
@@ -110,12 +108,12 @@ const selectedLabel = ref<string | null>(null)
 const sort = ref<string>('best_match')
 const serpapiExhausted = computed(() => usePage().props.serpapi_exhausted)
 
-// Location state, seeded fresh from the server's per-request IP-based guess
-// (HomeController -> GeolocationService::resolveLocation). Not persisted
-// across page loads — every load re-derives location from the request.
-const persistedLocation = ref<Location>(props.location ?? { city: null, state: null })
-const lat = ref<number | null>(props.fallbackCoords?.lat ?? null)
-const lng = ref<number | null>(props.fallbackCoords?.lng ?? null)
+// Location state. No server-side IP guessing and no cross-load persistence —
+// every load starts blank until the user picks a city or grants GPS via
+// "Use my current location".
+const persistedLocation = ref<Location>({ city: null, state: null })
+const lat = ref<number | null>(null)
+const lng = ref<number | null>(null)
 
 function setLocation(city: string | null, state: string | null, lt: number | null, lg: number | null): void {
     persistedLocation.value = { city, state }
@@ -153,10 +151,9 @@ const structuredData = computed(() => {
     return [webSite, organization]
 })
 
-// Reactive homepage data — initialised from server props, then refetched when
-// the user changes city via LocationPicker. On mount, restorePersistedLocation
-// may pull a saved city from localStorage that differs from the server-rendered
-// props — the watcher below catches that change and fetches the correct data.
+// Reactive homepage data — initialised from server props (always the
+// unscoped/global view, since the server never guesses a city), then
+// refetched when the user picks a city via LocationPicker or GPS.
 const categories = ref<Category[]>(props.categories)
 const bannerCategories = ref<Category[]>(props.categories)
 const popularCuisines = ref<HomepageData['popularCuisines']>(props.popularCuisines)
@@ -165,7 +162,7 @@ const dataLoading = ref(false)
 
 // Tracks the actual location scope of the data shown (may differ from the
 // selected city when no restaurants exist for it and fallback kicks in).
-const effectiveLocation = ref<Location | null>(props.location)
+const effectiveLocation = ref<Location | null>(null)
 
 // Abort controller for in-flight homepage-data fetches.
 const homepageAbortController = ref<AbortController | null>(null)

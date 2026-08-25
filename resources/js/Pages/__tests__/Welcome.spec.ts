@@ -161,8 +161,6 @@ function defaultProps(overrides: Record<string, unknown> = {}) {
         popularCuisines: [makePopularCuisine()],
         popularRestaurants: [makePopularRestaurant()],
         latestPosts: [makeBlogPost()],
-        location: null,
-        fallbackCoords: null,
         ...overrides,
     }
 }
@@ -231,10 +229,10 @@ describe('Welcome', () => {
             expect(wrapper.find('.popular-restaurants-stub').exists()).toBe(true)
         })
 
-        it('renders PopularRestaurants with default city (from props location)', () => {
-            const wrapper = mountWelcome({ location: { city: 'Denver', state: 'CO' } })
+        it('renders PopularRestaurants with no city label until a city is picked', () => {
+            const wrapper = mountWelcome()
             const cityLabel = wrapper.find('.city-label')
-            expect(cityLabel.text()).toBe('Denver')
+            expect(cityLabel.text()).toBe('')
         })
 
         it('passes popularRestaurants data to PopularRestaurants', () => {

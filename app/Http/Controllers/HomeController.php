@@ -6,7 +6,6 @@ use App\Models\BlogPost;
 use App\Models\Cuisine;
 use App\Models\CuisineCategory;
 use App\Models\Restaurant;
-use App\Services\GeolocationService;
 use App\Support\StateAbbreviations;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,26 +14,11 @@ use Inertia\Response;
 
 class HomeController extends Controller
 {
-    public function __construct(
-        private GeolocationService $geolocationService,
-    ) {}
-
     public function __invoke(Request $request): Response
     {
-        $location = $this->geolocationService->resolveLocation($request);
-        $city = $location['city'] ?? null;
-        $state = $location['state'] ?? null;
+        $data = $this->getHomepageData(null, null);
 
-        $data = $this->getHomepageData($city, $state);
-
-        return Inertia::render('Welcome', array_merge($data, [
-            'location' => $location
-                ? ['city' => $city, 'state' => $state]
-                : null,
-            'fallbackCoords' => $location
-                ? ['lat' => $location['lat'], 'lng' => $location['lng']]
-                : null,
-        ]));
+        return Inertia::render('Welcome', $data);
     }
 
     public function apiData(Request $request): JsonResponse
