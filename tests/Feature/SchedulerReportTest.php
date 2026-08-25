@@ -517,6 +517,8 @@ class SchedulerReportTest extends TestCase
     {
         // Structured JSON telemetry absent — only the raw `scheduler.log`
         // cron-redirect exists (as on the droplet before telemetry deploys).
+        $this->travelTo(Carbon::parse('2026-08-17 10:00:30', 'UTC'));
+
         $this->writeLog('scheduler.log', [
             "  2026-08-17 02:00:00 Running ['artisan' restaurants:score] ",
             "  2026-08-17 02:00:01 Running ['artisan' uptime:canary] ........ 822.73ms DONE",
@@ -556,6 +558,8 @@ class SchedulerReportTest extends TestCase
     {
         // Structured JSON marks the command as structured; the raw log is a
         // secondary source and must not overwrite it.
+        $this->travelTo(Carbon::parse('2026-08-17 10:00:30', 'UTC'));
+
         $this->writeLog('scheduler-'.now()->format('Y-m-d').'.log', [
             $this->telemetryLine('Scheduled command started', 'restaurants:score', ['started_at' => '2026-08-17T02:00:00+00:00']),
             $this->telemetryLine('Scheduled command completed', 'restaurants:score', ['runtime_seconds' => 3.0]),
