@@ -281,8 +281,20 @@ final class SchedulerProblemDetector
             $end = Carbon::instance($to);
             $cron = CronExpression::factory($expression);
 
+            // $from is always startOfDay() (midnight) — which is itself a valid
+            // cron slot for any midnight-aligned cadence (every-N-hours/every-
+            // N-minutes where N divides the day evenly, e.g. restaurants:ai-enrich's
+            // `0 */6 * * *` or uptime:canary's `*/15 * * * *`). allowCurrentDate
+            // defaults to false, so without allowing it on this first lookup only,
+            // that boundary slot is silently dropped from the count — permanently
+            // undercounting "expected" by exactly 1 for those commands and causing
+            // a false over_fired every day, since a real fire at that boundary
+            // still gets counted on the aggregates side.
+            $allowCurrent = true;
+
             for ($i = 0; $i < 10000; $i++) {
-                $next = Carbon::instance($cron->getNextRunDate($cursor));
+                $next = Carbon::instance($cron->getNextRunDate($cursor, 0, $allowCurrent));
+                $allowCurrent = false;
                 if ($next >= $end) {
                     break;
                 }
