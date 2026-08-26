@@ -97,7 +97,7 @@ const stubs = {
         template: '<div class="category-grid-stub" />',
     },
     PopularCuisines: {
-        props: ['cuisines', 'city', 'loading', 'lat', 'lng'],
+        props: ['cuisines', 'loading', 'lat', 'lng'],
         template: '<div class="popular-cuisines-stub" />',
     },
     PopularRestaurants: {

@@ -58,7 +58,7 @@ class HomeController extends Controller
                 ->with('cuisines')
                 ->where('city', $city)
                 ->where('state', $state)
-                ->orderByDecayedScore()
+                ->orderByTrendingScore()
                 ->limit($trendingLimit)
                 ->get();
 
@@ -70,7 +70,7 @@ class HomeController extends Controller
         if ($popularRestaurants->isEmpty()) {
             $popularRestaurants = Restaurant::active()->trendingQualified()
                 ->with('cuisines')
-                ->orderByDecayedScore()
+                ->orderByTrendingScore()
                 ->limit($trendingLimit)
                 ->get();
         }
@@ -80,15 +80,17 @@ class HomeController extends Controller
             // never show an empty Trending section when there IS data.
             $popularRestaurants = Restaurant::active()
                 ->with('cuisines')
-                ->orderByDecayedScore()
+                ->orderByTrendingScore()
                 ->limit($trendingLimit)
                 ->get();
         }
 
-        $popularIds = $popularRestaurants->pluck('id');
-
+        // Popular cuisines are always global (not scoped to the trending top-18
+        // or the request city): a frequency count across every active
+        // restaurant, so the section reflects the whole corpus, not a thin
+        // city snapshot.
         $popularCuisines = Cuisine::withCount([
-            'restaurants' => fn ($q) => $q->whereIn('restaurants.id', $popularIds)->active(),
+            'restaurants' => fn ($q) => $q->active(),
         ])
             ->orderByDesc('restaurants_count')
             ->limit(12)

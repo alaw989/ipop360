@@ -117,4 +117,22 @@ class SqlDialect
 
         return "json_array_length({$column})";
     }
+
+    /**
+     * Correlated subquery counting a restaurant's engagement rows created
+     * within the trailing N days. Referenced against the `restaurants` table
+     * alias so it can be dropped straight into an ORDER BY expression.
+     * `$windowDays` is an integer config value (never user input), so the
+     * returned string is non-empty but not a compile-time literal.
+     *
+     * @return non-empty-string
+     */
+    public static function recentEngagementCountSubquery(int $windowDays): string
+    {
+        if (self::isMysql()) {
+            return "(SELECT COUNT(*) FROM restaurant_engagement e WHERE e.restaurant_id = restaurants.id AND e.created_at >= (NOW() - INTERVAL {$windowDays} DAY))";
+        }
+
+        return "(SELECT COUNT(*) FROM restaurant_engagement e WHERE e.restaurant_id = restaurants.id AND e.created_at >= datetime('now', '-{$windowDays} days'))";
+    }
 }

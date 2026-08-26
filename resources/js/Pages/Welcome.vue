@@ -304,7 +304,6 @@ function dismissGeolocationError() {
             <ScrollReveal :delay="80">
                 <PopularCuisines
                     :cuisines="popularCuisines"
-                    :city="effectiveLocation?.city ?? null"
                     :loading="dataLoading"
                     :lat="lat"
                     :lng="lng"

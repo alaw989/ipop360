@@ -10,7 +10,6 @@ const props = defineProps<{
         slug: string
         icon: string | null
     }>
-    city: string | null
     loading?: boolean
     lat?: number | null
     lng?: number | null
@@ -39,7 +38,6 @@ const hasMore = computed(() => props.cuisines.length > initialLimit)
         <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
             <h2 class="mb-1 text-xl font-semibold text-foreground">
                 Popular cuisines
-                <span v-if="city"> in {{ city }}</span>
             </h2>
             <p class="mb-6 text-sm text-muted-foreground">
                 Discover top cuisines and their best restaurants
