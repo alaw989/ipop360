@@ -334,6 +334,13 @@ return [
         // Prevents a single low-review venue from compressing everyone to ~1.0.
         'log_review_floor' => (int) env('RANK_LOG_REVIEW_FLOOR', 500),
 
+        // Per-signal log floor for social_links_count, which is a small integer
+        // (typically 0-5). The review-scale floor (500) squashes its normalized
+        // range (n=5 -> ~0.29) and re-compresses the unrated cohort that social
+        // presence is meant to differentiate. A scale-appropriate floor spreads
+        // it. See docs/ranking-metrics.md and the item #1 rebalance.
+        'social_links_log_floor' => (int) env('RANK_SOCIAL_LINKS_LOG_FLOOR', 10),
+
         // Fallback denominator when the collection is empty or all-zero so the
         // log scale still produces sane, bounded values.
         'log_review_default' => (int) env('RANK_LOG_REVIEW_DEFAULT', 5000),

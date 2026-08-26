@@ -134,7 +134,15 @@ Normalization is **per-method** (`PopularityScoreService::METHODS`):
 - **Log count** → `website_clicks_count`, `pageviews_count`, `social_links_count`,
   `social_link_clicks_count`, `menu_click_count`, `directions_clicks_count`,
   `call_clicks_count`: `log(1+n) / log(1+denom)` where
-  `denom = max(collection max, floor)`.
+  `denom = max(collection max, floor)`. The floor is `log_review_floor` (500,
+  tuned for review counts) EXCEPT for `social_links_count`, which uses its own
+  `social_links_log_floor` (default 10, env `RANK_SOCIAL_LINKS_LOG_FLOOR`).
+  `social_links_count` is a small integer (0-5) — the 500 review floor
+  squashed its normalized range to ~0.11-0.29 and re-compressed the unrated
+  cohort (the 88% without a Google rating that social presence is meant to
+  differentiate). The scale-appropriate floor spreads that cohort (~2.6× wider
+  distribution on live data) without reintroducing rated/unrated overlap
+  (see the item #1 rebalance).
 - **Inverse distance** → `proximity`: `1 / (1 + distance_km / scale_km)`
   (scale defaults to 2.0; at 2km score = 0.5, at 0 distance score = 1.0).
 - **Completeness ratio** → `data_completeness` (0–1, already normalized).
