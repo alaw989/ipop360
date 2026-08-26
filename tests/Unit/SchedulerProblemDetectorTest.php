@@ -238,6 +238,41 @@ class SchedulerProblemDetectorTest extends TestCase
         $this->assertArrayHasKey('restaurants:score', $detected['over_fired']);
     }
 
+    public function test_over_fired_not_flagged_when_window_boundary_lands_on_a_cron_slot(): void
+    {
+        // Window boundary (startOfDay of 2026-08-18) is midnight, which is
+        // itself a valid slot for a 6-hourly cadence. A fire landing exactly
+        // on that boundary must still count as an expected slot — otherwise
+        // this legitimate set of on-schedule fires (one per slot, including
+        // the boundary one) would be false-flagged as over_fired.
+        $startedAts = [
+            '2026-08-18T00:00:00+00:00',
+            '2026-08-18T06:00:00+00:00',
+            '2026-08-18T12:00:00+00:00',
+            '2026-08-18T18:00:00+00:00',
+            '2026-08-19T00:00:00+00:00',
+            '2026-08-19T06:00:00+00:00',
+            '2026-08-19T12:00:00+00:00',
+        ];
+
+        $aggregates = [
+            'restaurants:ai-enrich' => $this->aggregate(
+                structured_started: count($startedAts),
+                started_ats: $startedAts,
+            ),
+        ];
+
+        $detected = $this->detector->detect(
+            $aggregates,
+            ['restaurants:ai-enrich' => '0 */6 * * *'],
+            15,
+            1,
+            $this->now,
+        );
+
+        $this->assertArrayNotHasKey('restaurants:ai-enrich', $detected['over_fired']);
+    }
+
     /**
      * @param  list<string>  $started_ats
      * @return array{started:int, structured_started:int, completed:int, failed:int, last_started_at:string|null, started_ats:list<string>, runtimes:list<float>, source:string, last_failure_output:string|null}

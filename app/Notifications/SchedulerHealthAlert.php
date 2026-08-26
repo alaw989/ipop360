@@ -16,6 +16,21 @@ class SchedulerHealthAlert extends Notification
     use Queueable;
 
     /**
+     * One-sentence, plain-language explanation per problem category, shown
+     * alongside its command list so the alert is readable without needing to
+     * already know what each detector category means.
+     */
+    private const DESCRIPTIONS = [
+        'never_fired' => 'had a scheduled slot in the window but never started',
+        'failed' => 'exited with an error',
+        'unfinished_runs' => "started but hasn't completed within its own runtime budget",
+        'off_schedule' => 'last run started well outside its cron slot',
+        'off_schedule_fires' => 'one or more runs in the window landed outside their cron slot',
+        'stopped_firing' => "hasn't fired in over 1.5x its normal cadence",
+        'over_fired' => 'ran more times than its schedule allows (possible duplicate trigger)',
+    ];
+
+    /**
      * @param  array<string, list<string>>  $problems  problem category => command names
      * @param  int  $days  telemetry window analyzed
      */
@@ -41,11 +56,13 @@ class SchedulerHealthAlert extends Notification
     {
         $mail = (new MailMessage)
             ->subject('Scheduler health alert: '.$this->flaggedCount().' command(s) have a problem')
-            ->line('The scheduler health check found problems in the last '.$this->days.' day(s):')
+            ->line('The scheduler health check found '.$this->flaggedCount().' command(s) with a problem in the last '.$this->days.' day(s):')
             ->line(' ');
 
         foreach ($this->problems as $category => $commands) {
-            $mail->line('• '.$category.': '.implode(', ', $commands));
+            $description = self::DESCRIPTIONS[$category] ?? null;
+            $label = $description !== null ? "**{$category}** — {$description}" : "**{$category}**";
+            $mail->line('• '.$label.': '.implode(', ', $commands));
         }
 
         return $mail;
