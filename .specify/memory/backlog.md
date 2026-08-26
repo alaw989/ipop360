@@ -599,10 +599,11 @@ Ran as **one PR each, in sequence, via opencode-loop on independent branches off
 **Current floor:** 996 PHPUnit + 1117 vitest; PHPStan level 8 zero baseline; pint
 clean; CI enforces coverage + PHP 8.4; CI + deploy green.
 
-### 12. Bundle-size / Core Web Vitals pass
+### 12. ✅ Bundle-size / Core Web Vitals + accessibility pass (2026-08-26)
 - **Audit finding:** the build's `vendor-*.js` is 1.94MB (438KB gzip) and `Edit-*.js` 801KB. Likely code-splitting wins, but needs a measurement baseline before scoping.
-- **Goal:** `measure Lighthouse/Core Web Vitals on the homepage + key routes, identify the largest bundles and any LCP/CLS/INP regressions, then split/trim the biggest offenders; re-measure and confirm no Core Web Vitals regression`
-- **Gate:** Lighthouse before/after on / and /restaurants; full suite green.
+- **Measured baseline first:** the bundle concern was already resolved in the shipped tree — the SSR numbers in the audit (1.94MB vendor / 801KB Edit) are the *server-rendered* node bundles, not what browsers download. Client side is already split: `vendor` 289KB/99KB gzip, `Edit` (Tiptap blog editor) 390KB/121KB, `leaflet-src` 149KB/43KB. Tiptap is statically imported only by `Admin/Blog/Edit.vue` via lazy `import.meta.glob`, so it's correctly route-scoped — no code-splitting win to claim. Real CWV on `/`: **LCP 480ms, CLS 0.00** — already green. **No bundle refactor done** (would add complexity for zero gain).
+- **What shipped instead — a11y pass to 100 on `/` and `/restaurants`** (was 88/87): (1) carousel dots wrapped in a `h-7 w-7` button for a 28px touch target (was 10px); (2) logo "Beta" badge `aria-hidden` so logo-link accessible name matches visible text; (3) `reka-ui` 2.10.1 → **2.10.4** (upstream fix — only emits `aria-controls` when open, removing the empty `aria-controls=""`); (4) removed `/60` opacity on `StarRating`/`ScoreChip` faint text (contrast); (5) `RestaurantCard` title `h3` → `h2` (was skipping heading level). Best-practices 58 is localhost HTTP false positives only (`is-on-https`, third-party-cookies), not a prod issue.
+- **Gate:** Lighthouse a11y 100 on / and /restaurants; full suite green — pint, PHPUnit 1066 (4380 assertions), vitest 1070, build (vue-tsc + vite).
 
 ### 13. ✅ Search result-quality audit — scoped and mostly done (2026-08-22)
 - **Audit finding:** dedup/merge edge cases and match precision across the 5 live sources are hard to bound and need data analysis first.

@@ -63,8 +63,8 @@ const starPath = 'M10 1l2.5 5.1L18 6.8l-4 3.9.9 5.5L10 13.3l-5 3.4L6 10.7l-4-3.9
             </template>
         </span>
         <span class="font-medium text-foreground">{{ parsedRating.toFixed(1) }}</span>
-        <span v-if="source" class="text-muted-foreground/60 text-[0.85em] font-medium">{{ source }}</span>
-        <span v-if="reviewCount != null" class="text-muted-foreground/60 text-[0.85em] tabular-nums">
+        <span v-if="source" class="text-muted-foreground text-[0.85em] font-medium">{{ source }}</span>
+        <span v-if="reviewCount != null" class="text-muted-foreground text-[0.85em] tabular-nums">
             ({{ reviewCount.toLocaleString() }})
         </span>
     </span>

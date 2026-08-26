@@ -130,11 +130,11 @@ const rankChangeTitle = computed(() => {
             <!-- Name + award + address -->
             <div class="min-w-0">
                 <div class="flex items-center gap-2">
-                    <h3 class="text-base font-semibold text-foreground transition-colors group-hover:text-primary truncate">
+                    <h2 class="text-base font-semibold text-foreground transition-colors group-hover:text-primary truncate">
                         <a :href="detailOrMapsUrl" :target="restaurant.id > 0 ? undefined : '_blank'" :rel="restaurant.id > 0 ? undefined : 'noopener'" class="after:absolute after:inset-0 after:z-0">
                             {{ restaurant.name }}
                         </a>
-                    </h3>
+                    </h2>
                     <span v-if="restaurant.has_award" class="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">
                         ⭐ Award
                     </span>

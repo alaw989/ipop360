@@ -35,7 +35,7 @@ const imgLoaded = ref(true)
                 aria-label="iPop360 home"
             >
                 <BrandLogo class="text-[4.5rem] text-white drop-shadow-lg" />
-                <Badge variant="outline" class="text-xs text-white border-white/40">
+                <Badge variant="outline" class="text-xs text-white border-white/40" aria-hidden="true">
                     Beta
                 </Badge>
             </Link>

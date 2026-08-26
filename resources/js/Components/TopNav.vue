@@ -45,6 +45,7 @@ function closeMobileMenu() {
                     <Badge
                         variant="outline"
                         class="text-xs"
+                        aria-hidden="true"
                         :class="props.transparent ? 'border-white/50 text-white' : undefined"
                     >Beta</Badge>
                 </Link>
