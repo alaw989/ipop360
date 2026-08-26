@@ -10,7 +10,7 @@ describe('ScoreChip', () => {
             props: { total: 0.2 },
             global: { stubs },
         })
-        expect(wrapper.find('span').exists()).toBe(false)
+        expect(wrapper.find('button').exists()).toBe(false)
     })
 
     it('renders "Rising" for score 0.4–0.59', () => {

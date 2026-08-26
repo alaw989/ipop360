@@ -58,8 +58,9 @@ function signalColor(label: string): string {
 <template>
     <Popover>
         <PopoverTrigger as-child>
-            <span
+            <button
                 v-if="tier"
+                type="button"
                 class="inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums shadow-sm ring-1 ring-white/30 backdrop-blur-sm transition-colors hover:opacity-80"
                 :class="tier.classes"
             >
@@ -77,7 +78,7 @@ function signalColor(label: string): string {
                 </template>
                 {{ tier.label }}
                 <span class="opacity-60">&bull; {{ pct }}%</span>
-            </span>
+            </button>
         </PopoverTrigger>
         <PopoverContent
             v-if="topSignals.length > 0"
@@ -109,7 +110,7 @@ function signalColor(label: string): string {
                     <span class="font-medium tabular-nums text-foreground">{{ Math.round(s.contribution * 100) }}%</span>
                 </div>
             </div>
-            <p class="mt-1.5 text-[10px] leading-tight text-muted-foreground/60">
+            <p class="mt-1.5 text-[10px] leading-tight text-muted-foreground">
                 Based on Google ratings, proximity, awards, and data completeness.
             </p>
         </PopoverContent>

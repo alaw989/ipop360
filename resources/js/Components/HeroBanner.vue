@@ -136,7 +136,7 @@ function onDetect() {
                     <!-- Logo (home link — the AppLayout TopNav owns the in-hero links now) -->
                     <Link href="/" class="mb-6 inline-flex items-center gap-2" aria-label="iPop360 home">
                         <BrandLogo class="text-[6rem] text-white sm:text-[8rem]" />
-                        <Badge variant="outline" class="text-xs text-white border-white/50">Beta</Badge>
+                        <Badge variant="outline" class="text-xs text-white border-white/50" aria-hidden="true">Beta</Badge>
                     </Link>
 
                     <!-- Dynamic sentence -->
@@ -181,13 +181,17 @@ function onDetect() {
                 <button
                     v-for="(_, i) in slides"
                     :key="'dot-' + i"
-                    class="rounded-full transition-all duration-300"
-                    :class="i === currentSlide
-                        ? 'h-2.5 w-6 bg-white'
-                        : 'h-2.5 w-2.5 bg-white/50 hover:bg-white/70'"
+                    class="relative flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300"
                     :aria-label="`Go to slide ${i + 1}`"
                     @click="goToSlide(i)"
-                />
+                >
+                    <span
+                        class="block rounded-full transition-all duration-300"
+                        :class="i === currentSlide
+                            ? 'h-2.5 w-6 bg-white'
+                            : 'h-2.5 w-2.5 bg-white/50 hover:bg-white/70'"
+                    />
+                </button>
                 <button
                     class="ml-3 flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                     :aria-label="isPaused ? 'Resume slideshow' : 'Pause slideshow'"

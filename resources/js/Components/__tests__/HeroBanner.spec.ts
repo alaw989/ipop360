@@ -150,9 +150,21 @@ describe('HeroBanner', () => {
         const wrapper = mountComponent()
         const allButtons = wrapper.findAll('button')
         const dotButtons = allButtons.filter((b) => b.attributes('aria-label')?.startsWith('Go to slide'))
-        expect(dotButtons[0].classes()).toContain('bg-white')
-        expect(dotButtons[0].classes()).toContain('w-6')
-        expect(dotButtons[1].classes()).not.toContain('bg-white')
+        const firstDot = dotButtons[0].find('span')
+        const secondDot = dotButtons[1].find('span')
+        expect(firstDot.classes()).toContain('bg-white')
+        expect(firstDot.classes()).toContain('w-6')
+        expect(secondDot.classes()).not.toContain('bg-white')
+    })
+
+    it('gives each dot a touch-friendly target size', () => {
+        const wrapper = mountComponent()
+        const allButtons = wrapper.findAll('button')
+        const dotButtons = allButtons.filter((b) => b.attributes('aria-label')?.startsWith('Go to slide'))
+        for (const dot of dotButtons) {
+            expect(dot.classes()).toContain('h-7')
+            expect(dot.classes()).toContain('w-7')
+        }
     })
 
     it('renders photo attribution for the current slide', () => {
