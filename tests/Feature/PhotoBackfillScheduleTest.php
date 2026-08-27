@@ -89,7 +89,7 @@ class PhotoBackfillScheduleTest extends TestCase
         ]);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchImageForRestaurant')->andReturn('https://cdn.example/photo.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->andReturn(['url' => 'https://cdn.example/photo.jpg', 'source' => 'website']);
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         $this->artisan('restaurants:backfill-photos', ['--apply' => true]);

@@ -375,6 +375,7 @@ class RestaurantEnrichmentService
             'price_range' => $venue['price_range'] ?? null,
             'description' => $venue['description'] ?? null,
             'photo_url' => $venue['photo_url'] ?? null,
+            'photo_source' => empty($venue['photo_url']) ? null : ($venue['photo_source'] ?? (($venue['source'] ?? null) === 'overpass' ? 'osm' : null)),
             'opening_hours' => $venue['opening_hours'] ?? null,
             'yelp_rating' => $venue['yelp_rating'] ?? null,
             'yelp_review_count' => $venue['yelp_review_count'] ?? 0,
@@ -580,14 +581,14 @@ class RestaurantEnrichmentService
                     $noWebsite++;
 
                     if (empty($restaurant->photo_url)) {
-                        $photoUrl = $this->websiteScraper->searchImageForRestaurant($restaurant);
-                        if ($photoUrl !== null) {
-                            $restaurant->update(['photo_url' => $photoUrl]);
+                        $result = $this->websiteScraper->searchImageForRestaurant($restaurant);
+                        if ($result !== null) {
+                            $restaurant->update(['photo_url' => $result['url'], 'photo_source' => $result['source']]);
                             $photosFound++;
                             Log::channel('enrichment')->info('Image enrichment found photo for restaurant without website', [
                                 'restaurant_id' => $restaurant->id,
                                 'restaurant_name' => $restaurant->name,
-                                'photo_url' => $photoUrl,
+                                'photo_url' => $result['url'],
                             ]);
                         }
                     }
@@ -614,6 +615,7 @@ class RestaurantEnrichmentService
                     }
                     if (! empty($scrapedData['photo_url']) && empty($restaurant->photo_url)) {
                         $updates['photo_url'] = $scrapedData['photo_url'];
+                        $updates['photo_source'] = 'website';
                     }
                     if (! empty($updates)) {
                         $restaurant->update($updates);
@@ -644,14 +646,14 @@ class RestaurantEnrichmentService
                 // Photo fallback: scrape og:image (or search free sources) for any
                 // row that still lacks a photo, regardless of hours/menu state.
                 if (empty($restaurant->photo_url)) {
-                    $photoUrl = $this->websiteScraper->searchImageForRestaurant($restaurant);
-                    if ($photoUrl !== null) {
-                        $restaurant->update(['photo_url' => $photoUrl]);
+                    $result = $this->websiteScraper->searchImageForRestaurant($restaurant);
+                    if ($result !== null) {
+                        $restaurant->update(['photo_url' => $result['url'], 'photo_source' => $result['source']]);
                         $imageFallbacks++;
                         Log::channel('enrichment')->info('Image enrichment found photo via fallback', [
                             'restaurant_id' => $restaurant->id,
                             'restaurant_name' => $restaurant->name,
-                            'photo_url' => $photoUrl,
+                            'photo_url' => $result['url'],
                         ]);
                     }
                 }

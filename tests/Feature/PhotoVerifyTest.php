@@ -73,7 +73,7 @@ class PhotoVerifyTest extends TestCase
         ]);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://upload.wikimedia.org/fresh.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn(['url' => 'https://upload.wikimedia.org/fresh.jpg', 'source' => 'wikimedia']);
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
@@ -81,6 +81,7 @@ class PhotoVerifyTest extends TestCase
         $fresh = $r->fresh();
         $this->assertNotNull($fresh);
         $this->assertSame('https://upload.wikimedia.org/fresh.jpg', $fresh->photo_url, 'dead photo must be re-sourced from the free chain');
+        $this->assertSame('wikimedia', $fresh->photo_source);
         $this->assertIsArray($fresh->photos);
         $this->assertContains('https://upload.wikimedia.org/fresh.jpg', $fresh->photos);
         $this->assertNotContains('https://lh3.googleusercontent.com/gps-cs-s/DEADTOKEN=w400-h300-c-no', $fresh->photos, 'dead URL must be removed from the gallery');
@@ -98,7 +99,7 @@ class PhotoVerifyTest extends TestCase
         ]);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://upload.wikimedia.org/fresh.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn(['url' => 'https://upload.wikimedia.org/fresh.jpg', 'source' => 'wikimedia']);
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         $this->artisan('restaurants:backfill-photos', ['--verify' => true]);

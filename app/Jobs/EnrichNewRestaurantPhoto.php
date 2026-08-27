@@ -62,11 +62,13 @@ class EnrichNewRestaurantPhoto implements ShouldQueue
         }
 
         try {
-            $photoUrl = $scraper->searchImageForRestaurant($restaurant);
+            $result = $scraper->searchImageForRestaurant($restaurant);
 
-            if ($photoUrl === null || $photoUrl === '') {
+            if ($result === null || $result['url'] === '') {
                 return;
             }
+
+            $photoUrl = $result['url'];
 
             if ($this->isGpsCsSPhoto($photoUrl)) {
                 Log::channel('enrichment')->debug('Photo hunt skipped transient gps-cs-s result', [
@@ -78,12 +80,13 @@ class EnrichNewRestaurantPhoto implements ShouldQueue
                 return;
             }
 
-            $restaurant->update(['photo_url' => $photoUrl]);
+            $restaurant->update(['photo_url' => $photoUrl, 'photo_source' => $result['source']]);
 
             Log::channel('enrichment')->info('Ingestion-time photo hunt found photo', [
                 'restaurant_id' => $restaurant->id,
                 'restaurant_name' => $restaurant->name,
                 'photo_url' => $photoUrl,
+                'photo_source' => $result['source'],
             ]);
         } catch (\Throwable $e) {
             Log::channel('enrichment')->warning('Ingestion-time photo hunt failed', [

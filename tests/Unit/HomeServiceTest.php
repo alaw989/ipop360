@@ -42,6 +42,7 @@ class HomeServiceTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
 
         $data = $this->homeService->getHomepageData('Austin', 'Texas');
@@ -80,6 +81,7 @@ class HomeServiceTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ])->id)->firstOrFail()->cuisines()->attach($cuisineA);
 
         Restaurant::whereKey(Restaurant::factory()->create([
@@ -88,6 +90,7 @@ class HomeServiceTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ])->id)->firstOrFail()->cuisines()->attach($cuisineA);
 
         Restaurant::whereKey(Restaurant::factory()->create([
@@ -96,6 +99,7 @@ class HomeServiceTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ])->id)->firstOrFail()->cuisines()->attach($cuisineB);
 
         // Request scoped to Austin — popular cuisines must still count the

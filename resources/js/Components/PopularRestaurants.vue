@@ -35,6 +35,15 @@ const props = defineProps<{
 const showAll = ref(false)
 const initialLimit = 12
 
+// Tracks restaurants whose photo_url is present but failed to load, so a
+// dead URL falls back to the placeholder instead of showing the browser's
+// broken-image icon.
+const brokenPhotoIds = ref<Set<number>>(new Set())
+
+function markPhotoBroken(id: number): void {
+    brokenPhotoIds.value = new Set(brokenPhotoIds.value).add(id)
+}
+
 const visibleRestaurants = computed(() =>
     showAll.value ? props.restaurants : props.restaurants.slice(0, initialLimit)
 )
@@ -89,18 +98,20 @@ function rankBadge(rank: number) {
                         <!-- Photo -->
                         <div class="relative aspect-[4/3] overflow-hidden">
                             <img
-                                v-if="r.photo_url"
+                                v-if="r.photo_url && !brokenPhotoIds.has(r.id)"
                                 :src="r.photo_url"
                                 :alt="r.name"
                                 class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                                 loading="lazy"
+                                @error="markPhotoBroken(r.id)"
                             />
                             <div
                                 v-else
-                                class="flex h-full w-full items-center justify-center"
+                                class="flex h-full w-full flex-col items-center justify-center gap-1"
                                 :class="gradient(r)"
                             >
                                 <span class="text-4xl text-white/60">🍽</span>
+                                <span class="text-xs font-medium text-white/60">Image coming soon</span>
                             </div>
 
                             <!-- Rank badge (top 3) -->

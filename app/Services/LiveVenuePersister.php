@@ -52,6 +52,7 @@ class LiveVenuePersister
             'price_range' => $venue['price_range'] ?? null,
             'opening_hours' => $this->normalizeOpeningHours($venue['opening_hours'] ?? null),
             'photo_url' => $venue['photo_url'] ?? null,
+            'photo_source' => $venue['photo_source'] ?? null,
             'photos' => $venue['photos'] ?? [],
             'google_place_id' => $venue['google_place_id'] ?? null,
             'google_rating' => $venue['google_rating'] ?? null,
@@ -166,6 +167,9 @@ class LiveVenuePersister
         if (is_string($incomingPhoto) && $incomingPhoto !== '' && $this->isGpsCsSPhoto($incomingPhoto)) {
             if (! empty($restaurant->photo_url)) {
                 $attributes['photo_url'] = $restaurant->photo_url;
+                // Keep the retained photo's own tag — the incoming
+                // 'google_thumbnail' tag belongs to the discarded gps-cs-s URL.
+                $attributes['photo_source'] = $restaurant->photo_source;
             }
         }
 

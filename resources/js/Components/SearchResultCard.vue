@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import StarRating from '@/Components/StarRating.vue';
 import ScoreChip from '@/Components/ScoreChip.vue';
@@ -18,6 +18,10 @@ const props = defineProps<{
 }>();
 
 const { isFavorited, toggle } = useFavorites();
+
+// Tracks a photo_url that is present but failed to load, so a dead URL falls
+// back to the placeholder instead of showing the browser's broken-image icon.
+const photoBroken = ref(false);
 
 const detailOrMapsUrl = computed(() => getDetailUrl(props.restaurant));
 
@@ -59,16 +63,18 @@ const rankChangeTitle = computed(() => {
     <article class="group relative flex overflow-hidden rounded-xl border bg-card transition-shadow hover:shadow-md">
         <!-- Photo section -->
         <div class="relative h-44 w-44 shrink-0 overflow-hidden">
-            <div v-if="restaurant.photo_url" class="h-full w-full">
+            <div v-if="restaurant.photo_url && !photoBroken" class="h-full w-full">
                 <img
                     :src="restaurant.photo_url"
                     :alt="restaurant.name"
                     class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     loading="lazy"
+                    @error="photoBroken = true"
                 />
             </div>
-            <div v-else class="flex h-full w-full items-center justify-center" :class="gradient">
+            <div v-else class="flex h-full w-full flex-col items-center justify-center gap-1" :class="gradient">
                 <span class="text-4xl text-white/60">🍽</span>
+                <span class="text-xs font-medium text-white/60">Image coming soon</span>
             </div>
 
             <!-- Rank badge -->

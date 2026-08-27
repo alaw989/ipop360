@@ -790,6 +790,13 @@ return [
         'require_quality_floor' => filter_var(env('TRENDING_REQUIRE_QUALITY_FLOOR', true), FILTER_VALIDATE_BOOL),
         'min_popularity_score' => (float) env('TRENDING_MIN_POPULARITY_SCORE', 0.4),
         'require_photo' => filter_var(env('TRENDING_REQUIRE_PHOTO', true), FILTER_VALIDATE_BOOL),
+        // Beyond merely having a photo, require it to come from a
+        // venue-anchored source (website/social/OSM/Wikidata/Google's own
+        // per-place thumbnail) rather than a keyword-search guess (Wikimedia/
+        // Wikipedia/Google CSE) that only textually, not visually, matches the
+        // venue. See App\Support\PhotoSourceTier. Kill-switch:
+        // TRENDING_REQUIRE_HIGH_TRUST_PHOTO=false.
+        'require_high_trust_photo' => filter_var(env('TRENDING_REQUIRE_HIGH_TRUST_PHOTO', true), FILTER_VALIDATE_BOOL),
         'limit' => (int) env('TRENDING_LIMIT', 18),
         // Momentum signal (spec item 14): a restaurant with recent engagement
         // can outrank a stale higher-scorer. Off by default (weight 0) so the
