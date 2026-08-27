@@ -524,4 +524,37 @@ class PopularityScoreServiceTest extends TestCase
         $breakdown = $this->service->calculateBreakdown($rich, $all);
         $this->assertNotContains('Quality', collect($breakdown['signals'])->pluck('label')->toArray());
     }
+
+    public function test_social_links_use_a_scale_appropriate_log_floor(): void
+    {
+        // social_links_count is a small integer (0-5) but shared the review-count
+        // log floor (500). At floor 500, n=5 normalizes to only ~0.29 and n=1 to
+        // ~0.11, squashing the unrated cohort into a narrow band. A social-
+        // appropriate floor spreads it, so a link-rich venue separates clearly
+        // from a link-sparse one in an all-unrated set.
+        $mk = fn (string $name, int $links): Restaurant => $this->makeRestaurant(array_merge($this->fullFreeFields(), [
+            'name' => $name,
+            'social_links_count' => $links,
+            'google_rating' => null,
+            'google_review_count' => 0,
+        ]));
+
+        $linkRich = $mk('Link Rich', 5);
+        $linkSparse = $mk('Link Sparse', 1);
+        $all = new Collection([$linkRich, $linkSparse]);
+
+        // Review-scale floor (500) — squashes the spread.
+        $reviewFloorService = new PopularityScoreService(null, 500, null, null, null, 500);
+        $reviewGap = $reviewFloorService->calculateScore($linkRich, $all)
+            - $reviewFloorService->calculateScore($linkSparse, $all);
+
+        // Social-scale floor (10) — the signal now meaningfully separates.
+        $socialFloorService = new PopularityScoreService(null, 500, null, null, null, 10);
+        $socialGap = $socialFloorService->calculateScore($linkRich, $all)
+            - $socialFloorService->calculateScore($linkSparse, $all);
+
+        // The social-scale floor must spread the cohort substantially more.
+        $this->assertGreaterThan($reviewGap, $socialGap);
+        $this->assertGreaterThan(0.05, $socialGap);
+    }
 }

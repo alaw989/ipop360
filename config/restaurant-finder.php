@@ -334,6 +334,13 @@ return [
         // Prevents a single low-review venue from compressing everyone to ~1.0.
         'log_review_floor' => (int) env('RANK_LOG_REVIEW_FLOOR', 500),
 
+        // Per-signal log floor for social_links_count, which is a small integer
+        // (typically 0-5). The review-scale floor (500) squashes its normalized
+        // range (n=5 -> ~0.29) and re-compresses the unrated cohort that social
+        // presence is meant to differentiate. A scale-appropriate floor spreads
+        // it. See docs/ranking-metrics.md and the item #1 rebalance.
+        'social_links_log_floor' => (int) env('RANK_SOCIAL_LINKS_LOG_FLOOR', 10),
+
         // Fallback denominator when the collection is empty or all-zero so the
         // log scale still produces sane, bounded values.
         'log_review_default' => (int) env('RANK_LOG_REVIEW_DEFAULT', 5000),
@@ -784,6 +791,26 @@ return [
         'min_popularity_score' => (float) env('TRENDING_MIN_POPULARITY_SCORE', 0.4),
         'require_photo' => filter_var(env('TRENDING_REQUIRE_PHOTO', true), FILTER_VALIDATE_BOOL),
         'limit' => (int) env('TRENDING_LIMIT', 18),
+        // Momentum signal (spec item 14): a restaurant with recent engagement
+        // can outrank a stale higher-scorer. Off by default (weight 0) so the
+        // ranking is unchanged until an operator turns it up. Counts
+        // restaurant_engagement rows with created_at inside velocity_window_days.
+        'velocity_weight' => (float) env('TRENDING_VELOCITY_WEIGHT', 0),
+        'velocity_window_days' => (int) env('TRENDING_VELOCITY_WINDOW_DAYS', 14),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Homepage
+    |--------------------------------------------------------------------------
+    |
+    | The popular-cuisines section counts active restaurants across the
+    | entire corpus (not scoped to a city), so it's cached rather than
+    | recomputed on every homepage load and city change.
+    |
+    */
+    'homepage' => [
+        'popular_cuisines_cache_ttl_minutes' => (int) env('HOMEPAGE_POPULAR_CUISINES_CACHE_TTL_MINUTES', 30),
     ],
 
     /*

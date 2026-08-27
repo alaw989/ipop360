@@ -132,15 +132,29 @@ class PopularityScoreService
     private float $qualityMeanFallback;
 
     /**
+     * Per-signal log floor overrides. social_links_count is a small integer
+     * (typically 0-5) but would otherwise share the review-scale log floor
+     * (500), squashing its normalized range and re-compressing the unrated
+     * cohort that social presence is supposed to differentiate. Give it a
+     * scale-appropriate floor so it spreads (see spec item #1 rebalance).
+     *
+     * @var array<string, int>
+     */
+    private array $logFloorOverrides;
+
+    /**
      * @param  array<string, float>|null  $weights
      */
-    public function __construct(?array $weights = null, ?int $logReviewFloor = null, ?int $logReviewDefault = null, ?float $qualityPrior = null, ?float $qualityMeanFallback = null)
+    public function __construct(?array $weights = null, ?int $logReviewFloor = null, ?int $logReviewDefault = null, ?float $qualityPrior = null, ?float $qualityMeanFallback = null, ?int $socialLinksLogFloor = null)
     {
         $this->weights = $weights ?? $this->configValue('restaurant-finder.ranking.weights', self::DEFAULT_WEIGHTS);
         $this->logReviewFloor = $logReviewFloor ?? (int) $this->configValue('restaurant-finder.ranking.log_review_floor', 500);
         $this->logReviewDefault = $logReviewDefault ?? (int) $this->configValue('restaurant-finder.ranking.log_review_default', 5000);
         $this->qualityPrior = $qualityPrior ?? (float) $this->configValue('restaurant-finder.ranking.quality_prior_reviews', 50);
         $this->qualityMeanFallback = $qualityMeanFallback ?? (float) $this->configValue('restaurant-finder.ranking.quality_mean_fallback', 4.0);
+        $this->logFloorOverrides = [
+            'social_links_count' => $socialLinksLogFloor ?? (int) $this->configValue('restaurant-finder.ranking.social_links_log_floor', 10),
+        ];
     }
 
     /**
@@ -676,7 +690,9 @@ class PopularityScoreService
             return (float) $this->logReviewDefault;
         }
 
-        return max((float) $values->max(), (float) $this->logReviewFloor);
+        $floor = $this->logFloorOverrides[$signal] ?? $this->logReviewFloor;
+
+        return max((float) $values->max(), (float) $floor);
     }
 
     /**

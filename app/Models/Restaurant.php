@@ -235,6 +235,38 @@ class Restaurant extends Model
     }
 
     /**
+     * Order for the homepage Trending section: decayed popularity_score plus
+     * an optional momentum boost from recent engagement. When velocity_weight
+     * is 0 (the default) this collapses to exactly scopeOrderByDecayedScore(),
+     * so the shipped ranking is unchanged until an operator enables it.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeOrderByTrendingScore(Builder $query): Builder
+    {
+        $weight = (float) config('restaurant-finder.trending.velocity_weight', 0);
+
+        if ($weight <= 0) {
+            return $query->orderByDecayedScore();
+        }
+
+        $windowDays = (int) config('restaurant-finder.trending.velocity_window_days', 14);
+
+        $query->getQuery()->orders[] = [
+            'type' => 'raw',
+            'sql' => sprintf(
+                '(%s + %F * %s) DESC',
+                self::decayedPopularityScoreExpression(),
+                $weight,
+                SqlDialect::recentEngagementCountSubquery($windowDays)
+            ),
+        ];
+
+        return $query;
+    }
+
+    /**
      * SQL expression that applies a linear freshness decay to popularity_score
      * based on how long ago the restaurant's data was last updated.
      * See spec-104.

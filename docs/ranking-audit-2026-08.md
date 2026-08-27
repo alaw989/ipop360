@@ -203,3 +203,38 @@ Findings:
   forecast distribution on production data.~~ DONE — see §6. The forecast shows
   a 30.7% cohort overlap on live (vs the stale local 1.6%), a finding worth a
   follow-up rebalance discussion (not part of this audit's scope).
+- ~~Follow-up rebalance (item #1, 2026-08-26).~~ DONE — see below.
+
+## 8. Rebalance follow-up (2026-08-26, item #1)
+
+Re-running `ranking:audit --recompute` against the **current** live corpus
+(40,483 rows, up from the 8,075 the audit measured) showed the §6 concern had
+already resolved itself: **0% cohort overlap** (rated min 0.2896, unrated max
+0.1513). The corpus growth changed the social-links distribution (max
+`social_links_count` dropped to 5), so the "link-rich unrated venues enter the
+rated tail" overlap is no longer present.
+
+However, the audit surfaced a **mirror-image problem**: the unrated cohort —
+88% of the corpus — was **over-compressed** (all 35,640 venues scored
+0.03-0.15, sd 0.028). Root cause: `social_links_count` (weight 0.20, the one
+signal that differentiates the unrated cohort) maxed at 5 but shared the
+review-scale log floor of 500, squashing its normalized range to ~0.11-0.29.
+This is the "unrated clumping" spec-104 raised social to 0.20 to fix; it had
+regressed as the corpus grew.
+
+**Fix shipped:** a per-signal `social_links_log_floor` (default 10, env
+`RANK_SOCIAL_LINKS_LOG_FLOOR`) gives `social_links_count` a scale-appropriate
+log denominator. Verified against live data:
+
+| Metric | before (floor 500) | after (floor 10) |
+|---|---|---|
+| unrated sd | 0.028 | **0.0728** |
+| unrated max | 0.1513 | **0.2593** |
+| unrated mean | 0.0803 | **0.1263** |
+| overlap | 0% | **0%** (unrated max 0.2593 < rated min 0.3077) |
+| rated mean | 0.3812 | **0.4084** |
+
+The unrated cohort is ~2.6× more differentiated while rated continues to
+cleanly dominate — no overlap reintroduced. Floor 8 spreads further (sd 0.080)
+but tightens the safety margin; floor 5 reintroduces overlap (1.1%), so 10 is
+the chosen default.

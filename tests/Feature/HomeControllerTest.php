@@ -8,6 +8,7 @@ use App\Models\CuisineCategory;
 use App\Models\Restaurant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class HomeControllerTest extends TestCase
@@ -412,6 +413,191 @@ class HomeControllerTest extends TestCase
         $response->assertJson([
             'location' => ['city' => 'Austin', 'state' => 'TX'],
             'popularRestaurants' => [['id' => $r->id]],
+        ]);
+    }
+
+    public function test_popular_cuisines_are_global_across_cities(): void
+    {
+        $category = CuisineCategory::factory()->create(['name' => 'Global', 'slug' => 'global']);
+        $cuisineA = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'cuisine-a']);
+        $cuisineB = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'cuisine-b']);
+
+        Restaurant::whereKey(Restaurant::factory()->create([
+            'city' => 'Austin',
+            'state' => 'TX',
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ])->id)->firstOrFail()->cuisines()->attach($cuisineA);
+
+        // Second cuisine-a restaurant so the count is deterministic (2 vs 1).
+        Restaurant::whereKey(Restaurant::factory()->create([
+            'city' => 'Houston',
+            'state' => 'TX',
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ])->id)->firstOrFail()->cuisines()->attach($cuisineA);
+
+        Restaurant::whereKey(Restaurant::factory()->create([
+            'city' => 'Dallas',
+            'state' => 'TX',
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ])->id)->firstOrFail()->cuisines()->attach($cuisineB);
+
+        // Request scoped to Austin — popular cuisines must still count the
+        // Dallas + Houston restaurants' cuisines (always global, not city-scoped).
+        $response = $this->getJson('/api/homepage-data?city=Austin&state=Texas');
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'popularRestaurants');
+        $response->assertJsonCount(2, 'popularCuisines');
+        $response->assertJson([
+            'popularCuisines' => [
+                ['slug' => 'cuisine-a'],
+                ['slug' => 'cuisine-b'],
+            ],
+        ]);
+    }
+
+    public function test_popular_cuisines_include_cuisines_from_non_trending_restaurants(): void
+    {
+        $category = CuisineCategory::factory()->create(['name' => 'Global', 'slug' => 'global']);
+        $trendingCuisine = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'trending-cuisine']);
+        $belowFloorCuisine = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'below-floor-cuisine']);
+
+        Restaurant::whereKey(Restaurant::factory()->create([
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ])->id)->firstOrFail()->cuisines()->attach($trendingCuisine);
+
+        // Second trending-cuisine restaurant so the count is deterministic.
+        Restaurant::whereKey(Restaurant::factory()->create([
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ])->id)->firstOrFail()->cuisines()->attach($trendingCuisine);
+
+        // Below the trending quality floor (no photo) — must STILL count for
+        // popular cuisines, which is global over all active restaurants.
+        Restaurant::whereKey(Restaurant::factory()->create([
+            'is_active' => true,
+            'popularity_score' => 0.1,
+            'photo_url' => null,
+        ])->id)->firstOrFail()->cuisines()->attach($belowFloorCuisine);
+
+        $response = $this->getJson('/api/homepage-data');
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(2, 'popularRestaurants');
+        $response->assertJsonCount(2, 'popularCuisines');
+        $response->assertJson([
+            'popularCuisines' => [
+                ['slug' => 'trending-cuisine'],
+                ['slug' => 'below-floor-cuisine'],
+            ],
+        ]);
+    }
+
+    public function test_trending_velocity_disabled_by_default_ignores_recent_engagement(): void
+    {
+        config(['restaurant-finder.trending.velocity_weight' => 0]);
+
+        $stale = Restaurant::factory()->create([
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ]);
+        $engaged = Restaurant::factory()->create([
+            'is_active' => true,
+            'popularity_score' => 0.5,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ]);
+        DB::table('restaurant_engagement')->insert([
+            'restaurant_id' => $engaged->id,
+            'action_type' => 'website_click',
+            'created_at' => now(),
+        ]);
+
+        // Default (weight 0) must keep the decayed-score order — the higher
+        // scorer wins even though the other has fresh engagement.
+        $response = $this->getJson('/api/homepage-data');
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'popularRestaurants' => [
+                ['id' => $stale->id],
+                ['id' => $engaged->id],
+            ],
+        ]);
+    }
+
+    public function test_trending_velocity_ranks_recently_engaged_above_stale_higher_scorer(): void
+    {
+        config(['restaurant-finder.trending.velocity_weight' => 5.0]);
+        config(['restaurant-finder.trending.velocity_window_days' => 14]);
+
+        $stale = Restaurant::factory()->create([
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ]);
+        $engaged = Restaurant::factory()->create([
+            'is_active' => true,
+            'popularity_score' => 0.5,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ]);
+        DB::table('restaurant_engagement')->insert([
+            'restaurant_id' => $engaged->id,
+            'action_type' => 'website_click',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/homepage-data');
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'popularRestaurants' => [
+                ['id' => $engaged->id],
+                ['id' => $stale->id],
+            ],
+        ]);
+    }
+
+    public function test_trending_velocity_ignores_engagement_outside_the_window(): void
+    {
+        config(['restaurant-finder.trending.velocity_weight' => 5.0]);
+        config(['restaurant-finder.trending.velocity_window_days' => 14]);
+
+        $stale = Restaurant::factory()->create([
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ]);
+        $engaged = Restaurant::factory()->create([
+            'is_active' => true,
+            'popularity_score' => 0.5,
+            'photo_url' => 'https://example.com/photo.jpg',
+        ]);
+        DB::table('restaurant_engagement')->insert([
+            'restaurant_id' => $engaged->id,
+            'action_type' => 'website_click',
+            'created_at' => now()->subDays(30),
+        ]);
+
+        // Engagement older than the window must not count — the higher scorer
+        // stays on top.
+        $response = $this->getJson('/api/homepage-data');
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'popularRestaurants' => [
+                ['id' => $stale->id],
+                ['id' => $engaged->id],
+            ],
         ]);
     }
 

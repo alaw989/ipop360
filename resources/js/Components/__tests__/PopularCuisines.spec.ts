@@ -11,20 +11,11 @@ const cuisines = Array.from({ length: 15 }, (_, i) => ({
     icon: i === 0 ? '🍝' : null,
 }))
 
-const defaultProps = { cuisines, city: 'Miami' }
+const defaultProps = { cuisines }
 
 describe('PopularCuisines', () => {
-    it('renders the heading with the city', () => {
+    it('renders a global (city-agnostic) heading', () => {
         const wrapper = mount(PopularCuisines, { props: defaultProps, global: { stubs } })
-        expect(wrapper.find('h2').text()).toContain('Popular cuisines')
-        expect(wrapper.find('h2').text()).toContain('in Miami')
-    })
-
-    it('omits city from heading when city is null', () => {
-        const wrapper = mount(PopularCuisines, {
-            props: { ...defaultProps, city: null },
-            global: { stubs },
-        })
         expect(wrapper.find('h2').text()).toBe('Popular cuisines')
     })
 
