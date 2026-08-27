@@ -203,21 +203,42 @@ class BackfillRestaurantPhotos extends Command
         $apply = (bool) $this->option('apply');
         $limit = (int) $this->option('limit');
         $galleryMax = (int) config('restaurant-finder.live_search.gallery_photos_max', 6);
-        $cutoff = $this->photoVerifyCutoff();
+
+        // Decaying-source rows (SerpApi's gps-cs-s Google thumbnail, ~1-month
+        // opaque decay) get a much shorter cooldown than everything else
+        // (website/social/osm/wikidata), which doesn't decay the same way. The
+        // photo_url pattern check covers legacy rows that predate the
+        // photo_source column; photo_source covers everything written since.
+        // COALESCE guards against SQL's three-valued logic: a NULL photo_source
+        // (legacy rows) would otherwise make `photo_source = '...'` evaluate to
+        // NULL rather than false, poisoning the NOT(...) branch below into NULL
+        // (excluded) instead of true (correctly routed to the stable cooldown).
+        $decayingSql = "(photo_url LIKE '%gps-cs-s%' OR COALESCE(photo_source, '') = 'google_thumbnail')";
+        $decayingCutoff = $this->photoVerifyCutoff(decaying: true);
+        $stableCutoff = $this->photoVerifyCutoff(decaying: false);
 
         $base = Restaurant::query()
             ->active()
             ->whereNotNull('photo_url')
             ->where('photo_url', '!=', '');
 
-        // Rows verified within the cooldown window are skipped this sweep —
-        // this is what turns the weekly Wednesday sweep into a ~28-day cadence.
+        // Rows verified within their applicable cooldown window are skipped
+        // this sweep.
         $this->skipped = (clone $base)
             ->whereNotNull('photo_verified_at')
-            ->where('photo_verified_at', '>=', $cutoff)
+            ->whereRaw(
+                "(({$decayingSql} AND photo_verified_at >= ?) OR (NOT {$decayingSql} AND photo_verified_at >= ?))",
+                [$decayingCutoff, $stableCutoff]
+            )
             ->count();
 
-        $query = (clone $base)->where(fn ($q) => $q->whereNull('photo_verified_at')->orWhere('photo_verified_at', '<', $cutoff));
+        $query = (clone $base)->where(function ($q) use ($decayingSql, $decayingCutoff, $stableCutoff) {
+            $q->whereNull('photo_verified_at')
+                ->orWhereRaw(
+                    "(({$decayingSql} AND photo_verified_at < ?) OR (NOT {$decayingSql} AND photo_verified_at < ?))",
+                    [$decayingCutoff, $stableCutoff]
+                );
+        });
 
         $total = (clone $query)->count();
         if ($total === 0) {
@@ -550,10 +571,15 @@ class BackfillRestaurantPhotos extends Command
     /**
      * The photo-verify cooldown cutoff: rows stamped at or after this moment are
      * still within the cooldown window and must be skipped by both sweeps.
+     * A decaying-source row (gps-cs-s / google_thumbnail) uses a much shorter
+     * cooldown, since it decays in ~1 month rather than the general assumption
+     * of a stable, venue-anchored photo.
      */
-    private function photoVerifyCutoff(): Carbon
+    private function photoVerifyCutoff(bool $decaying = false): Carbon
     {
-        $weeks = (int) config('restaurant-finder.live_search.photo_verify_cooldown_weeks', 28);
+        $weeks = $decaying
+            ? (int) config('restaurant-finder.live_search.photo_verify_cooldown_weeks_decaying', 5)
+            : (int) config('restaurant-finder.live_search.photo_verify_cooldown_weeks', 28);
 
         return now()->subWeeks($weeks);
     }

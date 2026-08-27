@@ -63,7 +63,7 @@ class ContextImageSearchTest extends TestCase
         $result = $this->service->searchImageForRestaurant($restaurant);
 
         $this->assertSame('https://pastapalace.example/images/fettuccine.jpg', $result['url'] ?? null, 'a photo on a sub-page must be found when the homepage lacks one');
-        $this->assertSame('website', $result['source'] ?? null);
+        $this->assertSame('website', $result['source']);
     }
 
     public function test_social_handle_yields_profile_image(): void
@@ -94,7 +94,7 @@ class ContextImageSearchTest extends TestCase
         $result = $this->service->searchImageForRestaurant($restaurant);
 
         $this->assertSame('https://scontent.example/prof.jpg', $result['url'] ?? null, 'the stored instagram handle must yield a profile image');
-        $this->assertSame('social', $result['source'] ?? null);
+        $this->assertSame('social', $result['source']);
     }
 
     public function test_osm_image_tag_is_used_before_keyword_search(): void
@@ -119,7 +119,7 @@ class ContextImageSearchTest extends TestCase
         $result = $this->service->searchImageForRestaurant($restaurant, 'https://osm.example/taco.jpg');
 
         $this->assertSame('https://osm.example/taco.jpg', $result['url'] ?? null, 'the OSM image= tag must be used as verified context');
-        $this->assertSame('osm', $result['source'] ?? null);
+        $this->assertSame('osm', $result['source']);
     }
 
     public function test_falls_through_to_guarded_wikimedia_when_no_context(): void
@@ -182,7 +182,7 @@ class ContextImageSearchTest extends TestCase
         $result = $this->service->searchImageForRestaurant($restaurant);
 
         $this->assertSame('https://commons.wikimedia.org/wiki/Special:FilePath/Atelier_Crenn.jpg?width=800', $result['url'] ?? null, 'coord-verified Wikidata P18 must supply the image');
-        $this->assertSame('wikidata', $result['source'] ?? null);
+        $this->assertSame('wikidata', $result['source']);
     }
 
     public function test_google_cse_is_the_last_resort_after_free_context(): void
@@ -220,6 +220,6 @@ class ContextImageSearchTest extends TestCase
         $result = $this->service->searchImageForRestaurant($restaurant);
 
         $this->assertSame('https://cdn.example/pho-queen.jpg', $result['url'] ?? null, 'CSE must pick the best of num=5 results, and only run after free sources');
-        $this->assertSame('google_cse', $result['source'] ?? null);
+        $this->assertSame('google_cse', $result['source']);
     }
 }

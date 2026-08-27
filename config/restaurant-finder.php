@@ -444,6 +444,13 @@ return [
         // every run. Rows re-enter the pool once the stamp ages past the window.
         'photo_verify_cooldown_weeks' => (int) env('LIVE_SEARCH_PHOTO_VERIFY_COOLDOWN_WEEKS', 28),
 
+        // Shorter cooldown for photos sourced from SerpApi's Google Maps
+        // thumbnail (gps-cs-s CDN URLs / photo_source='google_thumbnail'),
+        // which decay opaquely in ~1 month — the general 28-week cooldown left
+        // these stale for 6+ months after a single verify pass. Every other
+        // source (website/social/osm/wikidata) keeps the long cooldown.
+        'photo_verify_cooldown_weeks_decaying' => (int) env('LIVE_SEARCH_PHOTO_VERIFY_COOLDOWN_WEEKS_DECAYING', 5),
+
         // Quality floor: drop scored rows below this popularity_score before the
         // max_results cap. Scores are normalized per active set, so a fixed floor
         // is unreliable across result sets — it defaults to 0 (off). The
