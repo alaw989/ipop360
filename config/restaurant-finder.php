@@ -801,6 +801,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Homepage
+    |--------------------------------------------------------------------------
+    |
+    | The popular-cuisines section counts active restaurants across the
+    | entire corpus (not scoped to a city), so it's cached rather than
+    | recomputed on every homepage load and city change.
+    |
+    */
+    'homepage' => [
+        'popular_cuisines_cache_ttl_minutes' => (int) env('HOMEPAGE_POPULAR_CUISINES_CACHE_TTL_MINUTES', 30),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Favorites write path (spec-088)
     |--------------------------------------------------------------------------
     | A client-favorited restaurant is persisted from the request payload. To
