@@ -26,13 +26,14 @@ class EnrichNewRestaurantPhotoTest extends TestCase
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
         $scraper->shouldReceive('searchImageForRestaurant')
             ->once()
-            ->andReturn('https://upload.wikimedia.org/stable.jpg');
+            ->andReturn(['url' => 'https://upload.wikimedia.org/stable.jpg', 'source' => 'wikimedia']);
 
         (new EnrichNewRestaurantPhoto($restaurant->id))->handle($scraper);
 
         $fresh = $restaurant->fresh();
         $this->assertNotNull($fresh);
         $this->assertSame('https://upload.wikimedia.org/stable.jpg', $fresh->photo_url);
+        $this->assertSame('wikimedia', $fresh->photo_source);
     }
 
     public function test_skips_when_photo_already_set(): void
@@ -68,7 +69,7 @@ class EnrichNewRestaurantPhotoTest extends TestCase
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
         $scraper->shouldReceive('searchImageForRestaurant')
             ->once()
-            ->andReturn('https://lh3.googleusercontent.com/gps-cs-s/TOKEN=w400-h300-c-no');
+            ->andReturn(['url' => 'https://lh3.googleusercontent.com/gps-cs-s/TOKEN=w400-h300-c-no', 'source' => 'google_thumbnail']);
 
         (new EnrichNewRestaurantPhoto($restaurant->id))->handle($scraper);
 

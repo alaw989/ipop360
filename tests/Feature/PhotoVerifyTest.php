@@ -73,7 +73,7 @@ class PhotoVerifyTest extends TestCase
         ]);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://upload.wikimedia.org/fresh.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn(['url' => 'https://upload.wikimedia.org/fresh.jpg', 'source' => 'wikimedia']);
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
@@ -81,6 +81,7 @@ class PhotoVerifyTest extends TestCase
         $fresh = $r->fresh();
         $this->assertNotNull($fresh);
         $this->assertSame('https://upload.wikimedia.org/fresh.jpg', $fresh->photo_url, 'dead photo must be re-sourced from the free chain');
+        $this->assertSame('wikimedia', $fresh->photo_source);
         $this->assertIsArray($fresh->photos);
         $this->assertContains('https://upload.wikimedia.org/fresh.jpg', $fresh->photos);
         $this->assertNotContains('https://lh3.googleusercontent.com/gps-cs-s/DEADTOKEN=w400-h300-c-no', $fresh->photos, 'dead URL must be removed from the gallery');
@@ -98,7 +99,7 @@ class PhotoVerifyTest extends TestCase
         ]);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://upload.wikimedia.org/fresh.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn(['url' => 'https://upload.wikimedia.org/fresh.jpg', 'source' => 'wikimedia']);
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         $this->artisan('restaurants:backfill-photos', ['--verify' => true]);
@@ -348,5 +349,45 @@ class PhotoVerifyTest extends TestCase
         $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'upload.wikimedia.org'));
+    }
+
+    public function test_verify_rechecks_google_thumbnail_row_past_the_short_decaying_cooldown_but_within_the_stable_one(): void
+    {
+        // 6 weeks is past the 5-week decaying cooldown but well within the
+        // 28-week stable cooldown — this row must still be re-checked because
+        // its source decays fast, even though a stable-sourced row with the
+        // same stamp age would be skipped.
+        Restaurant::factory()->create([
+            'name' => 'Decaying Eatery',
+            'photo_url' => 'https://lh3.googleusercontent.com/gps-cs-s/TOKEN=w400-h300-c-no',
+            'photo_source' => 'google_thumbnail',
+            'photo_verified_at' => now()->subWeeks(6),
+        ]);
+
+        Http::fake([
+            'lh3.googleusercontent.com/*' => Http::response('ok', 200, ['Content-Type' => 'image/jpeg']),
+        ]);
+
+        $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'lh3.googleusercontent.com'));
+    }
+
+    public function test_verify_skips_stable_source_row_within_its_longer_cooldown_even_past_the_short_one(): void
+    {
+        // Same 6-week stamp age as above, but a stable (non-decaying) source —
+        // must be skipped, since it's still within the 28-week stable cooldown.
+        Restaurant::factory()->create([
+            'name' => 'Stable Eatery',
+            'photo_url' => 'https://venue.example/photo.jpg',
+            'photo_source' => 'website',
+            'photo_verified_at' => now()->subWeeks(6),
+        ]);
+
+        Http::fake();
+
+        $this->artisan('restaurants:backfill-photos', ['--verify' => true, '--apply' => true]);
+
+        Http::assertNothingSent();
     }
 }

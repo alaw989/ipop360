@@ -60,9 +60,10 @@ class ContextImageSearchTest extends TestCase
             'pastapalace.example/gallery' => Http::response('<html><body></body></html>', 200),
         ]);
 
-        $photo = $this->service->searchImageForRestaurant($restaurant);
+        $result = $this->service->searchImageForRestaurant($restaurant);
 
-        $this->assertSame('https://pastapalace.example/images/fettuccine.jpg', $photo, 'a photo on a sub-page must be found when the homepage lacks one');
+        $this->assertSame('https://pastapalace.example/images/fettuccine.jpg', $result['url'] ?? null, 'a photo on a sub-page must be found when the homepage lacks one');
+        $this->assertSame('website', $result['source']);
     }
 
     public function test_social_handle_yields_profile_image(): void
@@ -90,9 +91,10 @@ class ContextImageSearchTest extends TestCase
             ),
         ]);
 
-        $photo = $this->service->searchImageForRestaurant($restaurant);
+        $result = $this->service->searchImageForRestaurant($restaurant);
 
-        $this->assertSame('https://scontent.example/prof.jpg', $photo, 'the stored instagram handle must yield a profile image');
+        $this->assertSame('https://scontent.example/prof.jpg', $result['url'] ?? null, 'the stored instagram handle must yield a profile image');
+        $this->assertSame('social', $result['source']);
     }
 
     public function test_osm_image_tag_is_used_before_keyword_search(): void
@@ -114,9 +116,10 @@ class ContextImageSearchTest extends TestCase
         ]);
 
         // searchImageForRestaurant accepts an OSM image URL directly.
-        $photo = $this->service->searchImageForRestaurant($restaurant, 'https://osm.example/taco.jpg');
+        $result = $this->service->searchImageForRestaurant($restaurant, 'https://osm.example/taco.jpg');
 
-        $this->assertSame('https://osm.example/taco.jpg', $photo, 'the OSM image= tag must be used as verified context');
+        $this->assertSame('https://osm.example/taco.jpg', $result['url'] ?? null, 'the OSM image= tag must be used as verified context');
+        $this->assertSame('osm', $result['source']);
     }
 
     public function test_falls_through_to_guarded_wikimedia_when_no_context(): void
@@ -141,9 +144,9 @@ class ContextImageSearchTest extends TestCase
                 ->push(['query' => ['pages' => [['imageinfo' => [['url' => 'https://upload.wikimedia.org/wrong.jpg']]]]]]),
         ]);
 
-        $photo = $this->service->searchImageForRestaurant($restaurant);
+        $result = $this->service->searchImageForRestaurant($restaurant);
 
-        $this->assertNull($photo, 'an off-name Wikimedia hit must be rejected (name-relevance guard)');
+        $this->assertNull($result, 'an off-name Wikimedia hit must be rejected (name-relevance guard)');
     }
 
     public function test_wikidata_image_used_when_coords_present_and_no_other_context(): void
@@ -176,9 +179,10 @@ class ContextImageSearchTest extends TestCase
             ], 200),
         ]);
 
-        $photo = $this->service->searchImageForRestaurant($restaurant);
+        $result = $this->service->searchImageForRestaurant($restaurant);
 
-        $this->assertSame('https://commons.wikimedia.org/wiki/Special:FilePath/Atelier_Crenn.jpg?width=800', $photo, 'coord-verified Wikidata P18 must supply the image');
+        $this->assertSame('https://commons.wikimedia.org/wiki/Special:FilePath/Atelier_Crenn.jpg?width=800', $result['url'] ?? null, 'coord-verified Wikidata P18 must supply the image');
+        $this->assertSame('wikidata', $result['source']);
     }
 
     public function test_google_cse_is_the_last_resort_after_free_context(): void
@@ -213,8 +217,9 @@ class ContextImageSearchTest extends TestCase
             ], 200),
         ]);
 
-        $photo = $this->service->searchImageForRestaurant($restaurant);
+        $result = $this->service->searchImageForRestaurant($restaurant);
 
-        $this->assertSame('https://cdn.example/pho-queen.jpg', $photo, 'CSE must pick the best of num=5 results, and only run after free sources');
+        $this->assertSame('https://cdn.example/pho-queen.jpg', $result['url'] ?? null, 'CSE must pick the best of num=5 results, and only run after free sources');
+        $this->assertSame('google_cse', $result['source']);
     }
 }

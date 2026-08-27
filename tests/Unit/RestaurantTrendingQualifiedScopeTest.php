@@ -22,6 +22,7 @@ class RestaurantTrendingQualifiedScopeTest extends TestCase
         Restaurant::factory()->create([
             'popularity_score' => 0.1,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
 
         $this->assertSame(0, Restaurant::query()->trendingQualified()->count());
@@ -32,6 +33,7 @@ class RestaurantTrendingQualifiedScopeTest extends TestCase
         Restaurant::factory()->create([
             'popularity_score' => 0.4,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
 
         $this->assertSame(1, Restaurant::query()->trendingQualified()->count());
@@ -88,8 +90,55 @@ class RestaurantTrendingQualifiedScopeTest extends TestCase
         Restaurant::factory()->create([
             'popularity_score' => 0.5,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
 
         $this->assertSame(0, Restaurant::query()->trendingQualified()->count());
+    }
+
+    public function test_excludes_a_restaurant_whose_photo_is_a_low_trust_keyword_search_guess(): void
+    {
+        Restaurant::factory()->create([
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://upload.wikimedia.org/guess.jpg',
+            'photo_source' => 'wikimedia',
+        ]);
+
+        $this->assertSame(0, Restaurant::query()->trendingQualified()->count());
+    }
+
+    public function test_excludes_a_restaurant_with_no_photo_source_recorded(): void
+    {
+        Restaurant::factory()->create([
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => null,
+        ]);
+
+        $this->assertSame(0, Restaurant::query()->trendingQualified()->count());
+    }
+
+    public function test_includes_a_restaurant_whose_photo_is_venue_anchored(): void
+    {
+        Restaurant::factory()->create([
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'google_thumbnail',
+        ]);
+
+        $this->assertSame(1, Restaurant::query()->trendingQualified()->count());
+    }
+
+    public function test_require_high_trust_photo_kill_switch_allows_low_trust_photos(): void
+    {
+        config(['restaurant-finder.trending.require_high_trust_photo' => false]);
+
+        Restaurant::factory()->create([
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://upload.wikimedia.org/guess.jpg',
+            'photo_source' => 'wikimedia',
+        ]);
+
+        $this->assertSame(1, Restaurant::query()->trendingQualified()->count());
     }
 }

@@ -214,6 +214,7 @@ class BackfillRestaurantWebsites extends Command
                 }
                 if (empty($restaurant->photo_url) && is_string($entryData['_photo'])) {
                     $updates['photo_url'] = $entryData['_photo'];
+                    $updates['photo_source'] = 'website';
                 }
                 if (($restaurant->google_rating === null || $restaurant->google_rating <= 0) && is_float($entryData['_rating'])) {
                     $updates['google_rating'] = $entryData['_rating'];

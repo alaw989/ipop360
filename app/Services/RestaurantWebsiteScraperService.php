@@ -1709,9 +1709,12 @@ class RestaurantWebsiteScraperService
      *   (5) name-relevance-guarded Wikimedia Commons + Wikipedia,
      *   (6) Google CSE LAST (num=5, pick best) — 429-exhausted at 100/day.
      *
-     * Returns the first image found, or null if every source misses.
+     * Returns the first image found (with the source that found it), or null
+     * if every source misses.
+     *
+     * @return array{url: string, source: string}|null
      */
-    public function searchImageForRestaurant(Restaurant $restaurant, ?string $osmImage = null): ?string
+    public function searchImageForRestaurant(Restaurant $restaurant, ?string $osmImage = null): ?array
     {
         // (1) The venue's own website is the most reliable source.
         if (! empty($restaurant->website_url)) {
@@ -1719,7 +1722,7 @@ class RestaurantWebsiteScraperService
             if ($photo !== null) {
                 $this->logImageSource('website', $restaurant, $photo);
 
-                return $photo;
+                return ['url' => $photo, 'source' => 'website'];
             }
         }
 
@@ -1728,7 +1731,7 @@ class RestaurantWebsiteScraperService
         if ($osmImage !== null && trim($osmImage) !== '') {
             $this->logImageSource('osm', $restaurant, $osmImage);
 
-            return $osmImage;
+            return ['url' => $osmImage, 'source' => 'osm'];
         }
 
         // (3) Social-profile image from the row's stored social links.
@@ -1736,7 +1739,7 @@ class RestaurantWebsiteScraperService
         if ($social !== null) {
             $this->logImageSource('social', $restaurant, $social);
 
-            return $social;
+            return ['url' => $social, 'source' => 'social'];
         }
 
         $name = (string) $restaurant->name;
@@ -1752,7 +1755,7 @@ class RestaurantWebsiteScraperService
             if ($wikidata !== null) {
                 $this->logImageSource('wikidata', $restaurant, $wikidata);
 
-                return $wikidata;
+                return ['url' => $wikidata, 'source' => 'wikidata'];
             }
         }
 
@@ -1764,14 +1767,14 @@ class RestaurantWebsiteScraperService
         if ($wikimedia !== null) {
             $this->logImageSource('wikimedia', $restaurant, $wikimedia);
 
-            return $wikimedia;
+            return ['url' => $wikimedia, 'source' => 'wikimedia'];
         }
 
         $wikipedia = $this->searchWikipediaImage($name, $city, $state);
         if ($wikipedia !== null) {
             $this->logImageSource('wikipedia', $restaurant, $wikipedia);
 
-            return $wikipedia;
+            return ['url' => $wikipedia, 'source' => 'wikipedia'];
         }
 
         // (6) Google CSE last — the paid/exhausted source.
@@ -1779,7 +1782,7 @@ class RestaurantWebsiteScraperService
         if ($google !== null) {
             $this->logImageSource('google_cse', $restaurant, $google);
 
-            return $google;
+            return ['url' => $google, 'source' => 'google_cse'];
         }
 
         return null;
@@ -1982,7 +1985,7 @@ class RestaurantWebsiteScraperService
             'website_url' => $websiteUrl,
         ]);
 
-        return $this->searchImageForRestaurant($restaurant);
+        return $this->searchImageForRestaurant($restaurant)['url'] ?? null;
     }
 
     /**

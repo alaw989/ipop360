@@ -444,6 +444,13 @@ return [
         // every run. Rows re-enter the pool once the stamp ages past the window.
         'photo_verify_cooldown_weeks' => (int) env('LIVE_SEARCH_PHOTO_VERIFY_COOLDOWN_WEEKS', 28),
 
+        // Shorter cooldown for photos sourced from SerpApi's Google Maps
+        // thumbnail (gps-cs-s CDN URLs / photo_source='google_thumbnail'),
+        // which decay opaquely in ~1 month — the general 28-week cooldown left
+        // these stale for 6+ months after a single verify pass. Every other
+        // source (website/social/osm/wikidata) keeps the long cooldown.
+        'photo_verify_cooldown_weeks_decaying' => (int) env('LIVE_SEARCH_PHOTO_VERIFY_COOLDOWN_WEEKS_DECAYING', 5),
+
         // Quality floor: drop scored rows below this popularity_score before the
         // max_results cap. Scores are normalized per active set, so a fixed floor
         // is unreliable across result sets — it defaults to 0 (off). The
@@ -790,6 +797,13 @@ return [
         'require_quality_floor' => filter_var(env('TRENDING_REQUIRE_QUALITY_FLOOR', true), FILTER_VALIDATE_BOOL),
         'min_popularity_score' => (float) env('TRENDING_MIN_POPULARITY_SCORE', 0.4),
         'require_photo' => filter_var(env('TRENDING_REQUIRE_PHOTO', true), FILTER_VALIDATE_BOOL),
+        // Beyond merely having a photo, require it to come from a
+        // venue-anchored source (website/social/OSM/Wikidata/Google's own
+        // per-place thumbnail) rather than a keyword-search guess (Wikimedia/
+        // Wikipedia/Google CSE) that only textually, not visually, matches the
+        // venue. See App\Support\PhotoSourceTier. Kill-switch:
+        // TRENDING_REQUIRE_HIGH_TRUST_PHOTO=false.
+        'require_high_trust_photo' => filter_var(env('TRENDING_REQUIRE_HIGH_TRUST_PHOTO', true), FILTER_VALIDATE_BOOL),
         'limit' => (int) env('TRENDING_LIMIT', 18),
         // Momentum signal (spec item 14): a restaurant with recent engagement
         // can outrank a stale higher-scorer. Off by default (weight 0) so the

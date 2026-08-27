@@ -32,7 +32,8 @@ class BackfillRestaurantPhotos extends Command
         {--limit=0 : Max restaurants to process (0 = all missing)}
         {--with-website : Only process rows that already have a website_url}
         {--min-photos=0 : Also top up rows that already have a photo but fewer than N gallery photos}
-        {--verify : Verify existing photo URLs (HEAD/GET), re-source dead ones, dedupe gallery}';
+        {--verify : Verify existing photo URLs (HEAD/GET), re-source dead ones, dedupe gallery}
+        {--backfill-source : Infer photo_source for existing rows that have a photo_url but no photo_source (URL-host heuristic)}';
 
     protected $description = 'Backfill missing restaurant photos + gallery arrays from free sources (website og:image, Wikimedia, Wikipedia)';
 
@@ -62,6 +63,10 @@ class BackfillRestaurantPhotos extends Command
 
     public function handle(RestaurantWebsiteScraperService $scraper): int
     {
+        if ($this->option('backfill-source')) {
+            return $this->handleBackfillSource();
+        }
+
         if ($this->option('verify')) {
             return $this->handleVerify($scraper);
         }
@@ -120,15 +125,17 @@ class BackfillRestaurantPhotos extends Command
 
         foreach ($rows as $restaurant) {
             try {
-                $photoUrl = $scraper->searchImageForRestaurant(
+                $result = $scraper->searchImageForRestaurant(
                     $restaurant,
                     $this->osmContextImage($restaurant),
                 );
+                $photoUrl = $result['url'] ?? null;
 
                 $updates = [];
 
-                if ($photoUrl !== null && empty($restaurant->photo_url)) {
+                if ($result !== null && $photoUrl !== null && empty($restaurant->photo_url)) {
                     $updates['photo_url'] = $photoUrl;
+                    $updates['photo_source'] = $result['source'];
                     $this->found++;
                 }                // Fill the gallery array too: existing photo_url + scraped photos
                 // (website og:image/<img> when available), deduped, capped.
@@ -196,21 +203,42 @@ class BackfillRestaurantPhotos extends Command
         $apply = (bool) $this->option('apply');
         $limit = (int) $this->option('limit');
         $galleryMax = (int) config('restaurant-finder.live_search.gallery_photos_max', 6);
-        $cutoff = $this->photoVerifyCutoff();
+
+        // Decaying-source rows (SerpApi's gps-cs-s Google thumbnail, ~1-month
+        // opaque decay) get a much shorter cooldown than everything else
+        // (website/social/osm/wikidata), which doesn't decay the same way. The
+        // photo_url pattern check covers legacy rows that predate the
+        // photo_source column; photo_source covers everything written since.
+        // COALESCE guards against SQL's three-valued logic: a NULL photo_source
+        // (legacy rows) would otherwise make `photo_source = '...'` evaluate to
+        // NULL rather than false, poisoning the NOT(...) branch below into NULL
+        // (excluded) instead of true (correctly routed to the stable cooldown).
+        $decayingSql = "(photo_url LIKE '%gps-cs-s%' OR COALESCE(photo_source, '') = 'google_thumbnail')";
+        $decayingCutoff = $this->photoVerifyCutoff(decaying: true);
+        $stableCutoff = $this->photoVerifyCutoff(decaying: false);
 
         $base = Restaurant::query()
             ->active()
             ->whereNotNull('photo_url')
             ->where('photo_url', '!=', '');
 
-        // Rows verified within the cooldown window are skipped this sweep —
-        // this is what turns the weekly Wednesday sweep into a ~28-day cadence.
+        // Rows verified within their applicable cooldown window are skipped
+        // this sweep.
         $this->skipped = (clone $base)
             ->whereNotNull('photo_verified_at')
-            ->where('photo_verified_at', '>=', $cutoff)
+            ->whereRaw(
+                "(({$decayingSql} AND photo_verified_at >= ?) OR (NOT {$decayingSql} AND photo_verified_at >= ?))",
+                [$decayingCutoff, $stableCutoff]
+            )
             ->count();
 
-        $query = (clone $base)->where(fn ($q) => $q->whereNull('photo_verified_at')->orWhere('photo_verified_at', '<', $cutoff));
+        $query = (clone $base)->where(function ($q) use ($decayingSql, $decayingCutoff, $stableCutoff) {
+            $q->whereNull('photo_verified_at')
+                ->orWhereRaw(
+                    "(({$decayingSql} AND photo_verified_at < ?) OR (NOT {$decayingSql} AND photo_verified_at < ?))",
+                    [$decayingCutoff, $stableCutoff]
+                );
+        });
 
         $total = (clone $query)->count();
         if ($total === 0) {
@@ -268,17 +296,21 @@ class BackfillRestaurantPhotos extends Command
 
                     if (! empty($alive)) {
                         // Promote an alive gallery entry into the primary slot.
+                        // The gallery entry's own source isn't tracked per-slot,
+                        // so the tier is left as-is (a prior write already set it).
                         $updates['photo_url'] = $alive[0];
                         $updates['photo_verified_at'] = now();
                         $this->promoted++;
                     } else {
-                        $fresh = $scraper->searchImageForRestaurant(
+                        $result = $scraper->searchImageForRestaurant(
                             $restaurant,
                             $this->osmContextImage($restaurant),
                         );
+                        $fresh = $result['url'] ?? null;
 
-                        if ($fresh !== null && $fresh !== $current) {
+                        if ($result !== null && $fresh !== null && $fresh !== $current) {
                             $updates['photo_url'] = $fresh;
+                            $updates['photo_source'] = $result['source'];
                             $updates['photo_verified_at'] = now();
                             $this->resourced++;
                         }
@@ -290,6 +322,7 @@ class BackfillRestaurantPhotos extends Command
                             // falls back to an honest no-image state, and stamp it
                             // so neither sweep re-checks it before the cooldown.
                             $updates['photo_url'] = null;
+                            $updates['photo_source'] = null;
                             $updates['photo_verified_at'] = now();
                             $this->cleared++;
                         }
@@ -357,6 +390,85 @@ class BackfillRestaurantPhotos extends Command
         ]);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Infer photo_source for existing rows that have a photo_url but no
+     * photo_source (i.e. written before the photo_source column existed),
+     * from the URL's host: SerpApi's decaying Google CDN thumbnail, a
+     * Wikimedia/Wikipedia CDN URL (keyword-search sourced — LOW trust per
+     * PhotoSourceTier even though the host is identifiable), or the venue's
+     * own website domain (HIGH trust). Anything else is tagged 'unknown'
+     * (also LOW trust) rather than guessed. Dry run by default; --apply to persist.
+     */
+    private function handleBackfillSource(): int
+    {
+        $apply = (bool) $this->option('apply');
+        $limit = (int) $this->option('limit');
+
+        $query = Restaurant::query()
+            ->whereNotNull('photo_url')
+            ->where('photo_url', '!=', '')
+            ->whereNull('photo_source');
+
+        $total = (clone $query)->count();
+        if ($total === 0) {
+            $this->info('No restaurants need photo_source backfill.');
+
+            return self::SUCCESS;
+        }
+
+        $rows = $query->limit($limit > 0 ? $limit : $total)->get(['id', 'photo_url', 'website_url']);
+
+        $counts = ['google_thumbnail' => 0, 'wikimedia' => 0, 'website' => 0, 'unknown' => 0];
+
+        foreach ($rows as $restaurant) {
+            $source = $this->inferPhotoSource($restaurant);
+            $counts[$source]++;
+
+            if ($apply) {
+                $restaurant->update(['photo_source' => $source]);
+            }
+        }
+
+        $this->line('Mode: '.($apply ? '<fg=green>APPLIED (changes persisted)</>' : '<fg=yellow>DRY RUN (no changes persisted)</>'));
+        foreach ($counts as $source => $count) {
+            $this->line(sprintf('  %-18s %6d', $source, $count));
+        }
+
+        Log::channel('enrichment')->info('Photo source backfill complete', array_merge(
+            ['mode' => $apply ? 'applied' : 'dry-run', 'total' => $rows->count()],
+            $counts
+        ));
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Best-effort host-based inference of a legacy row's photo source.
+     */
+    private function inferPhotoSource(Restaurant $restaurant): string
+    {
+        $host = strtolower((string) (parse_url((string) $restaurant->photo_url, PHP_URL_HOST) ?? ''));
+
+        if ($host === '') {
+            return 'unknown';
+        }
+
+        if (str_contains($host, 'googleusercontent.com') || str_contains((string) $restaurant->photo_url, 'gps-cs-s')) {
+            return 'google_thumbnail';
+        }
+
+        if (str_contains($host, 'wikimedia.org') || str_contains($host, 'wikipedia.org')) {
+            return 'wikimedia';
+        }
+
+        $websiteHost = strtolower((string) (parse_url((string) $restaurant->website_url, PHP_URL_HOST) ?? ''));
+        if ($websiteHost !== '' && ($host === $websiteHost || str_ends_with($host, '.'.$websiteHost))) {
+            return 'website';
+        }
+
+        return 'unknown';
     }
 
     /**
@@ -459,10 +571,15 @@ class BackfillRestaurantPhotos extends Command
     /**
      * The photo-verify cooldown cutoff: rows stamped at or after this moment are
      * still within the cooldown window and must be skipped by both sweeps.
+     * A decaying-source row (gps-cs-s / google_thumbnail) uses a much shorter
+     * cooldown, since it decays in ~1 month rather than the general assumption
+     * of a stable, venue-anchored photo.
      */
-    private function photoVerifyCutoff(): Carbon
+    private function photoVerifyCutoff(bool $decaying = false): Carbon
     {
-        $weeks = (int) config('restaurant-finder.live_search.photo_verify_cooldown_weeks', 28);
+        $weeks = $decaying
+            ? (int) config('restaurant-finder.live_search.photo_verify_cooldown_weeks_decaying', 5)
+            : (int) config('restaurant-finder.live_search.photo_verify_cooldown_weeks', 28);
 
         return now()->subWeeks($weeks);
     }

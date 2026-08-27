@@ -196,7 +196,7 @@ describe('SearchResultCard', () => {
 
         it('does not render distance when null', () => {
             const wrapper = mountCard({ distance: null })
-            expect(wrapper.text()).not.toContain('mi')
+            expect(wrapper.text()).not.toMatch(/\d+(\.\d+)? mi\b/)
         })
     })
 

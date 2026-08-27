@@ -338,6 +338,7 @@ class OverpassService
 
             $distance = $this->haversineKm($searchLat, $searchLng, $coords['lat'], $coords['lon']);
             $osmId = $el['id'] ?? 0;
+            $photoUrl = $this->extractPhotoUrl($tags);
 
             $results[] = [
                 'id' => -1 * abs(crc32('osm:'.$osmId)),
@@ -351,7 +352,8 @@ class OverpassService
                 'country' => $tags['addr:country'] ?? 'US',
                 'lat' => $coords['lat'],
                 'lng' => $coords['lon'],
-                'photo_url' => $this->extractPhotoUrl($tags),
+                'photo_url' => $photoUrl,
+                'photo_source' => $photoUrl !== null ? 'osm' : null,
                 'price_range' => $this->mapPriceRange($tags),
                 'phone' => $tags['phone'] ?? null,
                 'website_url' => $tags['website'] ?? $tags['url'] ?? null,

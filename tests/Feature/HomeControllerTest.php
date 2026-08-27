@@ -90,6 +90,7 @@ class HomeControllerTest extends TestCase
             'state' => 'TestState',
             'is_active' => true,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
             'popularity_score' => 0.9,
         ]);
         $restaurant = Restaurant::whereKey($r->id)->firstOrFail();
@@ -153,6 +154,7 @@ class HomeControllerTest extends TestCase
             'state' => 'TX',
             'is_active' => true,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
             'popularity_score' => 0.9,
         ]);
         $restaurant = Restaurant::whereKey($r->id)->firstOrFail();
@@ -163,6 +165,7 @@ class HomeControllerTest extends TestCase
             'state' => 'TX',
             'is_active' => true,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
             'popularity_score' => 0.9,
         ]);
 
@@ -189,6 +192,7 @@ class HomeControllerTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
         $restaurant = Restaurant::whereKey($r->id)->firstOrFail();
         $restaurant->cuisines()->attach($cuisine);
@@ -360,6 +364,7 @@ class HomeControllerTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
 
         $response = $this->getJson('/api/homepage-data?city=Austin&state=Texas');
@@ -428,6 +433,7 @@ class HomeControllerTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ])->id)->firstOrFail()->cuisines()->attach($cuisineA);
 
         // Second cuisine-a restaurant so the count is deterministic (2 vs 1).
@@ -437,6 +443,7 @@ class HomeControllerTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ])->id)->firstOrFail()->cuisines()->attach($cuisineA);
 
         Restaurant::whereKey(Restaurant::factory()->create([
@@ -445,6 +452,7 @@ class HomeControllerTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ])->id)->firstOrFail()->cuisines()->attach($cuisineB);
 
         // Request scoped to Austin — popular cuisines must still count the
@@ -472,6 +480,7 @@ class HomeControllerTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ])->id)->firstOrFail()->cuisines()->attach($trendingCuisine);
 
         // Second trending-cuisine restaurant so the count is deterministic.
@@ -479,6 +488,7 @@ class HomeControllerTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ])->id)->firstOrFail()->cuisines()->attach($trendingCuisine);
 
         // Below the trending quality floor (no photo) — must STILL count for
@@ -510,11 +520,13 @@ class HomeControllerTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
         $engaged = Restaurant::factory()->create([
             'is_active' => true,
             'popularity_score' => 0.5,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
         DB::table('restaurant_engagement')->insert([
             'restaurant_id' => $engaged->id,
@@ -544,11 +556,13 @@ class HomeControllerTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
         $engaged = Restaurant::factory()->create([
             'is_active' => true,
             'popularity_score' => 0.5,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
         DB::table('restaurant_engagement')->insert([
             'restaurant_id' => $engaged->id,
@@ -576,11 +590,13 @@ class HomeControllerTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
         $engaged = Restaurant::factory()->create([
             'is_active' => true,
             'popularity_score' => 0.5,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
         DB::table('restaurant_engagement')->insert([
             'restaurant_id' => $engaged->id,
@@ -612,6 +628,7 @@ class HomeControllerTest extends TestCase
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
         ]);
 
         $response = $this->getJson('/api/homepage-data?city=Austin&state=Texas');

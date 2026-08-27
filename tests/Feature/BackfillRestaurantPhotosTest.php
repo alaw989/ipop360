@@ -41,7 +41,7 @@ class BackfillRestaurantPhotosTest extends TestCase
         $r = $this->restaurant(['website_url' => 'https://eatery.example']);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://cdn.example/photo.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn(['url' => 'https://cdn.example/photo.jpg', 'source' => 'website']);
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         /** @var PendingCommand $cmd */
@@ -58,7 +58,7 @@ class BackfillRestaurantPhotosTest extends TestCase
         $r = $this->restaurant(['website_url' => 'https://eatery.example']);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
-        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn('https://cdn.example/photo.jpg');
+        $scraper->shouldReceive('searchImageForRestaurant')->once()->andReturn(['url' => 'https://cdn.example/photo.jpg', 'source' => 'website']);
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
         $this->artisan('restaurants:backfill-photos', ['--apply' => true]);
@@ -66,6 +66,7 @@ class BackfillRestaurantPhotosTest extends TestCase
         $fresh = $r->fresh();
         $this->assertNotNull($fresh);
         $this->assertSame('https://cdn.example/photo.jpg', $fresh->photo_url);
+        $this->assertSame('website', $fresh->photo_source);
         $this->assertIsArray($fresh->photos);
         $this->assertContains('https://cdn.example/photo.jpg', $fresh->photos);
     }
@@ -108,7 +109,7 @@ class BackfillRestaurantPhotosTest extends TestCase
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
         $scraper->shouldReceive('searchImageForRestaurant')->andReturnUsing(function (Restaurant $r) {
-            return 'https://cdn.example/photo-'.$r->id.'.jpg';
+            return ['url' => 'https://cdn.example/photo-'.$r->id.'.jpg', 'source' => 'website'];
         });
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 

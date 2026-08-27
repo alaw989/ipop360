@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PhotoSourceTier;
 use App\Support\SqlDialect;
 use Database\Factories\RestaurantFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -39,6 +40,7 @@ class Restaurant extends Model
         'website_url',
         'price_range',
         'photo_url',
+        'photo_source',
         'photo_verified_at',
         'photos',
         'google_place_id',
@@ -176,6 +178,10 @@ class Restaurant extends Model
 
         if (config('restaurant-finder.trending.require_photo', true)) {
             $query->whereNotNull('photo_url')->where('photo_url', '!=', '');
+
+            if (config('restaurant-finder.trending.require_high_trust_photo', true)) {
+                $query->whereIn('photo_source', PhotoSourceTier::HIGH);
+            }
         }
 
         return $query;
