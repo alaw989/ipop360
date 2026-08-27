@@ -8,7 +8,6 @@ use App\Models\CuisineCategory;
 use App\Models\Restaurant;
 use App\Support\StateAbbreviations;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 
 class HomeService
@@ -104,12 +103,18 @@ class HomeService
      * city snapshot. Cached because it's an uncached COUNT over the whole
      * `restaurants` table otherwise, on a hot/unthrottled path.
      *
-     * @return Collection<int, Cuisine>
+     * @return array<int, array<string, mixed>>
      */
-    private function getPopularCuisines(): Collection
+    private function getPopularCuisines(): array
     {
         $ttl = (int) config('restaurant-finder.homepage.popular_cuisines_cache_ttl_minutes', 30);
 
+        // Cache a plain array, not the Eloquent Collection/models themselves:
+        // config('cache.serializable_classes') is false (Laravel's default
+        // gadget-chain hardening), so any object unserialized back out of the
+        // cache silently degrades to __PHP_Incomplete_Class — caching model
+        // instances here 500'd every homepage request once the value was
+        // actually read back from cache.
         return Cache::remember('home:popular-cuisines', now()->addMinutes($ttl), function () {
             return Cuisine::withCount([
                 'restaurants' => fn ($q) => $q->active(),
@@ -118,7 +123,15 @@ class HomeService
                 ->limit(12)
                 ->get(['id', 'name', 'slug', 'icon'])
                 ->filter(fn ($c) => $c->restaurants_count > 0)
-                ->values();
+                ->values()
+                ->map(fn (Cuisine $c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'slug' => $c->slug,
+                    'icon' => $c->icon,
+                    'restaurants_count' => $c->restaurants_count,
+                ])
+                ->toArray();
         });
     }
 

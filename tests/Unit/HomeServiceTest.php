@@ -103,7 +103,7 @@ class HomeServiceTest extends TestCase
         $data = $this->homeService->getHomepageData('Austin', 'Texas');
 
         $this->assertCount(2, $data['popularCuisines']);
-        $this->assertSame(['cuisine-a', 'cuisine-b'], $data['popularCuisines']->pluck('slug')->all());
+        $this->assertSame(['cuisine-a', 'cuisine-b'], array_column($data['popularCuisines'], 'slug'));
     }
 
     public function test_categories_scope_to_city_and_fall_back_to_global_when_empty(): void
