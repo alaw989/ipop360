@@ -217,6 +217,8 @@ class PopularityScoreService
                 'pageviews_count' => $this->logDenominator($allRestaurants, 'pageviews_count'),
                 'social_link_clicks_count' => $this->logDenominator($allRestaurants, 'social_link_clicks_count'),
                 'menu_click_count' => $this->logDenominator($allRestaurants, 'menu_click_count'),
+                'directions_clicks_count' => $this->logDenominator($allRestaurants, 'directions_clicks_count'),
+                'call_clicks_count' => $this->logDenominator($allRestaurants, 'call_clicks_count'),
             ],
             'minmax' => [
                 'popular_times_avg_busyness' => $this->minmaxStats($allRestaurants, 'popular_times_avg_busyness'),
@@ -260,6 +262,8 @@ class PopularityScoreService
             'pageviews_count' => (float) $this->logReviewDefault,
             'social_link_clicks_count' => (float) $this->logReviewDefault,
             'menu_click_count' => (float) $this->logReviewDefault,
+            'directions_clicks_count' => (float) $this->logReviewDefault,
+            'call_clicks_count' => (float) $this->logReviewDefault,
         ];
         $minmax = $aggregates['minmax'];
         $qualityMean = (float) $aggregates['quality']['mean_rating'];

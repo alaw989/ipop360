@@ -168,6 +168,8 @@ class RankingAuditCommand extends Command
             'pageviews_count' => fn () => (clone $query)->where('pageviews_count', '>', 0)->count(),
             'social_link_clicks_count' => fn () => (clone $query)->where('social_link_clicks_count', '>', 0)->count(),
             'menu_click_count' => fn () => (clone $query)->where('menu_click_count', '>', 0)->count(),
+            'directions_clicks_count' => fn () => (clone $query)->where('directions_clicks_count', '>', 0)->count(),
+            'call_clicks_count' => fn () => (clone $query)->where('call_clicks_count', '>', 0)->count(),
             'has_award' => fn () => (clone $query)->where('has_award', true)->count(),
             'data_completeness' => fn () => $total,
         ];
@@ -271,6 +273,7 @@ class RankingAuditCommand extends Command
             'social_links_count', 'google_rating', 'google_review_count',
             'has_award', 'website_clicks_count', 'pageviews_count',
             'social_link_clicks_count', 'menu_click_count',
+            'directions_clicks_count', 'call_clicks_count',
         ];
     }
 

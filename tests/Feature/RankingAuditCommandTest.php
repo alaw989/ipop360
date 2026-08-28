@@ -48,6 +48,8 @@ class RankingAuditCommandTest extends TestCase
             'social_links_count' => 3,
             'website_clicks_count' => 5,
             'pageviews_count' => 1,
+            'directions_clicks_count' => 2,
+            'call_clicks_count' => 1,
             'has_award' => true,
             'popularity_score' => 0.9,
         ]);
@@ -56,6 +58,8 @@ class RankingAuditCommandTest extends TestCase
             'social_links_count' => 0,
             'website_clicks_count' => 0,
             'pageviews_count' => 0,
+            'directions_clicks_count' => 0,
+            'call_clicks_count' => 0,
             'has_award' => false,
             'popularity_score' => 0.1,
         ]);
@@ -67,6 +71,8 @@ class RankingAuditCommandTest extends TestCase
         $this->assertStringContainsString('Signal activation', $output);
         $this->assertMatchesRegularExpression('/quality\s+1\s+50\.0%/s', $output);
         $this->assertMatchesRegularExpression('/social_links_count\s+1\s+50\.0%/s', $output);
+        $this->assertMatchesRegularExpression('/directions_clicks_count\s+1\s+50\.0%/s', $output);
+        $this->assertMatchesRegularExpression('/call_clicks_count\s+1\s+50\.0%/s', $output);
         $this->assertMatchesRegularExpression('/has_award\s+1\s+50\.0%/s', $output);
         $this->assertMatchesRegularExpression('/data_completeness\s+2\s+100\.0%/s', $output);
     }

@@ -557,4 +557,32 @@ class PopularityScoreServiceTest extends TestCase
         $this->assertGreaterThan($reviewGap, $socialGap);
         $this->assertGreaterThan(0.05, $socialGap);
     }
+
+    public function test_computes_log_denominators_for_directions_and_call_clicks(): void
+    {
+        // Regression: directions_clicks_count/call_clicks_count were added to
+        // the weight table (spec, 2026-08-24) but computeAggregates() never
+        // computed a log_denoms entry for either, so every score silently fell
+        // back to the review-scale default (5000) instead of the collection's
+        // actual max (floored at 500) — the same class of bug social_links_count
+        // hit before it got a dedicated floor.
+        $high = $this->makeRestaurant(array_merge($this->fullFreeFields(), [
+            'name' => 'High Engagement',
+            'directions_clicks_count' => 600,
+            'call_clicks_count' => 600,
+        ]));
+        $low = $this->makeRestaurant(array_merge($this->fullFreeFields(), [
+            'name' => 'Low Engagement',
+            'directions_clicks_count' => 1,
+            'call_clicks_count' => 1,
+        ]));
+        $all = new Collection([$high, $low]);
+
+        $aggregates = $this->service->computeAggregates($all);
+
+        // The collection max (600) exceeds the default floor (500), so the
+        // computed denominator must reflect it rather than the 5000 fallback.
+        $this->assertEquals(600.0, $aggregates['log_denoms']['directions_clicks_count']);
+        $this->assertEquals(600.0, $aggregates['log_denoms']['call_clicks_count']);
+    }
 }
