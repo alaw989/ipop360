@@ -69,6 +69,45 @@ class HomeServiceTest extends TestCase
         $this->assertSame($r->id, $data['popularRestaurants']->first()->id);
     }
 
+    public function test_trending_shows_at_most_one_card_per_restaurant_name(): void
+    {
+        // Same chain, three distinct locations (different addresses in
+        // practice, irrelevant here) — all high-scoring, all named the same
+        // modulo casing, like the real "MISSION BBQ" / "Mission BBQ" case.
+        $best = Restaurant::factory()->create([
+            'name' => 'MISSION BBQ',
+            'city' => 'Cleveland',
+            'state' => 'OH',
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
+        ]);
+        Restaurant::factory()->create([
+            'name' => 'Mission BBQ',
+            'city' => 'Cleveland',
+            'state' => 'OH',
+            'is_active' => true,
+            'popularity_score' => 0.8,
+            'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
+        ]);
+        Restaurant::factory()->create([
+            'name' => 'mission bbq',
+            'city' => 'Cleveland',
+            'state' => 'OH',
+            'is_active' => true,
+            'popularity_score' => 0.7,
+            'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
+        ]);
+
+        $data = $this->homeService->getHomepageData(null, null);
+
+        $this->assertCount(1, $data['popularRestaurants']);
+        $this->assertSame($best->id, $data['popularRestaurants']->first()->id);
+    }
+
     public function test_popular_cuisines_are_global_across_cities(): void
     {
         $category = CuisineCategory::factory()->create(['name' => 'Global', 'slug' => 'global']);
