@@ -8,10 +8,19 @@ use App\Models\CuisineCategory;
 use App\Models\Restaurant;
 use App\Support\StateAbbreviations;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
 class HomeService
 {
+    /**
+     * Trending dedup happens in PHP after the DB query (see dedupeByName()),
+     * so we over-fetch candidates before truncating to the real limit —
+     * otherwise a chain with several highly-ranked locations could shrink
+     * the final list below $trendingLimit once duplicate names collapse.
+     */
+    private const DEDUP_CANDIDATE_MULTIPLIER = 5;
+
     /**
      * @return array<string, mixed>
      */
@@ -31,12 +40,17 @@ class HomeService
         $effectiveLocation = null;
         $popularRestaurants = collect();
 
+        $candidateLimit = $trendingLimit * self::DEDUP_CANDIDATE_MULTIPLIER;
+
         if ($city) {
-            $popularRestaurants = $this->trendingRestaurantsQuery(qualified: true)
-                ->where('city', $city)
-                ->where('state', $state)
-                ->limit($trendingLimit)
-                ->get();
+            $popularRestaurants = $this->dedupeByName(
+                $this->trendingRestaurantsQuery(qualified: true)
+                    ->where('city', $city)
+                    ->where('state', $state)
+                    ->limit($candidateLimit)
+                    ->get(),
+                $trendingLimit
+            );
 
             if ($popularRestaurants->isNotEmpty()) {
                 $effectiveLocation = ['city' => $city, 'state' => $state];
@@ -44,17 +58,23 @@ class HomeService
         }
 
         if ($popularRestaurants->isEmpty()) {
-            $popularRestaurants = $this->trendingRestaurantsQuery(qualified: true)
-                ->limit($trendingLimit)
-                ->get();
+            $popularRestaurants = $this->dedupeByName(
+                $this->trendingRestaurantsQuery(qualified: true)
+                    ->limit($candidateLimit)
+                    ->get(),
+                $trendingLimit
+            );
         }
 
         if ($popularRestaurants->isEmpty()) {
             // The quality floor filtered out everything (thin/early corpus) —
             // never show an empty Trending section when there IS data.
-            $popularRestaurants = $this->trendingRestaurantsQuery(qualified: false)
-                ->limit($trendingLimit)
-                ->get();
+            $popularRestaurants = $this->dedupeByName(
+                $this->trendingRestaurantsQuery(qualified: false)
+                    ->limit($candidateLimit)
+                    ->get(),
+                $trendingLimit
+            );
         }
 
         $popularCuisines = $this->getPopularCuisines();
@@ -94,6 +114,23 @@ class HomeService
         }
 
         return $query->orderByTrendingScore();
+    }
+
+    /**
+     * Caps Trending to one card per brand/name — the candidates arrive
+     * pre-ordered by trending score, so unique() keeps the highest-scored
+     * occurrence of each name and drops the rest. Normalization matches
+     * VenuePipeline::venuesMatch()'s strtolower(trim($name)) convention.
+     *
+     * @param  Collection<int, Restaurant>  $restaurants
+     * @return Collection<int, Restaurant>
+     */
+    private function dedupeByName(Collection $restaurants, int $limit): Collection
+    {
+        return $restaurants
+            ->unique(fn (Restaurant $r) => strtolower(trim($r->name)))
+            ->take($limit)
+            ->values();
     }
 
     /**
