@@ -3,21 +3,26 @@ import { reactive } from 'vue';
 import type { Restaurant } from '@/types/restaurant';
 
 // Hoisted so the vi.mock factory (which runs before imports) closes over a
-// stable, mutable page + router.post. Each test reshapes `page.props.auth` to
-// flip between the guest and authed branches.
+// stable, mutable page. Each test reshapes `page.props.auth` to flip between
+// the guest and authed branches.
 const inertia = vi.hoisted(() => ({
     page: {
         props: {
             auth: undefined as { user?: { id: number }; favorites?: number[] } | undefined,
         },
     },
-    post: vi.fn(),
 }));
 
 vi.mock('@inertiajs/vue3', () => ({
     usePage: () => inertia.page,
-    router: { post: (...args: unknown[]) => inertia.post(...(args as Parameters<typeof vi.fn>)) },
 }));
+
+// toggle() posts via plain axios, not router.post — Inertia's router throws
+// on the JSON (non-Inertia) response this endpoint returns, so this is a
+// background write, not a page visit. See app.ts's identical merge-on-login
+// fix for the same reasoning.
+const axiosMock = vi.hoisted(() => ({ post: vi.fn() }));
+vi.mock('axios', () => ({ default: { post: (...args: unknown[]) => axiosMock.post(...args) } }));
 
 import { useFavorites } from '@/composables/useFavorites';
 
@@ -66,10 +71,10 @@ beforeEach(() => {
             auth: undefined as { user?: { id: number }; favorites?: number[] } | undefined,
         },
     });
-    inertia.post.mockReset();
-    // Faithful default: real Inertia router.post returns a resolved Promise on
-    // success (individual tests override to drive onError / rejection).
-    inertia.post.mockResolvedValue(undefined);
+    axiosMock.post.mockReset();
+    // Faithful default: a real axios success response with no reconcilable
+    // favoriteIds, so the optimistic value stands unless a test overrides it.
+    axiosMock.post.mockResolvedValue({ data: {} });
 });
 
 describe('useFavorites — guest (localStorage) path', () => {
@@ -150,11 +155,16 @@ describe('useFavorites — authed (server) path', () => {
 
         expect(isFavorited(venue)).toBe(true);
         expect(inertia.page.props.auth?.favorites).toEqual([5, 6]);
-        expect(inertia.post).toHaveBeenCalledWith(
-            '/favorites/toggle',
-            { restaurant: venue, id: 6 },
-            expect.objectContaining({ preserveScroll: true }),
-        );
+        expect(axiosMock.post).toHaveBeenCalledWith('/favorites/toggle', { restaurant: venue, id: 6 });
+    });
+
+    it('reconciles favorites from the real server response', async () => {
+        axiosMock.post.mockResolvedValue({ data: { favoriteIds: [5, 6, 9] } });
+
+        const { toggle } = useFavorites();
+        await toggle(makeVenue({ id: 6 }));
+
+        expect(inertia.page.props.auth?.favorites).toEqual([5, 6, 9]);
     });
 
     it('toggle optimistically removes', async () => {
@@ -167,24 +177,21 @@ describe('useFavorites — authed (server) path', () => {
         expect(inertia.page.props.auth?.favorites).toEqual([]);
     });
 
-    it('rolls back the optimistic add when the server fires onError (4xx)', async () => {
-        // Faithful Inertia: the Promise resolves, but onError is invoked on a
-        // validation/server error. Without the pre-mutation snapshot this
-        // rollback was a no-op (the computed had already re-evaluated).
-        inertia.post.mockImplementation((_url, _body, opts: { onError?: (e: unknown) => void }) => {
-            opts?.onError?.({ id: ['invalid'] });
-            return Promise.resolve();
-        });
+    it('rolls back and rethrows on a validation/server error (4xx)', async () => {
+        // Faithful axios: a non-2xx response rejects the promise. Without the
+        // pre-mutation snapshot this rollback was a no-op (the computed had
+        // already re-evaluated).
+        axiosMock.post.mockRejectedValue({ response: { status: 422, data: { id: ['invalid'] } } });
 
         const { toggle, isFavorited } = useFavorites();
-        await toggle(makeVenue({ id: 6 }));
+        await expect(toggle(makeVenue({ id: 6 }))).rejects.toBeTruthy();
 
         expect(isFavorited(makeVenue({ id: 6 }))).toBe(false);
         expect(inertia.page.props.auth?.favorites).toEqual([5]);
     });
 
     it('rolls back and rethrows when the network call rejects', async () => {
-        inertia.post.mockRejectedValue(new Error('Network error'));
+        axiosMock.post.mockRejectedValue(new Error('Network error'));
 
         const { toggle, isFavorited } = useFavorites();
         await expect(toggle(makeVenue({ id: 6 }))).rejects.toThrow('Network error');

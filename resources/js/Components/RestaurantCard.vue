@@ -98,7 +98,7 @@ const rankChangeTitle = computed(() => {
                 </div>
 
                 <!-- Compare button (bottom-left) -->
-                <div class="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div class="relative z-10 absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                         class="flex h-7 w-7 items-center justify-center rounded-full bg-background/80 text-[10px] font-bold shadow-sm ring-1 ring-border backdrop-blur-sm hover:bg-background transition-colors"
                         :class="inCompare ? 'text-primary ring-primary/50' : 'text-muted-foreground'"

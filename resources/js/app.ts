@@ -7,6 +7,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, defineAsyncComponent, DefineComponent, h, Transition } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { router } from '@inertiajs/vue3';
+import axios from 'axios';
 import { useSearchLoadingOverlay } from './composables/useSearchLoadingOverlay';
 
 // Lazy: only fetched once a search is actually triggered, so it isn't part
@@ -48,23 +49,21 @@ function checkAndMergeFavorites(pageProps: any) {
             // Mark as checked before the async call to prevent duplicate calls
             hasCheckedMerge = true;
 
-            // Merge with server
-            router.post(
-                '/favorites/merge',
-                { ids, venues },
-                {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        // Clear localStorage on successful merge
-                        localStorage.removeItem(STORAGE_KEY);
-                    },
-                    onError: () => {
-                        // Reset on error so we can retry
-                        hasCheckedMerge = false;
-                        console.error('Failed to merge favorites');
-                    },
-                }
-            );
+            // Plain axios, not router.post: this is a background write, not a
+            // page visit, and the endpoint returns JSON — Inertia's router
+            // throws a fatal "must receive a valid Inertia response" error
+            // (and takes over the whole page) on any non-Inertia response.
+            axios
+                .post('/favorites/merge', { ids, venues })
+                .then(() => {
+                    // Clear localStorage on successful merge
+                    localStorage.removeItem(STORAGE_KEY);
+                })
+                .catch(() => {
+                    // Reset on error so we can retry
+                    hasCheckedMerge = false;
+                    console.error('Failed to merge favorites');
+                });
         }
     } catch (e) {
         console.error('Failed to check/merge favorites', e);

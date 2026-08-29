@@ -262,18 +262,18 @@ return [
     */
     'ranking' => [
         'weights' => [
-            'quality' => env('RANK_WEIGHT_QUALITY', 0.35),
-            'proximity' => env('RANK_WEIGHT_PROXIMITY', 0.15),
-            'data_completeness' => env('RANK_WEIGHT_DATA_COMPLETENESS', 0.05),
-            'has_award' => env('RANK_WEIGHT_HAS_AWARD', 0.05),
+            'quality' => (float) env('RANK_WEIGHT_QUALITY', 0.35),
+            'proximity' => (float) env('RANK_WEIGHT_PROXIMITY', 0.15),
+            'data_completeness' => (float) env('RANK_WEIGHT_DATA_COMPLETENESS', 0.05),
+            'has_award' => (float) env('RANK_WEIGHT_HAS_AWARD', 0.05),
             // spec-071: on a cuisine-scoped search, boost venues matching the
             // searched cuisine so a genuine match outranks a borderline-nearby
             // one. Recall-safe (re-rank only, drops nothing); 0.0 unless stamped
             // by LiveSearchService::stampCuisineMatchStrength on a scoped search.
-            'cuisine_match' => env('RANK_WEIGHT_CUISINE_MATCH', 0.50),
-            'google_rating' => env('RANK_WEIGHT_GOOGLE_RATING', 0.0),
-            'google_review_count' => env('RANK_WEIGHT_GOOGLE_REVIEW_COUNT', 0.0),
-            'popular_times_avg_busyness' => env('RANK_WEIGHT_POPULAR_TIMES', 0.0),
+            'cuisine_match' => (float) env('RANK_WEIGHT_CUISINE_MATCH', 0.50),
+            'google_rating' => (float) env('RANK_WEIGHT_GOOGLE_RATING', 0.0),
+            'google_review_count' => (float) env('RANK_WEIGHT_GOOGLE_REVIEW_COUNT', 0.0),
+            'popular_times_avg_busyness' => (float) env('RANK_WEIGHT_POPULAR_TIMES', 0.0),
             // spec-104 rebalance (data-driven, see docs/ranking-metrics.md):
             // social is the one non-quality signal firing on ~47% of rows, so it
             // was raised 0.10->0.20 to differentiate the 76% unrated cohort
@@ -283,19 +283,19 @@ return [
             // average (mean gap 0.29); the old "no overlap" guarantee has a small
             // exception — ~1.6% of link-rich unrated venues score above the
             // lowest-rated venue (see docs/ranking-audit-2026-08.md).
-            'social_links_count' => env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.20),
-            'website_clicks_count' => env('RANK_WEIGHT_WEBSITE_CLICKS', 0.20),
-            'pageviews_count' => env('RANK_WEIGHT_PAGEVIEWS', 0.10),
-            'social_link_clicks_count' => env('RANK_WEIGHT_SOCIAL_LINK_CLICKS', 0.05),
-            'menu_click_count' => env('RANK_WEIGHT_MENU_CLICKS', 0.05),
+            'social_links_count' => (float) env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.20),
+            'website_clicks_count' => (float) env('RANK_WEIGHT_WEBSITE_CLICKS', 0.20),
+            'pageviews_count' => (float) env('RANK_WEIGHT_PAGEVIEWS', 0.10),
+            'social_link_clicks_count' => (float) env('RANK_WEIGHT_SOCIAL_LINK_CLICKS', 0.05),
+            'menu_click_count' => (float) env('RANK_WEIGHT_MENU_CLICKS', 0.05),
             // directions_clicks_count / call_clicks_count are tracked live by
             // EngagementController and aggregated nightly by
             // restaurants:update-engagement alongside the other engagement
             // counters, but were never added to the scoring weight table —
             // an undocumented omission, not a deliberate exclusion. Weighted
             // the same as menu_click_count/social_link_clicks_count (0.05).
-            'directions_clicks_count' => env('RANK_WEIGHT_DIRECTIONS_CLICKS', 0.05),
-            'call_clicks_count' => env('RANK_WEIGHT_CALL_CLICKS', 0.05),
+            'directions_clicks_count' => (float) env('RANK_WEIGHT_DIRECTIONS_CLICKS', 0.05),
+            'call_clicks_count' => (float) env('RANK_WEIGHT_CALL_CLICKS', 0.05),
         ],
 
         // spec-081: on a cuisine-scoped search, when enough confident matches
