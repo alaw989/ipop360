@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue';
-import { router } from '@inertiajs/vue3';
 import { usePage } from '@inertiajs/vue3';
+import axios from 'axios';
 import type { Restaurant } from '@/types/restaurant';
 
 const STORAGE_KEY = 'ipop360_favorites';
@@ -102,22 +102,19 @@ export function useFavorites() {
             }
 
             try {
-                await router.post(
-                    '/favorites/toggle',
-                    {
-                        restaurant,
-                        id: restaurant.id,
-                    } as any,
-                    {
-                        preserveScroll: true,
-                        onError: () => {
-                            // Rollback on error
-                            if ((page.props as PageProps).auth) {
-                                (page.props as PageProps).auth!.favorites = previousFavorites;
-                            }
-                        },
-                    }
-                );
+                // Plain axios, not router.post: this is a background write, not
+                // a page visit, and the endpoint returns JSON — Inertia's router
+                // throws a fatal "must receive a valid Inertia response" error
+                // (and takes over the whole page) on any non-Inertia response.
+                const response = await axios.post('/favorites/toggle', {
+                    restaurant,
+                    id: restaurant.id,
+                });
+
+                // Reconcile with the true server state now that we can read it.
+                if ((page.props as PageProps).auth && Array.isArray(response.data?.favoriteIds)) {
+                    (page.props as PageProps).auth!.favorites = response.data.favoriteIds;
+                }
             } catch (error) {
                 // Rollback on network error
                 if ((page.props as PageProps).auth) {
