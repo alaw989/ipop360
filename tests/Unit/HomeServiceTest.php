@@ -166,4 +166,13 @@ class HomeServiceTest extends TestCase
         $fallback = $this->homeService->getHomepageData('Nowhere', 'NoState');
         $this->assertCount(2, $fallback['categories']);
     }
+
+    public function test_popular_cities_come_from_config_unscoped_by_location(): void
+    {
+        $configured = config('restaurant-finder.homepage.popular_cities');
+
+        $data = $this->homeService->getHomepageData('Austin', 'Texas');
+
+        $this->assertSame($configured, $data['popularCities']);
+    }
 }

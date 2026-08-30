@@ -16,12 +16,6 @@ vi.mock('@/Components/ScoreChip.vue', () => ({
     },
 }))
 
-vi.mock('@/Components/RestaurantCardSkeleton.vue', () => ({
-    default: {
-        template: '<div class="skeleton-stub" data-testid="skeleton" />',
-    },
-}))
-
 vi.mock('@/lib/cuisine', () => ({
     cuisineGradient: (slug: string | null | undefined) =>
         slug ? `gradient-${slug}` : 'from-muted to-muted-foreground/20',
@@ -57,13 +51,11 @@ function makeRestaurants(count: number) {
 function mountComponent(props: Partial<{
     restaurants: any[]
     city: string | null
-    loading: boolean
 }> = {}) {
     return mount(PopularRestaurants, {
         props: {
             restaurants: props.restaurants ?? makeRestaurants(5),
             city: props.city ?? null,
-            loading: props.loading ?? false,
         },
     })
 }
@@ -109,17 +101,6 @@ describe('PopularRestaurants', () => {
         const wrapper = mountComponent({ city: null })
         expect(wrapper.text()).toContain('Popular across iPop360')
         expect(wrapper.text()).not.toContain('Top-ranked dining spots right now')
-    })
-
-    it('renders 8 skeleton cards when loading is true', () => {
-        const wrapper = mountComponent({ loading: true })
-        expect(wrapper.findAll('[data-testid="skeleton"]')).toHaveLength(8)
-        expect(wrapper.find('a[href^="/restaurants/"]').exists()).toBe(false)
-    })
-
-    it('does not render skeleton cards when loading is false', () => {
-        const wrapper = mountComponent({ loading: false })
-        expect(wrapper.findAll('[data-testid="skeleton"]')).toHaveLength(0)
     })
 
     it('renders the expected number of restaurant cards', () => {

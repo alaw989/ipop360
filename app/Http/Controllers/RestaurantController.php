@@ -116,6 +116,8 @@ class RestaurantController extends Controller
         $validated = $request->validate([
             'sort' => 'nullable|in:best_match,nearest,rating,reviews,price',
             'distance' => 'nullable|numeric|min:1|max:500',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:2',
         ]);
 
         $sort = $validated['sort'] ?? 'best_match';
@@ -145,6 +147,27 @@ class RestaurantController extends Controller
             if ($category) {
                 $cuisineName = $category->name;
             }
+        }
+
+        // Homepage "popular cities" browse: DB-only, always — checked before
+        // geolocation resolution so a city click can never fall through to the
+        // live merged-search path even when the visitor's IP would otherwise
+        // resolve coordinates (SerpApi quota is capped at 250/month).
+        $city = $request->query('city');
+        $city = is_string($city) ? $city : null;
+
+        if ($city) {
+            $query = $this->buildRestaurantQuery($request)->active()
+                ->inCity($city, (string) $request->query('state', ''));
+            $query = $this->applySortMode($query, $sort, false);
+
+            return Inertia::render('Restaurants/Index', [
+                'restaurants' => $this->formatDbOnlyRestaurants($query->paginate(20)->withQueryString()),
+                'filters' => $request->only(['cuisine', 'category', 'city', 'state', 'sort']),
+                'cuisineName' => $cuisineName,
+                'categorySlug' => $categorySlug,
+                'cityName' => $city,
+            ]);
         }
 
         $coords = $this->geolocationService->resolveCoordinates($request);
@@ -180,6 +203,7 @@ class RestaurantController extends Controller
                 'filters' => $request->only(['cuisine', 'category', 'lat', 'lng', 'sort', 'distance']),
                 'cuisineName' => $cuisineName,
                 'categorySlug' => $categorySlug,
+                'cityName' => null,
             ]);
         }
 
@@ -191,35 +215,49 @@ class RestaurantController extends Controller
         // Apply sorting based on the selected mode (no coords → nearest falls back).
         $query = $this->applySortMode($query, $sort, false);
 
-        $restaurants = $query->paginate(20)->withQueryString();
-
-        // Format using RestaurantResource (collection)
-        $items = $restaurants->getCollection();
-        $allItems = $items; // Keep for score_breakdown fallback
-
-        // spec-078: compute normalization aggregates ONCE over the displayed set
-        // and share across every resource (avoids the O(n²) per-row recompute).
-        $aggregates = app(PopularityScoreService::class)->computeAggregates($allItems);
-
-        /** @var AnonymousResourceCollection $formatted */
-        $formatted = RestaurantResource::collection($items);
-        // Attach the full collection + precomputed aggregates to each resource
-        if ($formatted->collection !== null) {
-            $formatted->collection->each(fn ($resource) => $resource
-                ->withAllRestaurants($allItems)
-                ->withAggregates($aggregates));
-        }
-
-        $formattedArray = $formatted->resolve();
-
-        $restaurants->setCollection(collect($formattedArray));
-
         return Inertia::render('Restaurants/Index', [
-            'restaurants' => $restaurants,
+            'restaurants' => $this->formatDbOnlyRestaurants($query->paginate(20)->withQueryString()),
             'filters' => $request->only(['cuisine', 'category', 'lat', 'lng', 'sort', 'distance']),
             'cuisineName' => $cuisineName,
             'categorySlug' => $categorySlug,
+            'cityName' => null,
         ]);
+    }
+
+    /**
+     * Format a DB-only paginator page with RestaurantResource, sharing one set
+     * of popularity-score normalization aggregates across every row (spec-078:
+     * avoids an O(n²) per-row recompute). Shared by the plain DB-only browse
+     * path and the city-scoped browse path.
+     *
+     * @param  LengthAwarePaginator<int, Restaurant>  $restaurants
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    private function formatDbOnlyRestaurants(LengthAwarePaginator $restaurants): LengthAwarePaginator
+    {
+        $items = $restaurants->getCollection();
+
+        $aggregates = app(PopularityScoreService::class)->computeAggregates($items);
+
+        /** @var AnonymousResourceCollection $formatted */
+        $formatted = RestaurantResource::collection($items);
+        if ($formatted->collection !== null) {
+            $formatted->collection->each(fn ($resource) => $resource
+                ->withAllRestaurants($items)
+                ->withAggregates($aggregates));
+        }
+
+        // A fresh paginator (rather than mutating $restaurants in place) so its
+        // generic type genuinely matches the declared array<string, mixed>
+        // return — setCollection() on the original object keeps PHPStan's
+        // inferred type pinned to the pre-format Restaurant generic.
+        return (new LengthAwarePaginator(
+            collect($formatted->resolve()),
+            $restaurants->total(),
+            $restaurants->perPage(),
+            $restaurants->currentPage(),
+            ['path' => $restaurants->path()]
+        ))->withQueryString();
     }
 
     /**

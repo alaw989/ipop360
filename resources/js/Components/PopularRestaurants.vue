@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ChevronDown } from '@lucide/vue'
 import StarRating from '@/Components/StarRating.vue'
 import ScoreChip from '@/Components/ScoreChip.vue'
-import RestaurantCardSkeleton from '@/Components/RestaurantCardSkeleton.vue'
 import { cuisineGradient } from '@/lib/cuisine'
 interface PopularRestaurant {
     id: number
@@ -29,11 +28,16 @@ interface PopularRestaurant {
 const props = defineProps<{
     restaurants: PopularRestaurant[]
     city: string | null
-    loading?: boolean
 }>()
 
 const showAll = ref(false)
 const initialLimit = 12
+
+// A freshly-picked city's list starts collapsed, not still expanded from
+// whatever "Show more" state the previous city was left in.
+watch(() => props.city, () => {
+    showAll.value = false
+})
 
 // Tracks restaurants whose photo_url is present but failed to load, so a
 // dead URL falls back to the placeholder instead of showing the browser's
@@ -84,11 +88,8 @@ function rankBadge(rank: number) {
                 {{ city ? 'Top-ranked dining spots right now' : 'Popular across iPop360' }}
             </p>
 
-            <div v-if="loading" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                <RestaurantCardSkeleton v-for="i in 8" :key="'skeleton-' + i" />
-            </div>
-            <template v-else>
-                <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <Transition name="restaurant-fade" mode="out-in">
+                <div :key="city ?? 'global'" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                     <a
                         v-for="(r, index) in visibleRestaurants"
                         :key="r.id"
@@ -162,19 +163,30 @@ function rankBadge(rank: number) {
                         </div>
                     </a>
                 </div>
+            </Transition>
 
-                <button
-                    v-if="hasMore"
-                    class="mt-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                    @click="showAll = !showAll"
-                >
-                    <ChevronDown
-                        class="h-4 w-4 transition-transform duration-200"
-                        :class="showAll ? 'rotate-180' : ''"
-                    />
-                    <span>{{ showAll ? 'Show less' : 'Show more' }}</span>
-                </button>
-            </template>
+            <button
+                v-if="hasMore"
+                class="mt-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                @click="showAll = !showAll"
+            >
+                <ChevronDown
+                    class="h-4 w-4 transition-transform duration-200"
+                    :class="showAll ? 'rotate-180' : ''"
+                />
+                <span>{{ showAll ? 'Show less' : 'Show more' }}</span>
+            </button>
         </div>
     </section>
 </template>
+
+<style scoped>
+.restaurant-fade-enter-active,
+.restaurant-fade-leave-active {
+    transition: opacity 0.2s ease;
+}
+.restaurant-fade-enter-from,
+.restaurant-fade-leave-to {
+    opacity: 0;
+}
+</style>

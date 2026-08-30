@@ -92,13 +92,9 @@ const stubs = {
         props: ['delay', 'threshold'],
         template: '<div class="scroll-reveal-stub" :data-delay="delay"><slot /></div>',
     },
-    CategoryGrid: {
-        props: ['categories', 'loading', 'lat', 'lng'],
-        template: '<div class="category-grid-stub" />',
-    },
-    PopularCuisines: {
-        props: ['cuisines', 'loading', 'lat', 'lng'],
-        template: '<div class="popular-cuisines-stub" />',
+    PopularCities: {
+        props: ['cities'],
+        template: '<div class="popular-cities-stub" />',
     },
     PopularRestaurants: {
         props: ['restaurants', 'city', 'loading'],
@@ -125,8 +121,8 @@ function makeCategory(overrides: Record<string, unknown> = {}) {
     return { id: 1, name: 'Italian', slug: 'italian-cuisine', icon: null, cuisines: [], ...overrides }
 }
 
-function makePopularCuisine(overrides: Record<string, unknown> = {}) {
-    return { id: 1, name: 'Italian', slug: 'italian', icon: null, restaurants_count: 42, ...overrides }
+function makePopularCity(overrides: Record<string, unknown> = {}) {
+    return { name: 'Chicago', city: 'Chicago', state: 'IL', ...overrides }
 }
 
 function makePopularRestaurant(overrides: Record<string, unknown> = {}) {
@@ -158,7 +154,7 @@ function makeBlogPost(overrides: Record<string, unknown> = {}) {
 function defaultProps(overrides: Record<string, unknown> = {}) {
     return {
         categories: [makeCategory()],
-        popularCuisines: [makePopularCuisine()],
+        popularCities: [makePopularCity()],
         popularRestaurants: [makePopularRestaurant()],
         latestPosts: [makeBlogPost()],
         ...overrides,
@@ -253,14 +249,9 @@ describe('Welcome', () => {
     })
 
     describe('homepage sections', () => {
-        it('renders CategoryGrid', () => {
+        it('renders PopularCities', () => {
             const wrapper = mountWelcome()
-            expect(wrapper.find('.category-grid-stub').exists()).toBe(true)
-        })
-
-        it('renders PopularCuisines', () => {
-            const wrapper = mountWelcome()
-            expect(wrapper.find('.popular-cuisines-stub').exists()).toBe(true)
+            expect(wrapper.find('.popular-cities-stub').exists()).toBe(true)
         })
 
         it('renders BlogPreview', () => {
@@ -284,7 +275,7 @@ describe('Welcome', () => {
         it('staggers the homepage sections so they cascade in', () => {
             const wrapper = mountWelcome()
             const delays = wrapper.findAll('.scroll-reveal-stub').map(n => n.attributes('data-delay'))
-            expect(delays).toEqual(['0', '80', '160', '240'])
+            expect(delays).toEqual(['0', '80', '160'])
         })
     })
 

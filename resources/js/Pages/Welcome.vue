@@ -10,8 +10,7 @@ import AppFooter from '@/Components/AppFooter.vue'
 import TopNav from '@/Components/TopNav.vue'
 import HeroBanner from '@/Components/HeroBanner.vue'
 import ScrollReveal from '@/Components/ScrollReveal.vue'
-import CategoryGrid from '@/Components/CategoryGrid.vue'
-import PopularCuisines from '@/Components/PopularCuisines.vue'
+import PopularCities from '@/Components/PopularCities.vue'
 import PopularRestaurants from '@/Components/PopularRestaurants.vue'
 import BlogPreview from '@/Components/BlogPreview.vue'
 
@@ -74,26 +73,16 @@ interface BlogPost {
 }
 
 interface HomepageData {
-    categories: Category[]
-    popularCuisines: Array<{
-        id: number
-        name: string
-        slug: string
-        icon: string | null
-        restaurants_count: number
-    }>
     popularRestaurants: Restaurant[]
     location: Location | null
 }
 
 const props = defineProps<{
     categories: Category[]
-    popularCuisines: Array<{
-        id: number
+    popularCities: Array<{
         name: string
-        slug: string
-        icon: string | null
-        restaurants_count: number
+        city: string
+        state: string
     }>
     popularRestaurants: Restaurant[]
     latestPosts: BlogPost[]
@@ -154,11 +143,8 @@ const structuredData = computed(() => {
 // Reactive homepage data — initialised from server props (always the
 // unscoped/global view, since the server never guesses a city), then
 // refetched when the user picks a city via LocationPicker or GPS.
-const categories = ref<Category[]>(props.categories)
 const bannerCategories = ref<Category[]>(props.categories)
-const popularCuisines = ref<HomepageData['popularCuisines']>(props.popularCuisines)
 const popularRestaurants = ref<HomepageData['popularRestaurants']>(props.popularRestaurants)
-const dataLoading = ref(false)
 
 // Tracks the actual location scope of the data shown (may differ from the
 // selected city when no restaurants exist for it and fallback kicks in).
@@ -172,8 +158,6 @@ function fetchHomepageData(city: string | null, state: string | null) {
     const controller = new AbortController()
     homepageAbortController.value = controller
 
-    dataLoading.value = true
-
     const params = new URLSearchParams()
     if (city) params.set('city', city)
     if (state) params.set('state', state)
@@ -185,23 +169,17 @@ function fetchHomepageData(city: string | null, state: string | null) {
         })
         .then((data: HomepageData | null) => {
             if (!data) return
-            categories.value = data.categories
-            popularCuisines.value = data.popularCuisines
             popularRestaurants.value = data.popularRestaurants
             effectiveLocation.value = data.location
         })
         .catch(err => {
             if (err instanceof DOMException && err.name === 'AbortError') return
         })
-        .finally(() => {
-            dataLoading.value = false
-        })
 }
 
 watch(
     () => [persistedLocation.value?.city, persistedLocation.value?.state] as const,
     ([newCity, newState]) => {
-        dataLoading.value = true
         fetchHomepageData(newCity, newState)
     },
 )
@@ -293,20 +271,13 @@ function dismissGeolocationError() {
                  (80ms step) so above-the-fold sections cascade in instead of
                  snapping into view simultaneously. -->
             <ScrollReveal :delay="0">
-                <CategoryGrid
-                    :categories="categories"
-                    :loading="dataLoading"
-                    :lat="lat"
-                    :lng="lng"
-                />
+                <BlogPreview :posts="props.latestPosts" />
             </ScrollReveal>
 
             <ScrollReveal :delay="80">
-                <PopularCuisines
-                    :cuisines="popularCuisines"
-                    :loading="dataLoading"
-                    :lat="lat"
-                    :lng="lng"
+                <PopularCities
+                    :cities="props.popularCities"
+                    :selected-city="persistedLocation.city"
                 />
             </ScrollReveal>
 
@@ -314,12 +285,7 @@ function dismissGeolocationError() {
                 <PopularRestaurants
                     :restaurants="popularRestaurants"
                     :city="effectiveLocation?.city ?? null"
-                    :loading="dataLoading"
                 />
-            </ScrollReveal>
-
-            <ScrollReveal :delay="240">
-                <BlogPreview :posts="props.latestPosts" />
             </ScrollReveal>
         </main>
 
