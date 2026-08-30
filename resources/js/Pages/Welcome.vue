@@ -278,6 +278,7 @@ function dismissGeolocationError() {
                 <PopularCities
                     :cities="props.popularCities"
                     :selected-city="persistedLocation.city"
+                    @select="onLocationUpdate"
                 />
             </ScrollReveal>
 

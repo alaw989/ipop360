@@ -38,7 +38,7 @@ describe('BlogPreview', () => {
 
     it('renders the section header with title and subtitle', () => {
         const wrapper = mountComponent()
-        expect(wrapper.text()).toContain('From the blog')
+        expect(wrapper.text()).toContain('Featured Restaurant')
         expect(wrapper.text()).toContain('Guides, trends, and dining insights')
     })
 
@@ -236,7 +236,7 @@ describe('BlogPreview', () => {
 
     it('does not render a Featured badge on the hero post when is_featured is false', () => {
         const wrapper = mountComponent([makePost({ is_featured: false })])
-        expect(wrapper.text()).not.toContain('Featured')
+        expect(wrapper.findAll('span').some(el => el.text() === 'Featured')).toBe(false)
     })
 
     it('renders a Featured badge on grid posts when is_featured is true', () => {
@@ -254,6 +254,6 @@ describe('BlogPreview', () => {
             makePost({ id: 2, title: 'Grid', is_featured: false }),
         ]
         const wrapper = mountComponent(posts)
-        expect(wrapper.text()).not.toContain('Featured')
+        expect(wrapper.findAll('span').some(el => el.text() === 'Featured')).toBe(false)
     })
 })

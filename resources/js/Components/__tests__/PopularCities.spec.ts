@@ -15,27 +15,37 @@ describe('PopularCities', () => {
         expect(wrapper.text()).toContain('Explore restaurants in popular cities')
     })
 
-    it('renders a link per city with a city+state href', () => {
+    it('renders a button per city', () => {
         const wrapper = mount(PopularCities, { props: defaultProps })
-        const links = wrapper.findAll('a')
-        expect(links).toHaveLength(2)
-        expect(links[0].attributes('href')).toBe('/restaurants?city=Chicago&state=IL')
-        expect(links[0].text()).toBe('Chicago')
-        expect(links[1].attributes('href')).toBe('/restaurants?city=Los%20Angeles&state=CA')
-        expect(links[1].text()).toBe('Los Angeles')
+        const buttons = wrapper.findAll('button')
+        expect(buttons).toHaveLength(2)
+        expect(buttons[0].text()).toBe('Chicago')
+        expect(buttons[1].text()).toBe('Los Angeles')
     })
 
-    it('renders city links as pill-shaped chips', () => {
+    it('emits select with city and state when a chip is clicked', async () => {
         const wrapper = mount(PopularCities, { props: defaultProps })
-        const links = wrapper.findAll('a')
-        for (const link of links) {
-            expect(link.classes()).toContain('rounded-full')
-            expect(link.classes()).toContain('border')
+        await wrapper.findAll('button')[0].trigger('click')
+        expect(wrapper.emitted('select')).toEqual([[{ city: 'Chicago', state: 'IL' }]])
+    })
+
+    it('renders city chips as pill-shaped buttons', () => {
+        const wrapper = mount(PopularCities, { props: defaultProps })
+        for (const button of wrapper.findAll('button')) {
+            expect(button.classes()).toContain('rounded-full')
+            expect(button.classes()).toContain('border')
         }
     })
 
-    it('renders empty grid when no cities given', () => {
+    it('highlights the selected city', () => {
+        const wrapper = mount(PopularCities, { props: { ...defaultProps, selectedCity: 'Chicago' } })
+        const buttons = wrapper.findAll('button')
+        expect(buttons[0].classes()).toContain('border-primary')
+        expect(buttons[1].classes()).not.toContain('border-primary')
+    })
+
+    it('renders no buttons when no cities given', () => {
         const wrapper = mount(PopularCities, { props: { cities: [] } })
-        expect(wrapper.findAll('a')).toHaveLength(0)
+        expect(wrapper.findAll('button')).toHaveLength(0)
     })
 })
