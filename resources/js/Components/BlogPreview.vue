@@ -44,7 +44,7 @@ function formatDate(value: string | null): string {
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="mb-6 flex items-center justify-between">
                 <div>
-                    <h2 class="text-2xl font-bold text-foreground">From the blog</h2>
+                    <h2 class="text-2xl font-bold text-foreground">Featured Restaurant</h2>
                     <p class="mt-1 text-sm text-muted-foreground">Guides, trends, and dining insights</p>
                 </div>
                 <Link
