@@ -95,6 +95,7 @@ class HomeService
         return [
             'categories' => $categories,
             'popularCuisines' => $popularCuisines,
+            'popularCities' => config('restaurant-finder.homepage.popular_cities', []),
             'popularRestaurants' => $popularRestaurants,
             'latestPosts' => $latestPosts,
             'location' => $effectiveLocation,

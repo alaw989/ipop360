@@ -825,6 +825,30 @@ return [
     */
     'homepage' => [
         'popular_cuisines_cache_ttl_minutes' => (int) env('HOMEPAGE_POPULAR_CUISINES_CACHE_TTL_MINUTES', 30),
+
+        // Curated "explore by city" list for the homepage (Yelp Explore-style).
+        // Self-contained on purpose: the 'cities'/'city_states' maps above are
+        // enrichment-tool coordinates, lowercase-keyed, and missing boroughs
+        // like Brooklyn — not a fit for a display list needing exact display
+        // casing + state disambiguation (Phoenix, AZ vs Phoenix, MD; Brooklyn,
+        // NY vs Brooklyn, OH both exist in the corpus).
+        'popular_cities' => [
+            ['name' => 'Los Angeles', 'city' => 'Los Angeles', 'state' => 'CA'],
+            ['name' => 'New York', 'city' => 'New York', 'state' => 'NY'],
+            ['name' => 'Chicago', 'city' => 'Chicago', 'state' => 'IL'],
+            ['name' => 'Houston', 'city' => 'Houston', 'state' => 'TX'],
+            ['name' => 'San Diego', 'city' => 'San Diego', 'state' => 'CA'],
+            ['name' => 'Las Vegas', 'city' => 'Las Vegas', 'state' => 'NV'],
+            ['name' => 'San Francisco', 'city' => 'San Francisco', 'state' => 'CA'],
+            ['name' => 'Dallas', 'city' => 'Dallas', 'state' => 'TX'],
+            ['name' => 'San Jose', 'city' => 'San Jose', 'state' => 'CA'],
+            ['name' => 'Phoenix', 'city' => 'Phoenix', 'state' => 'AZ'],
+            ['name' => 'Philadelphia', 'city' => 'Philadelphia', 'state' => 'PA'],
+            ['name' => 'Atlanta', 'city' => 'Atlanta', 'state' => 'GA'],
+            ['name' => 'Austin', 'city' => 'Austin', 'state' => 'TX'],
+            ['name' => 'Brooklyn', 'city' => 'Brooklyn', 'state' => 'NY'],
+            ['name' => 'Seattle', 'city' => 'Seattle', 'state' => 'WA'],
+        ],
     ],
 
     /*

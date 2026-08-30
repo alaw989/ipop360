@@ -17,9 +17,12 @@ const props = defineProps<{
         lat?: string;
         lng?: string;
         sort?: string;
+        city?: string;
+        state?: string;
     };
     cuisineName: string | null;
     categorySlug: string | null;
+    cityName: string | null;
     restaurants: {
         data: Restaurant[];
         current_page: number;
@@ -43,11 +46,18 @@ router.on('finish', () => {
 const baseUrl = useBaseUrl()
 
 const locationName = computed(() => {
-    const parts = []
-    if (props.filters.lat && props.filters.lng) {
-        parts.push('Near You')
+    if (props.cityName) return `in ${props.cityName}`
+    if (props.filters.lat && props.filters.lng) return 'Near You'
+    return ''
+})
+
+const pageHeading = computed(() => {
+    if (props.cityName) {
+        return props.cuisineName
+            ? `Top ${props.cuisineName} Restaurants in ${props.cityName}`
+            : `Restaurants in ${props.cityName}`
     }
-    return parts.join(' ')
+    return `Top ${(props.cuisineName || 'All').toLowerCase()} Restaurants`
 })
 
 const serpapiExhausted = computed(() => usePage().props.serpapi_exhausted);
@@ -129,11 +139,11 @@ function updateSort(newSort: string) {
                     href="/"
                     class="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                    &larr; Back to categories
+                    &larr; Back to {{ cityName ? 'popular cities' : 'categories' }}
                 </a>
                 <div class="mt-4 flex flex-wrap items-center justify-between gap-4">
                     <h1 class="text-2xl font-bold text-foreground sm:text-3xl">
-                        Top {{ (cuisineName || 'All').toLowerCase() }} Restaurants
+                        {{ pageHeading }}
                     </h1>
                     <!-- Sort control -->
                     <div class="flex items-center gap-2">
@@ -171,7 +181,7 @@ function updateSort(newSort: string) {
 
             <div v-else-if="!isLoading" class="rounded-lg border border-border bg-card p-12 text-center">
                 <p class="text-lg text-muted-foreground">
-                    No {{ cuisineName || '' }} restaurants found in your area yet.
+                    No {{ cuisineName || '' }} restaurants found {{ cityName ? `in ${cityName}` : 'in your area' }} yet.
                 </p>
                 <p class="mt-2 text-sm text-muted-foreground">
                     Try a different cuisine or location.

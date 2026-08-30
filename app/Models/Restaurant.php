@@ -160,6 +160,74 @@ class Restaurant extends Model
     }
 
     /**
+     * City-scoped browse (homepage "popular cities" links). Case-insensitive
+     * and requires state: stored casing is inconsistent ("Atlanta" vs
+     * "atlanta") and city names collide across states (Phoenix, AZ vs
+     * Phoenix, MD; Brooklyn, NY vs Brooklyn, OH), so city name alone is not
+     * a safe filter.
+     *
+     * @param  Builder<Restaurant>  $query
+     * @return Builder<Restaurant>
+     */
+    public function scopeInCity(Builder $query, string $city, string $state): Builder
+    {
+        return $query
+            ->whereRaw('LOWER(city) = ?', [strtolower($city)])
+            ->whereRaw('LOWER(state) = ?', [strtolower($state)]);
+    }
+
+    /**
+     * Hard image requirement — unlike trendingQualified()'s require_photo,
+     * this is not config-gated. Used by the homepage "Trending restaurants"
+     * section, where a photo is a non-negotiable requirement even in the
+     * last-resort fallback tier.
+     *
+     * @param  Builder<Restaurant>  $query
+     * @return Builder<Restaurant>
+     */
+    public function scopeHasPhoto(Builder $query): Builder
+    {
+        return $query->whereNotNull('photo_url')->where('photo_url', '!=', '');
+    }
+
+    /**
+     * Interim ranking for the homepage "Trending restaurants" section: with
+     * no real traffic yet, popularity_score isn't a meaningful "trending"
+     * signal, so favor the most complete listings instead (rating, reviews,
+     * price, contact info, hours). Ties fall back to the existing decayed
+     * popularity score. Revisit once organic engagement volume exists.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeOrderByDataCompleteness(Builder $query): Builder
+    {
+        $signals = [
+            "description IS NOT NULL AND description != ''",
+            "address IS NOT NULL AND address != ''",
+            "phone IS NOT NULL AND phone != ''",
+            "website_url IS NOT NULL AND website_url != ''",
+            "price_range IS NOT NULL AND price_range != ''",
+            "menu_url IS NOT NULL AND menu_url != ''",
+            "opening_hours IS NOT NULL AND opening_hours NOT IN ('', '[]', '{}')",
+            'google_rating IS NOT NULL AND google_review_count > 0',
+            'yelp_rating IS NOT NULL AND yelp_review_count > 0',
+        ];
+
+        $completeness = '('.implode(' + ', array_map(
+            fn (string $signal) => "(CASE WHEN {$signal} THEN 1 ELSE 0 END)",
+            $signals
+        )).')';
+
+        $query->getQuery()->orders[] = [
+            'type' => 'raw',
+            'sql' => "{$completeness} DESC, ".self::decayedPopularityScoreExpression().' DESC',
+        ];
+
+        return $query;
+    }
+
+    /**
      * Eligibility gate for the homepage "Trending restaurants" section, on
      * top of (not instead of) orderByDecayedScore(). require_photo does the
      * real filtering in practice; min_popularity_score is defense-in-depth.

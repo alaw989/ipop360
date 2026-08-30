@@ -69,6 +69,52 @@ class RestaurantControllerTest extends TestCase
         );
     }
 
+    public function test_restaurant_index_filters_by_city_and_state(): void
+    {
+        Restaurant::factory()->create(['name' => 'Deep Dish Spot', 'city' => 'Chicago', 'state' => 'IL', 'is_active' => true]);
+        Restaurant::factory()->create(['name' => 'Elsewhere Spot', 'city' => 'Austin', 'state' => 'TX', 'is_active' => true]);
+
+        // Lowercase input proves the match is case-insensitive against the
+        // stored "Chicago"/"IL" casing.
+        $response = $this->get('/restaurants?city=chicago&state=il');
+
+        $response->assertInertia(fn ($page) => $page
+            ->has('restaurants.data', 1)
+            ->where('restaurants.data.0.name', 'Deep Dish Spot')
+            ->where('cityName', 'chicago')
+        );
+    }
+
+    public function test_restaurant_index_city_filter_disambiguates_same_named_city_in_different_states(): void
+    {
+        $az = Restaurant::factory()->create(['name' => 'Desert Grill', 'city' => 'Phoenix', 'state' => 'AZ', 'is_active' => true]);
+        Restaurant::factory()->create(['name' => 'Harbor Diner', 'city' => 'Phoenix', 'state' => 'MD', 'is_active' => true]);
+
+        $response = $this->get('/restaurants?city=Phoenix&state=AZ');
+
+        $response->assertInertia(fn ($page) => $page
+            ->has('restaurants.data', 1)
+            ->where('restaurants.data.0.name', $az->name)
+        );
+    }
+
+    public function test_restaurant_index_city_filter_never_triggers_live_search(): void
+    {
+        // The whole point of the city-scoped browse path is that it never
+        // risks a live SerpApi call, even if IP geolocation would otherwise
+        // resolve coordinates for this request.
+        $this->mock(UnifiedSearchService::class, function ($mock) {
+            $mock->shouldNotReceive('search');
+        });
+
+        Restaurant::factory()->create(['name' => 'Windy City Eats', 'city' => 'Chicago', 'state' => 'IL', 'is_active' => true]);
+
+        $response = $this->get('/restaurants?city=Chicago&state=IL&lat=41.8781&lng=-87.6298');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->has('restaurants.data', 1));
+    }
+
     public function test_restaurant_index_orders_by_popularity_desc(): void
     {
         Restaurant::factory()->create(['name' => 'Low Score', 'is_active' => true, 'popularity_score' => 0.3]);
