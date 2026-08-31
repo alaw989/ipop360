@@ -87,11 +87,21 @@ class BizDataApiService
 
             $fingerprint = $name.($lat ?? '').($lng ?? '');
 
+            // Capture BizData's raw per-business category (e.g. "restaurant",
+            // "bail bonds") into place_types, mirroring SerpApi's shape, so
+            // VenuePipeline::filterNonRestaurants() has a structural signal to check
+            // instead of trusting the upstream ?category=restaurant query param blindly
+            // (BizData is documented elsewhere as ignoring its own query param and
+            // returning all nearby businesses regardless).
+            $category = $b['category'] ?? null;
+            $placeTypes = (is_string($category) && $category !== '') ? [$category] : [];
+
             $results[] = [
                 'id' => -1 * abs(crc32('bizdata:'.$fingerprint)),
                 'name' => $name,
                 'slug' => Str::slug($name).'-'.substr(md5($fingerprint), 0, 6),
                 'description' => null,
+                'place_types' => $placeTypes,
                 'address' => $b['address'] ?? null,
                 'city' => $b['city'] ?? $b['town'] ?? $b['municipality'] ?? null,
                 'state' => $b['state'] ?? $b['province'] ?? null,
@@ -335,6 +345,7 @@ class BizDataApiService
             'yelp_review_count' => 0,
             'features' => [],
             'source' => 'bizdata',
+            'place_types' => $r['place_types'] ?? [],
         ];
     }
 }

@@ -338,6 +338,10 @@ class RestaurantController extends Controller
 
     public function show(Restaurant $restaurant): InertiaResponse
     {
+        // Route-model binding resolves by slug alone with no active-scope check —
+        // a quarantined (is_active=false) row would otherwise still render publicly.
+        abort_if(! $restaurant->is_active, 404);
+
         $restaurant->load(['cuisines.category', 'socialLinks']);
 
         $collection = collect([$restaurant]);

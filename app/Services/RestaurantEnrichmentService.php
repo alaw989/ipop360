@@ -64,6 +64,12 @@ class RestaurantEnrichmentService
         // Filter garbage names from OSM-derived sources
         $venues = $this->venuePipeline->filterGarbageNames($venues);
 
+        // Drop non-restaurant businesses (spec-042/046, extended for the "Southern
+        // Bail Bonds" leak) BEFORE persisting — this is the write path, so unlike
+        // LiveSearchService's ephemeral results a miss here becomes a permanent DB
+        // row. Previously only the live-search read path ran this check.
+        $venues = $this->venuePipeline->filterNonRestaurants($venues);
+
         // Cross-source dedup: collapse fuzzy-name + proximity matches
         $venues = $this->venuePipeline->crossSourceDedup($venues);
 
@@ -383,6 +389,8 @@ class RestaurantEnrichmentService
             'google_review_count' => isset($reviewCount) && is_numeric($reviewCount) ? (int) $reviewCount : 0,
             'features' => ! empty($venue['features']) ? $venue['features'] : null,
             'is_active' => true,
+            'place_types' => ! empty($venue['place_types']) ? $venue['place_types'] : null,
+            'source' => $venue['source'] ?? null,
         ];
 
         $attributes = $this->restaurantValidation->normalize($attributes);

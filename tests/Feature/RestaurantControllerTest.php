@@ -217,6 +217,22 @@ class RestaurantControllerTest extends TestCase
         $response->assertStatus(404);
     }
 
+    public function test_restaurant_show_returns_404_for_inactive_restaurant(): void
+    {
+        // A quarantined (is_active=false) row must not stay publicly viewable via
+        // its detail page — route-model binding resolves by slug alone with no
+        // active-scope check, so this must be enforced explicitly in show().
+        $restaurant = Restaurant::factory()->create([
+            'name' => 'Quarantined Place',
+            'slug' => 'quarantined-place',
+            'is_active' => false,
+        ]);
+
+        $response = $this->get("/restaurants/{$restaurant->slug}");
+
+        $response->assertStatus(404);
+    }
+
     public function test_restaurant_index_empty_state(): void
     {
         $response = $this->get('/restaurants?cuisine=mars-colony');

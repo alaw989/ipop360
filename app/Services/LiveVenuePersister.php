@@ -63,6 +63,8 @@ class LiveVenuePersister
             'popularity_score' => $venue['popularity_score'] ?? null,
             'features' => $venue['features'] ?? [],
             'is_active' => true,
+            'place_types' => ! empty($venue['place_types']) ? $venue['place_types'] : null,
+            'source' => $venue['source'] ?? null,
         ];
 
         $attributes = $this->restaurantValidation->normalize($attributes);
