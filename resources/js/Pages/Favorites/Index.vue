@@ -17,7 +17,7 @@ const baseUrl = useBaseUrl()
 
 const seoData = computed(() => {
     return useSeo({
-        title: 'My Favorites | iPop360',
+        title: 'My Favorites',
         description: 'Your saved restaurants — log in to sync across devices. View and manage your favorite dining spots all in one place.',
         url: `${baseUrl.value}/favorites`,
         type: 'website',

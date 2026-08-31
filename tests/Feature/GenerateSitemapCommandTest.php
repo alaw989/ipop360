@@ -58,16 +58,12 @@ class GenerateSitemapCommandTest extends TestCase
 
     public function test_includes_cuisine_pages_from_database(): void
     {
-        $categoryId = DB::table('cuisine_categories')->insertGetId([
-            'name' => 'Test Category',
-            'slug' => 'test-category',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        DB::table('cuisines')->insert([
-            ['category_id' => $categoryId, 'name' => 'Italian', 'slug' => 'italian', 'created_at' => now(), 'updated_at' => now()],
-            ['category_id' => $categoryId, 'name' => 'Mexican', 'slug' => 'mexican', 'created_at' => now(), 'updated_at' => now()],
+        // The /cuisine/{category:slug} route binds against cuisine_categories
+        // (not the finer-grained cuisines table), so the sitemap must be
+        // built from the same table the route resolves against.
+        DB::table('cuisine_categories')->insert([
+            ['name' => 'Italian', 'slug' => 'italian', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'Mexican', 'slug' => 'mexican', 'created_at' => now(), 'updated_at' => now()],
         ]);
 
         /** @var PendingCommand $command */

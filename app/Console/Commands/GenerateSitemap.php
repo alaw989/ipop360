@@ -50,8 +50,10 @@ class GenerateSitemap extends Command
             $xml .= $this->urlNode($baseUrl.$page['url'], $page['changefreq'], $page['priority']);
         }
 
-        // Cuisine category pages
-        $cuisines = DB::table('cuisines')->select('slug')->get();
+        // Cuisine category pages — /cuisine/{slug} binds against CuisineCategory
+        // (cuisine_categories.slug, e.g. "asian"), not the finer-grained
+        // cuisines table (e.g. "chinese"), which 404s.
+        $cuisines = DB::table('cuisine_categories')->select('slug')->get();
         foreach ($cuisines as $cuisine) {
             $url = $baseUrl.'/cuisine/'.$cuisine->slug;
             $xml .= $this->urlNode($url, 'weekly', '0.8');

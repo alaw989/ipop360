@@ -125,7 +125,7 @@ const baseUrl = useBaseUrl()
 
 const seoData = computed(() => {
     return useSeo({
-        title: 'Find Popular Restaurants Near You | iPop360',
+        title: 'Find Popular Restaurants Near You',
         description: serpapiExhausted.value
             ? 'Discover popular restaurants near you with iPop360. Smart rankings help you find the best dining options in your area.'
             : 'Discover top-rated restaurants near you with iPop360. Real reviews, accurate ratings, and smart rankings help you find the best dining options in your area.',
