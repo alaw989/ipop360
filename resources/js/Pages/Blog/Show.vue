@@ -40,14 +40,14 @@ const publishedLabel = computed(() => {
 const seoData = useSeo({
     title: `${props.post.title} | iPop360 Blog`,
     description: props.post.excerpt,
-    url: `${baseUrl}/blog/${props.post.slug}`,
+    url: `${baseUrl.value}/blog/${props.post.slug}`,
     type: 'article',
     ...(props.post.featured_image ? { image: props.post.featured_image } : {}),
 })
 
 const jsonLd = generateArticleJsonLd({
     title: props.post.title,
-    url: `${baseUrl}/blog/${props.post.slug}`,
+    url: `${baseUrl.value}/blog/${props.post.slug}`,
     ...(props.post.featured_image ? { image: props.post.featured_image } : {}),
     ...(props.post.published_at ? { publishedAt: props.post.published_at } : {}),
     ...(props.post.author?.name ? { author: props.post.author.name } : {}),
@@ -56,7 +56,7 @@ const jsonLd = generateArticleJsonLd({
 </script>
 
 <template>
-    <Head :title="`${post.title} | iPop360 Blog`" />
+    <Head :title="post.title" />
     <SeoMeta :seo-data="seoData" />
     <JsonLd :data="jsonLd" />
 

@@ -37,11 +37,15 @@ const props = defineProps<{
 const isLoading = ref(false);
 const filtersOpen = ref(false);
 const showMap = ref(false);
-const dismissedLocationBanner = ref(localStorage.getItem('dismissedLocationBanner') === '1');
+const dismissedLocationBanner = ref(
+    typeof window !== 'undefined' && localStorage.getItem('dismissedLocationBanner') === '1'
+);
 
 function dismissLocationBanner() {
     dismissedLocationBanner.value = true;
-    localStorage.setItem('dismissedLocationBanner', '1');
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('dismissedLocationBanner', '1');
+    }
 }
 
 router.on('start', () => { isLoading.value = true; });
@@ -90,8 +94,8 @@ const baseUrl = useBaseUrl();
 const seoData = computed(() => {
     const cuisine = props.cuisineName || (typeof props.filters["cuisine"] === 'string' ? props.filters["cuisine"] : null);
     const title = cuisine
-        ? `Best ${cuisine} Near You | iPop360`
-        : 'Search Restaurants Near You | iPop360';
+        ? `Best ${cuisine} Near You`
+        : 'Search Restaurants Near You';
     const description = cuisine
         ? (serpapiExhausted.value
             ? `Search ${cuisine.toLowerCase()} restaurants by cuisine and price. Find the most popular dining spots near you with iPop360's smart rankings.`
@@ -103,6 +107,7 @@ const seoData = computed(() => {
     return useSeo({
         title,
         description,
+        url: `${baseUrl.value}${usePage().url}`,
         type: 'website',
     });
 });

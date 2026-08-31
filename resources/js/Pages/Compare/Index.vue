@@ -4,12 +4,25 @@ import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ScoreChip from '@/Components/ScoreChip.vue';
 import StarRating from '@/Components/StarRating.vue';
+import SeoMeta from '@/Components/SeoMeta.vue';
 import { ArrowLeft } from '@lucide/vue';
+import { useSeo } from '@/composables/useSeo';
+import { useBaseUrl } from '@/composables/useBaseUrl';
 import type { Restaurant, ScoreSignal } from '@/types/restaurant';
 
 const props = defineProps<{
     restaurants: Restaurant[];
 }>();
+
+// SEO
+const baseUrl = useBaseUrl();
+
+const seoData = computed(() => useSeo({
+    title: 'Compare Restaurants',
+    description: 'Compare restaurants side-by-side on rating, cuisine, price, and popularity score to decide where to eat.',
+    url: `${baseUrl.value}/compare`,
+    type: 'website',
+}));
 
 const items = computed(() => props.restaurants);
 
@@ -68,6 +81,8 @@ const hasScoreData = computed(() => items.value.some(r => (r.score_breakdown?.si
 
 <template>
     <AppLayout>
+        <SeoMeta :seoData="seoData" />
+
         <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
             <div class="mb-6 flex items-center gap-4">
                 <Link

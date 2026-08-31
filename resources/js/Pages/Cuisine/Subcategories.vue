@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SubcategoryCard from '@/Components/SubcategoryCard.vue';
+import SeoMeta from '@/Components/SeoMeta.vue';
+import JsonLd from '@/Components/JsonLd.vue';
+import { useSeo, generateItemListJsonLd } from '@/composables/useSeo';
+import { useBaseUrl } from '@/composables/useBaseUrl';
 
 const props = defineProps<{
     category: {
@@ -33,11 +38,36 @@ function selectCuisine(slug: string) {
 
     router.visit('/restaurants', { data });
 }
+
+// SEO
+const baseUrl = useBaseUrl();
+
+const seoData = computed(() => {
+    const cuisineNames = props.category.cuisines.slice(0, 5).map(c => c.name).join(', ');
+    const description = props.category.description
+        || `Explore ${props.category.cuisines.length} ${props.category.name} cuisines on iPop360, including ${cuisineNames}. Find and compare top-rated restaurants near you.`;
+
+    return useSeo({
+        title: `${props.category.name} Cuisine`,
+        description,
+        url: `${baseUrl.value}${usePage().url}`,
+        type: 'website',
+    });
+});
+
+const structuredData = computed(() => generateItemListJsonLd(
+    props.category.cuisines.map((cuisine, index) => ({
+        name: cuisine.name,
+        url: `${baseUrl.value}/restaurants?cuisine=${cuisine.slug}`,
+        position: index + 1,
+    })),
+));
 </script>
 
 <template>
     <AppLayout>
-        <Head :title="`${category.name} Cuisine`" />
+        <SeoMeta :seoData="seoData" />
+        <JsonLd :data="structuredData" />
 
         <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
             <div class="mb-8">

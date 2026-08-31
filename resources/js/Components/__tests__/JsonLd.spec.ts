@@ -1,5 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+
+vi.mock('@inertiajs/vue3', () => ({
+    Head: { template: '<div><slot /></div>' },
+}))
+
 import JsonLd from '@/Components/JsonLd.vue'
 
 const sampleData = {
@@ -14,72 +19,52 @@ const altData = {
     name: 'Another Org',
 }
 
-function getScripts() {
-    return document.head.querySelectorAll('script[type="application/ld+json"]')
+function getScript(wrapper: ReturnType<typeof mount>) {
+    return wrapper.find('script[type="application/ld+json"]')
 }
 
 describe('JsonLd', () => {
-    beforeEach(() => {
-        document.head.querySelectorAll('script[type="application/ld+json"]').forEach((s) => s.remove())
-    })
-
-    it('injects a script element into document.head when data is provided', () => {
-        mount(JsonLd, { props: { data: sampleData } })
-        const scripts = getScripts()
-        expect(scripts).toHaveLength(1)
+    it('renders a script element into the Head when data is provided', () => {
+        const wrapper = mount(JsonLd, { props: { data: sampleData } })
+        expect(getScript(wrapper).exists()).toBe(true)
     })
 
     it('script element has correct type application/ld+json', () => {
-        mount(JsonLd, { props: { data: sampleData } })
-        const script = getScripts()[0]
-        expect(script.getAttribute('type')).toBe('application/ld+json')
+        const wrapper = mount(JsonLd, { props: { data: sampleData } })
+        expect(getScript(wrapper).attributes('type')).toBe('application/ld+json')
     })
 
     it('script content equals JSON-stringified data', () => {
-        mount(JsonLd, { props: { data: sampleData } })
-        const script = getScripts()[0]
-        expect(script.textContent).toBe(JSON.stringify(sampleData))
-    })
-
-    it('does not inject a script when data is null', () => {
-        mount(JsonLd, { props: { data: null } })
-        expect(getScripts()).toHaveLength(0)
-    })
-
-    it('removes script when data becomes null', async () => {
         const wrapper = mount(JsonLd, { props: { data: sampleData } })
-        expect(getScripts()).toHaveLength(1)
+        expect(getScript(wrapper).text()).toBe(JSON.stringify(sampleData))
+    })
+
+    it('escapes < in the serialized JSON so a stray </script>-like substring cannot break out of the tag', () => {
+        const dangerousData = { '@type': 'Restaurant', name: 'A </script><script>alert(1)</script> Diner' }
+        const wrapper = mount(JsonLd, { props: { data: dangerousData } })
+        expect(getScript(wrapper).text()).not.toContain('</script>')
+        expect(getScript(wrapper).text()).toContain('\\u003c')
+        expect(JSON.parse(getScript(wrapper).text())).toEqual(dangerousData)
+    })
+
+    it('does not render a script when data is null', () => {
+        const wrapper = mount(JsonLd, { props: { data: null } })
+        expect(getScript(wrapper).exists()).toBe(false)
+    })
+
+    it('removes the script when data becomes null', async () => {
+        const wrapper = mount(JsonLd, { props: { data: sampleData } })
+        expect(getScript(wrapper).exists()).toBe(true)
 
         await wrapper.setProps({ data: null })
-        expect(getScripts()).toHaveLength(0)
+        expect(getScript(wrapper).exists()).toBe(false)
     })
 
-    it('replaces script when data changes to different value', async () => {
+    it('updates the script content when data changes to a different value', async () => {
         const wrapper = mount(JsonLd, { props: { data: sampleData } })
-        expect(getScripts()[0].textContent).toBe(JSON.stringify(sampleData))
+        expect(getScript(wrapper).text()).toBe(JSON.stringify(sampleData))
 
         await wrapper.setProps({ data: altData })
-        const scripts = getScripts()
-        expect(scripts).toHaveLength(1)
-        expect(scripts[0].textContent).toBe(JSON.stringify(altData))
-    })
-
-    it('removes script on unmount', () => {
-        const wrapper = mount(JsonLd, { props: { data: sampleData } })
-        expect(getScripts()).toHaveLength(1)
-
-        wrapper.unmount()
-        expect(getScripts()).toHaveLength(0)
-    })
-
-    it('replaces existing script when data changes identity', async () => {
-        const wrapper = mount(JsonLd, { props: { data: sampleData } })
-        const firstScript = getScripts()[0]
-
-        await wrapper.setProps({ data: { ...sampleData } })
-        const secondScript = getScripts()[0]
-
-        expect(secondScript).not.toBe(firstScript)
-        expect(getScripts()).toHaveLength(1)
+        expect(getScript(wrapper).text()).toBe(JSON.stringify(altData))
     })
 })

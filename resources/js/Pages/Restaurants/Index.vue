@@ -66,8 +66,8 @@ const seoData = computed(() => {
     const cuisine = props.cuisineName || 'All'
     const location = locationName.value
     const title = location
-        ? `Top ${cuisine} Restaurants ${location} | iPop360`
-        : `Top ${cuisine} Restaurants | iPop360`
+        ? `Top ${cuisine} Restaurants ${location}`
+        : `Top ${cuisine} Restaurants`
     const description = location
         ? (serpapiExhausted.value
             ? `Discover the best ${cuisine.toLowerCase()} restaurants near you. Popularity rankings to help you find great dining options.`
@@ -79,6 +79,7 @@ const seoData = computed(() => {
     return useSeo({
         title,
         description,
+        url: `${baseUrl.value}${usePage().url}`,
         type: 'website',
     })
 })

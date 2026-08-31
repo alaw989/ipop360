@@ -70,7 +70,7 @@ const groupedPosts = computed<PostGroup[]>(() => {
 const seoData = useSeo({
     title: 'Blog | iPop360',
     description: 'Restaurant insights, food trends, and city dining guides from the iPop360 team.',
-    url: `${baseUrl}/blog`,
+    url: `${baseUrl.value}/blog`,
 })
 </script>
 

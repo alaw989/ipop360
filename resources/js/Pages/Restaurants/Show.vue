@@ -54,7 +54,7 @@ const cuisineNames = computed(() =>
 )
 
 const seoData = computed(() => {
-    const title = `${props.restaurant.name} | ${cuisineNames.value} in ${props.restaurant.city || 'Your Area'} | iPop360`
+    const title = `${props.restaurant.name} | ${cuisineNames.value} in ${props.restaurant.city || 'Your Area'}`
     const description = props.restaurant.description
         ? `${props.restaurant.description.substring(0, 160)}${props.restaurant.description.length > 160 ? '...' : ''}`
         : `Visit ${props.restaurant.name} for ${cuisineNames.value.toLowerCase()} cuisine in ${props.restaurant.city || 'your area'}. View ratings, reviews, photos, and more.`

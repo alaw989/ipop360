@@ -4,7 +4,10 @@ import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ScoreChip from '@/Components/ScoreChip.vue';
 import StarRating from '@/Components/StarRating.vue';
+import SeoMeta from '@/Components/SeoMeta.vue';
 import { ArrowUp, ArrowDown, Minus } from '@lucide/vue';
+import { useSeo } from '@/composables/useSeo';
+import { useBaseUrl } from '@/composables/useBaseUrl';
 import type { Restaurant } from '@/types/restaurant';
 
 const props = defineProps<{
@@ -17,6 +20,16 @@ const props = defineProps<{
     };
     filters: Record<string, string>;
 }>();
+
+// SEO
+const baseUrl = useBaseUrl();
+
+const seoData = computed(() => useSeo({
+    title: 'Restaurant Leaderboard',
+    description: 'The top-ranked restaurants on iPop360, ordered by popularity score. Updated daily.',
+    url: `${baseUrl.value}/leaderboard`,
+    type: 'website',
+}));
 
 const items = computed(() => props.restaurants.data);
 
@@ -43,6 +56,8 @@ function getDisplayRating(r: Restaurant): { rating: number; count: number; sourc
 
 <template>
     <AppLayout>
+        <SeoMeta :seoData="seoData" />
+
         <div class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
             <div class="mb-8">
                 <h1 class="text-3xl font-bold text-foreground">Restaurant Leaderboard</h1>
