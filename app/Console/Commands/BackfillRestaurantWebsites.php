@@ -34,6 +34,19 @@ class BackfillRestaurantWebsites extends Command
      */
     private const MENU_SCRAPE_DAILY_LIMIT = 200;
 
+    /**
+     * Max restaurants whose social links are scraped per run. Without this
+     * cap the phase queries ALL active restaurants with a website but no
+     * social links yet — a backlog that grows daily as the cache phase fills
+     * in more website_urls, and had reached 17,639 rows in production,
+     * ballooning a single run to 15-18 hours (vs. the 240-minute
+     * withoutOverlapping mutex this command is scheduled under). Bounded +
+     * ordered by id so each run advances through a different slice; a row
+     * that fails to yield links keeps social_links_count=0 and is retried on
+     * a later run.
+     */
+    private const SOCIAL_SCRAPE_DAILY_LIMIT = 400;
+
     private const DOMAIN_SKIP_PATTERNS = [
         '/facebook\.com/i', '/instagram\.com/i', '/twitter\.com/i', '/x\.com/i',
         '/yelp\.com/i', '/tripadvisor\.com/i', '/youtube\.com/i', '/tiktok\.com/i',
@@ -927,13 +940,16 @@ class BackfillRestaurantWebsites extends Command
 
     private function scrapeSocialLinks(RestaurantWebsiteScraperService $scraper): void
     {
-        $query = Restaurant::query()
+        $restaurants = Restaurant::query()
             ->active()
             ->whereNotNull('website_url')
             ->where('website_url', '!=', '')
-            ->where('social_links_count', 0);
+            ->where('social_links_count', 0)
+            ->orderBy('id')
+            ->limit(self::SOCIAL_SCRAPE_DAILY_LIMIT)
+            ->get();
 
-        $total = $query->count();
+        $total = $restaurants->count();
         if ($total === 0) {
             return;
         }
@@ -941,42 +957,40 @@ class BackfillRestaurantWebsites extends Command
         $bar = $this->output->createProgressBar($total);
         $bar->start();
 
-        $query->chunkById(50, function ($restaurants) use ($scraper, $bar) {
-            foreach ($restaurants as $restaurant) {
-                try {
-                    if ($restaurant->website_url === null || $restaurant->website_url === '') {
-                        $bar->advance();
+        foreach ($restaurants as $restaurant) {
+            try {
+                if ($restaurant->website_url === null || $restaurant->website_url === '') {
+                    $bar->advance();
 
-                        continue;
-                    }
-                    $links = $scraper->scrapeSocial($restaurant->website_url);
-
-                    if ($links !== null) {
-                        RestaurantSocialLink::where('restaurant_id', $restaurant->id)->delete();
-                        $now = now();
-                        foreach ($links as $platform => $url) {
-                            $verified = $scraper->verifyProfileUrl($url);
-                            RestaurantSocialLink::create([
-                                'restaurant_id' => $restaurant->id,
-                                'platform' => $platform,
-                                'url' => $url,
-                                'verified_at' => $verified ? $now : null,
-                                'last_check_failed_at' => $verified ? null : $now,
-                            ]);
-                        }
-                        $restaurant->update(['social_links_count' => $restaurant->countScoredSocialLinks()]);
-                    }
-                } catch (\Throwable $e) {
-                    Log::channel('enrichment')->warning('Social scrape failed during website backfill', [
-                        'restaurant_id' => $restaurant->id,
-                        'website_url' => $restaurant->website_url ?? null,
-                        'message' => $e->getMessage(),
-                    ]);
+                    continue;
                 }
+                $links = $scraper->scrapeSocial($restaurant->website_url);
 
-                $bar->advance();
+                if ($links !== null) {
+                    RestaurantSocialLink::where('restaurant_id', $restaurant->id)->delete();
+                    $now = now();
+                    foreach ($links as $platform => $url) {
+                        $verified = $scraper->verifyProfileUrl($url);
+                        RestaurantSocialLink::create([
+                            'restaurant_id' => $restaurant->id,
+                            'platform' => $platform,
+                            'url' => $url,
+                            'verified_at' => $verified ? $now : null,
+                            'last_check_failed_at' => $verified ? null : $now,
+                        ]);
+                    }
+                    $restaurant->update(['social_links_count' => $restaurant->countScoredSocialLinks()]);
+                }
+            } catch (\Throwable $e) {
+                Log::channel('enrichment')->warning('Social scrape failed during website backfill', [
+                    'restaurant_id' => $restaurant->id,
+                    'website_url' => $restaurant->website_url ?? null,
+                    'message' => $e->getMessage(),
+                ]);
             }
-        });
+
+            $bar->advance();
+        }
 
         $bar->finish();
         $this->newLine();

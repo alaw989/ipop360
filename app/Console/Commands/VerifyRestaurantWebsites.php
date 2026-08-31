@@ -28,16 +28,28 @@ class VerifyRestaurantWebsites extends Command
         $limit = (int) $this->option('limit');
         $maxAgeDays = (int) $this->option('max-age-days');
 
+        $cutoff = now()->subDays($maxAgeDays);
+
         $query = Restaurant::query()
             ->active()
             ->whereNotNull('website_url')
-            ->where('website_url', '!=', '');
+            ->where('website_url', '!=', '')
+            ->where(function ($q) use ($cutoff) {
+                $q->whereNull('website_verified_at')->orWhere('website_verified_at', '<', $cutoff);
+            })
+            // Never-checked rows (null) sort first, then oldest-checked —
+            // without this every run re-verifies the same first-N-by-id rows
+            // forever and later rows never get checked at all.
+            ->orderByRaw('website_verified_at IS NOT NULL')
+            ->orderBy('website_verified_at')
+            ->orderBy('id');
 
         if ($limit > 0) {
             $query->limit($limit);
         }
 
-        $total = $query->count();
+        $restaurants = $query->get();
+        $total = $restaurants->count();
 
         if ($total === 0) {
             $this->warn('No restaurants with website URLs to verify.');
@@ -49,49 +61,60 @@ class VerifyRestaurantWebsites extends Command
         $bar = $this->output->createProgressBar($total);
         $bar->start();
 
-        $query->chunkById(100, function ($restaurants) use ($dryRun, $bar) {
-            foreach ($restaurants as $restaurant) {
-                try {
-                    $response = Http::timeout(8)
-                        ->withUserAgent('Mozilla/5.0 (compatible; iPop360-Verify/1.0)')
-                        ->head((string) $restaurant->website_url);
+        foreach ($restaurants as $restaurant) {
+            try {
+                $response = Http::timeout(8)
+                    ->withUserAgent('Mozilla/5.0 (compatible; iPop360-Verify/1.0)')
+                    ->head((string) $restaurant->website_url);
 
-                    if ($response->successful()) {
-                        $this->verified++;
-                    } elseif (in_array($response->status(), [404, 410], true)) {
-                        $this->dead++;
-                        $this->warn("  Dead link: {$restaurant->website_url} ({$restaurant->name}) — HTTP {$response->status()}");
+                if ($response->successful()) {
+                    $this->verified++;
 
-                        if (! $dryRun) {
-                            $restaurant->update(['website_url' => null]);
-                        }
-                    } else {
-                        $this->skipped++;
-                        $this->warn("  Transient error: {$restaurant->website_url} ({$restaurant->name}) — HTTP {$response->status()}, keeping URL");
+                    if (! $dryRun) {
+                        $restaurant->update(['website_verified_at' => now()]);
                     }
-                } catch (\Throwable $e) {
+                } elseif (in_array($response->status(), [404, 410], true)) {
+                    $this->dead++;
+                    $this->warn("  Dead link: {$restaurant->website_url} ({$restaurant->name}) — HTTP {$response->status()}");
+
+                    if (! $dryRun) {
+                        $restaurant->update(['website_url' => null, 'website_verified_at' => now()]);
+                    }
+                } else {
                     $this->skipped++;
-                    $this->warn("  Request failed: {$restaurant->website_url} ({$restaurant->name}) — {$e->getMessage()}, keeping URL");
+                    $this->warn("  Transient error: {$restaurant->website_url} ({$restaurant->name}) — HTTP {$response->status()}, keeping URL");
+
+                    if (! $dryRun) {
+                        $restaurant->update(['website_verified_at' => now()]);
+                    }
                 }
+            } catch (\Throwable $e) {
+                $this->skipped++;
+                $this->warn("  Request failed: {$restaurant->website_url} ({$restaurant->name}) — {$e->getMessage()}, keeping URL");
 
-                $bar->advance();
-
-                // Small delay to avoid hammering servers
                 if (! $dryRun) {
-                    usleep(100_000);
+                    $restaurant->update(['website_verified_at' => now()]);
                 }
             }
-        });
+
+            $bar->advance();
+
+            // Small delay to avoid hammering servers
+            if (! $dryRun) {
+                usleep(100_000);
+            }
+        }
 
         $bar->finish();
         $this->newLine();
         $this->info("Done. {$this->verified} alive, {$this->dead} dead, {$this->skipped} skipped (transient).");
 
-        Log::info('Website URL verification complete', [
+        Log::channel('enrichment')->info('Website URL verification complete', [
             'total' => $total,
             'verified' => $this->verified,
             'dead' => $this->dead,
             'skipped' => $this->skipped,
+            'max_age_days' => $maxAgeDays,
             'dry_run' => $dryRun,
         ]);
 

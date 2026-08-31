@@ -29,7 +29,9 @@ class ScoreRestaurants extends Command
         if ($total === 0) {
             $this->warn('No restaurants found to score.');
 
-            return self::FAILURE;
+            // A true-empty run is a no-op, not a crash — scheduler:health
+            // treats FAILURE as a real alert-worthy problem.
+            return self::SUCCESS;
         }
 
         $this->info('Snapshotting current rank order...');
