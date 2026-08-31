@@ -104,6 +104,14 @@ class RefreshAwards extends Command
         $this->newLine();
         $this->info($dryRun ? "Dry run: {$changed} restaurants would change" : "Done. {$changed} restaurants updated, {$failed} clusters failed.");
 
+        Log::channel('enrichment')->info('Award refresh complete', [
+            'checked' => $restaurants->count(),
+            'clusters' => $clusters->count(),
+            'changed' => $changed,
+            'failed_clusters' => $failed,
+            'dry_run' => $dryRun,
+        ]);
+
         return self::SUCCESS;
     }
 }

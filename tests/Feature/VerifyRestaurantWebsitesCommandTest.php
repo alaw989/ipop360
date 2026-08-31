@@ -133,8 +133,8 @@ class VerifyRestaurantWebsitesCommandTest extends TestCase
 
     public function test_dry_run_does_not_null_dead_url(): void
     {
-        Log::partialMock()
-            ->shouldReceive('info')
+        Log::shouldReceive('channel')->with('enrichment')->andReturnSelf();
+        Log::shouldReceive('info')
             ->once()
             ->withArgs(fn (string $message, array $context) => $message === 'Website URL verification complete' && ($context['dry_run'] ?? false) === true);
 
@@ -264,5 +264,95 @@ class VerifyRestaurantWebsitesCommandTest extends TestCase
         $command->assertSuccessful()
             ->expectsOutputToContain('Done. 1 alive, 0 dead, 0 skipped (transient).');
         $command->run();
+    }
+
+    public function test_successful_check_stamps_verified_at(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'is_active' => true,
+            'website_url' => 'https://example.com',
+            'website_verified_at' => null,
+        ]);
+
+        Http::fake(['example.com' => Http::response('', 200)]);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:verify-websites');
+        $command->run();
+
+        $fresh = $restaurant->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNotNull($fresh->website_verified_at);
+    }
+
+    public function test_recently_verified_restaurant_is_excluded_by_max_age_days(): void
+    {
+        Restaurant::factory()->create([
+            'is_active' => true,
+            'website_url' => 'https://recent.com',
+            'website_verified_at' => now()->subDays(5),
+        ]);
+
+        Http::fake();
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:verify-websites', ['--max-age-days' => 30]);
+        $command->assertSuccessful()
+            ->expectsOutputToContain('No restaurants with website URLs to verify.');
+        $command->run();
+
+        Http::assertNothingSent();
+    }
+
+    public function test_stale_restaurant_beyond_max_age_days_is_rechecked(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'is_active' => true,
+            'website_url' => 'https://stale.com',
+            'website_verified_at' => now()->subDays(45),
+        ]);
+
+        Http::fake(['stale.com' => Http::response('', 200)]);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:verify-websites', ['--max-age-days' => 30]);
+        $command->assertSuccessful()
+            ->expectsOutputToContain('Done. 1 alive, 0 dead, 0 skipped (transient).');
+        $command->run();
+
+        $fresh = $restaurant->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNotNull($fresh->website_verified_at);
+    }
+
+    public function test_never_verified_restaurants_are_prioritized_over_previously_checked(): void
+    {
+        // Verified 45 days ago — stale, but still not the priority: a
+        // never-checked row must be ordered ahead of it regardless.
+        Restaurant::factory()->create([
+            'is_active' => true,
+            'website_url' => 'https://neverchecked-would-lose.com',
+            'website_verified_at' => now()->subDays(45),
+        ]);
+        // Never verified — must be checked first regardless of id order.
+        $neverChecked = Restaurant::factory()->create([
+            'is_active' => true,
+            'website_url' => 'https://neverchecked.com',
+            'website_verified_at' => null,
+        ]);
+
+        Http::fake([
+            'neverchecked.com' => Http::response('', 200),
+        ]);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:verify-websites', ['--limit' => 1]);
+        $command->assertSuccessful()
+            ->expectsOutputToContain('Done. 1 alive, 0 dead, 0 skipped (transient).');
+        $command->run();
+
+        $fresh = $neverChecked->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNotNull($fresh->website_verified_at);
     }
 }

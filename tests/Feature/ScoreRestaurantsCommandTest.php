@@ -11,11 +11,11 @@ class ScoreRestaurantsCommandTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_no_active_restaurants_returns_failure(): void
+    public function test_no_active_restaurants_returns_success_as_noop(): void
     {
         /** @var PendingCommand $command */
         $command = $this->artisan('restaurants:score');
-        $command->assertFailed()
+        $command->assertSuccessful()
             ->expectsOutputToContain('No restaurants found to score.');
         $command->run();
     }
