@@ -90,3 +90,18 @@
   button:not(:disabled), [role="button"], summary { cursor: pointer; }
 }
 
+/* Global reduced-motion: Tailwind's .animate-spin/.animate-pulse (LocationPicker,
+   skeletons, auth Modal, etc.) otherwise spin/pulse on every non-homepage page —
+   the Welcome.vue-only transitions.css block doesn't cover them. Spinners on
+   status/loading indicators are kept motionless; scroll-behavior forced to auto
+   so any smooth-scroll declaration never animates. */
+@media (prefers-reduced-motion: reduce) {
+    .animate-spin,
+    .animate-pulse {
+        animation: none !important;
+    }
+    * {
+        scroll-behavior: auto !important;
+    }
+}
+
