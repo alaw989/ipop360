@@ -238,3 +238,52 @@ The unrated cohort is ~2.6× more differentiated while rated continues to
 cleanly dominate — no overlap reintroduced. Floor 8 spreads further (sd 0.080)
 but tightens the safety margin; floor 5 reintroduces overlap (1.1%), so 10 is
 the chosen default.
+
+## 9. Follow-up re-check (2026-09-01) — verified-social-links + engagement clicks
+
+Queued from the 2026-08-24 verified-social-links change (PR #136, see
+`project-state.md`): re-run against live prod after the log-floor fix (§8) had
+a week to settle, to check (a) whether verified-only `social_links_count` held
+the cohort-overlap fix, and (b) whether `directions_clicks_count`/
+`call_clicks_count` (added to the weight table the same day) show any live
+activation. Ran `ranking:audit` and `ranking:audit --recompute` directly on
+the droplet (SSH, read-only, no writes) against the current corpus.
+
+```
+Corpus        Total 40814  Rated 4853 (11.9%)  Unrated 35961 (88.1%)
+```
+
+Recomputed (current weights):
+
+```
+Score         overall  n=40814  min 0.0273  max 0.5391  mean 0.1599  median 0.3426  sd 0.1142
+              rated    n=4853  min 0.3078  max 0.5391  mean 0.4081  median 0.4495  sd 0.0232
+              unrated  n=35961  min 0.0273  max 0.2741  mean 0.1264  median 0.0727  sd 0.0728
+Overlap       rated min 0.3078  unrated max 0.2741
+              unrated above rated min: 0 (0.0%)   rated below unrated max: 0 (0.0%)
+Signal        quality 11.9%  social_links_count 52.5%  directions_clicks_count 3 (0.0%)
+              call_clicks_count 3 (0.0%)  website_clicks 0.0%  pageviews 0.3%  has_award 0.0%
+```
+
+Findings:
+
+- **Cohort overlap holds at 0%** (§8's log-floor fix, corpus now 40,814 vs
+  40,483) — matches §8 almost exactly (unrated sd 0.0728 both times, unrated
+  mean 0.1264 vs 0.1263, rated mean 0.4081 vs 0.4084). The verified-only
+  `social_links_count` gate (PR #136) is compatible with the fix and hasn't
+  reintroduced the 30.7% overlap from §6. Can't isolate its individual
+  contribution from the log-floor change (both landed close together and the
+  corpus kept growing), but the combined state is stable and healthy.
+- **`directions_clicks_count`/`call_clicks_count` are live but negligible**:
+  3 rows each out of 40,814 (0.0%). The wiring works (PR #136 added them to
+  the weight table at 0.05 each) but real click volume hasn't materialized —
+  same "dormant engagement" pattern as `website_clicks_count`/`pageviews_count`
+  in §5/§6.
+- **Persisted-score overlap looked alarming (99.5% unrated-above-rated-min) but
+  is a staleness artifact, not a regression.** 91/4853 (1.9%) rated rows had a
+  persisted score at the corpus floor despite a real rating (checked restaurant
+  8652: 4.1★/323 reviews, persisted score 0.0273). Its `score_breakdown` JSON
+  has no `quality` signal entry at all — confirms the row was still unrated
+  *at the time of its last score:run*, and got its rating from enrichment
+  afterward. Self-heals on the next `restaurants:score` run; not a scoring bug
+  (verified via `score_breakdown`, not assumed).

@@ -69,10 +69,9 @@ tick on every deploy. Fixed by running `serpapi:sync-account-status`
 immediately after `cache:clear` in the same step — live-verified: the next
 deploy showed fresh data within ~1 minute, no dark window.
 
-Also flagged separately (not yet acted on): the SerpApi key is committed in
-plaintext at `SHARED_TASK_NOTES.md:52` and matches the currently-active
-`.env` key — not a low-risk placeholder as an earlier memory note assumed;
-needs rotation.
+Also flagged separately: the SerpApi key is committed in plaintext at
+`SHARED_TASK_NOTES.md:52` and matches the currently-active `.env` key.
+Operator directive: not an action item — do not re-raise rotating it.
 
 ## 2026-08-24 — directions/call click scoring + verified social links
 
@@ -102,16 +101,14 @@ passed on the PR check and flaked on the push-triggered deploy run; fixed by
 faking the redirect target too). GHA green, deploy green, live-verified via
 API (200 + real results). 1043 backend tests (was 1030).
 
-**Queued follow-up (not yet done — do this in a future session):** re-run
-`php artisan ranking:audit` against prod after ~1 week (gives the Sunday
-10:30 UTC `restaurants:reverify-social-links` job at least one cycle, plus
-several nightly `restaurants:update-engagement` cycles) and diff against
-`docs/ranking-audit-2026-08.md`'s baseline — specifically whether the
-verified-only `social_links_count` change reduced the previously-flagged
-30.7% unrated-above-lowest-rated overlap, and whether
-`directions_clicks_count`/`call_clicks_count` show any live activation yet.
-Append findings as a new dated section (append-only convention) rather than
-editing prior sections. Target: on/after 2026-08-31.
+**Follow-up DONE (2026-09-01):** re-ran `ranking:audit` (persisted + `--recompute`)
+against prod over SSH — see `docs/ranking-audit-2026-08.md` §9. Cohort overlap
+holds at 0% (matches the §8 log-floor fix, corpus 40,483→40,814), verified-only
+`social_links_count` didn't reintroduce the old 30.7% overlap.
+`directions_clicks_count`/`call_clicks_count` are wired and firing but
+negligible (3/40,814 rows each, 0.0%). One apparent anomaly (91 rated rows at
+the persisted-score floor) traced to score:run staleness, not a bug — confirmed
+via `score_breakdown` (no `quality` entry at scoring time), self-heals next run.
 
 ## In-flight work (check before starting anything new)
 
