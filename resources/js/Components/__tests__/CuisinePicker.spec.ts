@@ -210,4 +210,24 @@ describe('CuisinePicker', () => {
 
         isMobile.value = false
     })
+
+    it('selectCuisine guards against null drillCategory instead of crashing', () => {
+        const wrapper = createWrapper()
+        const vm = wrapper.vm as unknown as {
+            selectCuisine: (c: { id: number; name: string; slug: string; icon: string | null }) => void
+        }
+
+        expect(() => vm.selectCuisine({ id: 1, name: 'Chinese', slug: 'chinese', icon: '🥡' })).not.toThrow()
+        expect(wrapper.emitted('select')).toBeUndefined()
+        expect(wrapper.text()).toContain('any cuisine')
+    })
+
+    it('confirmCategory guards against null drillCategory instead of crashing', () => {
+        const wrapper = createWrapper()
+        const vm = wrapper.vm as unknown as { confirmCategory: () => void }
+
+        expect(() => vm.confirmCategory()).not.toThrow()
+        expect(wrapper.emitted('select')).toBeUndefined()
+        expect(wrapper.text()).toContain('any cuisine')
+    })
 })
