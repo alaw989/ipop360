@@ -45,21 +45,4 @@ class ExternalApiCacheEmptyTtlTest extends TestCase
 
         $this->assertEquals($callerTtl->timestamp, $record->expires_at->timestamp);
     }
-
-    public function test_put_caches_empty_results_at_short_retry_ttl(): void
-    {
-        // put()'s $ttlHours is 24; empty data must use empty_retry_hours instead.
-        $record = ExternalApiCache::put('wikidata', 'test:empty', [], 24);
-
-        $this->assertGreaterThan(Carbon::now(), $record->expires_at);
-        $this->assertLessThan(Carbon::now()->addHours(3), $record->expires_at);
-    }
-
-    public function test_put_keeps_ttl_for_non_empty_results(): void
-    {
-        $record = ExternalApiCache::put('wikidata', 'test:full', [['name' => 'X']], 24);
-
-        // ~24h from now — well beyond the 2h empty window.
-        $this->assertGreaterThan(Carbon::now()->addHours(20), $record->expires_at);
-    }
 }

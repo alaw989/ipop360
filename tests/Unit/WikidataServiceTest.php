@@ -111,15 +111,34 @@ class WikidataServiceTest extends TestCase
         $this->assertDatabaseHas('external_api_cache', ['source' => 'wikidata']);
     }
 
+    public function test_award_cache_round_trips_through_unified_key_api(): void
+    {
+        Http::fake([
+            'query.wikidata.org/*' => Http::response($this->atelierCrennResponse(), 200),
+        ]);
+
+        $venues = $this->service->findAwardedRestaurantsInBox(37.70, -122.52, 37.82, -122.35);
+
+        // The unified storeByKey() API derives source from the key's "source:"
+        // prefix and stores the full "wikidata:awards_box:..." key as external_id.
+        $this->assertDatabaseHas('external_api_cache', [
+            'source' => 'wikidata',
+            'external_id' => 'wikidata:awards_box:37.7000,-122.5200,37.8200,-122.3500',
+        ]);
+
+        // A read within TTL through the same unified API returns identical data.
+        $cached = ExternalApiCache::findByKey('wikidata:awards_box:37.7000,-122.5200,37.8200,-122.3500');
+        $this->assertSame($venues, $cached);
+    }
+
     public function test_find_awarded_restaurants_serves_from_cache_only(): void
     {
         Http::fake();
 
-        ExternalApiCache::put(
-            'wikidata',
-            'awards_box:37.7000,-122.5200,37.8200,-122.3500',
+        ExternalApiCache::storeByKey(
+            'wikidata:awards_box:37.7000,-122.5200,37.8200,-122.3500',
             [['name' => 'Cached Venue', 'lat' => 37.8, 'lng' => -122.4]],
-            24 * 30,
+            now()->addHours(24 * 30),
         );
 
         $venues = $this->service->findAwardedRestaurantsInBox(37.70, -122.52, 37.82, -122.35);

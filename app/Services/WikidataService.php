@@ -45,9 +45,9 @@ class WikidataService
     {
         $cacheId = $this->boxCacheId($sLat, $wLng, $nLat, $eLng);
 
-        $cached = ExternalApiCache::get('wikidata', $cacheId);
+        $cached = ExternalApiCache::findByKey('wikidata:'.$cacheId);
         if ($cached !== null) {
-            return $cached->data ?? [];
+            return $cached;
         }
 
         try {
@@ -73,7 +73,7 @@ class WikidataService
             $bindings = $response->json()['results']['bindings'] ?? [];
             $venues = $this->parseBindings($bindings);
 
-            ExternalApiCache::put('wikidata', $cacheId, $venues, self::TTL_HOURS);
+            ExternalApiCache::storeByKey('wikidata:'.$cacheId, $venues, now()->addHours(self::TTL_HOURS));
 
             return $venues;
         } catch (\Throwable $e) {
@@ -195,9 +195,9 @@ class WikidataService
     {
         $cacheId = $this->imagesBoxCacheId($sLat, $wLng, $nLat, $eLng);
 
-        $cached = ExternalApiCache::get('wikidata', $cacheId);
+        $cached = ExternalApiCache::findByKey('wikidata:'.$cacheId);
         if ($cached !== null) {
-            return $cached->data ?? [];
+            return $cached;
         }
 
         try {
@@ -223,7 +223,7 @@ class WikidataService
             $bindings = $response->json()['results']['bindings'] ?? [];
             $venues = $this->parseImageBindings($bindings);
 
-            ExternalApiCache::put('wikidata', $cacheId, $venues, self::TTL_HOURS);
+            ExternalApiCache::storeByKey('wikidata:'.$cacheId, $venues, now()->addHours(self::TTL_HOURS));
 
             return $venues;
         } catch (\Throwable $e) {
