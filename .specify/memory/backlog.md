@@ -705,6 +705,82 @@ distance filter**; CI + deploy green.
 
 ---
 
+## Queued (2026-09-01) — audit-wave specs, then a full-feature audit
+
+### Next up: specs 093–103 (PROPOSED, from the 2026-06-30 fresh-audit wave)
+
+These exist as files in `specs/` but were never pulled into this file's
+tracked queue. 092 and 094 from the same wave already shipped (see
+`history.md`/`MEMORY.md`) — everything else in the wave is still open, in
+spec-number order:
+
+1. **093 — OSM `cuisine=` tag → cuisine_match stamp** (P2, ranking fidelity)
+2. **095 — Read-path DB perf: indexes + targeted queries** (P2, performance)
+3. **096 — Scheduled-job observability** (P2, infra/observability)
+4. **097 — Config + regex drift-guards** (P2, quota/ranking-surface insurance)
+5. **098 — Frontend a11y + motion + polish** (P3, frontend grab-bag)
+6. **099 — DetailMap Leaflet leak** (P2, frontend memory)
+7. **100 — Architecture cleanup** (cache unification, snapshot service,
+   dedup, dead code) (P3, code health)
+8. **101 — Ranking sort parity + edge cases** (P3, ranking fidelity)
+9. **102 — Test-coverage backfill** (P2/P3, regression-guard gaps)
+10. **103 — Infra defense-in-depth** (P3, infra/security hardening grab-bag)
+
+Run these through `opencode-loop` per the binding process at the top of this
+file, one goal per PR, in this order (each already has full context in its
+`specs/0NN-*.md` file).
+
+### After 093–103 ship: full-feature spec-conformance audit
+
+One pass through every feature domain of the app confirming it still
+performs as documented/intended — broader than the 2026-06-30 wave above,
+which only covered ranking/frontend/infra P2-P3 items and missed whole
+domains (homepage, admin, blog/CMS, auth, SEO) entirely. Not an
+opencode-loop goal — investigative/read-only, runs directly/interactively
+like the mobile-UX and bundle-size audits did (multi-session, given the
+scope below).
+
+**Domain checklist** (grounded in the actual route/controller/page
+inventory as of 2026-09-01):
+
+1. Live Search & Ranking (`SearchController`, `UnifiedSearchService`,
+   `LiveSearchService`, `PopularityScoreService`, `CuisineMatcher`) — best
+   documented (`docs/ranking-metrics.md`, `scoring-explained.md`,
+   `ranking-audit-2026-08.md`).
+2. Restaurants: Detail / Compare / Leaderboard / Cuisine browse
+   (`RestaurantController`, `CuisineController`) — no consolidated doc,
+   spec inferred from scattered `specs/0NN-*.md` fixes.
+3. Favorites (`FavoriteController`) — specs 035/085/088 as reference.
+4. Blog / CMS, public + admin (`BlogController`,
+   `Admin/BlogPostController`) — no doc, only history entries.
+5. Admin (dashboard, users) (`AdminDashboardController`,
+   `Admin/UserController`, `UserRoleService`) — no doc.
+6. Auth / Users (Breeze-style `Auth/*Controller`s, `ProfileController`) —
+   spec-089 only.
+7. Homepage (`HomeController`, `HomeService`) — no doc at all.
+8. Engagement + Geocode APIs (`EngagementController`, `GeocodeController`)
+   — no doc.
+9. SEO / Sitemap (`seo:sitemap` → `GenerateSitemap`) — undocumented
+   entirely.
+10. Scheduler / Cron / Ops infra (19 scheduled commands in
+    `routes/console.php`, `SchedulerTelemetry`) — specs 096/108 + a `docs/`
+    gap otherwise.
+
+**Per-domain method:** (a) spec reference — use the docs/specs above where
+they exist; where none exist, say so explicitly and derive intended
+behavior from `constitution.md`'s principles + the code itself; (b)
+code-level check against that spec; (c) live/prod behavioral check on
+https://ipop360.com (browser for pages, curl/API calls for endpoints); (d)
+verdict per domain — OK / drift / bug — each backed by a file:line citation
+and a live-check result, not asserted from memory.
+
+**Output:** one new `docs/feature-audit-2026-09.md`, one section per
+domain, same shape as `docs/ranking-audit-2026-08.md`. Read-only pass — no
+fixes during the audit itself. Triage into new `specs/109+` files (or
+direct fixes for anything trivial) happens afterward, as its own step.
+
+---
+
 ## Getting started (for the next session)
 - Repo conventions, commands, deploy: `AGENTS.md`.
 - Project principles + loop protocol: `.specify/memory/constitution.md`.
