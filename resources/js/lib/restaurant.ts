@@ -57,7 +57,7 @@ export function openWebsite(url: string, restaurantId?: number): void {
     if (restaurantId) {
         trackEngagement(restaurantId, 'website');
     }
-    if (!url.startsWith('http')) {
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) {
         url = `https://${url}`;
     }
     window.open(url, '_blank');
