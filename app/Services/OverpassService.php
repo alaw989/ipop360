@@ -64,77 +64,6 @@ class OverpassService
     }
 
     /**
-     * Fetch raw OSM elements for a cuisine search, without normalization.
-     * Returns ['cached' => bool, 'data' => array] or null on failure.
-     *
-     * @return array{cached: bool, data: array<int, mixed>}|null
-     */
-    public function fetchRaw(float $lat, float $lng, ?string $cuisine = null, int $radius = 25000, int $limit = 50): ?array
-    {
-        $cacheKey = $this->cacheKeyFor($lat, $lng, $cuisine, $radius, $limit);
-
-        $cached = ExternalApiCache::findByKey($cacheKey);
-        if ($cached !== null) {
-            return ['cached' => true, 'data' => $cached];
-        }
-
-        $resolved = $cuisine ? $this->resolveCuisine($cuisine) : null;
-
-        foreach (static::RADII as $r) {
-            if ($r < $radius) {
-                continue;
-            }
-
-            $query = $this->buildQuery($lat, $lng, $resolved, $r, $limit);
-
-            foreach ($this->mirrors as $mirror) {
-                try {
-                    $response = Http::timeout(30)
-                        ->asForm()
-                        ->withHeaders(['User-Agent' => 'iPop360/1.0'])
-                        ->post($mirror, [
-                            'data' => $query,
-                        ]);
-
-                    if ($response->failed()) {
-                        Log::warning('Overpass mirror returned error, trying next', [
-                            'mirror' => $mirror,
-                            'status' => $response->status(),
-                        ]);
-
-                        continue;
-                    }
-
-                    $data = $response->json();
-                    $elements = $data['elements'] ?? [];
-
-                    // Cache the raw elements for reuse
-                    ExternalApiCache::storeByKey($cacheKey, $elements, now()->addHours(
-                        (int) config('restaurant-finder.cache.overpass_ttl_hours', 24)
-                    ));
-
-                    return ['cached' => false, 'data' => $elements];
-                } catch (\Throwable $e) {
-                    Log::warning('Overpass mirror threw exception, trying next', [
-                        'mirror' => $mirror,
-                        'message' => $e->getMessage(),
-                    ]);
-
-                    continue;
-                }
-            }
-        }
-
-        Log::error('All Overpass mirrors failed', [
-            'lat' => $lat,
-            'lng' => $lng,
-            'cuisine' => $cuisine,
-        ]);
-
-        return null;
-    }
-
-    /**
      * @return array<int, array<string, mixed>>
      */
     private function executeSearch(float $lat, float $lng, ?string $cuisine, int $radius, int $limit): array
@@ -520,7 +449,7 @@ class OverpassService
     }
 
     /**
-     * Cache key for a cuisine Overpass query. Shared by search()/fetchRaw()
+     * Cache key for a cuisine Overpass query. Shared by search()
      * and the live concurrent-pool path (byte-identical).
      */
     public function cacheKeyFor(float $lat, float $lng, ?string $cuisine = null, int $radius = 25000, int $limit = 50): string

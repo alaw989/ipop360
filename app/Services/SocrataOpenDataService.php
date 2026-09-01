@@ -67,43 +67,6 @@ class SocrataOpenDataService
     }
 
     /**
-     * Fetch raw data from Socrata endpoints without normalization for parallel pooling.
-     *
-     * @return array{cached: bool, data: array<int, array<string, mixed>>}|null
-     */
-    public function fetchRaw(float $lat, float $lng, ?string $query = null, int $radius = 5000): ?array
-    {
-        if (empty($this->endpoints)) {
-            return null;
-        }
-
-        $cacheKey = $this->cacheKeyFor($lat, $lng, $query, $radius);
-
-        $cached = ExternalApiCache::findByKey($cacheKey);
-        if ($cached !== null) {
-            return ['cached' => true, 'data' => $cached];
-        }
-
-        try {
-            $results = $this->fetchAllEndpoints($lat, $lng, $query);
-
-            ExternalApiCache::storeByKey($cacheKey, $results, now()->addHours(
-                (int) config('restaurant-finder.cache.socrata_ttl_hours', 24)
-            ));
-
-            return ['cached' => false, 'data' => $results];
-        } catch (\Throwable $e) {
-            Log::warning('Socrata threw exception', [
-                'message' => $e->getMessage(),
-                'lat' => $lat,
-                'lng' => $lng,
-            ]);
-
-            return null;
-        }
-    }
-
-    /**
      * Normalize raw Socrata data to the shared venue shape.
      * Public method for use after parallel fetch.
      *
@@ -117,7 +80,7 @@ class SocrataOpenDataService
     }
 
     /**
-     * Cache key for a Socrata query. Shared by search()/fetchRaw() and the live
+     * Cache key for a Socrata query. Shared by search() and the live
      * concurrent-pool path (byte-identical).
      */
     public function cacheKeyFor(float $lat, float $lng, ?string $query = null, int $radius = 5000): string
