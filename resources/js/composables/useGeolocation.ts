@@ -56,7 +56,8 @@ export function useGeolocation(setLocation: SetLocationFn): GeolocationResult {
                         setLocation(location.value.city, location.value.state, lat.value, lng.value);
                     }
                 } catch {
-                    // Keep existing coordinates on geocode failure
+                    // Keep existing coordinates but give the user soft feedback
+                    geolocationError.value = 'Could not pinpoint your exact city. Showing approximate results.';
                 }
                 detectingLocation.value = false;
             },
