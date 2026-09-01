@@ -37,7 +37,7 @@ class CuisineKeywordRegexGuardTest extends TestCase
         $this->assertNotEmpty($slugs, 'config/cuisine-keywords.php has no cuisines');
 
         foreach ($slugs as $slug) {
-            $pattern = '/'.implode('|', $this->matcher->keywordsFor([$slug])).'/i';
+            $pattern = '/'.implode('|', $this->matcher->keywordsFor([(string) $slug])).'/i';
 
             $this->assertSame(
                 PREG_NO_ERROR,
@@ -57,7 +57,7 @@ class CuisineKeywordRegexGuardTest extends TestCase
         $cuisines = config('cuisine-keywords.cuisines', []);
 
         foreach (array_keys($cuisines) as $slug) {
-            $onSet = array_flip($this->matcher->keywordsFor([$slug]));
+            $onSet = array_flip($this->matcher->keywordsFor([(string) $slug]));
 
             $rivals = [];
             foreach ($cuisines as $otherSlug => $keywords) {
