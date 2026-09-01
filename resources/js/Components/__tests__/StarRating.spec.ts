@@ -74,4 +74,38 @@ describe('StarRating', () => {
         const empty = wrapper.findAll('path[fill="none"]')
         expect(empty.length).toBe(1)
     })
+
+    it('bumps to a full star when fractional part > 0.75 (4.9)', () => {
+        const wrapper = mount(StarRating, { props: { rating: 4.9 } })
+        const filled = wrapper.findAll('path[fill="currentColor"]')
+        const half = wrapper.findAll('path[fill^="url(#half-"]')
+        expect(filled.length).toBe(5)
+        expect(half.length).toBe(0)
+    })
+
+    it('renders a half star for fractional part in 0.25–0.75 (4.3)', () => {
+        const wrapper = mount(StarRating, { props: { rating: 4.3 } })
+        const filled = wrapper.findAll('path[fill="currentColor"]')
+        const half = wrapper.findAll('path[fill^="url(#half-"]')
+        expect(filled.length).toBe(4)
+        expect(half.length).toBe(1)
+    })
+
+    it('clamps rating over max to max stars (6.5 with max 5)', () => {
+        const wrapper = mount(StarRating, { props: { rating: 6.5, max: 5 } })
+        const filled = wrapper.findAll('path[fill="currentColor"]')
+        const half = wrapper.findAll('path[fill^="url(#half-"]')
+        const empty = wrapper.findAll('path[fill="none"]')
+        expect(filled.length).toBe(5)
+        expect(half.length).toBe(0)
+        expect(empty.length).toBe(0)
+    })
+
+    it('renders no half and no full beyond max when over max', () => {
+        const wrapper = mount(StarRating, { props: { rating: 7.3, max: 5 } })
+        const filled = wrapper.findAll('path[fill="currentColor"]')
+        const half = wrapper.findAll('path[fill^="url(#half-"]')
+        expect(filled.length).toBe(5)
+        expect(half.length).toBe(0)
+    })
 })
