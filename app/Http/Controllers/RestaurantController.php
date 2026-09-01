@@ -7,9 +7,9 @@ use App\Http\Resources\LiveRestaurantResource;
 use App\Http\Resources\RestaurantResource;
 use App\Models\Cuisine;
 use App\Models\CuisineCategory;
-use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use App\Services\GeolocationService;
+use App\Services\LiveSearchSnapshotService;
 use App\Services\LiveVenuePersister;
 use App\Services\PopularityScoreService;
 use App\Services\RestaurantValidationService;
@@ -33,6 +33,7 @@ class RestaurantController extends Controller
         private RestaurantValidationService $restaurantValidation,
         private LiveVenuePersister $venuePersister,
         private UnifiedSearchService $unifiedSearch,
+        private LiveSearchSnapshotService $snapshotService,
     ) {}
 
     /**
@@ -78,37 +79,6 @@ class RestaurantController extends Controller
     private function applySortMode(Builder $query, string $sort, bool $hasCoords): Builder
     {
         return $this->applyRestaurantSort($query, $sort, $hasCoords);
-    }
-
-    /**
-     * Persist each live result under preview:{slug} in ExternalApiCache (spec-040).
-     *
-     * Lets preview() render a venue from a direct slug lookup instead of
-     * reconstructing it via a cache-only re-search — which 404'd on category
-     * searches (the card carried cuisine but never category), Overpass
-     * name-fallback venues, coord drift, and cache expiry. Writes only to
-     * external_api_cache (already written on the read path, so the "no
-     * restaurants write" constraint stands) and triggers no live fetch (zero
-     * quota). TTL-configurable via restaurant-finder.cache.preview_snapshot_days.
-     *
-     * @param  array<array<string, mixed>>  $results
-     */
-    private function snapshotLiveResults(array $results): void
-    {
-        if (empty($results)) {
-            return;
-        }
-
-        $expiresAt = now()->addDays(
-            (int) config('restaurant-finder.cache.preview_snapshot_days', 7)
-        );
-
-        foreach ($results as $venue) {
-            $slug = $venue['slug'] ?? null;
-            if (! empty($slug)) {
-                ExternalApiCache::storeByKey("preview:{$slug}", $venue, $expiresAt);
-            }
-        }
     }
 
     public function index(Request $request): InertiaResponse
@@ -295,8 +265,7 @@ class RestaurantController extends Controller
         if ($paginate && $page > 1) {
             // Pages 2+: serve from the page-1 snapshot. If it expired mid-
             // pagination, return an empty page rather than re-burning the search.
-            $snapshotted = ExternalApiCache::findByKey($pageKey);
-            $results = is_array($snapshotted) ? $snapshotted : [];
+            $results = $this->snapshotService->readPageSnapshot($pageKey);
         } else {
             $results = $this->unifiedSearch->search(
                 $coords['lat'],
@@ -308,11 +277,7 @@ class RestaurantController extends Controller
             );
 
             if ($paginate) {
-                ExternalApiCache::storeByKey(
-                    $pageKey,
-                    $results,
-                    now()->addMinutes((int) config('restaurant-finder.live_search.page_snapshot_minutes', 10))
-                );
+                $this->snapshotService->storePageSnapshot($pageKey, $results);
             }
         }
 
@@ -323,7 +288,7 @@ class RestaurantController extends Controller
             ? array_slice($results, ($effectivePage - 1) * $perPage, $perPage)
             : $results;
 
-        $this->snapshotLiveResults($slice);
+        $this->snapshotService->storePreviews($slice);
 
         $data = LiveRestaurantResource::collection($slice)->resolve();
 
@@ -360,8 +325,8 @@ class RestaurantController extends Controller
 
     /**
      * Detail page for a LIVE-search result (spec-040). Renders the venue from the
-     * per-slug snapshot written by apiIndex() (preview:{slug} in
-     * ExternalApiCache) — a direct lookup, NOT a cache-only re-search. This is
+     * per-slug snapshot written by apiIndex() (preview:{slug} via the snapshot
+     * service) — a direct lookup, NOT a cache-only re-search. This is
      * quota-free and robust: it no longer depends on reproducing the original
      * search's coords/scope (which 404'd category searches, Overpass name-fallback
      * venues, and any coord drift). The URL is just /restaurants/preview/{slug}
@@ -370,7 +335,7 @@ class RestaurantController extends Controller
      */
     public function preview(string $slug): InertiaResponse
     {
-        $restaurant = ExternalApiCache::findByKey("preview:{$slug}");
+        $restaurant = $this->snapshotService->readPreview($slug);
 
         if ($restaurant === null) {
             abort(404, 'This restaurant preview is no longer available.');
@@ -386,11 +351,7 @@ class RestaurantController extends Controller
             $result = $this->venuePersister->persist($restaurant);
             $restaurant = $result['venue'];
 
-            ExternalApiCache::storeByKey(
-                "preview:{$slug}",
-                $restaurant,
-                now()->addDays((int) config('restaurant-finder.cache.preview_snapshot_days', 7))
-            );
+            $this->snapshotService->storePreview($slug, $restaurant);
         }
 
         return Inertia::render('Restaurants/Show', [
@@ -524,17 +485,12 @@ class RestaurantController extends Controller
             // Pages 2+: serve from the page-1 snapshot. If it expired mid-
             // pagination, return an empty page (the frontend surfaces its
             // "couldn't load more" state) rather than re-burning the search.
-            $snapshotted = ExternalApiCache::findByKey($pageKey);
-            $results = is_array($snapshotted) ? $snapshotted : [];
+            $results = $this->snapshotService->readPageSnapshot($pageKey);
         } else {
             $results = $union;
 
             if ($paginate) {
-                ExternalApiCache::storeByKey(
-                    $pageKey,
-                    $results,
-                    now()->addMinutes((int) config('restaurant-finder.live_search.page_snapshot_minutes', 10))
-                );
+                $this->snapshotService->storePageSnapshot($pageKey, $results);
             }
         }
 
@@ -548,7 +504,7 @@ class RestaurantController extends Controller
         // Snapshot each SHOWN result under preview:{slug} so the detail page
         // (/restaurants/preview/{slug}) can render it without re-running the
         // live search (zero quota, no restaurants write). See spec-040.
-        $this->snapshotLiveResults($slice);
+        $this->snapshotService->storePreviews($slice);
 
         $hasNext = $paginate && $effectivePage < $lastPage;
 
