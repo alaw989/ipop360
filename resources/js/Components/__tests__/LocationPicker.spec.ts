@@ -202,6 +202,20 @@ describe('LocationPicker', () => {
         expect(resultBtn.text()).not.toContain('null')
     })
 
+    it('clears the debounce timer on unmount so no fetch fires mid-debounce', async () => {
+        const wrapper = createWrapper()
+        await wrapper.find('button').trigger('click')
+
+        const input = wrapper.find('input[placeholder="Type your city..."]')
+        await input.setValue('Austin')
+        await vi.advanceTimersByTimeAsync(200)
+
+        wrapper.unmount()
+        await vi.advanceTimersByTimeAsync(200)
+
+        expect(mockGet).not.toHaveBeenCalled()
+    })
+
     it('shows spinner while searching', async () => {
         mockGet.mockImplementation(
             () => new Promise((resolve) => setTimeout(() => resolve([]), 1000)),
