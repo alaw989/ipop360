@@ -129,41 +129,32 @@ class SerpApiExhaustionTest extends TestCase
     }
 
     /**
-     * fetchRaw() is the other failure path and must honor provider exhaustion
-     * too (a 429 "out of searches" must flag the account).
+     * A 429 "out of searches" arriving through the pool path must flag the
+     * account (parsePoolResponse → detectProviderExhaustion).
      */
-    public function test_fetch_raw_marks_provider_exhausted_on_429_out_of_searches(): void
+    public function test_pool_429_out_of_searches_marks_provider_exhausted(): void
     {
         $service = $this->serviceWithKey();
-        Http::fake([
-            'serpapi.com/*' => Http::response(['error' => 'Your account has run out of searches.'], 429),
-        ]);
+        $cacheKey = $service->cacheKeyFor(27.95, -82.45, 'vietnamese');
 
-        $this->assertNull($service->fetchRaw(27.95, -82.45, 'vietnamese'));
+        $result = $service->consumePoolResponses(
+            [$this->clientResponse(429, '{"error":"Your account has run out of searches."}')],
+            27.95,
+            -82.45,
+            'vietnamese',
+            $cacheKey,
+        );
+
+        $this->assertSame([], $result);
         $this->assertTrue($service->isProviderExhausted());
     }
 
     /**
-     * fetchRaw() must also record a failed call toward quota accounting.
-     */
-    public function test_fetch_raw_records_failed_call_for_quota_accounting(): void
-    {
-        $service = $this->serviceWithKey();
-        Http::fake([
-            'serpapi.com/*' => Http::response(['error' => 'boom'], 500),
-        ]);
-
-        $this->assertNull($service->fetchRaw(27.95, -82.45, 'vietnamese'));
-        $this->assertSame(1, ExternalApiCache::where('source', 'serpapi')->count());
-        $this->assertSame(1, SerpApiCallLog::countLast30Days());
-    }
-
-    /**
-     * The direct-call entry points (search/fetchRaw) are the last two SerpApi
-     * paths that would still fire a live call into a dead account — poolRequestsFor
-     * already honors the exhaustion flag. A flagged account must suppress the
-     * outbound call here too (returning [] / null) rather than hammering a
-     * provider that reports "out of searches".
+     * search() is the last direct-call SerpApi path that would still fire a
+     * live call into a dead account — poolRequestsFor already honors the
+     * exhaustion flag. A flagged account must suppress the outbound call here
+     * too (returning []) rather than hammering a provider that reports "out of
+     * searches".
      */
     public function test_search_does_not_fire_live_call_when_provider_exhausted(): void
     {
@@ -179,25 +170,6 @@ class SerpApiExhaustionTest extends TestCase
         ]);
 
         $this->assertSame([], $service->search(27.95, -82.45, 'vietnamese'));
-
-        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'serpapi.com'));
-        $this->assertSame(0, SerpApiCallLog::countLast30Days(), 'a suppressed (never-fired) call must not be logged as a real attempt');
-    }
-
-    public function test_fetch_raw_does_not_fire_live_call_when_provider_exhausted(): void
-    {
-        $service = $this->serviceWithKey();
-        $service->markProviderExhausted();
-
-        Http::fake([
-            'serpapi.com/*' => Http::response([
-                'local_results' => [
-                    ['title' => 'Would Have Fetched Pizzeria'],
-                ],
-            ], 200),
-        ]);
-
-        $this->assertNull($service->fetchRaw(27.95, -82.45, 'vietnamese'));
 
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'serpapi.com'));
         $this->assertSame(0, SerpApiCallLog::countLast30Days(), 'a suppressed (never-fired) call must not be logged as a real attempt');
@@ -240,11 +212,11 @@ class SerpApiExhaustionTest extends TestCase
         // simulating retries after each empty-row TTL (2h) expires — travel
         // forward between calls so findByKey() doesn't just serve the still-
         // fresh cached empty result instead of firing again.
-        $service->fetchRaw(27.95, -82.45, 'vietnamese');
+        $service->search(27.95, -82.45, 'vietnamese');
         $this->travel(3)->hours();
-        $service->fetchRaw(27.95, -82.45, 'vietnamese');
+        $service->search(27.95, -82.45, 'vietnamese');
         $this->travel(3)->hours();
-        $service->fetchRaw(27.95, -82.45, 'vietnamese');
+        $service->search(27.95, -82.45, 'vietnamese');
 
         $this->assertSame(
             1,

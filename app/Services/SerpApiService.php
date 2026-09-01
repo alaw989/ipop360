@@ -289,75 +289,6 @@ class SerpApiService
     }
 
     /**
-     * Fetch raw data from SerpApi without normalization for parallel pooling.
-     * Returns the raw API response data.
-     *
-     * @return array<string, mixed>|null
-     */
-    public function fetchRaw(float $lat, float $lng, ?string $query = null): ?array
-    {
-        if (empty($this->apiKey)) {
-            return null;
-        }
-
-        $cacheKey = $this->cacheKeyFor($lat, $lng, $query);
-
-        $cached = ExternalApiCache::findByKey($cacheKey);
-        if ($cached !== null) {
-            return ['cached' => true, 'data' => $cached];
-        }
-
-        // Honor provider exhaustion: a flagged account ("out of searches") can't
-        // return anything live for the retry window. Serve nothing instead of
-        // firing a doomed call (consistent with poolRequestsFor).
-        if ($this->isProviderExhausted()) {
-            return null;
-        }
-
-        try {
-            $response = Http::timeout(15)
-                ->get('https://serpapi.com/search', [
-                    'engine' => 'google_maps',
-                    'q' => $this->buildQuery($query),
-                    'll' => "@{$lat},{$lng},".self::MAP_ZOOM.'z',
-                    'type' => 'search',
-                    'api_key' => $this->apiKey,
-                ]);
-
-            SerpApiCallLog::record();
-
-            if ($response->failed()) {
-                $this->detectProviderExhaustion($response);
-                $this->recordFailedCall($cacheKey);
-                Log::warning('SerpApi request failed', [
-                    'status' => $response->status(),
-                    'lat' => $lat,
-                    'lng' => $lng,
-                ]);
-
-                return null;
-            }
-
-            $data = $response->json();
-            $localResults = $data['local_results'] ?? [];
-
-            ExternalApiCache::storeByKey($cacheKey, $localResults, now()->addHours((int) config('restaurant-finder.cache.serpapi_ttl_hours', 720)));
-
-            return ['cached' => false, 'data' => $localResults];
-        } catch (\Throwable $e) {
-            SerpApiCallLog::record();
-            $this->recordFailedCall($cacheKey);
-            Log::warning('SerpApi threw exception', [
-                'message' => $e->getMessage(),
-                'lat' => $lat,
-                'lng' => $lng,
-            ]);
-
-            return null;
-        }
-    }
-
-    /**
      * Normalize raw SerpApi local_results to the shared venue shape.
      * Public method for use after parallel fetch.
      *
@@ -370,7 +301,7 @@ class SerpApiService
     }
 
     /**
-     * Cache key for a SerpApi query. Shared by search()/fetchRaw() and the live
+     * Cache key for a SerpApi query. Shared by search() and the live
      * concurrent-pool path (byte-identical) — critical because SerpApi is the
      * quota-constrained source.
      *

@@ -337,8 +337,7 @@ class LiveSearchScoringTest extends TestCase
         // Http::fake serializes pooled requests (its mock handler is synchronous),
         // so wall-clock timing can't be asserted through a fake. Instead we guard
         // the regression structurally: the live path must drive each source through
-        // poolRequestsFor() + consumePoolResponses() and must NOT call the old
-        // serial fetchRaw() — which is exactly what the prior closure-based code did.
+        // poolRequestsFor() + consumePoolResponses(), not a serial direct call.
         Http::fake(fn (Request $request) => Http::response([]));
 
         $classes = [
@@ -363,7 +362,6 @@ class LiveSearchScoringTest extends TestCase
             $mock->shouldReceive('consumePoolResponses')->andReturn([
                 ['name' => "{$source} venue", 'source' => $source, 'lat' => $lat, 'lng' => -122.41],
             ]);
-            $mock->shouldNotReceive('fetchRaw');
             $mocks[$source] = $mock;
             $i++;
         }
