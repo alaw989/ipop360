@@ -1629,6 +1629,16 @@ class LiveSearchScoringTest extends TestCase
                     'description' => 'mexican taqueria',
                     'place_types' => ['Restaurant'],
                 ],
+                [
+                    // Amenity-only OSM row: no cuisine tag, so no on- or rival-
+                    // signal — it must survive as ambiguous with a 0.0 stamp.
+                    'name' => 'Garden Grill',
+                    'source' => 'overpass',
+                    'lat' => 30.66,
+                    'lng' => -88.18,
+                    'description' => 'restaurant',
+                    'place_types' => ['Restaurant'],
+                ],
             ],
         ]);
 
@@ -1636,10 +1646,9 @@ class LiveSearchScoringTest extends TestCase
         $byName = collect($results)->keyBy('name');
 
         $this->assertArrayHasKey('Siam Palace', $byName, 'On-cuisine-tagged OSM row must survive the relevance filter (not rival-dropped).');
-        $this->assertGreaterThanOrEqual(0.5, (float) $byName['Siam Palace']['cuisine_match'], 'Tagged-but-vaguely-named OSM row must reach the 0.5 tier (was 0.0).');
-        if (isset($byName['Casa Taco'])) {
-            $this->assertSame(0.0, (float) $byName['Casa Taco']['cuisine_match'], 'Off-cuisine OSM row must stay at 0.0 (no false positive).');
-        }
+        $this->assertGreaterThanOrEqual(0.5, (float) ($byName['Siam Palace']['cuisine_match'] ?? 0.0), 'Tagged-but-vaguely-named OSM row must reach the 0.5 tier (was 0.0).');
+        $this->assertArrayNotHasKey('Casa Taco', $byName, 'Genuinely off-cuisine-tagged OSM row must still be rival-dropped (spec-028, now driven by its surfaced tag).');
+        $this->assertSame(0.0, (float) ($byName['Garden Grill']['cuisine_match'] ?? null), 'Ambiguous amenity-only OSM row must stay at 0.0 (no false positive from the description/place_types seeding).');
     }
 
     /**
