@@ -16,8 +16,9 @@ SKIP entirely (already done, confirmed on current master — do not re-touch): t
 General constraints: this goal touches BOTH backend (PHP/PHPUnit) and frontend (Vue/vitest) — that's expected, items 1/2/4 are backend-only, item 3 is frontend-only (plus reading the backend FavoriteController for the validation contract). Run both composer test and npm run test after every meaningful change, plus PHPStan for any PHP changes. This is test-coverage backfill, not a refactor pass — keep production-code changes minimal (item 3's small extraction, and item 4's possible one-line word-boundary fix, are the only production-code touches anticipated; everything else should be test-file-only). If anything turns out more invasive than described, prefer a smaller conservative version and note the deviation + why in ITERATION_NOTES.md, same as prior spec loops (100, 101) have done.
 
 ## State
-Done item (2): added test_api_live_result_shape_includes_rated_row_fields in tests/Feature/RestaurantControllerTest.php (asserts data.0.google_rating/source/score_breakdown/popularity_score present + shaped on a rated live row). Passes (8 assertions). No production code touched.
-Next: item (1) — the Quality×Cuisine Match E2E test in LiveSearchScoringTest.php (read config/restaurant-finder.php weights + seedCuisine()/makeServiceWithVenues() helpers first). Items (3) frontend extraction + (4) denylist audit remain.
+Done items (2) + (1): (1) added test_quality_and_cuisine_match_interact_on_scoped_search_with_key in LiveSearchScoringTest.php — sets serpapi key, seeds brazilian, two serpapi venues (lower-rated cuisine match 4.0/200 vs higher-rated no-match 4.9/2000, same coords), asserts lower-rated match wins AND winner breakdown has BOTH 'Quality' + 'Cuisine Match' (actual weights: quality 0.35, cuisine_match 0.50 — NOT the spec's stale 0.60/0.15). Margin ~0.29. Full file 68 passed. No production code touched.
+Next: item (3) frontend mergeFavoritesOnLogin() extraction + spec, then item (4) denylist audit (a+b).
 
 ## Log
-- 2026-09-02: Item (2) done — added rated-row live response-shape test (LiveRestaurantResource fields), passing.
+- 2026-09-02: Item (2) done — rated-row live response-shape test.
+- 2026-09-02: Item (1) done — Quality×Cuisine Match E2E test (weights 0.35/0.50, not spec's 0.60/0.15).
