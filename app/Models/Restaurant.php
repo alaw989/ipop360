@@ -282,7 +282,12 @@ class Restaurant extends Model
         // Uses ~111 km per degree latitude; longitude varies by cosine of latitude.
         // Pad by 10% to avoid excluding valid results at the radius edge.
         $latDelta = ($radiusKm * 1.1) / 111.0;
-        $lngDelta = ($radiusKm * 1.1) / (111.0 * cos(deg2rad($lat)));
+
+        // Clamp the latitude used for the cos() bbox-delta math only — a lat
+        // near +-90 makes cos() approach 0 and blows $lngDelta out toward a
+        // full-table scan. The unclamped $lat still feeds the haversine formula.
+        $bboxLat = min(89.9, max(-89.9, $lat));
+        $lngDelta = ($radiusKm * 1.1) / (111.0 * cos(deg2rad($bboxLat)));
 
         $minLat = $lat - $latDelta;
         $maxLat = $lat + $latDelta;

@@ -42,6 +42,13 @@ class SerpApiService
      */
     private const MAP_ZOOM = 11;
 
+    /**
+     * Whether the most recent consumePoolResponses() call stored real results
+     * (i.e. reached the success path without recording a failure). Exposed so the
+     * live-search caller can debit the per-IP limiter only on genuine success.
+     */
+    private bool $lastConsumePoolSucceeded = false;
+
     public function __construct()
     {
         $this->apiKey = config('services.serpapi.api_key');
@@ -372,6 +379,15 @@ class SerpApiService
     }
 
     /**
+     * Whether the most recent consumePoolResponses() call stored real results
+     * (success path) rather than recording a failed call.
+     */
+    public function lastConsumePoolSucceeded(): bool
+    {
+        return $this->lastConsumePoolSucceeded;
+    }
+
+    /**
      * Consume pooled responses for the live read path: parse, cache the raw
      * payload (30-day SerpApi TTL), and normalize. Quota-safe: the cache pass
      * runs before this, so a repeat search never reaches here.
@@ -381,6 +397,8 @@ class SerpApiService
      */
     public function consumePoolResponses(array $responses, float $lat, float $lng, ?string $cuisine, string $cacheKey): array
     {
+        $this->lastConsumePoolSucceeded = false;
+
         foreach ($responses as $response) {
             SerpApiCallLog::record();
 
@@ -402,6 +420,8 @@ class SerpApiService
                 $localResults,
                 now()->addHours((int) config('restaurant-finder.cache.serpapi_ttl_hours', 720))
             );
+
+            $this->lastConsumePoolSucceeded = true;
 
             return $this->normalizeRaw($localResults, $lat, $lng);
         }

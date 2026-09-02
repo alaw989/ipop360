@@ -81,6 +81,13 @@ class LiveSearchSnapshotService
      */
     public function storePreview(string $slug, array $venue): void
     {
+        // preview:{slug} is keyed by slug only, so the same venue surfaced by two
+        // different scoped searches overwrites the same row — whichever search
+        // rendered last wins. score_breakdown and distance are scope-dependent
+        // (they vary per search's sort/coords), so strip them before storing so
+        // the detail page renders null instead of a nondeterministic stale value.
+        unset($venue['score_breakdown'], $venue['distance']);
+
         ExternalApiCache::storeByKey(
             "preview:{$slug}",
             $venue,

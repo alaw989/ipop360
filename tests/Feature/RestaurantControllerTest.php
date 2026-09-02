@@ -257,6 +257,34 @@ class RestaurantControllerTest extends TestCase
         );
     }
 
+    public function test_restaurant_index_sort_by_rating_credibility_sinks_low_review_ratings(): void
+    {
+        Restaurant::factory()->create(['name' => 'Shaky', 'is_active' => true, 'google_rating' => 4.9, 'google_review_count' => 5, 'popularity_score' => 0.5]);
+        Restaurant::factory()->create(['name' => 'Solid', 'is_active' => true, 'google_rating' => 4.7, 'google_review_count' => 500, 'popularity_score' => 0.5]);
+
+        $response = $this->get('/restaurants?sort=rating');
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('restaurants.data.0.name', 'Solid')
+            ->where('restaurants.data.1.name', 'Shaky')
+        );
+    }
+
+    public function test_restaurant_index_sort_by_rating_credibility_kill_switch_restores_naive_order(): void
+    {
+        config(['restaurant-finder.ranking.rating_sort_credibility' => false]);
+
+        Restaurant::factory()->create(['name' => 'Shaky', 'is_active' => true, 'google_rating' => 4.9, 'google_review_count' => 5, 'popularity_score' => 0.5]);
+        Restaurant::factory()->create(['name' => 'Solid', 'is_active' => true, 'google_rating' => 4.7, 'google_review_count' => 500, 'popularity_score' => 0.5]);
+
+        $response = $this->get('/restaurants?sort=rating');
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('restaurants.data.0.name', 'Shaky')
+            ->where('restaurants.data.1.name', 'Solid')
+        );
+    }
+
     public function test_restaurant_index_sort_by_reviews(): void
     {
         Restaurant::factory()->create(['name' => 'Many Reviews', 'is_active' => true, 'google_review_count' => 500, 'popularity_score' => 0.1]);

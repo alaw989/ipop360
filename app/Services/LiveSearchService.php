@@ -88,7 +88,7 @@ class LiveSearchService
         $results = $this->venuePipeline->filterByCuisineConfidence($results, $scope);
 
         // Bound the list: drop the weak tail and cap the count (scored + sorted).
-        $results = $this->boundResults($results);
+        $results = $this->boundResults($results, $sort);
 
         if (empty($results)) {
             Log::info('LiveSearch returned zero results', [
@@ -264,13 +264,22 @@ class LiveSearchService
         try {
             $poolResults = $this->dispatchPool(['serpapi' => $specs]);
 
-            return $this->serpApiService->consumePoolResponses(
+            $results = $this->serpApiService->consumePoolResponses(
                 $poolResults['serpapi'] ?? [],
                 $lat,
                 $lng,
                 $queryCuisine,
                 $cacheKey
             );
+
+            // Debit the per-IP limiter only when the fetch actually succeeded
+            // (no recordFailedCall). A failed attempt burns zero useful quota
+            // and must not count toward the hourly budget.
+            if ($this->serpApiService->lastConsumePoolSucceeded()) {
+                $this->debitLiveSerpApiMiss();
+            }
+
+            return $results;
         } finally {
             $lock?->release();
         }
@@ -314,7 +323,12 @@ class LiveSearchService
             return false;
         }
 
-        // (2) Per-IP hourly limiter on distinct cache-miss live fetches.
+        // (2) Per-IP hourly limiter on distinct cache-miss live fetches. This is a
+        // CHECK-ONLY gate here: the debit (RateLimiter::hit) is deferred to the
+        // actual fetch, fired only when the SerpApi call SUCCEEDED (did not go
+        // through recordFailedCall) — see debitLiveSerpApiMiss(). Otherwise an
+        // outage (429/5xx/timeout) would debit the hourly budget for zero quota
+        // benefit and pin this IP to cache-only results for the rest of the hour.
         $ip = request()?->ip();
         if ($ip !== null) {
             $maxPerHour = (int) config('restaurant-finder.serpapi.live_misses_per_hour', 30);
@@ -328,11 +342,30 @@ class LiveSearchService
 
                 return false;
             }
-
-            RateLimiter::hit($key, 3600);
         }
 
         return true;
+    }
+
+    /**
+     * Debit the per-IP hourly live-miss limiter AFTER a SerpApi fetch actually
+     * succeeded. Called only from the SerpApi-under-lock fetch path once the
+     * consumePoolResponses call reports success (no recordFailedCall). Honors the
+     * same read_path_guard kill-switch and null-IP (CLI/artisan/unit test) skip
+     * as allowLiveSerpApiFetch() so the debit and the gate stay symmetric.
+     */
+    private function debitLiveSerpApiMiss(): void
+    {
+        if (! config('restaurant-finder.serpapi.read_path_guard', true)) {
+            return;
+        }
+
+        $ip = request()?->ip();
+        if ($ip === null) {
+            return;
+        }
+
+        RateLimiter::hit("serpapi_live_miss:{$ip}", 3600);
     }
 
     /**
@@ -541,10 +574,17 @@ class LiveSearchService
      * otherwise produce ~100 cards trailing to single-digit scores). Applied to
      * scoped AND unscoped live searches.
      *
+     * The min_score floor is a RELEVANCE cutoff, so it only applies to the
+     * best_match sort mode. For ?sort=nearest / ?sort=rating / etc. the user
+     * explicitly asked for a different ranking dimension — dropping a genuinely
+     * nearest (or highest-rated) but low-popularity venue under the floor would
+     * silently betray that request. max_results is a display-count cap, not a
+     * relevance floor, so it still applies unconditionally.
+     *
      * @param  array<int, array<string, mixed>>  $results
      * @return array<int, array<string, mixed>>
      */
-    private function boundResults(array $results): array
+    private function boundResults(array $results, string $sort = 'best_match'): array
     {
         if (empty($results)) {
             return [];
@@ -553,7 +593,7 @@ class LiveSearchService
         $minScore = (float) config('restaurant-finder.live_search.min_score', 0.0);
         $maxResults = (int) config('restaurant-finder.live_search.max_results', 0);
 
-        if ($minScore > 0) {
+        if ($minScore > 0 && $sort === 'best_match') {
             $results = array_values(array_filter(
                 $results,
                 fn ($r) => (float) ($r['popularity_score'] ?? 0) >= $minScore

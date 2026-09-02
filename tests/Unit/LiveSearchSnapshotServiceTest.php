@@ -81,6 +81,39 @@ class LiveSearchSnapshotServiceTest extends TestCase
         $this->assertSame($venue, $this->service->readPreview('lickin-good-donuts'));
     }
 
+    public function test_store_preview_strips_scope_dependent_fields(): void
+    {
+        $this->service->storePreview('shared-slug', [
+            'name' => 'First Write',
+            'slug' => 'shared-slug',
+            'address' => '1 First St',
+            'rating' => 4.5,
+            'score_breakdown' => ['quality' => 0.9],
+            'distance' => 12.3,
+            'popularity_score' => 0.8,
+        ]);
+
+        $this->service->storePreview('shared-slug', [
+            'name' => 'Second Write',
+            'slug' => 'shared-slug',
+            'address' => '2 Second Ave',
+            'rating' => 4.2,
+            'score_breakdown' => ['quality' => 0.1],
+            'distance' => 45.6,
+            'popularity_score' => 0.2,
+        ]);
+
+        $stored = $this->service->readPreview('shared-slug');
+
+        $this->assertNotNull($stored);
+        $this->assertSame('Second Write', $stored['name']);
+        $this->assertSame('2 Second Ave', $stored['address']);
+        $this->assertSame(4.2, $stored['rating']);
+        $this->assertSame(0.2, $stored['popularity_score']);
+        $this->assertNull($stored['score_breakdown'] ?? null);
+        $this->assertNull($stored['distance'] ?? null);
+    }
+
     public function test_read_preview_returns_null_on_miss(): void
     {
         $this->assertNull($this->service->readPreview('missing-slug'));
