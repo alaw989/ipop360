@@ -131,58 +131,6 @@ class BizDataApiService
     }
 
     /**
-     * Fetch raw data from the API without normalization for parallel pooling.
-    /**
-     * @return array{cached: bool, data: array<int, mixed>}|null
-     */
-    public function fetchRaw(float $lat, float $lng, ?string $cuisine = null, int $radius = 25, int $limit = 50): ?array
-    {
-        $cacheKey = $this->cacheKeyFor($lat, $lng, $cuisine, $radius, $limit);
-
-        $cached = ExternalApiCache::findByKey($cacheKey);
-        if ($cached !== null) {
-            return ['cached' => true, 'data' => $cached];
-        }
-
-        try {
-            $response = Http::timeout(15)
-                ->get($this->baseUrl.'/api/businesses', [
-                    'location' => "{$lat},{$lng}",
-                    'category' => 'restaurant',
-                    'radius_km' => $radius,
-                    'limit' => $limit,
-                ]);
-
-            if ($response->failed()) {
-                Log::warning('BizData API request failed', [
-                    'status' => $response->status(),
-                    'lat' => $lat,
-                    'lng' => $lng,
-                ]);
-
-                return null;
-            }
-
-            $data = $response->json();
-            $businesses = $data['businesses'] ?? [];
-
-            ExternalApiCache::storeByKey($cacheKey, $businesses, now()->addHours(
-                (int) config('restaurant-finder.cache.bizdata_ttl_hours', 24)
-            ));
-
-            return ['cached' => false, 'data' => $businesses];
-        } catch (\Throwable $e) {
-            Log::warning('BizData API threw exception', [
-                'message' => $e->getMessage(),
-                'lat' => $lat,
-                'lng' => $lng,
-            ]);
-
-            return null;
-        }
-    }
-
-    /**
      * Normalize raw BizData businesses to the shared venue shape.
      * Public method for use after parallel fetch.
      */
@@ -196,7 +144,7 @@ class BizDataApiService
     }
 
     /**
-     * Cache key for a BizData query. Shared by search()/fetchRaw() and the live
+     * Cache key for a BizData query. Shared by search() and the live
      * concurrent-pool path so the cache is the same byte-for-byte in both.
      */
     public function cacheKeyFor(float $lat, float $lng, ?string $cuisine = null, int $radius = 25, ?int $limit = null): string

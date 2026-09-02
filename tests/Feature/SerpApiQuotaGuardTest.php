@@ -151,10 +151,10 @@ class SerpApiQuotaGuardTest extends TestCase
         Config::set('restaurant-finder.serpapi.free_quota', 1);
         Config::set('restaurant-finder.serpapi.circuit_breaker_fraction', 1.0);
 
-        // Record ONE failed call via the real fetchRaw() failure path (a 500),
+        // Record ONE failed call via the real search() failure path (a 500),
         // which writes an empty row under a DIFFERENT key than the live search.
         Http::fake(['serpapi.com/*' => Http::response(['error' => 'boom'], 500)]);
-        $this->assertNull(app(SerpApiService::class)->fetchRaw(30.69, -88.04, 'vietnamese'));
+        $this->assertSame([], app(SerpApiService::class)->search(30.69, -88.04, 'vietnamese'));
         $this->assertSame(1, SerpApiCallLog::countLast30Days(), 'the failed call must be recorded in the true call-attempt log the breaker reads');
 
         // Live search at a cache-cold location must now skip SerpApi entirely.

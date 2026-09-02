@@ -42,33 +42,6 @@ class ExternalApiCache extends Model
         return $query->where('expires_at', '>=', Carbon::now());
     }
 
-    public static function get(string $source, string $externalId): ?self
-    {
-        return static::where('source', $source)
-            ->where('external_id', $externalId)
-            ->fresh()
-            ->first();
-    }
-
-    /**
-     * @param  array<mixed>  $data
-     */
-    public static function put(string $source, string $externalId, array $data, int $ttlHours = 24): self
-    {
-        if (empty($data)) {
-            $ttlHours = (int) config('restaurant-finder.cache.empty_retry_hours', 2);
-        }
-
-        return static::updateOrCreate(
-            ['source' => $source, 'external_id' => $externalId],
-            [
-                'data' => $data,
-                'fetched_at' => Carbon::now(),
-                'expires_at' => Carbon::now()->addHours($ttlHours),
-            ]
-        );
-    }
-
     /**
      * @return array<mixed>|null
      */
