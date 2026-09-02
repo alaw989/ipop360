@@ -1408,6 +1408,56 @@ class LiveSearchScoringTest extends TestCase
         );
     }
 
+    public function test_quality_and_cuisine_match_interact_on_scoped_search_with_key(): void
+    {
+        // spec-102 (1): with a rating source configured, BOTH the Quality signal
+        // (weight 0.35, gated inactive without a configured key) and the Cuisine
+        // Match signal (weight 0.50, spec-071) are active on a cuisine-scoped
+        // search. A genuine cuisine match with a LOWER rating must beat a no-match
+        // venue with a HIGHER rating, because cuisine_match (0.50) outweighs
+        // quality (0.35) in the renormalized active set (~0.29 margin). Mutation
+        // check: comment out the cuisine_match weight → the higher-rated venue
+        // wins; comment out the quality gate → the winner loses its 'Quality'
+        // label. Either flips this test red.
+        Config::set('services.serpapi.api_key', 'test-key');
+        $this->seedCuisine('Brazilian', 'brazilian');
+
+        $service = $this->makeServiceWithVenues([
+            'serpapi' => [
+                [
+                    'name' => 'Brazilian Grill House',
+                    'source' => 'serpapi',
+                    'lat' => 30.65,
+                    'lng' => -88.20,
+                    'google_rating' => 4.0,
+                    'google_review_count' => 200,
+                    'place_types' => ['Brazilian restaurant'],
+                ],
+                [
+                    'name' => 'Vale Healthy Kitchen',
+                    'source' => 'serpapi',
+                    'lat' => 30.65,
+                    'lng' => -88.20,
+                    'google_rating' => 4.9,
+                    'google_review_count' => 2000,
+                    'place_types' => ['Restaurant'],
+                ],
+            ],
+        ]);
+
+        $results = $service->search(30.6199783, -88.1967496, 'brazilian');
+
+        $this->assertSame(
+            ['Brazilian Grill House', 'Vale Healthy Kitchen'],
+            array_column($results, 'name'),
+            'The genuine (lower-rated) cuisine match must outrank the higher-rated no-match venue.'
+        );
+
+        $winnerLabels = array_column($results[0]['score_breakdown']['signals'], 'label');
+        $this->assertContains('Quality', $winnerLabels, 'Winner must carry the Quality signal (key configured).');
+        $this->assertContains('Cuisine Match', $winnerLabels, 'Winner must carry the Cuisine Match signal (scoped search).');
+    }
+
     public function test_cuisine_match_kill_switch_reverts_to_proximity_ranking(): void
     {
         // Kill-switch off → no stamp → cuisine_match inactive → proximity dominates
