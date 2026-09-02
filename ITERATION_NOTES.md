@@ -16,10 +16,11 @@ Fix spec-101 (specs/101-ranking-sort-parity-and-edges.md), NARROWED + CORRECTED 
 General constraints: this is backend-only (PHP), do not touch resources/js/. Run the full backend suite (composer test) and PHPStan after every meaningful change to catch regressions early — do not wait until the end. If any of the 5 items turns out to be more invasive or riskier than described here once you're in the code (especially item 2's SQL translation or item 4's success-signal plumbing), it's fine to implement a smaller/more conservative version that still resolves the core correctness gap — note in ITERATION_NOTES.md exactly what you did and why, the same way spec-100's loop documented its scope corrections. Prefer leaving something unchanged over a risky guess.
 
 ## State
-Done items 5 + 1. Item 1: LiveSearchSnapshotService::storePreview() now unsets score_breakdown/distance before storing under preview:{slug}, so the detail page renders null instead of whichever search wrote last. Test added (store_preview_strips_scope_dependent_fields), pint+PHPStan clean.
-Next: pick item 2 (sort parity SQL) or item 3 (boundResults min_score) or item 4 (SerpApi limiter debit timing).
-Gotcha: storePreviews() delegates to storePreview(), so stripping in storePreview covers both write paths — no controller change needed. popularity_score is NOT stripped (stable field).
+Done items 5 + 1 + 3. Item 3: LiveSearchService::boundResults() now takes $sort and only applies the min_score floor when $sort==='best_match'; max_results cap unchanged (still unconditional). search() passes $sort through. Test added (test_min_score_floor_only_applies_to_best_match_sort), pint+PHPStan clean.
+Next: item 2 (sort parity SQL) or item 4 (SerpApi limiter debit timing).
+Gotcha: search() calls sortVenues(..., true) with hasCoords hardcoded true, so effective sort === $sort (no nearest-without-coords fallback to replicate in boundResults).
 
 ## Log
+- Item 3: min_score floor scoped to best_match. 67 tests pass in LiveSearchScoringTest, pint+PHPStan clean.
 - Item 1: strip score_breakdown/distance in storePreview. 9 tests pass, pint+PHPStan clean.
 - Item 5: lat/lng range validation + scopeNearby bbox clamp. 23 tests pass, PHPStan clean.

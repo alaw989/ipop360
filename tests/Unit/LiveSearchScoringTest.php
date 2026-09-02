@@ -858,6 +858,33 @@ class LiveSearchScoringTest extends TestCase
         }
     }
 
+    public function test_min_score_floor_only_applies_to_best_match_sort(): void
+    {
+        // A non-zero min_score is a RELEVANCE floor: it must only trim the
+        // best_match list. For ?sort=nearest the user asked for the closest
+        // venue regardless of popularity, so a low-score-but-nearest venue must
+        // survive; for best_match it must still be dropped.
+        $original = config('restaurant-finder.live_search.min_score');
+        Config::set('restaurant-finder.live_search.min_score', 999.0);
+
+        try {
+            $service = $this->makeServiceWithVenues([
+                'serpapi' => [
+                    ['name' => 'Closest', 'source' => 'serpapi', 'lat' => 30.65, 'lng' => -88.20],
+                    ['name' => 'Farther', 'source' => 'serpapi', 'lat' => 30.70, 'lng' => -88.20],
+                ],
+            ]);
+
+            $nearest = $service->search(30.6199783, -88.1967496, null, null, false, 'nearest');
+            $this->assertCount(2, $nearest, 'nearest sort must not apply the min_score floor');
+
+            $bestMatch = $service->search(30.6199783, -88.1967496, null);
+            $this->assertSame([], $bestMatch, 'best_match sort must still apply the min_score floor');
+        } finally {
+            Config::set('restaurant-finder.live_search.min_score', $original);
+        }
+    }
+
     public function test_result_list_drops_below_min_score_floor(): void
     {
         // An impossibly-high floor drops every scored row.

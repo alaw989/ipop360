@@ -88,7 +88,7 @@ class LiveSearchService
         $results = $this->venuePipeline->filterByCuisineConfidence($results, $scope);
 
         // Bound the list: drop the weak tail and cap the count (scored + sorted).
-        $results = $this->boundResults($results);
+        $results = $this->boundResults($results, $sort);
 
         if (empty($results)) {
             Log::info('LiveSearch returned zero results', [
@@ -541,10 +541,17 @@ class LiveSearchService
      * otherwise produce ~100 cards trailing to single-digit scores). Applied to
      * scoped AND unscoped live searches.
      *
+     * The min_score floor is a RELEVANCE cutoff, so it only applies to the
+     * best_match sort mode. For ?sort=nearest / ?sort=rating / etc. the user
+     * explicitly asked for a different ranking dimension — dropping a genuinely
+     * nearest (or highest-rated) but low-popularity venue under the floor would
+     * silently betray that request. max_results is a display-count cap, not a
+     * relevance floor, so it still applies unconditionally.
+     *
      * @param  array<int, array<string, mixed>>  $results
      * @return array<int, array<string, mixed>>
      */
-    private function boundResults(array $results): array
+    private function boundResults(array $results, string $sort = 'best_match'): array
     {
         if (empty($results)) {
             return [];
@@ -553,7 +560,7 @@ class LiveSearchService
         $minScore = (float) config('restaurant-finder.live_search.min_score', 0.0);
         $maxResults = (int) config('restaurant-finder.live_search.max_results', 0);
 
-        if ($minScore > 0) {
+        if ($minScore > 0 && $sort === 'best_match') {
             $results = array_values(array_filter(
                 $results,
                 fn ($r) => (float) ($r['popularity_score'] ?? 0) >= $minScore
