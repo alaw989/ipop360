@@ -11,6 +11,7 @@ use App\Services\UnifiedSearchService;
 use App\Services\VenuePipeline;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class RestaurantControllerTest extends TestCase
@@ -724,6 +725,50 @@ class RestaurantControllerTest extends TestCase
         $this->assertNotNull($previewBeta);
         $this->assertSame('Alpha', $previewAlpha['name']);
         $this->assertSame('Beta', $previewBeta['name']);
+    }
+
+    public function test_api_live_snapshot_writes_run_in_a_single_transaction(): void
+    {
+        // snapshotLiveResults() loops up to 20 live results calling
+        // ExternalApiCache::storeByKey() (an updateOrCreate = SELECT+UPSERT) per
+        // venue. spec-095: the loop must be wrapped in one DB::transaction so N
+        // per-row commits collapse to a single commit (round-trip batching win,
+        // not a query-shape change). Assert every preview write happens inside a
+        // DB transaction (depth >= 1), not in autocommit (depth 0).
+        $this->bindLiveSearchResults([
+            $this->liveRow(['name' => 'Alpha', 'slug' => 'alpha-aaaaaa']),
+            $this->liveRow(['name' => 'Beta', 'slug' => 'beta-bbbbbb']),
+            $this->liveRow(['name' => 'Gamma', 'slug' => 'gamma-cccccc']),
+        ]);
+
+        $depth = 0;
+        $this->app['events']->listen('Illuminate\Database\Events\TransactionBeginning', function () use (&$depth): void {
+            $depth++;
+        });
+        $this->app['events']->listen('Illuminate\Database\Events\TransactionCommitted', function () use (&$depth): void {
+            $depth--;
+        });
+        $this->app['events']->listen('Illuminate\Database\Events\TransactionRolledBack', function () use (&$depth): void {
+            $depth--;
+        });
+
+        $previewDepths = [];
+        DB::listen(function ($query) use (&$depth, &$previewDepths): void {
+            foreach ($query->bindings as $binding) {
+                if (is_string($binding) && str_starts_with($binding, 'preview:')) {
+                    $previewDepths[] = $depth;
+                    break;
+                }
+            }
+        });
+
+        $response = $this->get('/api/restaurants?lat=30.0&lng=-88.0');
+
+        $response->assertStatus(200);
+        $this->assertNotEmpty($previewDepths, 'expected preview: snapshot writes');
+        foreach ($previewDepths as $d) {
+            $this->assertGreaterThan(0, $d, 'preview writes should be inside a transaction');
+        }
     }
 
     public function test_sort_venues_nearest_without_coords_falls_back_to_best_match(): void
