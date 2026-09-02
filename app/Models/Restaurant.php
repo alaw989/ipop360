@@ -289,8 +289,21 @@ class Restaurant extends Model
         $minLng = $lng - $lngDelta;
         $maxLng = $lng + $lngDelta;
 
+        $columns = implode(', ', [
+            'id', 'slug', 'name', 'description', 'address', 'city', 'state',
+            'postal_code', 'latitude', 'longitude', 'phone', 'website_url',
+            'price_range', 'photo_url', 'source', 'google_place_id',
+            'yelp_business_id', 'google_rating', 'google_review_count',
+            'yelp_rating', 'yelp_review_count', 'popular_times_avg_busyness',
+            'has_award', 'popularity_score', 'rank_change', 'features',
+            'place_types', 'is_active', 'social_links_count',
+            'website_clicks_count', 'pageviews_count', 'social_link_clicks_count',
+            'menu_click_count', 'directions_clicks_count', 'call_clicks_count',
+            'created_at', 'updated_at',
+        ]);
+
         return $query
-            ->selectRaw("*, {$haversine} AS distance", [$lat, $lng, $lat])
+            ->selectRaw("{$columns}, {$haversine} AS distance", [$lat, $lng, $lat])
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->whereBetween('latitude', [$minLat, $maxLat])

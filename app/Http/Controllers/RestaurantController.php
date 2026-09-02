@@ -103,12 +103,14 @@ class RestaurantController extends Controller
             (int) config('restaurant-finder.cache.preview_snapshot_days', 7)
         );
 
-        foreach ($results as $venue) {
-            $slug = $venue['slug'] ?? null;
-            if (! empty($slug)) {
-                ExternalApiCache::storeByKey("preview:{$slug}", $venue, $expiresAt);
+        DB::transaction(function () use ($results, $expiresAt): void {
+            foreach ($results as $venue) {
+                $slug = $venue['slug'] ?? null;
+                if (! empty($slug)) {
+                    ExternalApiCache::storeByKey("preview:{$slug}", $venue, $expiresAt);
+                }
             }
-        }
+        });
     }
 
     public function index(Request $request): InertiaResponse

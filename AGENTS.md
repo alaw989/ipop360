@@ -48,61 +48,48 @@ Verify: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8090/` should r
 
 ## Copy live DB to local
 
-The live droplet is at `167.71.107.253` (SSH key `~/.ssh/droplet-vp-nuxt`). **Never copy the SQLite file directly** while live services are writing to it — the copy will corrupt.
-
-Instead, use PHP on the server to export via PDO, then SCP the clean copy:
-
-```bash
-# 1. Write a PHP export script to the droplet
-ssh -i ~/.ssh/droplet-vp-nuxt root@167.71.107.253 'cat > /tmp/backup.php << '\''PHPEOF'\''
-<?php
-$src = new PDO("sqlite:/var/www/ipop360/database/database.sqlite");
-$src->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-$dst = new PDO("sqlite:/tmp/ipop360-clean.sqlite");
-$dst->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-$tables = $src->query("SELECT name, sql FROM sqlite_master WHERE type=\"table\" AND name NOT LIKE \"sqlite_%\"")->fetchAll(PDO::FETCH_ASSOC);
-foreach ($tables as $t) {
-    echo "Creating " . $t["name"] . "...\n";
-    $dst->exec($t["sql"]);
-}
-
-$tablesList = $src->query("SELECT name FROM sqlite_master WHERE type=\"table\" AND name NOT LIKE \"sqlite_%\"")->fetchAll(PDO::FETCH_COLUMN);
-foreach ($tablesList as $table) {
-    $count = $src->query("SELECT COUNT(*) FROM \"$table\"")->fetchColumn();
-    echo "Copying $table ($count rows)...\n";
-    $rows = $src->query("SELECT * FROM \"$table\"")->fetchAll(PDO::FETCH_NUM);
-    if (empty($rows)) continue;
-    $colCount = count($rows[0]);
-    $placeholders = implode(",", array_fill(0, $colCount, "?"));
-    $stmt = $dst->prepare("INSERT INTO \"$table\" VALUES ($placeholders)");
-    foreach ($rows as $row) { $stmt->execute($row); }
-}
-echo "Done!\n";
-PHPEOF'
-
-# 2. Run the export on the droplet (takes ~8 min for a full DB)
-ssh -i ~/.ssh/droplet-vp-nuxt root@167.71.107.253 "php /tmp/backup.php"
-
-# 3. Download the clean copy
-scp -i ~/.ssh/droplet-vp-nuxt root@167.71.107.253:/tmp/ipop360-clean.sqlite /tmp/ipop360-clean.sqlite
-
-# 4. Verify integrity and vacuum
-sqlite3 /tmp/ipop360-clean.sqlite "PRAGMA integrity_check;"
-# Should print "ok"
-
-# 5. Replace local DB and restart services
-cp database/database.sqlite database/database.sqlite.backup
-cp /tmp/ipop360-clean.sqlite database/database.sqlite
-```
-
-The `failed_jobs` table (90k+ rows with large exception payloads) will likely cause the export to time out at 10 min. That's fine — all core data tables (restaurants, cuisines, social links, api cache, etc.) copy first. If `failed_jobs` is corrupt or missing, drop and recreate it:
+**Prod runs MySQL**, not SQLite — flipped 2026-08-03 (see
+`specs/104-infra-mysql-migration.md`) specifically to kill `database is locked`
+errors from concurrent writers. The live droplet is at `167.71.107.253` (SSH
+key `~/.ssh/droplet-vp-nuxt`), MySQL creds in the droplet's `.env` (`DB_*`).
+`mysqldump --single-transaction` takes a consistent snapshot without locking
+out live writers, so there's no PDO-export dance needed anymore:
 
 ```bash
-sqlite3 database/database.sqlite "DROP TABLE failed_jobs; CREATE TABLE failed_jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT NOT NULL UNIQUE, connection BLOB NOT NULL, queue BLOB NOT NULL, payload BLOB NOT NULL, exception BLOB NOT NULL, failed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);"
+# 1. Dump on the droplet, compressed (creds from the droplet's .env DB_* vars)
+ssh -i ~/.ssh/droplet-vp-nuxt root@167.71.107.253 \
+  'mysqldump --single-transaction --quick --routines --triggers \
+     -uipop360 -p"<DB_PASSWORD>" ipop360 | gzip > /tmp/ipop360-dump.sql.gz'
+
+# 2. Download it, then remove the remote temp copy
+scp -i ~/.ssh/droplet-vp-nuxt root@167.71.107.253:/tmp/ipop360-dump.sql.gz /tmp/
+ssh -i ~/.ssh/droplet-vp-nuxt root@167.71.107.253 'rm -f /tmp/ipop360-dump.sql.gz'
+
+# 3. Import into a local MySQL-compatible server (create the DB/user first)
+mysql -u<local_user> -p -h127.0.0.1 -e "DROP DATABASE IF EXISTS ipop360; CREATE DATABASE ipop360 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+gunzip -c /tmp/ipop360-dump.sql.gz | mysql -u<local_user> -p -h127.0.0.1 ipop360
 ```
 
-Also verify row counts: `sqlite3 database/database.sqlite "SELECT COUNT(*) FROM restaurants;"` — should return ~5500+.
+Then point `.env` at it: `DB_CONNECTION=mysql`, `DB_HOST=127.0.0.1`,
+`DB_PORT=3306`, `DB_DATABASE=ipop360`, `DB_USERNAME`/`DB_PASSWORD` for the
+local user. (Local dev still defaults to SQLite for day-to-day work — this
+MySQL path is for when you need real prod-fidelity data locally.)
+
+**Known gotcha (hit 2026-08-30, Percona Server 9.7 locally vs. prod's MySQL
+8.0.46):** newer MySQL/Percona builds reject `MD5()` inside generated columns
+(`ERROR 3763 (HY000): Expression of generated column 'key_hash' contains a
+disallowed function: md5`), which breaks Laravel Pulse's `key_hash` columns in
+`pulse_aggregates`, `pulse_entries`, `pulse_values`. If import fails on that
+error, patch the dump in-flight (same byte length, cosmetic — only affects
+Pulse's internal telemetry hash, not app data):
+
+```bash
+gunzip -c /tmp/ipop360-dump.sql.gz \
+  | sed 's/unhex(md5(`key`))/unhex(left(sha2(`key`,256),32))/g' \
+  | mysql -u<local_user> -p -h127.0.0.1 ipop360
+```
+
+Verify: `mysql -u<local_user> -p -h127.0.0.1 ipop360 -e "SELECT COUNT(*) FROM restaurants;"` — tens of thousands as of 2026-08 (grows over time; the old ~5500 baseline is long stale).
 
 ## Local DB recovery
 
