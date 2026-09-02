@@ -142,6 +142,35 @@ class UptimeCanary extends Command
             $this->warn('⚠ SerpApi quota check failed');
         }
 
+        // Self API check — exercise the app's own live search read path end-to-end.
+        // The upstream provider checks above only prove external endpoints are up;
+        // this proves the app can actually serve results (restaurant controller +
+        // scopeNearby + ranking). Mirrors the deploy.yml "Verify deployment" query.
+        try {
+            $response = Http::timeout(5)->get(config('app.url').'/api/restaurants', [
+                'cuisine' => 'chinese',
+                'lat' => '30.6199783',
+                'lng' => '-88.1967496',
+            ]);
+
+            $data = $response->json('data');
+
+            if ($response->successful() && is_array($data) && count($data) > 0) {
+                $checks['self_api'] = 'ok ('.count($data).' results)';
+                $this->info('✓ Self API: ok ('.count($data).' results)');
+            } else {
+                $status = $status === 'ok' ? 'degraded' : $status;
+                $checks['self_api'] = $response->successful()
+                    ? 'failed: empty data array (expected non-empty)'
+                    : "failed: HTTP {$response->status()}";
+                $this->warn('⚠ Self API: '.$checks['self_api']);
+            }
+        } catch (\Exception $e) {
+            $status = $status === 'ok' ? 'degraded' : $status;
+            $checks['self_api'] = 'failed: '.$e->getMessage();
+            $this->warn('⚠ Self API: unreachable');
+        }
+
         // Log the overall status
         Log::info('Uptime canary check', [
             'status' => $status,

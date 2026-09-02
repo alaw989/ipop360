@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\PendingCommand;
 use Tests\TestCase;
 
@@ -19,6 +20,12 @@ class UptimeCanaryCommandTest extends TestCase
 
     public function test_command_reports_ok_when_all_healthy(): void
     {
+        Http::fake([
+            config('app.url').'/api/restaurants*' => Http::response([
+                'data' => [['id' => 1, 'name' => 'Test']],
+            ], 200),
+        ]);
+
         $restaurant = Restaurant::factory()->create([
             'is_active' => true,
             'website_url' => 'https://example.com',
@@ -180,5 +187,94 @@ class UptimeCanaryCommandTest extends TestCase
         $command2 = $this->artisan('uptime:canary');
         $command2->run();
         $this->assertSame(2, (int) Cache::get('uptime:degraded_count', 0));
+    }
+
+    public function test_self_api_check_reports_ok_when_results_returned(): void
+    {
+        Http::fake([
+            config('app.url').'/api/restaurants*' => Http::response([
+                'data' => [
+                    ['id' => 1, 'name' => 'A'],
+                    ['id' => 2, 'name' => 'B'],
+                ],
+            ], 200),
+        ]);
+
+        Restaurant::factory()->create([
+            'is_active' => true,
+            'website_url' => 'https://example.com',
+            'social_links_count' => 1,
+        ]);
+
+        DB::table('restaurant_social_links')->insert([
+            'restaurant_id' => Restaurant::latest('id')->value('id'),
+            'platform' => 'instagram',
+            'url' => 'https://instagram.com/test',
+            'created_at' => now()->subHours(1),
+            'updated_at' => now()->subHours(1),
+        ]);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('uptime:canary');
+        $command->assertSuccessful()
+            ->expectsOutputToContain('Overall status: ok')
+            ->expectsOutputToContain('Self API: ok');
+        $command->run();
+    }
+
+    public function test_self_api_check_degrades_not_critical_on_empty_data(): void
+    {
+        Http::fake([
+            config('app.url').'/api/restaurants*' => Http::response(['data' => []], 200),
+        ]);
+
+        Restaurant::factory()->create([
+            'is_active' => true,
+            'website_url' => 'https://example.com',
+            'social_links_count' => 1,
+        ]);
+
+        DB::table('restaurant_social_links')->insert([
+            'restaurant_id' => Restaurant::latest('id')->value('id'),
+            'platform' => 'instagram',
+            'url' => 'https://instagram.com/test',
+            'created_at' => now()->subHours(1),
+            'updated_at' => now()->subHours(1),
+        ]);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('uptime:canary');
+        $command->assertSuccessful()
+            ->expectsOutputToContain('Overall status: degraded')
+            ->expectsOutputToContain('empty data array');
+        $command->run();
+    }
+
+    public function test_self_api_check_degrades_not_critical_on_http_failure(): void
+    {
+        Http::fake([
+            config('app.url').'/api/restaurants*' => Http::response(['data' => []], 500),
+        ]);
+
+        Restaurant::factory()->create([
+            'is_active' => true,
+            'website_url' => 'https://example.com',
+            'social_links_count' => 1,
+        ]);
+
+        DB::table('restaurant_social_links')->insert([
+            'restaurant_id' => Restaurant::latest('id')->value('id'),
+            'platform' => 'instagram',
+            'url' => 'https://instagram.com/test',
+            'created_at' => now()->subHours(1),
+            'updated_at' => now()->subHours(1),
+        ]);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('uptime:canary');
+        $command->assertSuccessful()
+            ->expectsOutputToContain('Overall status: degraded')
+            ->expectsOutputToContain('HTTP 500');
+        $command->run();
     }
 }
