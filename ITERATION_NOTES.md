@@ -11,3 +11,15 @@ Item 4 done: scopeNearby() select trimmed from `*` to explicit column list (all 
 - [2026-09-01] Item 3: snapshotLiveResults loop in one DB::transaction + depth-tracking test; ControllerTest 44 pass.
 - [2026-09-01] Item 1+2: migration for cuisines.slug + external_api_cache.expires_at/fetched_at indexes; ReadPathIndexesTest (3 pass); migrate:fresh clean.
 
+---
+
+## Goal (merged from master — spec-093, already shipped)
+Fix spec-093 (specs/093-osm-cuisine-tag-cuisine-match.md): OverpassService::normalizeResults (app/Services/OverpassService.php ~lines 419-467) routes the OSM cuisine= tag only into the cuisines array and sets description => null, so LiveSearchService::stampCuisineMatchStrength (~830-848) and filterByCuisineRelevance (~882-954) — which only read name + place_types + description — never see it. Every Overpass row collapses to name-only cuisine matching: a venue OSM-tagged cuisine=thai;asian but named e.g. 'Siam Palace' gets cuisine_match=0.0 on a ?cuisine=thai search instead of reaching the 0.5 type+description tier, and can be wrongly dropped by filterByCuisineRelevance on a rival-cuisine search. Fix: in OverpassService::normalizeResults, also populate description (and/or place_types) from the OSM cuisine/amenity tags using the existing CuisineMatcher/CuisineScope (the single accessor for config/cuisine-keywords.php) — do not add a new denylist or duplicate matching logic. This must only ADD a positive stamp for on-cuisine rows; off-cuisine rows and previously-passing rows must be unchanged (recall-safe, no new drops). Gate stays behind the existing ranking.cuisine_match kill-switch (already default on). Zero SerpApi quota impact (Overpass path only). Add a new unit test (tests/Unit/LiveSearchScoringTest.php or a new OverpassServiceTest) with an OSM fixture cuisine=thai;asian on a non-Thai name, asserting cuisine_match >= 0.5 (was 0.0), plus a genuinely off-cuisine OSM venue asserting its stamp is unchanged. Confirm filterByCuisineRelevance keeps an on-cuisine-tagged OSM row it would previously have rival-dropped.
+
+## State
+GOAL COMPLETE. iterate-3 verified all spec-093 ACs: `OverpassService::normalizeResults` seeds description/place_types from OSM cuisine/amenity tags; stamp reaches 0.5 tier for tagged-but-vaguely-named rows, off-cuisine rows unchanged, relevance filter keeps the tagged row. 83 targeted tests green (OverpassServiceTest + LiveSearchScoringTest). Ready for branch hardening + merge.
+
+## Log
+- 2026-09-01: iter3 re-verified spec-093 end-to-end green (83 tests, 280 assertions); all ACs met.
+- 2026-09-01: iter2 hardened spec-093 test (deterministic rival-drop + 0.0 ambiguous stamp, 5 assertions) + fixed phpstan error; repo phpstan 0 errors.
+- 2026-09-01: OverpassService seeds description/place_types from OSM cuisine/amenity tags (spec-093). 83 targeted tests + full suite (1110 passed) + phpstan + pint green.
