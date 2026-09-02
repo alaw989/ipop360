@@ -16,11 +16,12 @@ Fix spec-101 (specs/101-ranking-sort-parity-and-edges.md), NARROWED + CORRECTED 
 General constraints: this is backend-only (PHP), do not touch resources/js/. Run the full backend suite (composer test) and PHPStan after every meaningful change to catch regressions early — do not wait until the end. If any of the 5 items turns out to be more invasive or riskier than described here once you're in the code (especially item 2's SQL translation or item 4's success-signal plumbing), it's fine to implement a smaller/more conservative version that still resolves the core correctness gap — note in ITERATION_NOTES.md exactly what you did and why, the same way spec-100's loop documented its scope corrections. Prefer leaving something unchanged over a risky guess.
 
 ## State
-Done items 5 + 1 + 3. Item 3: LiveSearchService::boundResults() now takes $sort and only applies the min_score floor when $sort==='best_match'; max_results cap unchanged (still unconditional). search() passes $sort through. Test added (test_min_score_floor_only_applies_to_best_match_sort), pint+PHPStan clean.
-Next: item 2 (sort parity SQL) or item 4 (SerpApi limiter debit timing).
-Gotcha: search() calls sortVenues(..., true) with hasCoords hardcoded true, so effective sort === $sort (no nearest-without-coords fallback to replicate in boundResults).
+Done items 5 + 1 + 3 + 4. Item 4: per-IP SerpApi limiter now debits only on a SUCCESSFUL fetch — allowLiveSerpApiFetch() keeps tooManyAttempts/circuit-breaker checks but no longer hits; debitLiveSerpApiMiss() fires from fetchSerpApiUnderLock() after SerpApiService::consumePoolResponses() reports success via lastConsumePoolSucceeded(). Test added (test_failed_fetch_does_not_debit_per_ip_limiter), pint+PHPStan clean.
+Next: item 2 (sort parity SQL) — last remaining item.
+Gotchas: search() calls sortVenues(..., true) with hasCoords hardcoded true (no nearest-without-coords fallback to replicate). Don't call Http::fake() twice in one test — a second call doesn't replace the first for pool requests; use a single closure-based fake.
 
 ## Log
+- Item 4: per-IP SerpApi limiter debits only on success. 8 tests pass in SerpApiQuotaGuardTest, pint+PHPStan clean.
 - Item 3: min_score floor scoped to best_match. 67 tests pass in LiveSearchScoringTest, pint+PHPStan clean.
 - Item 1: strip score_breakdown/distance in storePreview. 9 tests pass, pint+PHPStan clean.
 - Item 5: lat/lng range validation + scopeNearby bbox clamp. 23 tests pass, PHPStan clean.

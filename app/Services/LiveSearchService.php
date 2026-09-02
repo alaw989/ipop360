@@ -264,13 +264,22 @@ class LiveSearchService
         try {
             $poolResults = $this->dispatchPool(['serpapi' => $specs]);
 
-            return $this->serpApiService->consumePoolResponses(
+            $results = $this->serpApiService->consumePoolResponses(
                 $poolResults['serpapi'] ?? [],
                 $lat,
                 $lng,
                 $queryCuisine,
                 $cacheKey
             );
+
+            // Debit the per-IP limiter only when the fetch actually succeeded
+            // (no recordFailedCall). A failed attempt burns zero useful quota
+            // and must not count toward the hourly budget.
+            if ($this->serpApiService->lastConsumePoolSucceeded()) {
+                $this->debitLiveSerpApiMiss();
+            }
+
+            return $results;
         } finally {
             $lock?->release();
         }
@@ -314,7 +323,12 @@ class LiveSearchService
             return false;
         }
 
-        // (2) Per-IP hourly limiter on distinct cache-miss live fetches.
+        // (2) Per-IP hourly limiter on distinct cache-miss live fetches. This is a
+        // CHECK-ONLY gate here: the debit (RateLimiter::hit) is deferred to the
+        // actual fetch, fired only when the SerpApi call SUCCEEDED (did not go
+        // through recordFailedCall) — see debitLiveSerpApiMiss(). Otherwise an
+        // outage (429/5xx/timeout) would debit the hourly budget for zero quota
+        // benefit and pin this IP to cache-only results for the rest of the hour.
         $ip = request()?->ip();
         if ($ip !== null) {
             $maxPerHour = (int) config('restaurant-finder.serpapi.live_misses_per_hour', 30);
@@ -328,11 +342,30 @@ class LiveSearchService
 
                 return false;
             }
-
-            RateLimiter::hit($key, 3600);
         }
 
         return true;
+    }
+
+    /**
+     * Debit the per-IP hourly live-miss limiter AFTER a SerpApi fetch actually
+     * succeeded. Called only from the SerpApi-under-lock fetch path once the
+     * consumePoolResponses call reports success (no recordFailedCall). Honors the
+     * same read_path_guard kill-switch and null-IP (CLI/artisan/unit test) skip
+     * as allowLiveSerpApiFetch() so the debit and the gate stay symmetric.
+     */
+    private function debitLiveSerpApiMiss(): void
+    {
+        if (! config('restaurant-finder.serpapi.read_path_guard', true)) {
+            return;
+        }
+
+        $ip = request()?->ip();
+        if ($ip === null) {
+            return;
+        }
+
+        RateLimiter::hit("serpapi_live_miss:{$ip}", 3600);
     }
 
     /**

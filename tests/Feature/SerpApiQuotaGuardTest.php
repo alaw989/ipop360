@@ -186,6 +186,61 @@ class SerpApiQuotaGuardTest extends TestCase
     }
 
     /**
+     * spec-101 item 4: the per-IP hourly limiter must debit only on a SUCCESSFUL
+     * SerpApi fetch, not on a failed attempt. A 500/timeout still debits zero
+     * useful quota, so it must not consume the IP's hourly budget — otherwise an
+     * outage pins the IP to cache-only results for the rest of the hour despite
+     * the app having consumed no real quota.
+     */
+    public function test_failed_fetch_does_not_debit_per_ip_limiter(): void
+    {
+        Config::set('restaurant-finder.serpapi.live_misses_per_hour', 1);
+
+        // First distinct miss: SerpApi FAILS (500) → must not debit the limiter.
+        // Second distinct miss: SerpApi succeeds → still allowed through because
+        // the failed attempt consumed no hourly budget.
+        $serpApiCalls = 0;
+        Http::fake([
+            'serpapi.com/*' => function () use (&$serpApiCalls) {
+                $serpApiCalls++;
+
+                if ($serpApiCalls === 1) {
+                    return Http::response(['error' => 'boom'], 500);
+                }
+
+                return Http::response([
+                    'local_results' => [
+                        [
+                            'title' => 'Guard Test Pizzeria',
+                            'gps_coordinates' => ['latitude' => 40.80, 'longitude' => -74.10],
+                            'rating' => 4.5,
+                            'reviews' => 50,
+                            'type' => 'Italian restaurant',
+                        ],
+                    ],
+                ], 200);
+            },
+            'bizdata-web.vercel.app/*' => Http::response(['businesses' => []], 200),
+            'overpass-api.de/*' => Http::response(['elements' => []], 200),
+            'socrata*/*' => Http::response(['data' => []], 200),
+        ]);
+
+        $this->getJson('/api/restaurants?lat=40.70&lng=-74.00&cuisine=italian');
+        $this->getJson('/api/restaurants?lat=40.80&lng=-74.10&cuisine=italian');
+
+        $successfulRows = ExternalApiCache::where('source', 'serpapi')
+            ->get()
+            ->filter(fn ($row) => $row->data !== [])
+            ->count();
+
+        $this->assertSame(
+            1,
+            $successfulRows,
+            'a failed fetch must not debit the per-IP limiter, so the next distinct miss still fetches + caches'
+        );
+    }
+
+    /**
      * spec-074: when another request already holds the per-key SerpApi fetch
      * lock, a waiter times out and falls back to an unserialized fetch rather
      * than blocking forever (recall-safe: one extra call >> returning nothing).
