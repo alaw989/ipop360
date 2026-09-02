@@ -166,6 +166,39 @@ class OverpassServiceTest extends TestCase
         $this->assertSame(['outdoor_seating' => 'yes', 'wheelchair' => 'limited'], $venues[0]['features']);
     }
 
+    public function test_normalize_raw_seeds_description_and_place_types_from_cuisine_and_amenity(): void
+    {
+        // spec-093: the OSM cuisine/amenity tags must be surfaced as a
+        // description + place_types so the live-search cuisine_match stamp
+        // reaches its 0.5 tier and the cuisine-relevance filter sees the
+        // on-cuisine signal — instead of every Overpass row collapsing to
+        // name-only matching (description was always null).
+        $venues = $this->service->normalizeRaw([
+            ['type' => 'node', 'id' => 20, 'lat' => 40.0, 'lon' => -74.0, 'tags' => [
+                'name' => 'Siam Palace',
+                'cuisine' => 'thai;asian',
+                'amenity' => 'restaurant',
+            ]],
+        ], 40.0, -74.0);
+
+        $this->assertSame('thai;asian restaurant', $venues[0]['description']);
+        $this->assertSame(['Restaurant'], $venues[0]['place_types']);
+    }
+
+    public function test_normalize_raw_leaves_description_null_when_no_cuisine_or_amenity(): void
+    {
+        // Recall-safe: untagged rows must stay identical to the prior shape
+        // (description => null, no place_types) so nothing new is ever dropped.
+        $venues = $this->service->normalizeRaw([
+            ['type' => 'node', 'id' => 21, 'lat' => 40.0, 'lon' => -74.0, 'tags' => [
+                'name' => 'Plain Diner',
+            ]],
+        ], 40.0, -74.0);
+
+        $this->assertNull($venues[0]['description']);
+        $this->assertSame([], $venues[0]['place_types']);
+    }
+
     public function test_normalize_raw_surfaces_image_tag_as_photo_url(): void
     {
         $venues = $this->service->normalizeRaw([
