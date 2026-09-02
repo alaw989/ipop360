@@ -369,6 +369,55 @@ describe('CardGallery', () => {
         })
     })
 
+    describe('photo position a11y', () => {
+        it('exposes aria-live counter announcing current photo position', () => {
+            activeIdx.value = 0
+            isMultiVal.value = true
+            const wrapper = mountGallery({ photos: ['/img/a.jpg', '/img/b.jpg', '/img/c.jpg'], multi: true })
+            const counter = wrapper.find('.tabular-nums')
+            expect(counter.attributes('aria-live')).toBe('polite')
+            expect(counter.attributes('aria-label')).toBe('Photo 1 of 3')
+        })
+
+        it('updates counter aria-label when active photo changes', () => {
+            activeIdx.value = 1
+            isMultiVal.value = true
+            const wrapper = mountGallery({ photos: ['/img/a.jpg', '/img/b.jpg', '/img/c.jpg'], multi: true })
+            expect(wrapper.find('.tabular-nums').attributes('aria-label')).toBe('Photo 2 of 3')
+        })
+
+        it('hides non-active images from the accessibility tree', async () => {
+            activeIdx.value = 0
+            isMultiVal.value = true
+            const wrapper = mountGallery({ photos: ['/img/a.jpg', '/img/b.jpg', '/img/c.jpg'], multi: true })
+            await wrapper.find('.relative').trigger('mouseenter')
+            const imgs = wrapper.findAll('img')
+            expect(imgs).toHaveLength(3)
+            expect(imgs[0].attributes('aria-hidden')).toBeUndefined()
+            expect(imgs[1].attributes('aria-hidden')).toBe('true')
+            expect(imgs[2].attributes('aria-hidden')).toBe('true')
+        })
+
+        it('exposes only the active image when a later photo is active', async () => {
+            activeIdx.value = 1
+            isMultiVal.value = true
+            const wrapper = mountGallery({ photos: ['/img/a.jpg', '/img/b.jpg', '/img/c.jpg'], multi: true })
+            await wrapper.find('.relative').trigger('mouseenter')
+            const imgs = wrapper.findAll('img')
+            expect(imgs[0].attributes('aria-hidden')).toBe('true')
+            expect(imgs[1].attributes('aria-hidden')).toBeUndefined()
+            expect(imgs[2].attributes('aria-hidden')).toBe('true')
+        })
+
+        it('does not add counter or aria-hidden on single photo', () => {
+            activeIdx.value = 0
+            isMultiVal.value = false
+            const wrapper = mountGallery({ photos: ['/img/a.jpg'], multi: true })
+            expect(wrapper.find('.tabular-nums').exists()).toBe(false)
+            expect(wrapper.find('img').attributes('aria-hidden')).toBeUndefined()
+        })
+    })
+
     describe('lifecycle', () => {
         it('registers matchMedia listener on mount', () => {
             mountGallery({ photos: [] })

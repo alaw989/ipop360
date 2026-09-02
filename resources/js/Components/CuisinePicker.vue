@@ -49,7 +49,8 @@ function selectCategory(cat: Category) {
 }
 
 function selectCuisine(cuisine: Cuisine) {
-    const cat = drillCategory.value!
+    const cat = drillCategory.value
+    if (!cat) return
     selectedLabel.value = `${cat.name} ▸ ${cuisine.name}`
     open.value = false
     drillCategory.value = null
@@ -60,7 +61,9 @@ function selectCuisine(cuisine: Cuisine) {
     })
 }
 
-function confirmCategory(cat: Category) {
+function confirmCategory() {
+    const cat = drillCategory.value
+    if (!cat) return
     selectedLabel.value = cat.name
     open.value = false
     drillCategory.value = null
@@ -88,6 +91,8 @@ const triggerClasses = computed(() => [
         : 'border-foreground/30 text-foreground hover:border-foreground',
     { 'opacity-60': !selectedLabel.value },
 ])
+
+defineExpose({ selectCuisine, confirmCategory })
 </script>
 
 <template>
@@ -139,7 +144,7 @@ const triggerClasses = computed(() => [
                     </CommandGroup>
                 </CommandList>
             </Command>
-            <Command class="flex flex-1 flex-col" v-else>
+    <Command class="flex flex-1 flex-col" v-else>
                 <CommandInput :placeholder="`Search ${drillCategory.name} cuisines...`" :autoFocus="false" />
                 <CommandList>
                     <CommandEmpty>No cuisines found.</CommandEmpty>
@@ -149,7 +154,7 @@ const triggerClasses = computed(() => [
                         </CommandItem>
                         <CommandItem
                             :value="`all ${drillCategory.name}`"
-                            @select="confirmCategory(drillCategory!)"
+                            @select="confirmCategory"
                         >
                             <span class="mr-2">{{ drillCategory.icon }}</span>
                             <span class="font-medium">All {{ drillCategory.name }}</span>
@@ -213,7 +218,7 @@ const triggerClasses = computed(() => [
                         </CommandItem>
                         <CommandItem
                             :value="`all ${drillCategory.name}`"
-                            @select="confirmCategory(drillCategory!)"
+                            @select="confirmCategory"
                         >
                             <span class="mr-2">{{ drillCategory.icon }}</span>
                             <span class="font-medium">All {{ drillCategory.name }}</span>

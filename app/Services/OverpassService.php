@@ -268,12 +268,23 @@ class OverpassService
             $distance = $this->haversineKm($searchLat, $searchLng, $coords['lat'], $coords['lon']);
             $osmId = $el['id'] ?? 0;
             $photoUrl = $this->extractPhotoUrl($tags);
+            $cuisineStr = $tags['cuisine'] ?? null;
+            $amenity = $tags['amenity'] ?? null;
 
             $results[] = [
                 'id' => -1 * abs(crc32('osm:'.$osmId)),
                 'name' => $name,
                 'slug' => Str::slug($name).'-'.substr(md5((string) $osmId), 0, 6),
-                'description' => null,
+                // spec-093: surface the OSM cuisine tag as a description (and the
+                // amenity as a place_type) so the cuisine_match stamp reaches its
+                // 0.5 tier and the cuisine-relevance filter sees the on-cuisine
+                // signal. Previously this was always null, so every Overpass row
+                // collapsed to name-only matching — a venue tagged cuisine=thai
+                // but named "Siam Palace" got cuisine_match=0.0 and could be
+                // rival-dropped. Recall-safe: only ADDS a positive on-cuisine
+                // stamp; off-cuisine rows are unchanged (still rely on name).
+                'description' => $this->buildDescription($cuisineStr, $amenity),
+                'place_types' => $amenity !== null ? [ucwords(str_replace('_', ' ', $amenity))] : [],
                 'address' => $this->buildAddress($tags),
                 'city' => $tags['addr:city'] ?? null,
                 'state' => $tags['addr:state'] ?? null,
@@ -404,6 +415,33 @@ class OverpassService
         }
 
         return 'https://commons.wikimedia.org/wiki/Special:FilePath/'.rawurlencode(str_replace(' ', '_', $file)).'?width=800';
+    }
+
+    /**
+     * Build a human description from the OSM cuisine/amenity tags so the
+     * live-search cuisine_match stamp and cuisine-relevance filter can see the
+     * on-cuisine signal (spec-093). Returns null when neither tag is present,
+     * keeping untagged rows identical to the prior (description => null) shape.
+     *
+     * @param  string|null  $cuisineStr  OSM `cuisine=` tag, e.g. "thai;asian"
+     * @param  string|null  $amenity  OSM `amenity=` tag, e.g. "restaurant"
+     */
+    private function buildDescription(?string $cuisineStr, ?string $amenity): ?string
+    {
+        $parts = [];
+        if ($cuisineStr !== null && trim($cuisineStr) !== '') {
+            $parts[] = str_replace('_', ' ', ucwords(trim($cuisineStr), " \t\n\r\0\x0B;"));
+        }
+        if ($amenity !== null && trim($amenity) !== '') {
+            $parts[] = ucwords(str_replace('_', ' ', trim($amenity)));
+        }
+
+        $parts = array_values(array_unique(array_map(fn ($p) => strtolower($p), $parts)));
+        if ($parts === []) {
+            return null;
+        }
+
+        return implode(' ', $parts);
     }
 
     /**

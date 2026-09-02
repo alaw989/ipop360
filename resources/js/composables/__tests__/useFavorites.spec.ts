@@ -11,10 +11,12 @@ const inertia = vi.hoisted(() => ({
             auth: undefined as { user?: { id: number }; favorites?: number[] } | undefined,
         },
     },
+    router: { visit: vi.fn() },
 }));
 
 vi.mock('@inertiajs/vue3', () => ({
     usePage: () => inertia.page,
+    router: inertia.router,
 }));
 
 // toggle() posts via plain axios, not router.post — Inertia's router throws
@@ -72,6 +74,7 @@ beforeEach(() => {
         },
     });
     axiosMock.post.mockReset();
+    inertia.router.visit.mockReset();
     // Faithful default: a real axios success response with no reconcilable
     // favoriteIds, so the optimistic value stands unless a test overrides it.
     axiosMock.post.mockResolvedValue({ data: {} });
@@ -198,5 +201,55 @@ describe('useFavorites — authed (server) path', () => {
 
         expect(isFavorited(makeVenue({ id: 6 }))).toBe(false);
         expect(inertia.page.props.auth?.favorites).toEqual([5]);
+    });
+
+    it('serializes concurrent toggles on the same restaurant', async () => {
+        // First POST hangs; the second toggle must NOT fire until the first
+        // settles, so it reads the first's reconciled state (not a stale
+        // pre-write snapshot).
+        let resolveFirst!: (v: unknown) => void;
+        axiosMock.post
+            .mockReturnValueOnce(new Promise((res) => { resolveFirst = res; }))
+            .mockResolvedValue({ data: {} });
+
+        const { toggle } = useFavorites();
+        const p1 = toggle(makeVenue({ id: 6 }));
+        const p2 = toggle(makeVenue({ id: 6 }));
+
+        // Only one request is in flight — the second toggle is queued.
+        await Promise.resolve();
+        expect(axiosMock.post).toHaveBeenCalledTimes(1);
+
+        resolveFirst({ data: { favoriteIds: [5, 6] } });
+        await p1;
+        expect(axiosMock.post).toHaveBeenCalledTimes(2);
+
+        // Second toggle re-reads the reconciled [5, 6] and flips 6 back off.
+        expect(inertia.page.props.auth?.favorites).toEqual([5]);
+        await p2;
+        expect(inertia.page.props.auth?.favorites).toEqual([5]);
+    });
+
+    it('allows concurrent toggles on different restaurants', async () => {
+        const { toggle } = useFavorites();
+        await Promise.all([
+            toggle(makeVenue({ id: 6 })),
+            toggle(makeVenue({ id: 9 })),
+        ]);
+
+        expect(axiosMock.post).toHaveBeenCalledTimes(2);
+        expect(inertia.page.props.auth?.favorites).toEqual([5, 6, 9]);
+    });
+
+    it('rolls back and prompts re-auth on a 401 (session expired)', async () => {
+        axiosMock.post.mockRejectedValue({ response: { status: 401 } });
+
+        const { toggle, isFavorited } = useFavorites();
+        await expect(toggle(makeVenue({ id: 6 }))).rejects.toBeTruthy();
+
+        // Rolled back to the server snapshot AND bounced to login.
+        expect(isFavorited(makeVenue({ id: 6 }))).toBe(false);
+        expect(inertia.page.props.auth?.favorites).toEqual([5]);
+        expect(inertia.router.visit).toHaveBeenCalledWith('/login');
     });
 });

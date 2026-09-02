@@ -120,6 +120,7 @@ onUnmounted(() => {
             decoding="async"
             class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-out"
             :class="activeIndex === 0 ? 'opacity-100' : 'opacity-0'"
+            :aria-hidden="galleryActive && activeIndex !== 0 ? 'true' : undefined"
         />
 
         <!-- Non-hero images: mounted only after `expanded` (hover/focus/near-viewport). -->
@@ -135,6 +136,7 @@ onUnmounted(() => {
             decoding="async"
             class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-out"
             :class="activeIndex === i + 1 ? 'opacity-100' : 'opacity-0'"
+            :aria-hidden="galleryActive && activeIndex !== i + 1 ? 'true' : undefined"
         />
 
         <!-- bottom readability scrim -->
@@ -193,7 +195,7 @@ onUnmounted(() => {
                     class="h-1.5 rounded-full transition-all duration-200"
                     :class="i === activeIndex ? 'w-3 bg-white' : 'w-1.5 bg-white/50'"
                 />
-                <span class="ml-1 text-[10px] font-medium tabular-nums text-white/90">
+                <span class="ml-1 text-[10px] font-medium tabular-nums text-white/90" aria-live="polite" :aria-label="`Photo ${activeIndex + 1} of ${photos.length}`">
                     {{ activeIndex + 1 }}/{{ photos.length }}
                 </span>
             </div>

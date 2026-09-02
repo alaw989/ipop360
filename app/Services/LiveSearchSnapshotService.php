@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ExternalApiCache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Owns the live-search snapshot cache lifecycle (spec-100 item 2).
@@ -51,7 +52,8 @@ class LiveSearchSnapshotService
     /**
      * Store every venue with a non-empty slug under preview:{slug} so the
      * detail page can render it from a direct lookup (spec-040). No-op on an
-     * empty result set.
+     * empty result set. Wrapped in one DB::transaction (spec-095) so N venues
+     * cost one commit instead of N.
      *
      * @param  array<int, array<string, mixed>>  $results
      */
@@ -61,12 +63,14 @@ class LiveSearchSnapshotService
             return;
         }
 
-        foreach ($results as $venue) {
-            $slug = $venue['slug'] ?? null;
-            if (! empty($slug)) {
-                $this->storePreview($slug, $venue);
+        DB::transaction(function () use ($results): void {
+            foreach ($results as $venue) {
+                $slug = $venue['slug'] ?? null;
+                if (! empty($slug)) {
+                    $this->storePreview($slug, $venue);
+                }
             }
-        }
+        });
     }
 
     /**

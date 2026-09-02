@@ -1601,6 +1601,54 @@ class LiveSearchScoringTest extends TestCase
         $this->assertContains('Pho 813', $names);
     }
 
+    public function test_cuisine_match_stamp_credits_osm_description_and_place_types(): void
+    {
+        // spec-093: after OverpassService::normalizeResults seeds description/
+        // place_types from the cuisine/amenity tags, an on-cuisine-tagged OSM
+        // row with a non-matching name reaches the 0.5 tier (was 0.0) — and the
+        // cuisine-relevance filter keeps it instead of rival-dropping it.
+        $this->seedCuisine('Thai', 'thai');
+
+        $service = $this->makeServiceWithVenues([
+            'overpass' => [
+                [
+                    'name' => 'Siam Palace',
+                    'source' => 'overpass',
+                    'lat' => 30.65,
+                    'lng' => -88.20,
+                    'description' => 'thai;asian restaurant',
+                    'place_types' => ['Restaurant'],
+                ],
+                [
+                    'name' => 'Casa Taco',
+                    'source' => 'overpass',
+                    'lat' => 30.67,
+                    'lng' => -88.19,
+                    'description' => 'mexican taqueria',
+                    'place_types' => ['Restaurant'],
+                ],
+                [
+                    // Amenity-only OSM row: no cuisine tag, so no on- or rival-
+                    // signal — it must survive as ambiguous with a 0.0 stamp.
+                    'name' => 'Garden Grill',
+                    'source' => 'overpass',
+                    'lat' => 30.66,
+                    'lng' => -88.18,
+                    'description' => 'restaurant',
+                    'place_types' => ['Restaurant'],
+                ],
+            ],
+        ]);
+
+        $results = $service->search(30.6199783, -88.1967496, 'thai');
+        $byName = collect($results)->keyBy('name');
+
+        $this->assertArrayHasKey('Siam Palace', $byName, 'On-cuisine-tagged OSM row must survive the relevance filter (not rival-dropped).');
+        $this->assertGreaterThanOrEqual(0.5, (float) ($byName['Siam Palace']['cuisine_match'] ?? 0.0), 'Tagged-but-vaguely-named OSM row must reach the 0.5 tier (was 0.0).');
+        $this->assertArrayNotHasKey('Casa Taco', $byName, 'Genuinely off-cuisine-tagged OSM row must still be rival-dropped (spec-028, now driven by its surfaced tag).');
+        $this->assertSame(0.0, (float) ($byName['Garden Grill']['cuisine_match'] ?? null), 'Ambiguous amenity-only OSM row must stay at 0.0 (no false positive from the description/place_types seeding).');
+    }
+
     /**
      * The El Paso "Middle Eastern" regression: OSM tags are keyword-level
      * (cuisine=mediterranean / arab / kebab), not seeded slugs, so the stamp
