@@ -3,7 +3,7 @@
 > Living snapshot for Claude (and humans) picking up this project. Read this
 > together with `constitution.md` and `backlog.md` at session start. Detailed
 > per-spec history lives in `history.md` (one-line-per-spec log) and
-> `history/` (deep-dive writeups). Updated: 2026-08-22.
+> `history/` (deep-dive writeups). Updated: 2026-09-02.
 >
 > **This file was trimmed 2026-08-22** — it had grown to 564 lines of
 > spec-by-spec narrative (specs 001–103) that duplicated `history.md`. The
@@ -110,16 +110,33 @@ negligible (3/40,814 rows each, 0.0%). One apparent anomaly (91 rated rows at
 the persisted-score floor) traced to score:run staleness, not a bug — confirmed
 via `score_breakdown` (no `quality` entry at scoring time), self-heals next run.
 
+## 2026-09-02 — specs 093, 095–100 merged and shipped (PRs #160–166)
+
+The remainder of the 2026-06-30 audit wave (101–103 still queued) — each had
+already been built on its own `opencode-loop` branch off the 2026-09-01
+master point; this session's work was merging all 7 (plus one unrelated docs
+PR, #156) into master one at a time in spec-number order, with CI + a deploy
++ a live-verify pass between each merge, per the binding process below.
+
+Full per-spec summary in `history.md`'s 2026-09-02 entry and
+`.specify/memory/backlog.md`'s "✅ Done (2026-09-02)" section (includes the
+merge-conflict details — a shared `ITERATION_NOTES.md` conflict on 5 of the
+6 independent branches, and a real code conflict on spec-100 where its
+extracted `LiveSearchSnapshotService` was missing spec-095's `DB::transaction`
+batching fix that landed on master after 100's branch was cut; ported the fix
+into the extraction during the merge). End state: 1129 PHPUnit (4856
+assertions), 1079 vitest, PHPStan 0, Pint clean, master at `2b1f28e`, zero
+open PRs, all deploys green and live-verified (including a headless-browser
+repro of the spec-099 fast-back race and a droplet log check post-deploy for
+spec-100, the highest-risk item).
+
 ## In-flight work (check before starting anything new)
 
-As of 2026-08-22 the working tree has **uncommitted** work on branch
-`feat/bundle-size-cwv` (an `opencode-loop` goal: measure Lighthouse/CWV on the
-homepage + key routes, trim the largest bundles, confirm no regression). See
-`ITERATION_NOTES.md` at the repo root for the live scratch log (state + next
-step + gotchas) — it is the authoritative in-flight state, more current than
-this file. Always check `git status` + `ITERATION_NOTES.md` before starting a
-new backlog goal; don't stack a new loop branch on top of unfinished/uncommitted
-work.
+Nothing in flight as of 2026-09-02 — working tree clean, zero open PRs, local
+`master` fast-forwarded to `origin/master`. Always check `git status` +
+`ITERATION_NOTES.md` before starting a new backlog goal; don't stack a new
+loop branch on top of unfinished/uncommitted work. Next queued work is specs
+101–103 (see `backlog.md`).
 
 ## Binding process rules (opencode-loop workflow)
 

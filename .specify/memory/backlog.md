@@ -707,24 +707,105 @@ distance filter**; CI + deploy green.
 
 ## Queued (2026-09-01) — audit-wave specs, then a full-feature audit
 
-### Next up: specs 093–103 (PROPOSED, from the 2026-06-30 fresh-audit wave)
+### ✅ Done (2026-09-02) — specs 093, 095–100
 
-These exist as files in `specs/` but were never pulled into this file's
-tracked queue. 092 and 094 from the same wave already shipped (see
-`history.md`/`MEMORY.md`) — everything else in the wave is still open, in
-spec-number order:
+Each ran as its own `opencode-loop` branch off the 2026-09-01 master point,
+then merged in spec-number order (093 → 095 → 096 → 097 → 098 → 099 → 100),
+one PR at a time, with CI + a deploy + a live-verify pass between each merge
+per the binding process. PRs #160–166. Since the branches were independent
+(not stacked), every merge after the first needed `origin/master` merged
+back in first — that surfaced a shared-file conflict in `ITERATION_NOTES.md`
+on 5 of the 6 (both branches editing the same scratch log; resolved by
+concatenating each branch's own entry ahead of the already-merged history)
+and one real code conflict on **100**: its branch had independently
+extracted `RestaurantController`'s snapshot-caching into
+`LiveSearchSnapshotService` from the *pre-095* controller, so master's
+spec-095 `DB::transaction` batching fix (added to the same code after 100's
+branch was cut) was missing from the extracted service. Ported the
+transaction wrap into `LiveSearchSnapshotService::storePreviews()` during
+the merge so both fixes survived intact — confirmed via the full suite
+(1129 backend, 1079 vitest), PHPStan 0, Pint clean.
 
-1. **093 — OSM `cuisine=` tag → cuisine_match stamp** (P2, ranking fidelity)
-2. **095 — Read-path DB perf: indexes + targeted queries** (P2, performance)
-3. **096 — Scheduled-job observability** (P2, infra/observability)
-4. **097 — Config + regex drift-guards** (P2, quota/ranking-surface insurance)
-5. **098 — Frontend a11y + motion + polish** (P3, frontend grab-bag)
-6. **099 — DetailMap Leaflet leak** (P2, frontend memory)
-7. **100 — Architecture cleanup** (cache unification, snapshot service,
-   dedup, dead code) (P3, code health)
-8. **101 — Ranking sort parity + edge cases** (P3, ranking fidelity)
-9. **102 — Test-coverage backfill** (P2/P3, regression-guard gaps)
-10. **103 — Infra defense-in-depth** (P3, infra/security hardening grab-bag)
+1. **093 — OSM `cuisine=` tag → cuisine_match stamp** (PR #160): Overpass
+   rows were setting `description => null`, so the OSM `cuisine=` tag —
+   free, high-signal — never reached `stampCuisineMatchStrength`. Now seeds
+   `description`/`place_types` from the OSM cuisine/amenity tags via a new
+   `buildDescription()` helper; a venue tagged `cuisine=thai` but named e.g.
+   "Siam Palace" now reaches the 0.5 type+description match tier instead of
+   0.0. Recall-safe (untagged rows unchanged); zero SerpApi quota impact.
+2. **095 — Read-path DB perf** (PR #161): standalone index on `cuisines.slug`
+   (was full-scanned on every `?cuisine=` lookup) + indexes on
+   `external_api_cache.expires_at`/`fetched_at`; `snapshotLiveResults()`'s
+   per-venue cache-write loop wrapped in one `DB::transaction` (N commits →
+   1); `Restaurant::scopeNearby()` trimmed from `select *` to an explicit
+   column list (drops heavy unused `photos`/`score_breakdown` JSON on every
+   bbox candidate, keeps every field scoring/cards need).
+3. **096 — Scheduled-job observability** (PR #162): `uptime:canary` checked
+   DB/upstream-provider connectivity/SerpApi quota but never exercised the
+   app's own live search API, so a read-path regression (e.g. in
+   `RestaurantController`/`scopeNearby`/scoring) would pass the canary while
+   genuinely down. Added a `self_api` check — an internal GET of the same
+   known-good query `deploy.yml`'s own verify step uses — soft-failing to
+   `degraded` (never `critical`) on a non-200 or empty result.
+4. **097 — Config + regex drift-guards** (PR #163): two additive test files,
+   zero runtime change. `CuisineKeywordRegexGuardTest` compiles every
+   cuisine's `CuisineMatcher` pattern (on + rival) and asserts
+   `preg_last_error() === PREG_NO_ERROR`, naming the offending slug on
+   failure — catches a future malformed keyword before it silently breaks
+   matching. `RestaurantFinderConfigInvariantTest` walks
+   `config/restaurant-finder.php`'s 14 operational sections (excludes the
+   `cities`/`city_states`/`cuisines` data catalogs) asserting kill-switches
+   are bool, weights/fractions/thresholds are in `[0,1]`, limits are
+   positive ints.
+5. **098 — Frontend a11y + motion + polish** (PR #164): `SubcategoryCard`
+   keyboard-operable (`role=button`/`tabindex`/`keydown`); global
+   `prefers-reduced-motion` coverage in `app.css` (previously only
+   `Welcome.vue` had it via `transitions.css`); `StarRating` now
+   distinguishes a 4.9 from a 4.3 (frac > 0.75 → full star, not the same
+   fixed 50% half); `CardGallery` carousel gets a screen-reader photo-count
+   indicator; `CuisinePicker`'s non-null assertions replaced with explicit
+   guards; `LocationPicker`'s debounce timer cleared on unmount;
+   `openWebsite()` no longer mangles non-http schemes (`ftp://`/`tel:`);
+   `useFavorites.toggle()` gets a per-restaurant in-flight guard + a
+   distinct 401 (session-expired) branch.
+6. **099 — DetailMap Leaflet leak** (PR #165): `onMounted`'s
+   `setTimeout(initMap, 200)` was never cleared on unmount or before the
+   lat/lng watch re-armed it — a fast back-navigation within 200ms of mount
+   could run `initMap()` after `destroyMap()`, orphaning a Leaflet instance
+   on a departed DOM node. Fixed with a tracked `initTimer` cleared in both
+   places, plus a `document.contains()` guard at the top of `initMap()`.
+   **Live-verified**: simulated the exact race in a headless browser
+   (navigate → navigate → immediate `goBack`) — zero console errors.
+7. **100 — Architecture cleanup** (PR #166, narrowed/corrected scope — the
+   original spec's claims about `buildCacheKey`/`lib/api.ts` being dead code
+   were false against current code, and merging
+   `LiveSearchService`/`RestaurantEnrichmentService`'s fetch-orchestration
+   was deferred as too high-risk): unified `ExternalApiCache`'s two parallel
+   cache APIs by migrating `WikidataService` (the last `get()`/`put()`
+   caller) to `storeByKey()`/`findByKey()`, then deleted `get()`/`put()`;
+   extracted `RestaurantController`'s 3 hand-built `ExternalApiCache`
+   read/write sites into `App\Services\LiveSearchSnapshotService`; deleted
+   the no-op migration `..._141940_...` (superseded by its sibling) and the
+   4 free-source services' dead `search()` methods + 3 of 4 `fetchRaw()`
+   methods (zero callers) — `SerpApiService::fetchRaw()` was kept since its
+   only callers were the exhaustion/quota-guard test suites, but those 7
+   call sites were ported to drive the same detection logic through the
+   pool/search path instead.
+
+**Live-verified across the batch:** homepage/search/detail-page smoke
+checks after every deploy; the exact query `uptime:canary`'s new self-check
+uses (096); a headless-browser fast-back race repro for the DetailMap fix
+(099); droplet Laravel/scheduler/SSR logs checked clean post-deploy for the
+highest-risk change (100). Master at `2b1f28e`, zero open PRs.
+
+**Current floor (2026-09-02):** 1129 PHPUnit (4856 assertions) + 1079
+vitest; PHPStan level 8 zero baseline; pint clean; CI + deploy green.
+
+### Next up: specs 101–103 (PROPOSED, from the 2026-06-30 fresh-audit wave)
+
+1. **101 — Ranking sort parity + edge cases** (P3, ranking fidelity)
+2. **102 — Test-coverage backfill** (P2/P3, regression-guard gaps)
+3. **103 — Infra defense-in-depth** (P3, infra/security hardening grab-bag)
 
 Run these through `opencode-loop` per the binding process at the top of this
 file, one goal per PR, in this order (each already has full context in its
