@@ -798,14 +798,36 @@ uses (096); a headless-browser fast-back race repro for the DetailMap fix
 (099); droplet Laravel/scheduler/SSR logs checked clean post-deploy for the
 highest-risk change (100). Master at `2b1f28e`, zero open PRs.
 
-**Current floor (2026-09-02):** 1129 PHPUnit (4856 assertions) + 1079
+**Current floor (2026-09-02):** 1136 PHPUnit (4896 assertions) + 1079
 vitest; PHPStan level 8 zero baseline; pint clean; CI + deploy green.
 
-### Next up: specs 101–103 (PROPOSED, from the 2026-06-30 fresh-audit wave)
+### ✅ Done (2026-09-02) — spec-101
 
-1. **101 — Ranking sort parity + edge cases** (P3, ranking fidelity)
-2. **102 — Test-coverage backfill** (P2/P3, regression-guard gaps)
-3. **103 — Infra defense-in-depth** (P3, infra/security hardening grab-bag)
+**101 — Ranking sort parity + edge cases** (PR #167, opencode-loop, 5
+iterations, ALL_DONE): item 6 (Overpass name-fallback gate) skipped as moot
+— already removed by spec-097. 5 items fixed: (1) preview:{slug} snapshots
+now strip `score_breakdown`/`distance` before storing so a venue surfaced by
+two differently-scoped searches doesn't show a stale value from whichever
+search rendered last (Option B — URL contract unchanged); (2) DB-only rating
+sort now credibility-buckets low-review-count ratings (parity with
+`VenuePipeline::sortVenues`'s live-path logic), honoring
+`ranking.rating_sort_credibility` — price-normalizer parity scoped out (no
+numeric `price_level` column exists, only string `price_range`); (3)
+`min_score` floor now applies only under `?sort=best_match` (`max_results`
+cap still applies to every mode); (4) per-IP SerpApi limiter now debits only
+on a fetch that didn't hit `recordFailedCall()` — an outage no longer pins a
+client to cache-only for the hour; (5) `GeolocationService::
+resolveCoordinates()` range-validates explicit `?lat=`/`?lng=` (falls
+through on out-of-range input) + `Restaurant::scopeNearby()` clamps latitude
+before the bbox `cos()` calc. PHPUnit 1129→1136. Merged + deployed +
+live-verified (home 200; API graceful 200 on pole coords `lat=95&lng=200`
+vs. a hang; valid-coords API returns real data; `?sort=rating`/`?sort=
+nearest` both 200).
+
+### Next up: specs 102–103 (PROPOSED, from the 2026-06-30 fresh-audit wave)
+
+1. **102 — Test-coverage backfill** (P2/P3, regression-guard gaps)
+2. **103 — Infra defense-in-depth** (P3, infra/security hardening grab-bag)
 
 Run these through `opencode-loop` per the binding process at the top of this
 file, one goal per PR, in this order (each already has full context in its
