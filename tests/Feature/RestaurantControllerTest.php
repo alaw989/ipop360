@@ -683,6 +683,36 @@ class RestaurantControllerTest extends TestCase
         $this->assertCount(3, $response->json('data'));
     }
 
+    public function test_api_live_result_shape_includes_rated_row_fields(): void
+    {
+        // spec-102: apiIndex's live branch must expose the full rated-row shape —
+        // rating, source, score breakdown and popularity score — not just the
+        // envelope (is_live/total/pagination) asserted above.
+        $this->bindLiveSearchResults([
+            $this->liveRow([
+                'name' => 'Rated Venue',
+                'slug' => 'rated-venue',
+                'google_rating' => 4.5,
+                'google_review_count' => 500,
+                'source' => 'serpapi',
+            ]),
+        ]);
+
+        $response = $this->get('/api/restaurants?lat=30.0&lng=-88.0');
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.0.google_rating', 4.5);
+        $response->assertJsonPath('data.0.source', 'serpapi');
+
+        $breakdown = $response->json('data.0.score_breakdown');
+        $this->assertIsArray($breakdown);
+        $this->assertArrayHasKey('signals', $breakdown);
+        $this->assertArrayHasKey('total', $breakdown);
+        $this->assertNotEmpty($breakdown['signals']);
+
+        $this->assertIsNumeric($response->json('data.0.popularity_score'));
+    }
+
     public function test_api_live_pagination_slices_pages_with_next_url(): void
     {
         // spec-068: 25 results → page 1 = 20 rows + next_page_url(page=2); page 2 = 5, next null.
