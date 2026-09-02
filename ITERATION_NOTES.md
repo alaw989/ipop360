@@ -16,9 +16,10 @@ Fix spec-101 (specs/101-ranking-sort-parity-and-edges.md), NARROWED + CORRECTED 
 General constraints: this is backend-only (PHP), do not touch resources/js/. Run the full backend suite (composer test) and PHPStan after every meaningful change to catch regressions early — do not wait until the end. If any of the 5 items turns out to be more invasive or riskier than described here once you're in the code (especially item 2's SQL translation or item 4's success-signal plumbing), it's fine to implement a smaller/more conservative version that still resolves the core correctness gap — note in ITERATION_NOTES.md exactly what you did and why, the same way spec-100's loop documented its scope corrections. Prefer leaving something unchanged over a risky guess.
 
 ## State
-Done item 5: GeolocationService::resolveCoordinates() rejects out-of-range lat/lng (falls through to session/IP) and Restaurant::scopeNearby() clamps bbox lat to ±89.9. Tests added + passing (GeolocationServiceTest, RestaurantNearbyScopeTest), PHPStan clean, pint clean.
-Next: pick one of items 1–4 (item 1 preview scope-bleed is self-contained).
-Gotcha: cos() never hits exactly 0 in float math, so the bbox bug manifests as ~4e15 bounds (full scan), not a crash — clamp verified via whereBetween longitude bounds < 1000.
+Done items 5 + 1. Item 1: LiveSearchSnapshotService::storePreview() now unsets score_breakdown/distance before storing under preview:{slug}, so the detail page renders null instead of whichever search wrote last. Test added (store_preview_strips_scope_dependent_fields), pint+PHPStan clean.
+Next: pick item 2 (sort parity SQL) or item 3 (boundResults min_score) or item 4 (SerpApi limiter debit timing).
+Gotcha: storePreviews() delegates to storePreview(), so stripping in storePreview covers both write paths — no controller change needed. popularity_score is NOT stripped (stable field).
 
 ## Log
+- Item 1: strip score_breakdown/distance in storePreview. 9 tests pass, pint+PHPStan clean.
 - Item 5: lat/lng range validation + scopeNearby bbox clamp. 23 tests pass, PHPStan clean.
