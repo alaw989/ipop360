@@ -43,4 +43,23 @@ describe('SubcategoryCard', () => {
         await wrapper.find('[data-slot="card"]').trigger('click')
         expect(wrapper.emitted('select')![0]).toEqual(['sushi'])
     })
+
+    it('is keyboard-operable: exposes button role and tabindex', () => {
+        const wrapper = mount(SubcategoryCard, { props: { cuisine } })
+        const card = wrapper.find('[data-slot="card"]')
+        expect(card.attributes('role')).toBe('button')
+        expect(card.attributes('tabindex')).toBe('0')
+    })
+
+    it('emits select on Enter', async () => {
+        const wrapper = mount(SubcategoryCard, { props: { cuisine } })
+        await wrapper.find('[data-slot="card"]').trigger('keydown.enter')
+        expect(wrapper.emitted('select')![0]).toEqual(['italian'])
+    })
+
+    it('emits select on Space', async () => {
+        const wrapper = mount(SubcategoryCard, { props: { cuisine } })
+        await wrapper.find('[data-slot="card"]').trigger('keyup.space')
+        expect(wrapper.emitted('select')![0]).toEqual(['italian'])
+    })
 })

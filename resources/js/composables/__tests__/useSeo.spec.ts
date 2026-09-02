@@ -116,6 +116,15 @@ describe('useSeo canonical-URL stripping', () => {
         expect(canonical).toBe('https://ipop360.test/');
     });
 
+    it('clears the URL fragment (hash) from the canonical URL', () => {
+        const { canonical } = useSeo({
+            title: 'T',
+            description: 'D',
+            url: 'https://ipop360.test/casa?cuisine=thai#reviews',
+        });
+        expect(canonical).toBe('https://ipop360.test/casa?cuisine=thai');
+    });
+
     it('honors an explicit noindex flag', () => {
         const { noindex } = useSeo({ title: 'T', description: 'D', noindex: true });
         expect(noindex).toBe(true);

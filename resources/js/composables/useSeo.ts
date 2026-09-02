@@ -24,6 +24,7 @@ export function useSeo(options: SeoOptions) {
             params.set('lng', u.searchParams.get('lng')!);
         }
         u.search = params.toString();
+        u.hash = '';
         canonicalUrl = u.toString();
     } catch {
         // Keep raw URL on parse error

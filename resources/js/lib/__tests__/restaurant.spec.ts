@@ -41,6 +41,27 @@ describe('openWebsite (scheme normalization + window.open)', () => {
         openWebsite('https://example.com');
         expect(open).toHaveBeenCalledWith('https://example.com', '_blank');
     });
+
+    it('leaves a non-http scheme untouched (ftp)', () => {
+        const open = vi.fn();
+        vi.stubGlobal('open', open);
+        openWebsite('ftp://host.example/file');
+        expect(open).toHaveBeenCalledWith('ftp://host.example/file', '_blank');
+    });
+
+    it('leaves a non-http scheme untouched (tel)', () => {
+        const open = vi.fn();
+        vi.stubGlobal('open', open);
+        openWebsite('tel:+15125551234');
+        expect(open).toHaveBeenCalledWith('tel:+15125551234', '_blank');
+    });
+
+    it('leaves a non-http scheme untouched (mailto)', () => {
+        const open = vi.fn();
+        vi.stubGlobal('open', open);
+        openWebsite('mailto:owner@example.com');
+        expect(open).toHaveBeenCalledWith('mailto:owner@example.com', '_blank');
+    });
 });
 
 describe('callPhone (tel: link)', () => {
