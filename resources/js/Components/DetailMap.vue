@@ -33,9 +33,10 @@ const props = defineProps<{
 
 const mapContainer = ref<HTMLElement | null>(null)
 let mapInstance: any = null
+let initTimer: ReturnType<typeof setTimeout> | null = null
 
 async function initMap() {
-  if (!mapContainer.value || props.lat == null || props.lng == null) return
+  if (!mapContainer.value || !document.contains(mapContainer.value) || props.lat == null || props.lng == null) return
 
   const L = await loadLeaflet()
 
@@ -87,17 +88,21 @@ function openDirections() {
 }
 
 onMounted(() => {
-  setTimeout(initMap, 200)
+  initTimer = setTimeout(initMap, 200)
 })
 
-onUnmounted(destroyMap)
+onUnmounted(() => {
+  if (initTimer) clearTimeout(initTimer)
+  destroyMap()
+})
 
 watch(
   () => [props.lat, props.lng] as const,
   () => {
+    if (initTimer) clearTimeout(initTimer)
     destroyMap()
     if (props.lat != null && props.lng != null) {
-      setTimeout(initMap, 200)
+      initTimer = setTimeout(initMap, 200)
     }
   }
 )

@@ -31,10 +31,14 @@ vi.mock('leaflet', () => ({
 
 vi.mock('leaflet/dist/leaflet.css', () => ({}))
 
+const wrappers: any[] = []
+
 async function mountComponent(props: Record<string, unknown> = {}) {
     const wrapper = mount(DetailMap, {
         props: { name: 'Test Place', ...props },
+        attachTo: document.body,
     })
+    wrappers.push(wrapper)
     vi.advanceTimersByTime(200)
     await flushPromises()
     await wrapper.vm.$nextTick()
@@ -49,6 +53,10 @@ describe('DetailMap', () => {
     })
 
     afterEach(() => {
+        for (const wrapper of wrappers) {
+            if (wrapper.element.isConnected) wrapper.unmount()
+        }
+        wrappers.length = 0
         vi.useRealTimers()
     })
 
@@ -219,5 +227,38 @@ describe('DetailMap', () => {
         expect(container.classes()).toContain('h-72')
         expect(container.classes()).toContain('sm:h-96')
         expect(container.classes()).toContain('w-full')
+    })
+
+    it('does not initialize the map when unmounted before the init timer fires', async () => {
+        const wrapper = mount(DetailMap, {
+            props: { name: 'Test Place', lat: 30, lng: -97 },
+            attachTo: document.body,
+        })
+        wrapper.unmount()
+        vi.advanceTimersByTime(200)
+        await flushPromises()
+        expect(leafletMap).not.toHaveBeenCalled()
+    })
+
+    it('does not initialize the map when the container is removed from the DOM', async () => {
+        const wrapper = mount(DetailMap, {
+            props: { name: 'Test Place', lat: 30, lng: -97 },
+            attachTo: document.body,
+        })
+        wrapper.find('.h-72').element.remove()
+        vi.advanceTimersByTime(200)
+        await flushPromises()
+        expect(leafletMap).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('clears the pending init timer when unmounting after a lat/lng change', async () => {
+        const wrapper = await mountComponent({ lat: 30, lng: -97 })
+        leafletMap.mockClear()
+        await wrapper.setProps({ lat: 42, lng: -71 })
+        wrapper.unmount()
+        vi.advanceTimersByTime(200)
+        await flushPromises()
+        expect(leafletMap).not.toHaveBeenCalled()
     })
 })
