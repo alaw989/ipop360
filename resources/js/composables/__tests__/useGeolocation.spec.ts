@@ -167,6 +167,22 @@ describe('useGeolocation', () => {
             expect(result.lng.value).toBe(-74.0);
             expect(result.location.value).toEqual({ city: null, state: null });
             expect(setLocation).not.toHaveBeenCalled();
+            expect(result.geolocationError.value).toBe('Could not pinpoint your exact city. Showing approximate results.');
+        });
+
+        it('does not set a soft geolocationError when geocode returns an empty result', async () => {
+            const { get } = await import('@/lib/api');
+            vi.mocked(get).mockResolvedValueOnce({});
+
+            const { result } = mountComposable(vi.fn());
+
+            result.detectLocation();
+            fireSuccess({ coords: { latitude: 40.7, longitude: -74.0 } } as GeolocationPosition);
+
+            await vi.waitFor(() => {
+                expect(result.detectingLocation.value).toBe(false);
+            });
+            expect(result.geolocationError.value).toBeNull();
         });
 
         it('skips setLocation when geocode returns empty result', async () => {

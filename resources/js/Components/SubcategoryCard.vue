@@ -19,7 +19,11 @@ defineEmits<{
 <template>
     <Card
         class="cursor-pointer ring-0 border border-border shadow-sm transition-all hover:shadow-lg hover:-translate-y-1"
+        role="button"
+        tabindex="0"
         @click="$emit('select', cuisine.slug)"
+        @keydown.enter="$emit('select', cuisine.slug)"
+        @keyup.space="$emit('select', cuisine.slug)"
     >
         <CardContent class="flex items-center gap-4 p-4">
             <span class="text-3xl">{{ cuisine.icon }}</span>

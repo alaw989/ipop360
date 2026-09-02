@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
@@ -84,6 +84,10 @@ watch(query, (val) => {
             searching.value = false
         }
     }, 300)
+})
+
+onUnmounted(() => {
+    if (debounceTimer) clearTimeout(debounceTimer)
 })
 
 function selectResult(result: CityResult) {

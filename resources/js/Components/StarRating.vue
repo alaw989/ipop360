@@ -12,10 +12,12 @@ const props = defineProps<{
 const parsedRating = computed(() => Number(props.rating));
 
 const starTypes = computed(() => {
-    const rating = parsedRating.value;
     const max = props.max ?? 5;
-    const full = Math.floor(rating);
-    const half = rating - full >= 0.25 && full < max;
+    const rating = Math.min(parsedRating.value, max);
+    const fullBase = Math.floor(rating);
+    const frac = rating - fullBase;
+    const full = frac > 0.75 ? fullBase + 1 : fullBase;
+    const half = frac > 0.25 && frac <= 0.75 && full < max;
     const types: Array<'full' | 'half' | 'empty'> = [];
     for (let i = 0; i < max; i++) {
         if (i < full) types.push('full');
