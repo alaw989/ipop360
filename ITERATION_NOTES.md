@@ -16,12 +16,13 @@ Fix spec-101 (specs/101-ranking-sort-parity-and-edges.md), NARROWED + CORRECTED 
 General constraints: this is backend-only (PHP), do not touch resources/js/. Run the full backend suite (composer test) and PHPStan after every meaningful change to catch regressions early — do not wait until the end. If any of the 5 items turns out to be more invasive or riskier than described here once you're in the code (especially item 2's SQL translation or item 4's success-signal plumbing), it's fine to implement a smaller/more conservative version that still resolves the core correctness gap — note in ITERATION_NOTES.md exactly what you did and why, the same way spec-100's loop documented its scope corrections. Prefer leaving something unchanged over a risky guess.
 
 ## State
-Done items 5 + 1 + 3 + 4. Item 4: per-IP SerpApi limiter now debits only on a SUCCESSFUL fetch — allowLiveSerpApiFetch() keeps tooManyAttempts/circuit-breaker checks but no longer hits; debitLiveSerpApiMiss() fires from fetchSerpApiUnderLock() after SerpApiService::consumePoolResponses() reports success via lastConsumePoolSucceeded(). Test added (test_failed_fetch_does_not_debit_per_ip_limiter), pint+PHPStan clean.
-Next: item 2 (sort parity SQL) — last remaining item.
-Gotchas: search() calls sortVenues(..., true) with hasCoords hardcoded true (no nearest-without-coords fallback to replicate). Don't call Http::fake() twice in one test — a second call doesn't replace the first for pool requests; use a single closure-based fake.
+Done: all 5 items (1, 3, 4, 5 + now 2). Item 2: DB-path rating sort now credibility-buckets via `CASE ... rating-10` honoring ranking.rating_sort_credibility kill-switch; price sub-part SKIPPED — restaurants table has no price_level column (only string price_range). Also fixed item-4's inherited test regression (LiveSearchScoringTest mocks lacked lastConsumePoolSucceeded expectation → 48 failures); full suite now green (1136 passed), pint+PHPStan clean.
+Next: none — all goal items complete.
+Gotchas: search() calls sortVenues(..., true) with hasCoords hardcoded true. Don't call Http::fake() twice in one test; use a single closure-based fake.
 
 ## Log
-- Item 4: per-IP SerpApi limiter debits only on success. 8 tests pass in SerpApiQuotaGuardTest, pint+PHPStan clean.
-- Item 3: min_score floor scoped to best_match. 67 tests pass in LiveSearchScoringTest, pint+PHPStan clean.
-- Item 1: strip score_breakdown/distance in storePreview. 9 tests pass, pint+PHPStan clean.
-- Item 5: lat/lng range validation + scopeNearby bbox clamp. 23 tests pass, PHPStan clean.
+- Item 2: DB-path rating sort credibility bucketing + kill-switch (price skipped, no price_level column). 3 new tests in RestaurantControllerTest.
+- Item-4 regression fix: LiveSearchScoringTest mocks now expect lastConsumePoolSucceeded → suite green (1136 passed).
+- Item 4: per-IP SerpApi limiter debits only on success. 8 tests in SerpApiQuotaGuardTest.
+- Item 3: min_score floor scoped to best_match. 67 tests in LiveSearchScoringTest.
+- Item 1: strip score_breakdown/distance in storePreview. 9 tests.

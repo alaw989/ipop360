@@ -362,6 +362,9 @@ class LiveSearchScoringTest extends TestCase
             $mock->shouldReceive('consumePoolResponses')->andReturn([
                 ['name' => "{$source} venue", 'source' => $source, 'lat' => $lat, 'lng' => -122.41],
             ]);
+            if ($source === 'serpapi') {
+                $mock->shouldReceive('lastConsumePoolSucceeded')->andReturn(true);
+            }
             $mocks[$source] = $mock;
             $i++;
         }
@@ -440,6 +443,9 @@ class LiveSearchScoringTest extends TestCase
                 new RequestSpec(method: 'GET', url: "https://example.test/{$source}", timeout: 5.0),
             ]);
             $mock->shouldReceive('consumePoolResponses')->andReturn($venuesBySource[$source] ?? []);
+            if ($source === 'serpapi') {
+                $mock->shouldReceive('lastConsumePoolSucceeded')->andReturn(true);
+            }
             $mocks[$source] = $mock;
         }
 
