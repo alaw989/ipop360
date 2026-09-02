@@ -16,10 +16,11 @@ SKIP entirely (already done, confirmed on current master — do not re-touch): t
 General constraints: this goal touches BOTH backend (PHP/PHPUnit) and frontend (Vue/vitest) — that's expected, items 1/2/4 are backend-only, item 3 is frontend-only (plus reading the backend FavoriteController for the validation contract). Run both composer test and npm run test after every meaningful change, plus PHPStan for any PHP changes. This is test-coverage backfill, not a refactor pass — keep production-code changes minimal (item 3's small extraction, and item 4's possible one-line word-boundary fix, are the only production-code touches anticipated; everything else should be test-file-only). If anything turns out more invasive than described, prefer a smaller conservative version and note the deviation + why in ITERATION_NOTES.md, same as prior spec loops (100, 101) have done.
 
 ## State
-Done (1) (2) (3). (3): extracted merge-on-login out of app.ts into exported `mergeFavoritesOnLogin()` (new resources/js/lib/mergeFavoritesOnLogin.ts, returns Promise<void>, swallows errors same as before); app.ts now just imports + calls it. New spec resources/js/lib/__tests__/mergeFavoritesOnLogin.spec.ts (3 tests: split {ids,venues} POST + clear on success; keep storage on reject; no-op unauthed) uses vi.resetModules()+dynamic import to reset the module-level hasCheckedMerge flag. POST body matches FavoriteController::merge() validation (venues.*.name required, slug nullable, ids.* integer). vitest 1082 passed; vue-tsc clean.
-Next: item (4) denylist audit — (a) bizdata RECALL-protective survival test if not already covered, (b) NAME_NON_RESTAURANT_PATTERNS substring-collision audit ('wax' vs 'Waxahachie' etc.) + word-boundary fix if warranted.
+ALL 4 ITEMS DONE. (4a) already covered — VenuePipelineNonRestaurantTest already pins untyped bizdata food-name rows surviving (Southern Comfort Kitchen, The Bank Steakhouse). (4b) fixed: 'wax'/'waxing' moved to new NAME_NON_RESTAURANT_WORDS const matched via word-boundary regex (`\b…\b`) so 'wax' ⊂ 'Waxahachie' / "Waxy O'Connor's" no longer false-drops; legal/financial phrases stay substring so "bail bondsman" is still caught. Added 2 regression tests. Full suite 1140 passed; pint + phpstan clean.
+Next: none — goal complete.
 
 ## Log
+- 2026-09-02: Item (4) done — 'wax' word-boundary fix + regression tests (4a was already covered).
 - 2026-09-02: Item (3) done — mergeFavoritesOnLogin() extraction + round-trip spec.
 - 2026-09-02: Item (2) done — rated-row live response-shape test.
 - 2026-09-02: Item (1) done — Quality×Cuisine Match E2E test (weights 0.35/0.50, not spec's 0.60/0.15).
