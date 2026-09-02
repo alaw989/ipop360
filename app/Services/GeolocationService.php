@@ -24,12 +24,17 @@ class GeolocationService
      */
     public function resolveCoordinates(Request $request): ?array
     {
-        // Explicit URL params take priority
+        // Explicit URL params take priority, but only when they are in a sane
+        // geographic range. Out-of-range values are attacker/typo-controlled and
+        // would otherwise feed scopeNearby()'s cos() bbox math a lat near +-90,
+        // producing a huge/infinite longitude delta and a full-table scan.
         if ($request->filled('lat') && $request->filled('lng')) {
-            return [
-                'lat' => (float) $request->input('lat'),
-                'lng' => (float) $request->input('lng'),
-            ];
+            $lat = (float) $request->input('lat');
+            $lng = (float) $request->input('lng');
+
+            if ($lat >= -90.0 && $lat <= 90.0 && $lng >= -180.0 && $lng <= 180.0) {
+                return ['lat' => $lat, 'lng' => $lng];
+            }
         }
 
         // Check session for previously-stored coordinates

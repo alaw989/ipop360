@@ -123,4 +123,21 @@ class RestaurantNearbyScopeTest extends TestCase
         $this->assertGreaterThanOrEqual(0.0, $nearby->getAttribute('distance'));
         $this->assertLessThan(1.0, $nearby->getAttribute('distance'), 'A co-located venue must be well inside the radius');
     }
+
+    public function test_nearby_clamps_extreme_latitude_for_bbox_math(): void
+    {
+        $builder = Restaurant::query()->nearby(90.0, 0.0);
+
+        $longitudeBounds = collect($builder->getQuery()->wheres)
+            ->first(fn (array $where) => ($where['type'] ?? null) === 'between' && ($where['column'] ?? null) === 'longitude');
+
+        $this->assertNotNull($longitudeBounds, 'longitude bbox whereBetween must exist');
+
+        [$minLng, $maxLng] = $longitudeBounds['values'];
+
+        $this->assertTrue(is_finite($minLng), 'min longitude bound must be finite');
+        $this->assertTrue(is_finite($maxLng), 'max longitude bound must be finite');
+        $this->assertLessThan(1000.0, abs($minLng), 'min longitude bound must not blow out toward a full-table scan');
+        $this->assertLessThan(1000.0, abs($maxLng), 'max longitude bound must not blow out toward a full-table scan');
+    }
 }

@@ -51,6 +51,18 @@ class GeolocationServiceTest extends TestCase
         $this->assertEquals(['lat' => 37.7749, 'lng' => -122.4194], $coords);
     }
 
+    public function test_out_of_range_request_params_fall_through_to_session(): void
+    {
+        $request = Request::create('/test', 'GET', ['lat' => '95', 'lng' => '200']);
+        $session = app('session')->driver('array');
+        $request->setLaravelSession($session);
+        $session->put('user_coords', ['lat' => 40.7128, 'lng' => -74.0060]);
+
+        $coords = $this->service->resolveCoordinates($request);
+
+        $this->assertEquals(['lat' => 40.7128, 'lng' => -74.0060], $coords);
+    }
+
     public function test_ip_lookup_returns_null_for_localhost(): void
     {
         $this->assertNull($this->service->ipLookup('127.0.0.1'));
