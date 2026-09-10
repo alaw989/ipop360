@@ -722,10 +722,11 @@ class PopularityScoreService
      */
     private function computeCompleteness(Restaurant $restaurant): float
     {
+        $guessed = $this->aiGuessedFields($restaurant->ai_metadata ?? null, $restaurant->website_identity ?? null);
         $filled = 0;
 
         foreach (self::COMPLETENESS_FIELDS as $field) {
-            if ($this->isFilled($restaurant->{$field} ?? null)) {
+            if (! in_array($field, $guessed, true) && $this->isFilled($restaurant->{$field} ?? null)) {
                 $filled++;
             }
         }
@@ -741,15 +742,40 @@ class PopularityScoreService
      */
     private function computeCompletenessFromArray(array $restaurant): float
     {
+        $identity = $restaurant['website_identity'] ?? null;
+        $guessed = $this->aiGuessedFields($restaurant['ai_metadata'] ?? null, is_string($identity) ? $identity : null);
         $filled = 0;
 
         foreach (self::COMPLETENESS_FIELDS as $field) {
-            if ($this->isFilled($restaurant[$field] ?? null)) {
+            if (! in_array($field, $guessed, true) && $this->isFilled($restaurant[$field] ?? null)) {
                 $filled++;
             }
         }
 
         return round($filled / count(self::COMPLETENESS_FIELDS), 4);
+    }
+
+    /**
+     * Completeness fields whose current value is an AI guess rather than data:
+     * price_range/phone the AI wrote (legacy rows — EnrichRestaurantWithAi no
+     * longer writes either), and an AI-written website_url that was never
+     * identity-verified. A guess must not make a profile look complete.
+     *
+     * @return list<string>
+     */
+    private function aiGuessedFields(mixed $aiMetadata, ?string $websiteIdentity): array
+    {
+        if (is_string($aiMetadata)) {
+            $aiMetadata = json_decode($aiMetadata, true);
+        }
+        $updated = is_array($aiMetadata) && is_array($aiMetadata['fields_updated'] ?? null) ? $aiMetadata['fields_updated'] : [];
+
+        $guessed = array_values(array_intersect(['price_range', 'phone'], $updated));
+        if (in_array('website_url', $updated, true) && $websiteIdentity !== 'verified') {
+            $guessed[] = 'website_url';
+        }
+
+        return $guessed;
     }
 
     private function isFilled(mixed $value): bool

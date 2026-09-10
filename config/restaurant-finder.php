@@ -874,4 +874,29 @@ return [
         'index_cap' => (int) env('FAVORITES_INDEX_CAP', 200),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Data integrity (2026-09 overhaul)
+    |--------------------------------------------------------------------------
+    | Guards that stop inferred data being stored as fact.
+    |
+    | social_brand_min_restaurants: a social profile URL attached to at least
+    |   this many distinct restaurants is a corporate/brand account (every
+    |   Domino's location linking @dominos), not the venue's own — it is kept
+    |   but scoped 'brand' and never counts toward social_links_count.
+    | website_search_max_candidates: how many web-search results per restaurant
+    |   the website backfill identity-checks before giving up (each costs a page
+    |   fetch; only a 'verified' page is ever saved).
+    | website_verify_max_extra_pages: when a page names the restaurant but
+    |   shows no phone/street/city, this many contact/location sub-pages are
+    |   checked for the location evidence before judging it.
+    | website_verify_timeout: per-page fetch timeout (seconds) for identity checks.
+    */
+    'data_integrity' => [
+        'social_brand_min_restaurants' => (int) env('SOCIAL_BRAND_MIN_RESTAURANTS', 5),
+        'website_search_max_candidates' => (int) env('WEBSITE_SEARCH_MAX_CANDIDATES', 3),
+        'website_verify_max_extra_pages' => (int) env('WEBSITE_VERIFY_MAX_EXTRA_PAGES', 2),
+        'website_verify_timeout' => (int) env('WEBSITE_VERIFY_TIMEOUT', 8),
+    ],
+
 ];

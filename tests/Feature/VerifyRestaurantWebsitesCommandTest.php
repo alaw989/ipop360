@@ -2,357 +2,196 @@
 
 namespace Tests\Feature;
 
+use App\Models\FieldQuarantine;
 use App\Models\Restaurant;
+use App\Services\WebsiteIdentityVerifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\PendingCommand;
 use Tests\TestCase;
 
+/**
+ * restaurants:verify-websites identity-checks stored websites (was a HEAD
+ * liveness check that let dictionary pages, parked domains and other
+ * businesses' sites live forever) and quarantines — never silently nulls —
+ * the rejected ones.
+ */
 class VerifyRestaurantWebsitesCommandTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Config::set('restaurant-finder.website_scraper.ssrf_guard', false);
+    }
+
+    /** @param array<string, mixed> $pages */
+    private function fake(array $pages): void
+    {
+        Http::fake(array_merge($pages, ['*' => Http::response('', 404)]));
+    }
+
+    /** @param array<string, mixed> $overrides */
+    private function venue(array $overrides = []): Restaurant
+    {
+        return Restaurant::factory()->create(array_merge([
+            'is_active' => true,
+            'name' => 'Blue Heron Bistro',
+            'address' => '410 Harbor Way',
+            'city' => 'Tacoma',
+            'state' => 'WA',
+            'phone' => '2535550142',
+            'website_url' => 'https://blueheron.example/',
+            'website_verified_at' => null,
+        ], $overrides));
+    }
+
+    private function ownSite(): string
+    {
+        return '<html><head><title>Blue Heron Bistro | Tacoma</title></head><body><p>410 Harbor Way, Tacoma WA</p><p>(253) 555-0142</p></body></html>';
+    }
+
+    /** @param array<string, mixed> $options */
+    private function verifyCommand(array $options = []): PendingCommand
+    {
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:verify-websites', $options);
+
+        return $command->assertSuccessful();
+    }
 
     public function test_warns_when_no_restaurants_with_website_urls(): void
     {
         Http::fake();
 
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites');
-        $command->assertSuccessful()
-            ->expectsOutputToContain('No restaurants with website URLs to verify.');
-        $command->run();
+        $this->verifyCommand()->expectsOutputToContain('No restaurants with website URLs to verify.');
     }
 
-    public function test_counts_successful_response_as_verified(): void
+    public function test_own_site_is_verified_and_stamped(): void
     {
-        Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://example.com',
-        ]);
+        $restaurant = $this->venue();
+        $this->fake(['https://blueheron.example/' => Http::response($this->ownSite())]);
 
-        Http::fake([
-            'example.com' => Http::response('', 200),
-        ]);
+        $this->verifyCommand()->expectsOutputToContain('Done. 1 verified, 0 brand, 0 unconfirmed, 0 rejected, 0 skipped (unreachable).')->run();
 
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites');
-        $command->assertSuccessful()
-            ->expectsOutputToContain('Done. 1 alive, 0 dead, 0 skipped (transient).');
-        $command->run();
+        $fresh = $restaurant->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame(WebsiteIdentityVerifier::VERIFIED, $fresh->website_identity);
+        $this->assertNotNull($fresh->website_verified_at);
+        $this->assertSame('https://blueheron.example/', $fresh->website_url);
     }
 
-    public function test_404_response_counts_as_dead_and_nulls_url(): void
+    public function test_dictionary_site_is_quarantined_without_a_fetch(): void
     {
-        $restaurant = Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://example.com',
-        ]);
+        $restaurant = $this->venue(['website_url' => 'https://www.merriam-webster.com/dictionary/bistro']);
+        Http::fake();
 
-        Http::fake([
-            'example.com' => Http::response('', 404),
-        ]);
+        $this->verifyCommand()->expectsOutputToContain('0 verified, 0 brand, 0 unconfirmed, 1 rejected')->run();
 
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites');
-        $command->assertSuccessful()
-            ->expectsOutputToContain('Done. 0 alive, 1 dead, 0 skipped (transient).');
-        $command->run();
-
-        $restaurant->refresh();
-
-        $this->assertNull($restaurant->website_url);
+        $fresh = $restaurant->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNull($fresh->website_url);
+        $entry = FieldQuarantine::query()->where('restaurant_id', $restaurant->id)->firstOrFail();
+        $this->assertSame('website_url', $entry->field);
+        $this->assertSame('https://www.merriam-webster.com/dictionary/bistro', $entry->old_value);
+        $this->assertSame('website_blocked_domain', $entry->reason);
+        Http::assertNothingSent();
     }
 
-    public function test_410_response_counts_as_dead_and_nulls_url(): void
+    public function test_someone_elses_site_is_quarantined(): void
     {
-        $restaurant = Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://example.com',
-        ]);
+        $restaurant = $this->venue(['website_url' => 'https://plumber.example/']);
+        $this->fake(['https://plumber.example/' => Http::response(
+            '<html><head><title>Acme Plumbing</title></head><body>'.str_repeat('<p>Drains, water heaters and repipes since 1990.</p>', 10).'</body></html>'
+        )]);
 
-        Http::fake([
-            'example.com' => Http::response('', 410),
-        ]);
+        $this->verifyCommand()->expectsOutputToContain('1 rejected')->run();
 
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites');
-        $command->assertSuccessful()
-            ->expectsOutputToContain('Done. 0 alive, 1 dead, 0 skipped (transient).');
-        $command->run();
-
-        $restaurant->refresh();
-
-        $this->assertNull($restaurant->website_url);
+        $this->assertNull($restaurant->fresh()?->website_url);
+        $this->assertSame('website_no_name_evidence', FieldQuarantine::query()->where('restaurant_id', $restaurant->id)->value('reason'));
     }
 
-    public function test_non_dead_error_counts_as_skipped_and_keeps_url(): void
+    public function test_404_is_rejected_and_quarantined(): void
     {
-        $restaurant = Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://example.com',
-        ]);
+        $restaurant = $this->venue();
+        $this->fake(['https://blueheron.example/' => Http::response('', 404)]);
 
-        Http::fake([
-            'example.com' => Http::response('', 500),
-        ]);
+        $this->verifyCommand()->expectsOutputToContain('1 rejected')->run();
 
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites');
-        $command->assertSuccessful()
-            ->expectsOutputToContain('Done. 0 alive, 0 dead, 1 skipped (transient).');
-        $command->run();
-
-        $restaurant->refresh();
-
-        $this->assertSame('https://example.com', $restaurant->website_url);
+        $this->assertNull($restaurant->fresh()?->website_url);
+        $this->assertSame('website_dead_link', FieldQuarantine::query()->where('restaurant_id', $restaurant->id)->value('reason'));
     }
 
-    public function test_network_exception_counts_as_skipped_and_keeps_url(): void
+    public function test_server_error_and_network_failure_keep_the_url(): void
     {
-        $restaurant = Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://example.com',
+        $erroring = $this->venue(['website_url' => 'https://erroring.example/']);
+        $offline = $this->venue(['website_url' => 'https://offline.example/']);
+        $this->fake([
+            'https://erroring.example/' => Http::response('', 500),
+            'https://offline.example/' => fn () => throw new ConnectionException('timeout'),
         ]);
 
-        Http::fake([
-            'example.com' => fn () => throw new ConnectionException('timeout'),
-        ]);
+        $this->verifyCommand()->expectsOutputToContain('0 rejected, 2 skipped (unreachable).')->run();
 
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites');
-        $command->assertSuccessful()
-            ->expectsOutputToContain('Done. 0 alive, 0 dead, 1 skipped (transient).');
-        $command->run();
-
-        $restaurant->refresh();
-
-        $this->assertSame('https://example.com', $restaurant->website_url);
+        $freshErroring = $erroring->fresh();
+        $this->assertNotNull($freshErroring);
+        $this->assertSame('https://erroring.example/', $freshErroring->website_url);
+        $this->assertNotNull($freshErroring->website_verified_at);
+        $this->assertSame('https://offline.example/', $offline->fresh()?->website_url);
+        $this->assertSame(0, FieldQuarantine::query()->count());
     }
 
-    public function test_dry_run_does_not_null_dead_url(): void
+    public function test_dry_run_changes_nothing(): void
     {
         Log::shouldReceive('channel')->with('enrichment')->andReturnSelf();
         Log::shouldReceive('info')
             ->once()
             ->withArgs(fn (string $message, array $context) => $message === 'Website URL verification complete' && ($context['dry_run'] ?? false) === true);
+        Log::shouldReceive('debug');
 
-        $restaurant = Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://example.com',
-        ]);
+        $restaurant = $this->venue();
+        $this->fake(['https://blueheron.example/' => Http::response('', 404)]);
 
-        Http::fake([
-            'example.com' => Http::response('', 404),
-        ]);
+        $this->verifyCommand(['--dry-run' => true])->expectsOutputToContain('1 rejected')->run();
 
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites', ['--dry-run' => true]);
-        $command->assertSuccessful()
-            ->expectsOutputToContain('Done. 0 alive, 1 dead, 0 skipped (transient).');
-        $command->run();
-
-        $restaurant->refresh();
-
-        $this->assertSame('https://example.com', $restaurant->website_url);
+        $this->assertSame('https://blueheron.example/', $restaurant->fresh()?->website_url);
+        $this->assertSame(0, FieldQuarantine::query()->count());
     }
 
-    public function test_excludes_inactive_restaurants(): void
+    public function test_excludes_inactive_null_and_empty_urls(): void
     {
-        Restaurant::factory()->create([
-            'is_active' => false,
-            'website_url' => 'https://example.com',
-        ]);
-
+        $this->venue(['is_active' => false]);
+        $this->venue(['website_url' => null]);
+        $this->venue(['website_url' => '']);
         Http::fake();
 
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites');
-        $command->assertSuccessful()
-            ->expectsOutputToContain('No restaurants with website URLs to verify.');
-        $command->run();
+        $this->verifyCommand()->expectsOutputToContain('No restaurants with website URLs to verify.')->run();
 
         Http::assertNothingSent();
     }
 
-    public function test_excludes_null_website_url(): void
+    public function test_limit_and_never_checked_first_ordering(): void
     {
-        Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => null,
-        ]);
+        $this->venue(['website_url' => 'https://stale.example/', 'website_verified_at' => now()->subDays(45)]);
+        $neverChecked = $this->venue();
+        $this->fake(['https://blueheron.example/' => Http::response($this->ownSite())]);
 
+        $this->verifyCommand(['--limit' => 1])->expectsOutputToContain('Done. 1 verified')->run();
+
+        $this->assertNotNull($neverChecked->fresh()?->website_verified_at);
+    }
+
+    public function test_recently_verified_rows_are_skipped_by_max_age(): void
+    {
+        $this->venue(['website_verified_at' => now()->subDays(5)]);
         Http::fake();
 
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites');
-        $command->assertSuccessful()
-            ->expectsOutputToContain('No restaurants with website URLs to verify.');
-        $command->run();
+        $this->verifyCommand(['--max-age-days' => 30])->expectsOutputToContain('No restaurants with website URLs to verify.')->run();
 
         Http::assertNothingSent();
-    }
-
-    public function test_excludes_empty_website_url(): void
-    {
-        Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => '',
-        ]);
-
-        Http::fake();
-
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites');
-        $command->assertSuccessful()
-            ->expectsOutputToContain('No restaurants with website URLs to verify.');
-        $command->run();
-
-        Http::assertNothingSent();
-    }
-
-    public function test_processes_multiple_restaurants_with_mixed_results(): void
-    {
-        Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://alive.com',
-        ]);
-        $deadRestaurant = Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://dead.com',
-        ]);
-        Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://transient.com',
-        ]);
-
-        Http::fake([
-            'alive.com' => Http::response('', 200),
-            'dead.com' => Http::response('', 404),
-            'transient.com' => Http::response('', 503),
-        ]);
-
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites');
-        $command->assertSuccessful()
-            ->expectsOutputToContain('Done. 1 alive, 1 dead, 1 skipped (transient).');
-        $command->run();
-
-        $deadRestaurant->refresh();
-
-        $this->assertNull($deadRestaurant->website_url);
-    }
-
-    public function test_limit_option_restricts_count(): void
-    {
-        Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://first.com',
-        ]);
-        Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://second.com',
-        ]);
-
-        Http::fake([
-            'first.com' => Http::response('', 200),
-        ]);
-
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites', ['--limit' => 1]);
-        $command->assertSuccessful()
-            ->expectsOutputToContain('Done. 1 alive, 0 dead, 0 skipped (transient).');
-        $command->run();
-    }
-
-    public function test_successful_check_stamps_verified_at(): void
-    {
-        $restaurant = Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://example.com',
-            'website_verified_at' => null,
-        ]);
-
-        Http::fake(['example.com' => Http::response('', 200)]);
-
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites');
-        $command->run();
-
-        $fresh = $restaurant->fresh();
-        $this->assertNotNull($fresh);
-        $this->assertNotNull($fresh->website_verified_at);
-    }
-
-    public function test_recently_verified_restaurant_is_excluded_by_max_age_days(): void
-    {
-        Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://recent.com',
-            'website_verified_at' => now()->subDays(5),
-        ]);
-
-        Http::fake();
-
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites', ['--max-age-days' => 30]);
-        $command->assertSuccessful()
-            ->expectsOutputToContain('No restaurants with website URLs to verify.');
-        $command->run();
-
-        Http::assertNothingSent();
-    }
-
-    public function test_stale_restaurant_beyond_max_age_days_is_rechecked(): void
-    {
-        $restaurant = Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://stale.com',
-            'website_verified_at' => now()->subDays(45),
-        ]);
-
-        Http::fake(['stale.com' => Http::response('', 200)]);
-
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites', ['--max-age-days' => 30]);
-        $command->assertSuccessful()
-            ->expectsOutputToContain('Done. 1 alive, 0 dead, 0 skipped (transient).');
-        $command->run();
-
-        $fresh = $restaurant->fresh();
-        $this->assertNotNull($fresh);
-        $this->assertNotNull($fresh->website_verified_at);
-    }
-
-    public function test_never_verified_restaurants_are_prioritized_over_previously_checked(): void
-    {
-        // Verified 45 days ago — stale, but still not the priority: a
-        // never-checked row must be ordered ahead of it regardless.
-        Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://neverchecked-would-lose.com',
-            'website_verified_at' => now()->subDays(45),
-        ]);
-        // Never verified — must be checked first regardless of id order.
-        $neverChecked = Restaurant::factory()->create([
-            'is_active' => true,
-            'website_url' => 'https://neverchecked.com',
-            'website_verified_at' => null,
-        ]);
-
-        Http::fake([
-            'neverchecked.com' => Http::response('', 200),
-        ]);
-
-        /** @var PendingCommand $command */
-        $command = $this->artisan('restaurants:verify-websites', ['--limit' => 1]);
-        $command->assertSuccessful()
-            ->expectsOutputToContain('Done. 1 alive, 0 dead, 0 skipped (transient).');
-        $command->run();
-
-        $fresh = $neverChecked->fresh();
-        $this->assertNotNull($fresh);
-        $this->assertNotNull($fresh->website_verified_at);
     }
 }

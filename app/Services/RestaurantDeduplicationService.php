@@ -58,6 +58,13 @@ class RestaurantDeduplicationService
             }
         }
 
+        // Quarantined values follow the kept row: the dup's row is deleted
+        // below and field_quarantine cascades on delete, which would silently
+        // drop the audit trail (and the ability to restore) for the venue.
+        if ($apply) {
+            DB::table('field_quarantine')->where('restaurant_id', $dupeId)->update(['restaurant_id' => $keepId]);
+        }
+
         // Engagement: repoint dup-row rows to the kept row. The kept row may
         // already have an identical (restaurant_id, action_type, user_id) row;
         // delete dupes rather than creating a double-count.

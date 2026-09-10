@@ -39,6 +39,7 @@ class Restaurant extends Model
         'phone',
         'website_url',
         'website_verified_at',
+        'website_identity',
         'price_range',
         'photo_url',
         'photo_source',
@@ -142,11 +143,13 @@ class Restaurant extends Model
      * otherwise every distinct platform row regardless of reachability
      * (pre-spec-109 behavior, the kill-switch fallback). Callers that create/
      * recompute rows on $this->socialLinks() should re-count via this method
-     * rather than a bare count() so the two never drift.
+     * rather than a bare count() so the two never drift. Brand-scoped links (a
+     * corporate account shared by many locations) never count: they say
+     * nothing about this venue.
      */
     public function countScoredSocialLinks(): int
     {
-        $query = $this->socialLinks();
+        $query = $this->socialLinks()->where('scope', RestaurantSocialLink::SCOPE_LOCATION);
 
         if (config('restaurant-finder.require_verified_social_links', true)) {
             $query->whereNotNull('verified_at');
@@ -297,6 +300,7 @@ class Restaurant extends Model
         $columns = implode(', ', [
             'id', 'slug', 'name', 'description', 'address', 'city', 'state',
             'postal_code', 'latitude', 'longitude', 'phone', 'website_url',
+            'website_identity',
             'price_range', 'photo_url', 'source', 'google_place_id',
             'yelp_business_id', 'google_rating', 'google_review_count',
             'yelp_rating', 'yelp_review_count', 'popular_times_avg_busyness',

@@ -132,11 +132,37 @@ spec-100, the highest-risk item).
 
 ## In-flight work (check before starting anything new)
 
-Nothing in flight as of 2026-09-02 — working tree clean, zero open PRs, local
-`master` fast-forwarded to `origin/master`. Always check `git status` +
-`ITERATION_NOTES.md` before starting a new backlog goal; don't stack a new
-loop branch on top of unfinished/uncommitted work. Next queued work is specs
-101–103 (see `backlog.md`).
+**Data-integrity + ranking overhaul (started 2026-09-10).** Built directly by
+Claude: an operator decision that overrides the opencode-loop rule below for
+this judgment-heavy work. The local-first gate still applies: no push, PR,
+deploy, or prod-data change without an explicit OK. Four stacked phases, one
+PR each:
+
+1. **`feat/data-integrity-verify` — stop writing junk.**
+   - `WebsiteIdentityVerifier` gates every searched, guessed, or AI-suggested
+     website.
+   - The cache backfill matches by location; it used to match by name alone
+     across cities.
+   - `SocialProfileUrl` + `SocialLinkRecorder`: no pixel or namespace URIs, and
+     corporate accounts are brand-scoped (not scored).
+   - The AI never overwrites addresses and never writes phone or price.
+   - A `field_quarantine` table + `FieldQuarantineService` make every removal
+     reversible.
+2. **Reversible bulk cleanup** of existing prod junk (`restaurants:integrity`).
+3. **Overture Maps monthly import** (free; attribution required).
+4. **Evidence-based ranking** for the 88% unrated, plus SerpApi yield targeting.
+
+**The prod baseline that motivated it (2026-09-10, read-only):**
+- Websites on 96% of rows; 2,443 of them are dictionary, encyclopedia, or IMDb
+  pages.
+- 1,920 of 4,892 rated rows share an exact rating + review count with a
+  restaurant in another city (from the name-only cache matching).
+- 13,180 restaurants (32%) carry shared or junk social URLs.
+- 3,663 addresses were rewritten by the AI.
+
+A local prod clone lives in MariaDB `ipop360_prodclone`; run commands against
+it with `php artisan --env=prodclone` (see AGENTS.md). Specs 102–103 stay
+queued behind this work (see `backlog.md`).
 
 ## Binding process rules (opencode-loop workflow)
 

@@ -11,9 +11,10 @@ use Illuminate\Console\Command;
  *
  * With no AI key configured, this command exits cleanly (no-op).
  * With a key, it dispatches jobs for restaurants that haven't been enriched
- * or were enriched more than the freshness window ago. Rows missing core
- * fields (price_range, description, phone, website_url) re-enter eligibility
- * after 1 day; complete rows after 7. Neediest rows dispatch first.
+ * or were enriched more than the freshness window ago. Rows missing an
+ * AI-fillable field (description, verified website_url, empty address)
+ * re-enter eligibility after 1 day; complete rows after 7. Neediest rows
+ * dispatch first.
  */
 class AiEnrichRestaurants extends Command
 {
@@ -140,12 +141,14 @@ class AiEnrichRestaurants extends Command
 
     /**
      * Count AI-fillable fields that are missing on a restaurant.
-     * Higher = more urgent; used to dispatch neediest rows first.
+     * Higher = more urgent; used to dispatch neediest rows first. Phone and
+     * price_range are not AI-fillable (EnrichRestaurantWithAi keeps them as
+     * inference only), so a row missing just those isn't re-queued daily.
      */
     private function missingFieldCount(Restaurant $restaurant): int
     {
         $count = 0;
-        foreach (['price_range', 'description', 'phone', 'website_url'] as $field) {
+        foreach (['description', 'website_url', 'address'] as $field) {
             if (empty($restaurant->{$field})) {
                 $count++;
             }

@@ -172,6 +172,13 @@ row — no dedicated column. The ten fields:
 A field counts as populated when non-null and (for strings) non-empty. A fully
 free-enriched row typically reaches 9/10 (social_links_count often 0) ≈ 0.90.
 
+**AI guesses don't count (2026-09 data-integrity overhaul).** The AI enrichment
+model has no browsing, so a `price_range`/`phone` it "filled" is a guess, as is
+an AI-written `website_url` that never passed `WebsiteIdentityVerifier`. Those
+fields (identified via `ai_metadata.fields_updated` + `website_identity`) count
+as unpopulated. `EnrichRestaurantWithAi` no longer writes phone/price at all
+(kept in `ai_metadata.inferred`), so this only discounts legacy rows.
+
 ## Social link verification (spec-109)
 
 Before spec-109, `social_links_count` counted any platform URL
@@ -200,6 +207,23 @@ Tightening this signal to verified-only links is expected to reduce the
 30.7%-unrated-above-lowest-rated overlap noted below (fewer unrated venues
 will have a nonzero `social_links_count`); re-run `ranking:audit` after
 deploy to confirm.
+
+### Only real, location-scoped profiles count (2026-09 data-integrity overhaul)
+
+Reachability was not enough: the raw regex stored the `xmlns:fb` namespace URI
+`facebook.com/2008` (1,929 prod rows), the Meta Pixel `facebook.com/tr`
+(1,048), id-less `profile.php` (467), share/intent endpoints and website-builder
+footer accounts — all answer HTTP 200, so all were "verified". And every chain
+location carried the corporate account (528 Domino's rows with @dominos).
+
+- `extractSocialLinks` now takes candidates from JSON-LD `sameAs`, then `<a
+  href>`, then a raw-HTML fallback, and every candidate must pass
+  `App\Support\SocialProfileUrl::canonicalize` (real profile shapes only).
+- `SocialLinkRecorder` (the single write path) marks a URL shared by
+  `data_integrity.social_brand_min_restaurants` (default 5) or more restaurants
+  as `scope = brand`. `countScoredSocialLinks()` counts only verified
+  `scope = location` links, so corporate marketing no longer lifts chains over
+  independents.
 
 ## Redistribution
 
