@@ -43,6 +43,7 @@ class RestaurantFinderConfigInvariantTest extends TestCase
         'live_search.min_score' => [0, 1],
         'trending.min_popularity_score' => [0, 1],
         'dedup.name_similarity_threshold' => [0, 100],
+        'ranking.evidence_cap' => [0, 1],
     ];
 
     /** Operational sections (i.e. the config minus the data catalogs). */

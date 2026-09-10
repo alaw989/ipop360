@@ -310,7 +310,7 @@ class Restaurant extends Model
         $columns = implode(', ', [
             'id', 'slug', 'name', 'description', 'address', 'city', 'state',
             'postal_code', 'latitude', 'longitude', 'phone', 'website_url',
-            'website_identity',
+            'website_identity', 'overture_confidence', 'overture_sources', 'overture_status',
             'price_range', 'photo_url', 'source', 'google_place_id',
             'yelp_business_id', 'google_rating', 'google_review_count',
             'yelp_rating', 'yelp_review_count', 'popular_times_avg_busyness',

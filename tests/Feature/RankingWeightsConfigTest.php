@@ -24,6 +24,7 @@ class RankingWeightsConfigTest extends TestCase
     {
         return [
             'quality' => 0.35,
+            'evidence' => 0.35,
             'proximity' => 0.15,
             'data_completeness' => 0.05,
             'has_award' => 0.05,
@@ -31,7 +32,7 @@ class RankingWeightsConfigTest extends TestCase
             'google_rating' => 0.0,
             'google_review_count' => 0.0,
             'popular_times_avg_busyness' => 0.0,
-            'social_links_count' => 0.20,
+            'social_links_count' => 0.0,
             'website_clicks_count' => 0.20,
             'pageviews_count' => 0.10,
             'social_link_clicks_count' => 0.05,
@@ -46,6 +47,7 @@ class RankingWeightsConfigTest extends TestCase
     {
         return [
             'RANK_WEIGHT_QUALITY',
+            'RANK_WEIGHT_EVIDENCE',
             'RANK_WEIGHT_PROXIMITY',
             'RANK_WEIGHT_DATA_COMPLETENESS',
             'RANK_WEIGHT_HAS_AWARD',

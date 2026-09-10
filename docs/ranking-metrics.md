@@ -67,8 +67,9 @@ row with no data scores **0.0**.
 | Signal | Weight | Source | Always active? |
 |---|---|---|---|
 | `quality` | **0.35** | SerpApi (Bayesian rating, folds in reviews) | only with a quality key **and** a rating |
+| `evidence` | **0.35** | Overture corroboration + verified website/socials + OSM detail | **only when `quality` is not** (every unrated venue) |
 | `website_clicks_count` | **0.20** | engagement | **yes** (0.0 when absent) |
-| `social_links_count` | **0.20** | website social scrape | only when links found (>0) |
+| `social_links_count` | 0.0 | website social scrape | retired as a standalone signal (a component of `evidence`) |
 | `proximity` | **0.15** | User coordinates | live search only (`distance` present) |
 | `pageviews_count` | **0.10** | engagement | **yes** (0.0 when absent) |
 | `has_award` | **0.05** | Wikidata (free) | only when `true` (a false award drops out) |
@@ -118,6 +119,33 @@ but the old "no overlap" guarantee no longer strictly holds: ~1.6% of unrated
 venues with heavy social links score above the lowest-rated venue (see
 `docs/ranking-audit-2026-08.md`).
 
+## Verified-presence evidence (data-integrity phase 4)
+
+Ratings are a walled garden. SerpApi's 250 calls a month is the only free source, so about 90% of venues have no rating. The old ranking ordered that 90% by raw social-link count, which turned out to be dominated by junk and corporate links.
+
+`evidence` is the stand-in for `quality` on unrated venues. It has the same weight (0.35) and is active **only** when `quality` is not, so rated and unrated venues are scored on one scale. It is a weighted mean (`PopularityScoreService::evidenceFor`):
+
+| Component | Weight | Value |
+|---|---|---|
+| Independent-source corroboration | 30% | `overture_sources`: 1 → 0.5, 2 → 0.8, 3+ → 1.0 |
+| Existence confidence | 20% | `overture_confidence` (0–1) |
+| Website identity | 20% | verified 1.0 · brand homepage 0.6 · unchecked 0.3 · none 0 |
+| Verified location socials | 15% | `social_links_count` / 3, capped at 1 (brand accounts never count) |
+| OSM detail | 15% | OSM feature/amenity tags present |
+
+The result is scaled to at most `ranking.evidence_cap` (`RANK_EVIDENCE_CAP`, default **0.85** ≈ a 4.25★ Bayesian quality). Bayesian shrinkage puts almost every rated venue at or above about 0.86, so:
+
+- a fully evidenced unknown outranks only weakly rated venues;
+- well-reviewed venues stay on top;
+- among unrated venues, a confirmed going concern outranks an unverified listing.
+
+A place Overture reports `permanently_closed` scores 0. Unrated venues show a **"Not yet rated"** badge on their cards, and the score breakdown's "Verified Presence" line explains what was verified.
+
+Calibration (prod clone with Overture applied, 2026-09-10):
+- 62% of unrated venues are Overture-corroborated.
+- Unrated scores range 0.02–0.34 (median 0.28); rated scores 0.31–0.54 (median 0.42).
+- 0.3% of rated venues score below the best unrated venue.
+- Austin's top 20 are all well-rated venues, and its first unrated venue ranks 263rd of 718.
 ## Bayesian quality
 
 `quality` replaces the old separate `google_rating` + `google_review_count`

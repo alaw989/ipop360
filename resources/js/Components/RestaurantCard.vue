@@ -153,6 +153,14 @@ const rankChangeTitle = computed(() => {
                     :review-count="displayRating.count"
                     size="sm"
                 />
+                <span
+                    v-else
+                    data-testid="not-yet-rated"
+                    class="rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                    title="No ratings yet — ranked on verified public data (independent sources, verified website and social profiles)"
+                >
+                    Not yet rated
+                </span>
                 <span v-if="restaurant.price_range" class="text-sm font-semibold text-emerald-500 dark:text-emerald-400">
                     {{ restaurant.price_range }}
                 </span>
