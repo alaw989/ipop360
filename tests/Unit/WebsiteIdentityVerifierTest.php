@@ -85,7 +85,8 @@ class WebsiteIdentityVerifierTest extends TestCase
     public function test_blocked_check_covers_subdomains(): void
     {
         $this->assertTrue($this->verifier()->isBlockedUrl('https://dictionary.cambridge.org/x'));
-        $this->assertTrue($this->verifier()->isBlockedUrl('https://order.toasttab.com/online/khues'));
+        $this->assertTrue($this->verifier()->isBlockedUrl('https://m.yelp.com/biz/khues-kitchen'));
+        $this->assertFalse($this->verifier()->isBlockedUrl('https://khues.menufy.com/'), 'white-label ordering sites are judged on content');
         $this->assertFalse($this->verifier()->isBlockedUrl('https://www.khueskitchen.com/'));
         $this->assertFalse($this->verifier()->isBlockedUrl('https://locations.chipotle.com/tx/austin'));
     }

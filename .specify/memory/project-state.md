@@ -164,6 +164,38 @@ A local prod clone lives in MariaDB `ipop360_prodclone`; run commands against
 it with `php artisan --env=prodclone` (see AGENTS.md). Specs 102–103 stay
 queued behind this work (see `backlog.md`).
 
+**Status (2026-09-10 end of session): phases 1–2 built and committed LOCALLY,
+nothing pushed.** Phase 1 is on `feat/data-integrity-verify`; phase 2
+(`restaurants:integrity`) is on `feat/data-integrity-cleanup`, stacked on
+phase 1. Phases 3–4 have not been started.
+
+Report-only scorecard on the prod clone (`restaurants:integrity`):
+
+| Detector | Rows flagged |
+|---|---|
+| `website_blocked` | 4,014 |
+| `social_junk` | 5,695 (plus 4,077 canonical URL rewrites) |
+| `social_brand` | 33,902 links across 1,277 shared URLs |
+| `copied_rating` | 835 (the owner is kept in 181 clusters) |
+| `copied_phone` | 1,283 |
+| `address_other_state` | 424 |
+| `ai_guess` | 3,089 |
+
+The two needed operator approvals are still pending:
+1. Push and PR each branch in stacked order.
+2. Run `--apply` on prod. It is reversible with `--restore=<reason>`.
+
+After apply, run `restaurants:score`.
+
+**Recommended follow-ups:**
+- Schedule `restaurants:verify-websites` daily with `--limit=2000`. Weekly with
+  200 can never identity-check ~39k websites; steady state with a 30-day
+  re-check needs about 1.3k/day.
+- Fix the prod drifts: `ENRICH_MONTHLY_BUDGET=250` takes the whole SerpApi
+  quota, and `AI_FALLBACK_URL` points at the retired GitHub Models endpoint.
+- The local `.env` has stale `LIVE_SEARCH_MAX_RESULTS=30` and `RANK_WEIGHT_*`
+  values.
+
 ## Binding process rules (opencode-loop workflow)
 
 - **Backlog goals are ALWAYS executed via `opencode-loop`, never implemented
