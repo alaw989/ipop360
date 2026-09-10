@@ -203,6 +203,17 @@ class OvertureImporterTest extends TestCase
         $this->assertSame(0, $fresh->socialLinks()->count());
     }
 
+    public function test_skip_socials_still_corroborates_but_adds_no_profiles(): void
+    {
+        $r = $this->restaurant();
+
+        $stats = $this->importer()->matchBlock(new Collection([$r]), [$this->place()], self::RELEASE, apply: true, socials: false);
+
+        $this->assertSame(0, $stats['socials_added']);
+        $this->assertSame(0, $r->socialLinks()->count());
+        $this->assertSame('08f28d4c-overture-0001', Restaurant::query()->whereKey($r->id)->value('overture_id'));
+    }
+
     public function test_latest_release_is_read_from_the_bucket_listing(): void
     {
         $this->assertSame('2026-08-19.0', $this->importer()->latestRelease());

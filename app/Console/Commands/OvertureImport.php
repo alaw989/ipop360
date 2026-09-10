@@ -19,7 +19,8 @@ class OvertureImport extends Command
 {
     protected $signature = 'overture:import
         {--release= : Overture release to use (default: the newest in the public bucket)}
-        {--apply : Write corroboration + fills (default: report only)}';
+        {--apply : Write corroboration + fills (default: report only)}
+        {--skip-socials : Skip adding social profiles (each is reachability-checked inline, the slow part of a first run)}';
 
     protected $description = 'Match restaurants to Overture Maps places: corroboration, empty-field fills, closures';
 
@@ -45,7 +46,7 @@ class OvertureImport extends Command
             if ($done % 10 === 0) {
                 $this->line("  … {$done} blocks (last {$block}: {$restaurants} restaurants vs {$places} places)");
             }
-        });
+        }, ! $this->option('skip-socials'));
 
         $this->pruneOldExtracts($release);
 

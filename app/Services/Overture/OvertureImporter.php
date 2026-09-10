@@ -135,7 +135,7 @@ class OvertureImporter
      *
      * @return array<string, int> run statistics
      */
-    public function run(string $parquet, string $release, bool $apply, ?callable $progress = null): array
+    public function run(string $parquet, string $release, bool $apply, ?callable $progress = null, bool $socials = true): array
     {
         $size = max(0.05, (float) config('restaurant-finder.overture.cell_size_deg', 0.5));
 
@@ -165,7 +165,7 @@ class OvertureImporter
 
             foreach (array_chunk($ids, 1000) as $chunk) {
                 $restaurants = Restaurant::query()->whereIn('id', $chunk)->get();
-                $blockStats = $this->matchBlock($restaurants, $places, $release, $apply);
+                $blockStats = $this->matchBlock($restaurants, $places, $release, $apply, $socials);
                 foreach ($blockStats as $k => $v) {
                     $stats[$k] += $v;
                 }
@@ -188,7 +188,7 @@ class OvertureImporter
      * @param  list<array<string, mixed>>  $places
      * @return array<string, int>
      */
-    public function matchBlock(Collection $restaurants, array $places, string $release, bool $apply): array
+    public function matchBlock(Collection $restaurants, array $places, string $release, bool $apply, bool $socials = true): array
     {
         $stats = $this->emptyStats();
         $grid = [];
@@ -204,7 +204,7 @@ class OvertureImporter
             }
 
             $stats['matched']++;
-            foreach ($this->applyMatch($restaurant, $place, $release, $apply) as $k => $v) {
+            foreach ($this->applyMatch($restaurant, $place, $release, $apply, $socials) as $k => $v) {
                 $stats[$k] += $v;
             }
         }
@@ -257,7 +257,7 @@ class OvertureImporter
      * @param  array<string, mixed>  $place
      * @return array<string, int>
      */
-    private function applyMatch(Restaurant $restaurant, array $place, string $release, bool $apply): array
+    private function applyMatch(Restaurant $restaurant, array $place, string $release, bool $apply, bool $socials = true): array
     {
         $stats = ['phone_filled' => 0, 'address_filled' => 0, 'website_filled' => 0, 'socials_added' => 0, 'closed' => 0, 'phone_conflicts' => 0];
         $confidence = (float) ($place['confidence'] ?? 0);
@@ -325,7 +325,7 @@ class OvertureImporter
         }
 
         if (! $apply) {
-            $stats['socials_added'] += count($this->missingSocials($restaurant, $place));
+            $stats['socials_added'] += $socials ? count($this->missingSocials($restaurant, $place)) : 0;
 
             return $stats;
         }
@@ -333,7 +333,7 @@ class OvertureImporter
         $restaurant->update($updates);
 
         $added = [];
-        foreach ($this->missingSocials($restaurant, $place) as $platform => $url) {
+        foreach ($socials ? $this->missingSocials($restaurant, $place) : [] as $platform => $url) {
             $verified = $this->scraper->verifyProfileUrl($url);
             $restaurant->socialLinks()->create([
                 'platform' => $platform,
