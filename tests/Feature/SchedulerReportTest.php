@@ -126,7 +126,7 @@ class SchedulerReportTest extends TestCase
     {
         // The operational "confirm all commands fire on time" workflow depends
         // on scheduler:report LISTING every registered command in its header
-        // count ("Registered commands: 19"), even when none have telemetry
+        // count ("Registered commands: 20"), even when none have telemetry
         // yet. If the command set drifts, the count diverges and this fails.
         // (We assert the header count rather than each table cell — the
         // test's narrow BufferedOutput truncates long table cells, while the
@@ -135,7 +135,7 @@ class SchedulerReportTest extends TestCase
 
         /** @var PendingCommand $command */
         $command = $this->artisan('scheduler:report', ['--days' => 7]);
-        $command->expectsOutputToContain('Registered commands: 19')
+        $command->expectsOutputToContain('Registered commands: 20')
             ->expectsOutputToContain('NEVER FIRED')
             ->assertSuccessful();
     }
@@ -654,7 +654,7 @@ class SchedulerReportTest extends TestCase
     public function test_command_prints_healthy_verdict_when_all_commands_fired(): void
     {
         // The item-5 workflow needs one scannable line: when every registered
-        // command is healthy, print "Verdict: all 19 registered commands healthy".
+        // command is healthy, print "Verdict: all 20 registered commands healthy".
         $this->travelTo(Carbon::parse('2026-08-17 10:00:30', 'UTC'));
 
         /** @var Schedule $schedule */
@@ -675,7 +675,7 @@ class SchedulerReportTest extends TestCase
 
         /** @var PendingCommand $command */
         $command = $this->artisan('scheduler:report', ['--days' => 7]);
-        $command->expectsOutputToContain('Verdict: all 19 registered commands healthy')
+        $command->expectsOutputToContain('Verdict: all 20 registered commands healthy')
             ->assertSuccessful();
     }
 
@@ -706,7 +706,7 @@ class SchedulerReportTest extends TestCase
 
         /** @var PendingCommand $command */
         $command = $this->artisan('scheduler:report', ['--days' => 7]);
-        $command->expectsOutputToContain('Verdict: 1 of 19 registered commands have a problem (see above); 18 healthy')
+        $command->expectsOutputToContain('Verdict: 1 of 20 registered commands have a problem (see above); 19 healthy')
             ->assertSuccessful();
     }
 
@@ -728,7 +728,7 @@ class SchedulerReportTest extends TestCase
 
         $this->assertIsArray($doc);
         $this->assertFalse($doc['healthy']);
-        $this->assertSame(19, $doc['registered_count']);
+        $this->assertSame(20, $doc['registered_count']);
         $this->assertSame(0, $doc['healthy_count']);
         $this->assertContains('restaurants:score', $doc['problems']['unfinished_runs']);
     }
@@ -774,7 +774,7 @@ class SchedulerReportTest extends TestCase
         $this->assertIsArray($doc);
         $this->assertTrue($doc['healthy']);
         $this->assertSame(0, $doc['problem_count']);
-        $this->assertSame(19, $doc['healthy_count']);
+        $this->assertSame(20, $doc['healthy_count']);
     }
 
     public function test_json_output_includes_runtime_and_drift_telemetry(): void
@@ -796,7 +796,7 @@ class SchedulerReportTest extends TestCase
 
         $this->assertIsArray($doc);
         $this->assertContains('stale:command', $doc['unregistered']);
-        $this->assertSame(19, count($doc['commands']), 'orphaned command must live in "unregistered", not "commands"');
+        $this->assertSame(20, count($doc['commands']), 'orphaned command must live in "unregistered", not "commands"');
     }
 
     public function test_json_output_reports_unregistered_telemetry_commands(): void
@@ -818,7 +818,7 @@ class SchedulerReportTest extends TestCase
 
         $this->assertIsArray($doc);
         $this->assertContains('stale:command', $doc['unregistered']);
-        $this->assertSame(19, count($doc['commands']), 'orphaned command must live in "unregistered", not "commands"');
+        $this->assertSame(20, count($doc['commands']), 'orphaned command must live in "unregistered", not "commands"');
     }
 
     public function test_json_output_includes_last_failure_output(): void
