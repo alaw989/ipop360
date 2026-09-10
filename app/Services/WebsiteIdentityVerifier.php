@@ -76,9 +76,11 @@ class WebsiteIdentityVerifier
         'local.com', 'bizapedia.com', 'opencorporates.com', 'dnb.com', 'zoominfo.com', 'groupon.com',
         'roadtrippers.com', 'wanderlog.com', 'happycow.net', 'theinfatuation.com', 'eater.com',
         'timeout.com', 'thrillist.com', 'guide.michelin.com', 'waze.com',
-        'ubereats.com', 'doordash.com', 'grubhub.com', 'seamless.com', 'postmates.com',
-        'caviar.com', 'slicelife.com', 'beyondmenu.com', 'menufy.com', 'chownow.com',
-        'toasttab.com', 'toast.site', 'uorder.io', 'bentoobox.net',
+        // Delivery marketplaces are listings like Yelp. White-label ordering
+        // sites (menufy, toasttab, slicelife, chownow…) are deliberately NOT
+        // here: `{venue}.menufy.com` is the venue's own ordering page, so it is
+        // judged on its content like any other site.
+        'ubereats.com', 'doordash.com', 'grubhub.com', 'seamless.com', 'postmates.com', 'caviar.com',
         'google.com', 'goo.gl', 'bing.com', 'duckduckgo.com', 'yahoo.com', 'maps.apple.com',
         'godaddy.com', 'sedo.com', 'dan.com', 'afternic.com', 'hugedomains.com', 'bodis.com',
         'parkingcrew.net', 'sedoparking.com', 'above.com', 'namecheap.com', 'porkbun.com',
@@ -171,6 +173,15 @@ class WebsiteIdentityVerifier
     }
 
     /**
+     * Cheap pre-check (no fetch): is this URL's path a reference/content page
+     * (dictionary entry, IMDb title, "on this day"…) on any host?
+     */
+    public function isReferenceUrl(string $url): bool
+    {
+        return preg_match(self::REFERENCE_PATH_PATTERN, (string) parse_url($url, PHP_URL_PATH)) === 1;
+    }
+
+    /**
      * @param  bool  $domainCountsAsName  false when the URL was GUESSED from the
      *                                    name (`https://{name}.com`): its host then matches the name by
      *                                    construction and proves nothing — name evidence must come from the page
@@ -186,7 +197,7 @@ class WebsiteIdentityVerifier
             return new WebsiteIdentityVerdict(self::REJECTED, 'blocked_domain');
         }
 
-        if (preg_match(self::REFERENCE_PATH_PATTERN, (string) parse_url($url, PHP_URL_PATH)) === 1) {
+        if ($this->isReferenceUrl($url)) {
             return new WebsiteIdentityVerdict(self::REJECTED, 'reference_url');
         }
 

@@ -70,7 +70,7 @@ class SocialLinkRecorder
      * by enough distinct restaurants, then recount the affected restaurants.
      * Returns how many restaurants were recounted.
      *
-     * @param  list<string>  $urls
+     * @param  array<int, string>  $urls
      */
     public function classifyBrandScope(array $urls): int
     {
