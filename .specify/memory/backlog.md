@@ -824,6 +824,36 @@ live-verified (home 200; API graceful 200 on pole coords `lat=95&lng=200`
 vs. a hang; valid-coords API returns real data; `?sort=rating`/`?sort=
 nearest` both 200).
 
+### ✅ Done (2026-09-10) — data-integrity overhaul, phases 1–2
+
+Built directly by Claude (operator decision, not opencode-loop). PRs #169 and
+#170 merged, deployed, and browser-verified.
+
+- **#169 (phase 1)** stops the pipelines writing guessed data:
+  - website identity verification;
+  - location-safe cache matching;
+  - validated, brand-scoped social links;
+  - no AI address overwrites and no AI phone/price;
+  - the `field_quarantine` table.
+- **#170 (phase 2)** adds `restaurants:integrity`.
+- **Prod cleanup:** applied with a full DB backup first. 20,705 values were
+  quarantined (reversible) and restaurants rescored; the scorecard reads 0.
+- **Follow-up:** `restaurants:verify-websites` is now daily at 2000/run, and a
+  weekly report-only `restaurants:integrity` runs Mondays at 11:15.
+
+See `history.md` and `project-state.md`.
+
+### In progress (2026-09-10) — data-integrity overhaul, phases 3–4
+
+3. **Overture Maps monthly import.** Free: CDLA-Permissive-2.0 / Apache-2.0 /
+   CC0, with attribution required. It fills and corroborates phones, websites,
+   socials, and addresses, and flags `operating_status` closures and
+   low-`confidence` places.
+4. **Evidence-based ranking for the ~90% unrated.** Cross-source
+   corroboration, a verified website, location-scoped socials, Overture
+   confidence, and structured health grades feed an evidence signal, shown
+   with a "not yet rated" label. Plus SerpApi yield targeting.
+
 ### Next up: specs 102–103 (PROPOSED, from the 2026-06-30 fresh-audit wave)
 
 1. **102 — Test-coverage backfill** (P2/P3, regression-guard gaps)

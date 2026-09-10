@@ -248,15 +248,33 @@ Schedule::command('restaurants:coverage')
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 
-// Weekly website URL dead-link verification (Sundays at 11:00 AM UTC, after
-// the throttled-enrichment window)
-Schedule::command('restaurants:verify-websites --limit=200')
-    ->weeklyOn(0, '11:00')
-    ->withoutOverlapping(120)
+// Daily website identity verification (16:00 UTC — a free slot after the
+// 15:00 health check, before the 18:00 AI tick). Each URL is identity-checked
+// (WebsiteIdentityVerifier, ~1s/site) and rejected ones are quarantined. With
+// ~39k stored websites and a 30-day re-check window, steady state needs
+// ~1.3k/day — the old weekly 200 could never keep up. ~40 min at 2000;
+// the 180-min mutex covers slow sites.
+Schedule::command('restaurants:verify-websites --limit=2000')
+    ->dailyAt('16:00')
+    ->withoutOverlapping(180)
     ->onOneServer()
-    ->description('HEAD-check existing website URLs, clear dead links')
+    ->description('Identity-check stored website URLs, quarantine ones that are not the restaurant\'s own')
     ->onFailure(function () {
         Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:verify-websites']);
+    })
+    ->tap(fn ($event) => SchedulerTelemetry::attach($event));
+
+// Weekly data-integrity scorecard (Mondays 11:15 UTC, after the coverage
+// report; report-only — it never changes data). Logs how many rows each
+// integrity detector would flag, so a regression that starts writing junk
+// again shows up in the enrichment log instead of on the live site.
+Schedule::command('restaurants:integrity --sample=0')
+    ->weeklyOn(1, '11:15')
+    ->withoutOverlapping(30)
+    ->onOneServer()
+    ->description('Report-only data-integrity scorecard')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:integrity']);
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 

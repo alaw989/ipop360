@@ -164,37 +164,37 @@ A local prod clone lives in MariaDB `ipop360_prodclone`; run commands against
 it with `php artisan --env=prodclone` (see AGENTS.md). Specs 102–103 stay
 queued behind this work (see `backlog.md`).
 
-**Status (2026-09-10 end of session): phases 1–2 built and committed LOCALLY,
-nothing pushed.** Phase 1 is on `feat/data-integrity-verify`; phase 2
-(`restaurants:integrity`) is on `feat/data-integrity-cleanup`, stacked on
-phase 1. Phases 3–4 have not been started.
+**Status (2026-09-10): phases 1–2 SHIPPED; phases 3–4 in progress.**
 
-Report-only scorecard on the prod clone (`restaurants:integrity`):
+- **Merged and verified:** PR #169 (phase 1) and PR #170 (phase 2) merged,
+  deployed, and browser-verified live.
+- **Prod cleanup applied** after a full DB backup
+  (`/root/ipop360-backups/ipop360-pre-integrity-20260910T191913Z.sql.gz` on
+  the droplet; the apply log is alongside it).
 
-| Detector | Rows flagged |
+| What was cleaned | Count |
 |---|---|
-| `website_blocked` | 4,014 |
-| `social_junk` | 5,695 (plus 4,077 canonical URL rewrites) |
-| `social_brand` | 33,902 links across 1,277 shared URLs |
-| `copied_rating` | 835 (the owner is kept in 181 clusters) |
-| `copied_phone` | 1,283 |
-| `address_other_state` | 424 |
-| `ai_guess` | 3,089 |
+| Websites (+ photos/socials scraped from them; 245 were the venue's own social profiles → moved to social links) | 4,014 |
+| Junk social links (+ 3,935 canonicalized) | 5,420 |
+| Corporate accounts re-scoped `brand` | 1,181 shared URLs |
+| Copied ratings (owner kept in 181 clusters) | 835 |
+| Copied phones | 1,283 |
+| Wrong-state addresses | 424 |
+| AI guesses | 3,139 |
 
-The two needed operator approvals are still pending:
-1. Push and PR each branch in stacked order.
-2. Run `--apply` on prod. It is reversible with `--restore=<reason>`.
+- **Totals:** 20,705 values in `field_quarantine`. Undo any detector with
+  `php artisan restaurants:integrity --restore=<reason>`, then
+  `restaurants:score`.
+- **After the rescore:** the scorecard reads 0 on all 7 detectors. Rated
+  restaurants: 4,058 (9.9%). `social_links_count` is active on 20.1% (was
+  52%).
+- **Follow-up PR:** `restaurants:verify-websites` runs daily at 2000/run
+  (16:00 UTC), and a weekly report-only `restaurants:integrity` runs Mondays
+  11:15.
+- **Local `.env` note:** it has stale `LIVE_SEARCH_MAX_RESULTS=30` and
+  `RANK_WEIGHT_*` values that skew `ranking:audit` and fail two config-default
+  tests. Use the prod clone env for audits.
 
-After apply, run `restaurants:score`.
-
-**Recommended follow-ups:**
-- Schedule `restaurants:verify-websites` daily with `--limit=2000`. Weekly with
-  200 can never identity-check ~39k websites; steady state with a 30-day
-  re-check needs about 1.3k/day.
-- Fix the prod drifts: `ENRICH_MONTHLY_BUDGET=250` takes the whole SerpApi
-  quota, and `AI_FALLBACK_URL` points at the retired GitHub Models endpoint.
-- The local `.env` has stale `LIVE_SEARCH_MAX_RESULTS=30` and `RANK_WEIGHT_*`
-  values.
 
 ## Binding process rules (opencode-loop workflow)
 

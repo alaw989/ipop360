@@ -41,7 +41,8 @@ class SchedulerExpiryTest extends TestCase
         'restaurants:data-hygiene --apply --limit=200' => 180,
         'restaurants:ai-enrich' => 180,
         'restaurants:coverage' => 30,
-        'restaurants:verify-websites --limit=200' => 120,
+        'restaurants:verify-websites --limit=2000' => 180,
+        'restaurants:integrity --sample=0' => 30,
         'scheduler:health' => 30,
     ];
 
