@@ -45,6 +45,10 @@ row with no data scores **0.0**.
 | **Website social scrape** | free | instagram/facebook/tiktok/twitter/youtube links, HTTP-verified | `social_links_count` |
 | **Overture Maps places** | free, open data (monthly release; attribution in footer) | existence confidence, operating status (closures), multi-source corroboration, phones, websites, socials, addresses | corroboration + empty-field fill (`overture:import`) |
 | **Engagement tracking** | free | website/directions/call/pageview/menu/social clicks | engagement counters (all 7 now scored) |
+| Foursquare Places | basic free; **rating is premium** | name, address, phone, website, categories | parked |
+| Google Places | paid | rating, review_count, photo | optional bonus |
+| Outscraper | paid | popular-times busyness | optional bonus |
+| Yelp Fusion | — | — | **removed** |
 
 ### Overture Maps import (data-integrity phase 3)
 
@@ -57,10 +61,6 @@ row with no data scores **0.0**.
   - fills only empty fields: phone (only when its area code fits the restaurant's state), address, website (never a blocked/reference host; identity-checked later by the daily `restaurants:verify-websites`) and validated social profiles;
   - writes each fill's provenance to `field_sources`, e.g. `{"phone": "overture:2026-08-19.0"}`;
   - deactivates a place Overture marks `permanently_closed`, through `field_quarantine` (reason `closed_per_overture`, reversible).
-| Foursquare Places | basic free; **rating is premium** | name, address, phone, website, categories | parked |
-| Google Places | paid | rating, review_count, photo | optional bonus |
-| Outscraper | paid | popular-times busyness | optional bonus |
-| Yelp Fusion | — | — | **removed** |
 
 ## Weight set (raw — renormalized per row over active signals)
 
