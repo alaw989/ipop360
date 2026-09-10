@@ -62,6 +62,7 @@ class RestaurantFinderConfigInvariantTest extends TestCase
         'homepage',
         'favorites',
         'data_integrity',
+        'overture',
     ];
 
     /** Knobs whose committed value is intentionally a string. */

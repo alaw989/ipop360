@@ -22,18 +22,22 @@ class FieldQuarantineService
     /** Pseudo-field used for quarantined restaurant_social_links rows. */
     public const SOCIAL_LINK_FIELD = 'social_link';
 
-    /** Columns this service may quarantine. */
+    /**
+     * Columns this service may quarantine. `is_active` is how a closure is
+     * recorded: quarantining it deactivates the restaurant (stored value '1'),
+     * and a restore reactivates it.
+     */
     private const FIELDS = [
         'website_url', 'phone', 'address', 'price_range', 'description',
         'photo_url', 'photos', 'opening_hours', 'menu_url',
-        'google_rating', 'google_review_count',
+        'google_rating', 'google_review_count', 'is_active',
     ];
 
     /** Quarantined together: a rating without its review count is meaningless. */
     private const RATING_FIELDS = ['google_rating', 'google_review_count'];
 
     /** NOT NULL columns are cleared to their schema default instead of NULL. */
-    private const CLEARED_VALUES = ['google_review_count' => 0];
+    private const CLEARED_VALUES = ['google_review_count' => 0, 'is_active' => 0];
 
     /**
      * Move the given columns aside and clear them on the row. Empty values are
@@ -178,7 +182,9 @@ class FieldQuarantineService
                     'verified_at' => $row['verified_at'] ?? null,
                 ]);
             } else {
-                $current = Restaurant::query()->whereKey($entry->restaurant_id)->value($entry->field);
+                // Raw column value (toBase skips casts: a cast is_active reads
+                // as boolean false, which is not the stored "cleared" 0).
+                $current = Restaurant::query()->whereKey($entry->restaurant_id)->toBase()->value($entry->field);
                 if (! $this->isEmptyValue($entry->field, $current)) {
                     return false;
                 }

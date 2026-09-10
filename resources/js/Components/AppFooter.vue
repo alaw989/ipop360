@@ -50,6 +50,23 @@ import { Link } from '@inertiajs/vue3';
             </div>
             <div class="mt-6 text-center text-xs text-muted-foreground space-y-1">
                 <p>&copy; {{ new Date().getFullYear() }} iPop360. All rights reserved.</p>
+                <p data-testid="data-attribution">
+                    Place data &copy;
+                    <a
+                        href="https://www.openstreetmap.org/copyright"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="hover:text-foreground transition-colors"
+                    >OpenStreetMap contributors</a>
+                    and
+                    <a
+                        href="https://docs.overturemaps.org/attribution/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="hover:text-foreground transition-colors"
+                    >Overture Maps Foundation</a>
+                    (incl. Meta, Microsoft and Foursquare data).
+                </p>
                 <p>
                     <a
                         href="https://lp.similarweb.com/competitive-analysis-youtube/"

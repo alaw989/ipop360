@@ -39,4 +39,13 @@ describe('AppFooter', () => {
         const wrapper = createWrapper()
         expect(wrapper.text()).toContain('Competitive analysis')
     })
+
+    it('credits the open place-data sources with links (license attribution)', () => {
+        const wrapper = createWrapper()
+        const credit = wrapper.get('[data-testid="data-attribution"]')
+        expect(credit.text()).toContain('OpenStreetMap contributors')
+        expect(credit.text()).toContain('Overture Maps Foundation')
+        const hrefs = credit.findAll('a').map((a) => a.attributes('href'))
+        expect(hrefs).toEqual(['https://www.openstreetmap.org/copyright', 'https://docs.overturemaps.org/attribution/'])
+    })
 })

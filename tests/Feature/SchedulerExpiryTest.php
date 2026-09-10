@@ -43,6 +43,7 @@ class SchedulerExpiryTest extends TestCase
         'restaurants:coverage' => 30,
         'restaurants:verify-websites --limit=2000' => 180,
         'restaurants:integrity --sample=0' => 30,
+        'overture:import --apply' => 360,
         'scheduler:health' => 30,
     ];
 

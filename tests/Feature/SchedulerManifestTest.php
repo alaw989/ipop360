@@ -41,6 +41,7 @@ class SchedulerManifestTest extends TestCase
         'restaurants:coverage' => '0 11 * * 1',
         'restaurants:verify-websites --limit=2000' => '0 16 * * *',
         'restaurants:integrity --sample=0' => '15 11 * * 1',
+        'overture:import --apply' => '0 20 25 * *',
         'scheduler:health' => '0 15 * * *',
     ];
 
