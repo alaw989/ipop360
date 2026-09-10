@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Cuisine;
 use App\Models\ExternalApiCache;
+use App\Models\FieldQuarantine;
 use App\Models\Restaurant;
 use Database\Seeders\CuisineSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,6 +22,19 @@ class BackfillWebsitesCachePhoneTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** Shared location for seeded cache venues and the restaurants they must match. */
+    private const LAT = 30.2672;
+
+    private const LNG = -97.7431;
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function restaurantAtCache(array $attributes): Restaurant
+    {
+        return Restaurant::factory()->create($attributes + ['latitude' => self::LAT, 'longitude' => self::LNG]);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -32,6 +46,14 @@ class BackfillWebsitesCachePhoneTest extends TestCase
      */
     private function seedCache(string $source, array $venues): void
     {
+        // The cache phase matches by LOCATION (same phone or name within the
+        // dedup radius), so every seeded venue sits at the shared test spot
+        // unless a test places it elsewhere.
+        $venues = array_map(
+            fn (array $venue) => isset($venue['gps_coordinates']) || isset($venue['lat']) ? $venue : $venue + ['lat' => self::LAT, 'lng' => self::LNG],
+            $venues
+        );
+
         ExternalApiCache::create([
             'source' => $source,
             'external_id' => 'test-'.uniqid(),
@@ -58,7 +80,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Phone Eatery',
             'website_url' => 'https://phoneeatery.example',
             'phone' => null,
@@ -83,7 +105,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Keeps Phone',
             'website_url' => 'https://keepsphone.example',
             'phone' => '5559998888',
@@ -108,7 +130,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Bare Eatery',
             'website_url' => null,
             'phone' => null,
@@ -138,7 +160,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'No Phone',
             'website_url' => 'https://nophone.example',
             'phone' => null,
@@ -146,7 +168,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             'opening_hours' => 'Mo-Su 11:00-21:00',
             'social_links_count' => 1,
         ]);
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Short Phone',
             'website_url' => 'https://shortphone.example',
             'phone' => null,
@@ -171,7 +193,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Described Eatery',
             'website_url' => 'https://describedeatery.example',
             'phone' => '5550001111',
@@ -197,7 +219,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Keeps Description',
             'website_url' => 'https://keepsdescription.example',
             'phone' => '5550002222',
@@ -227,7 +249,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Tiny Description',
             'website_url' => 'https://tinydescription.example',
             'phone' => '5550003333',
@@ -236,7 +258,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             'opening_hours' => 'Mo-Su 11:00-21:00',
             'social_links_count' => 1,
         ]);
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'No Description',
             'website_url' => 'https://nodescription.example',
             'phone' => '5550004444',
@@ -262,7 +284,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Addressed Eatery',
             'website_url' => 'https://addressedeatery.example',
             'phone' => '5550007777',
@@ -288,7 +310,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Keeps Address',
             'website_url' => 'https://keepsaddress.example',
             'phone' => '5550008888',
@@ -318,7 +340,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Tiny Address',
             'website_url' => 'https://tinyaddress.example',
             'phone' => '5550009999',
@@ -327,7 +349,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             'opening_hours' => 'Mo-Su 11:00-21:00',
             'social_links_count' => 1,
         ]);
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'No Address',
             'website_url' => 'https://noaddress.example',
             'phone' => '5550001110',
@@ -352,7 +374,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Website-less Address',
             'website_url' => null,
             'phone' => '5550002220',
@@ -378,7 +400,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Hours Eatery',
             'website_url' => 'https://hourseatery.example',
             'phone' => '5550003330',
@@ -407,7 +429,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Keeps Hours',
             'website_url' => 'https://keepshours.example',
             'phone' => '5550003331',
@@ -440,7 +462,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Junk Hours',
             'website_url' => 'https://junkhours.example',
             'phone' => '5550003332',
@@ -449,7 +471,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             'menu_url' => 'https://junkhours.example/menu',
             'social_links_count' => 1,
         ]);
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'No Hours',
             'website_url' => 'https://nohourseatery.example',
             'phone' => '5550003333',
@@ -483,7 +505,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Structured Hours Eatery',
             'website_url' => 'https://structuredhours.example',
             'phone' => '5550004000',
@@ -524,7 +546,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Keeps Structured Hours',
             'website_url' => 'https://keepsstructured.example',
             'phone' => '5550004001',
@@ -569,7 +591,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Closed Eatery',
             'website_url' => 'https://closedeatery.example',
             'phone' => '5550004002',
@@ -578,7 +600,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             'menu_url' => 'https://closedeatery.example/menu',
             'social_links_count' => 1,
         ]);
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Junk Map Eatery',
             'website_url' => 'https://junkmapeatery.example',
             'phone' => '5550004003',
@@ -610,12 +632,14 @@ class BackfillWebsitesCachePhoneTest extends TestCase
                 'phone' => '(555) 123-9999',
                 'opening_hours' => 'Mo-Su 11:00-21:00',
                 'address' => '350 West Chestnut St, Louisville, 40202',
+                'lat' => self::LAT,
+                'lng' => self::LNG,
             ],
             'fetched_at' => now(),
             'expires_at' => now()->addDay(),
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Single Object Eatery',
             'website_url' => null,
             'phone' => null,
@@ -646,7 +670,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Website-less Hours',
             'website_url' => null,
             'phone' => '5550003334',
@@ -675,7 +699,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Priced Eatery',
             'website_url' => 'https://pricedeatery.example',
             'phone' => '5550005555',
@@ -701,7 +725,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Photogenic Eatery',
             'website_url' => 'https://photogeniceatery.example',
             'phone' => '5550006660',
@@ -727,7 +751,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Keeps Photo',
             'website_url' => 'https://keepsphoto.example',
             'phone' => '5550006661',
@@ -757,7 +781,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'No Thumb',
             'website_url' => 'https://nothumb.example',
             'phone' => '5550006662',
@@ -766,7 +790,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             'opening_hours' => 'Mo-Su 11:00-21:00',
             'social_links_count' => 1,
         ]);
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Bad Thumb',
             'website_url' => 'https://badthumb.example',
             'phone' => '5550006663',
@@ -791,7 +815,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Website-less Photo',
             'website_url' => null,
             'phone' => '5550006664',
@@ -818,7 +842,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Rated Eatery',
             'website_url' => 'https://ratedeatery.example',
             'phone' => '5550007770',
@@ -847,7 +871,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Keeps Rating',
             'website_url' => 'https://keepsrating.example',
             'phone' => '5550007771',
@@ -884,7 +908,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'No Rating',
             'website_url' => 'https://norating.example',
             'phone' => '5550007772',
@@ -894,7 +918,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             'opening_hours' => 'Mo-Su 11:00-21:00',
             'social_links_count' => 1,
         ]);
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Bad Rating',
             'website_url' => 'https://badrating.example',
             'phone' => '5550007773',
@@ -904,7 +928,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             'opening_hours' => 'Mo-Su 11:00-21:00',
             'social_links_count' => 1,
         ]);
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Out Of Range Rating',
             'website_url' => 'https://outofrange.example',
             'phone' => '5550007774',
@@ -932,7 +956,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        Restaurant::factory()->create([
+        $this->restaurantAtCache([
             'name' => 'Website-less Rating',
             'website_url' => null,
             'phone' => '5550007775',
@@ -960,7 +984,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        $restaurant = Restaurant::factory()->create([
+        $restaurant = $this->restaurantAtCache([
             'name' => 'Cuisine Eatery',
             'website_url' => 'https://cuisineeatery.example',
             'phone' => '5550008000',
@@ -984,7 +1008,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        $restaurant = Restaurant::factory()->create([
+        $restaurant = $this->restaurantAtCache([
             'name' => 'Singular Type Eatery',
             'website_url' => 'https://singulartype.example',
             'phone' => '5550008001',
@@ -1008,7 +1032,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        $restaurant = Restaurant::factory()->create([
+        $restaurant = $this->restaurantAtCache([
             'name' => 'Already Tagged Eatery',
             'website_url' => 'https://alreadytagged.example',
             'phone' => '5550008002',
@@ -1033,7 +1057,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        $restaurant = Restaurant::factory()->create([
+        $restaurant = $this->restaurantAtCache([
             'name' => 'No Cuisine Type Eatery',
             'website_url' => 'https://nocuisinetype.example',
             'phone' => '5550008003',
@@ -1057,7 +1081,7 @@ class BackfillWebsitesCachePhoneTest extends TestCase
             ],
         ]);
 
-        $restaurant = Restaurant::factory()->create([
+        $restaurant = $this->restaurantAtCache([
             'name' => 'Phone Matched Cuisine',
             'website_url' => null,
             'phone' => '5551234567',
@@ -1069,5 +1093,96 @@ class BackfillWebsitesCachePhoneTest extends TestCase
         $this->artisan('restaurants:backfill-websites', ['--skip-search' => true]);
 
         $this->assertSame(['japanese'], $this->cuisineSlugs($restaurant->id));
+    }
+
+    public function test_same_name_venue_in_another_city_donates_nothing(): void
+    {
+        // The old name-only index matched any same-named venue anywhere and
+        // copied its phone/address/rating — one Fogo de Chão's 4.7★/10,085
+        // reviews ended up on nine locations in prod.
+        $this->seedCache('serpapi', [[
+            'title' => 'Fogo de Chão',
+            'gps_coordinates' => ['latitude' => 40.7580, 'longitude' => -73.9855],
+            'phone' => '(212) 969-9980',
+            'address' => '40 W 53rd St, New York, NY 10019',
+            'rating' => 4.7,
+            'reviews' => 10085,
+            'website' => 'https://fogodechao.com/location/new-york/',
+        ]]);
+
+        $restaurant = $this->restaurantAtCache([
+            'name' => 'Fogo de Chão',
+            'phone' => null,
+            'address' => null,
+            'website_url' => null,
+            'google_rating' => null,
+            'google_review_count' => 0,
+        ]);
+
+        $this->artisan('restaurants:backfill-websites', ['--skip-search' => true]);
+
+        $fresh = Restaurant::query()->whereKey($restaurant->id)->firstOrFail();
+        $this->assertNull($fresh->phone);
+        $this->assertNull($fresh->address);
+        $this->assertNull($fresh->google_rating);
+        $this->assertNull($fresh->website_url);
+    }
+
+    public function test_same_phone_far_away_donates_nothing(): void
+    {
+        // A shared corporate/booking number is not the same venue.
+        $this->seedCache('serpapi', [[
+            'title' => 'Central Booking Line',
+            'gps_coordinates' => ['latitude' => 41.8781, 'longitude' => -87.6298],
+            'phone' => '(800) 555-0100',
+            'rating' => 4.9,
+            'reviews' => 900,
+        ]]);
+
+        $restaurant = $this->restaurantAtCache(['name' => 'Local Grill', 'phone' => '8005550100', 'google_rating' => null]);
+
+        $this->artisan('restaurants:backfill-websites', ['--skip-search' => true]);
+
+        $this->assertNull(Restaurant::query()->whereKey($restaurant->id)->value('google_rating'));
+    }
+
+    public function test_same_phone_nearby_under_a_different_name_still_matches(): void
+    {
+        $this->seedCache('serpapi', [[
+            'title' => 'Wagaya - Westside',
+            'gps_coordinates' => ['latitude' => self::LAT + 0.0005, 'longitude' => self::LNG],
+            'phone' => '(404) 555-0199',
+            'rating' => 4.6,
+            'reviews' => 812,
+        ]]);
+
+        $restaurant = $this->restaurantAtCache(['name' => 'Wagaya', 'phone' => '4045550199', 'google_rating' => null]);
+
+        $this->artisan('restaurants:backfill-websites', ['--skip-search' => true]);
+
+        $this->assertSame(4.6, Restaurant::query()->whereKey($restaurant->id)->firstOrFail()->google_rating);
+    }
+
+    public function test_cached_reference_or_quarantined_website_is_never_saved(): void
+    {
+        $this->seedCache('bizdata', [
+            ['title' => 'Dictionary Eatery', 'website' => 'https://www.merriam-webster.com/dictionary/eatery', 'phone' => '5551110001'],
+            ['title' => 'Rejected Before Eatery', 'website' => 'https://rejected.example', 'phone' => '5551110002'],
+        ]);
+
+        $dictionary = $this->restaurantAtCache(['name' => 'Dictionary Eatery', 'website_url' => null, 'menu_url' => 'x', 'social_links_count' => 1]);
+        $rejected = $this->restaurantAtCache(['name' => 'Rejected Before Eatery', 'website_url' => null, 'menu_url' => 'x', 'social_links_count' => 1]);
+        FieldQuarantine::create([
+            'restaurant_id' => $rejected->id,
+            'field' => 'website_url',
+            'old_value' => 'https://rejected.example',
+            'reason' => 'website_no_name_evidence',
+            'quarantined_at' => now(),
+        ]);
+
+        $this->artisan('restaurants:backfill-websites', ['--skip-search' => true]);
+
+        $this->assertNull(Restaurant::query()->whereKey($dictionary->id)->value('website_url'));
+        $this->assertNull(Restaurant::query()->whereKey($rejected->id)->value('website_url'));
     }
 }

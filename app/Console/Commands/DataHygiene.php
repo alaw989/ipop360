@@ -58,6 +58,9 @@ class DataHygiene extends Command
      */
     private const ENRICH_DAILY_LIMIT = 200;
 
+    /** Days before a row the AI already processed is eligible again. */
+    private const AI_RETRY_DAYS = 7;
+
     public function __construct(
         private readonly RestaurantDeduplicationService $dedupe,
         private readonly RestaurantValidationService $validation,
@@ -645,31 +648,41 @@ class DataHygiene extends Command
     }
 
     /**
-     * Dispatch {@see EnrichRestaurantWithAi} jobs for rows still missing
-     * description/price_range/phone/website_url, highest popularity score
-     * first, bounded to the --limit option per run but never above
-     * {@see self::ENRICH_DAILY_LIMIT}. Requires --apply and an AI key;
-     * otherwise only the eligible count is reported.
+     * Dispatch {@see EnrichRestaurantWithAi} jobs for rows still missing an
+     * AI-fillable field (description, a verifiable website_url, an empty
+     * address — phone/price_range are never AI-written), highest popularity
+     * score first, bounded to the --limit option per run but never above
+     * {@see self::ENRICH_DAILY_LIMIT}. Rows the AI already tried within
+     * {@see self::AI_RETRY_DAYS} are skipped so the same top rows aren't
+     * re-sent every night. Requires --apply and an AI key; otherwise only the
+     * eligible count is reported.
      *
      * @return array{eligible: int, dispatched: int}
      */
     private function enrichMissingFields(bool $apply, ?int $limit): array
     {
         $cap = $limit === null ? self::ENRICH_DAILY_LIMIT : min($limit, self::ENRICH_DAILY_LIMIT);
+        $retryCutoff = now()->subDays(self::AI_RETRY_DAYS);
 
         $eligible = Restaurant::query()
             ->whereNotNull('name')
             ->whereRaw("trim(name) <> ''")
             ->where(function ($missing) {
                 $missing->whereNull('description')->orWhereRaw("trim(description) = ''")
-                    ->orWhereNull('price_range')->orWhereRaw("trim(price_range) = ''")
-                    ->orWhereNull('phone')->orWhereRaw("trim(phone) = ''")
-                    ->orWhereNull('website_url')->orWhereRaw("trim(website_url) = ''");
+                    ->orWhereNull('website_url')->orWhereRaw("trim(website_url) = ''")
+                    ->orWhereNull('address')->orWhereRaw("trim(address) = ''");
             })
             ->orderByRaw('COALESCE(popularity_score, 0) DESC')
             ->orderBy('id')
-            ->limit($cap)
-            ->get(['id', 'name']);
+            ->limit($cap * 5)
+            ->get(['id', 'name', 'ai_metadata'])
+            ->filter(function (Restaurant $restaurant) use ($retryCutoff): bool {
+                $enrichedAt = $restaurant->ai_metadata['enriched_at'] ?? null;
+
+                return ! is_string($enrichedAt) || now()->parse($enrichedAt)->lt($retryCutoff);
+            })
+            ->take($cap)
+            ->values();
 
         $this->enrichStats['eligible'] = $eligible->count();
 

@@ -261,7 +261,9 @@ class RankingAuditCommand extends Command
     /**
      * Columns the scorer reads. Deliberately excludes the persisted
      * `popularity_score`/`score_breakdown` and heavy payload columns (photos,
-     * ai_metadata, opening_hours) so a full-corpus recompute stays light.
+     * opening_hours) so a full-corpus recompute stays light. `ai_metadata` +
+     * `website_identity` are small and ARE read: completeness discounts
+     * AI-guessed fields, so the forecast must see them to match the nightly score.
      *
      * @return list<string>
      */
@@ -269,11 +271,11 @@ class RankingAuditCommand extends Command
     {
         return [
             'id', 'name', 'address', 'phone', 'latitude', 'longitude',
-            'price_range', 'website_url', 'photo_url', 'features',
+            'price_range', 'website_url', 'website_identity', 'photo_url', 'features',
             'social_links_count', 'google_rating', 'google_review_count',
             'has_award', 'website_clicks_count', 'pageviews_count',
             'social_link_clicks_count', 'menu_click_count',
-            'directions_clicks_count', 'call_clicks_count',
+            'directions_clicks_count', 'call_clicks_count', 'ai_metadata',
         ];
     }
 

@@ -7,10 +7,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RestaurantSocialLink extends Model
 {
+    /** The venue's own profile — counts toward social_links_count once verified. */
+    public const SCOPE_LOCATION = 'location';
+
+    /** A corporate/brand account shared across many locations — never scored. */
+    public const SCOPE_BRAND = 'brand';
+
     protected $fillable = [
         'restaurant_id',
         'platform',
         'url',
+        'scope',
         'followers',
         'verified_at',
         'last_check_failed_at',

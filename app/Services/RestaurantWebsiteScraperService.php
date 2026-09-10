@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Restaurant;
+use App\Models\RestaurantSocialLink;
+use App\Support\SocialProfileUrl;
 use DOMDocument;
 use DOMXPath;
 use Illuminate\Http\Client\ConnectionException;
@@ -257,7 +259,9 @@ class RestaurantWebsiteScraperService
             return null;
         }
 
-        $cacheKey = 'social_scrape:'.md5($websiteUrl);
+        // v2: results extracted before SocialProfileUrl validation (namespace
+        // URIs, pixels, builder accounts) must not be served from cache.
+        $cacheKey = 'social_scrape:v2:'.md5($websiteUrl);
         $cached = Cache::get($cacheKey);
         if ($cached !== null) {
             return $cached;
@@ -354,32 +358,87 @@ class RestaurantWebsiteScraperService
     }
 
     /**
-     * Extract social media links from HTML content.
+     * Extract social media profile links from HTML content.
      *
-     * Returns an associative array of platform => URL pairs for each
-     * distinct social network found on the page.
+     * Candidates are taken in trust order — JSON-LD `sameAs` (the site's own
+     * identity claim), then `<a href>` links, then a raw-HTML scan as a last
+     * resort for script-rendered sites — and EVERY candidate must pass
+     * SocialProfileUrl::canonicalize. The old raw regex kept the first hit per
+     * platform anywhere in the markup, which stored the `xmlns:fb` namespace
+     * URI, the Meta Pixel, share endpoints and builder footer accounts as the
+     * venue's socials. First valid profile per platform wins.
      *
-     * @return array<string,string> Platform keys mapped to their full URLs
+     * @return array<string,string> Platform keys mapped to canonical profile URLs
      */
     private function extractSocialLinks(string $html): array
     {
+        $candidates = [];
+
+        libxml_use_internal_errors(true);
+        $dom = new DOMDocument;
+        $loaded = $dom->loadHTML($html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+
+        if ($loaded) {
+            $xpath = new DOMXPath($dom);
+
+            $scripts = $xpath->query("//script[@type='application/ld+json']");
+            if ($scripts !== false) {
+                foreach ($scripts as $script) {
+                    if ($script instanceof \DOMElement) {
+                        array_push($candidates, ...$this->jsonLdSameAs($script->textContent));
+                    }
+                }
+            }
+
+            $anchors = $xpath->query('//a[@href]');
+            if ($anchors !== false) {
+                foreach ($anchors as $anchor) {
+                    if ($anchor instanceof \DOMElement) {
+                        $candidates[] = $anchor->getAttribute('href');
+                    }
+                }
+            }
+        }
+
+        preg_match_all('#(?:https?:)?//(?:[a-z]+\.)?(?:facebook\.com|fb\.com|instagram\.com|twitter\.com|x\.com|tiktok\.com|youtube\.com)/[^\s"\'<>\\\\]+#i', $html, $raw);
+        array_push($candidates, ...$raw[0]);
+
         $platforms = [];
-
-        $patterns = [
-            'instagram' => '/https?:\/\/(www\.)?instagram\.com\/[a-zA-Z0-9_.]+\/?/i',
-            'facebook' => '/https?:\/\/(www\.)?(facebook\.com|fb\.com)\/(?!sharer\/|share\.php)[a-zA-Z0-9.]+\/?/i',
-            'tiktok' => '/https?:\/\/(www\.)?tiktok\.com\/@[a-zA-Z0-9_.]+\/?/i',
-            'twitter' => '/https?:\/\/(www\.)?(twitter\.com|x\.com)\/(?!share)[a-zA-Z0-9_]+\/?/i',
-            'youtube' => '/https?:\/\/(www\.)?(youtube\.com\/(@|channel\/)|youtu\.be\/)[a-zA-Z0-9_-]+\/?/i',
-        ];
-
-        foreach ($patterns as $platform => $pattern) {
-            if (preg_match($pattern, $html, $matches)) {
-                $platforms[$platform] = rtrim($matches[0], '/');
+        foreach ($candidates as $candidate) {
+            $profile = SocialProfileUrl::canonicalize((string) $candidate);
+            if ($profile !== null && ! isset($platforms[$profile['platform']])) {
+                $platforms[$profile['platform']] = $profile['url'];
             }
         }
 
         return $platforms;
+    }
+
+    /**
+     * URLs listed in a JSON-LD block's `sameAs` (at any nesting depth, incl.
+     * `@graph`). Malformed JSON yields nothing.
+     *
+     * @return list<string>
+     */
+    private function jsonLdSameAs(string $json): array
+    {
+        $data = json_decode(trim($json), true);
+        if (! is_array($data)) {
+            return [];
+        }
+
+        $urls = [];
+        array_walk_recursive($data, function ($value, $key) use (&$urls): void {
+            // array_walk_recursive only visits leaves: a list-valued sameAs
+            // arrives as its elements (integer keys), so accept any string
+            // leaf that looks like a URL and let canonicalize() judge it.
+            if (is_string($value) && ($key === 'sameAs' || is_int($key)) && preg_match('#^(https?:)?//#i', $value) === 1) {
+                $urls[] = $value;
+            }
+        });
+
+        return $urls;
     }
 
     /**
@@ -432,6 +491,51 @@ class RestaurantWebsiteScraperService
 
             return false;
         }
+    }
+
+    /**
+     * Fetch one page for a website identity check (WebsiteIdentityVerifier):
+     * a single attempt with the same guards as scrape() — SSRF check on the
+     * URL and every redirect hop, robots.txt honored. Returns null when the
+     * URL is blocked (SSRF guard / robots.txt) or the connection fails;
+     * otherwise the HTTP status, body and post-redirect URL (non-2xx included,
+     * so callers can tell a dead 404 from a bot-blocking 403).
+     *
+     * @return array{status: int, body: string, final_url: string}|null
+     */
+    public function fetchHtml(string $url, int $timeout = self::REQUEST_TIMEOUT): ?array
+    {
+        $domain = $this->parseDomain($url);
+        if ($domain === null) {
+            return null;
+        }
+
+        if (config('restaurant-finder.website_scraper.ssrf_guard', true) && ! $this->isSafeUrl($url)) {
+            return null;
+        }
+
+        if (! $this->isAllowedByRobotsTxt($url, $domain)) {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout($timeout)
+                ->withUserAgent(self::USER_AGENT)
+                ->withOptions(['allow_redirects' => $this->redirectOptions()])
+                ->get($url);
+        } catch (\Throwable $e) {
+            Log::debug('Identity-check fetch failed', ['url' => $url, 'error' => $e->getMessage()]);
+
+            return null;
+        }
+
+        $effective = $response->effectiveUri();
+
+        return [
+            'status' => $response->status(),
+            'body' => $response->body(),
+            'final_url' => $effective !== null ? (string) $effective : $url,
+        ];
     }
 
     /**
@@ -1343,6 +1447,9 @@ class RestaurantWebsiteScraperService
                     continue;
                 }
                 $url = $this->normalizePhotoUrl($content, $baseUrl);
+                if ($this->isEphemeralImageUrl($url)) {
+                    continue;
+                }
                 if (! in_array($url, $photos, true)) {
                     $photos[] = $url;
                     if (count($photos) >= $max) {
@@ -1362,7 +1469,7 @@ class RestaurantWebsiteScraperService
                     continue;
                 }
                 $url = $this->normalizePhotoUrl($src, $baseUrl);
-                if (in_array($url, $photos, true)) {
+                if (in_array($url, $photos, true) || $this->isEphemeralImageUrl($url)) {
                     continue;
                 }
                 // Skip tracking/icon/sprite images (tiny or clearly non-photo).
@@ -1892,7 +1999,12 @@ class RestaurantWebsiteScraperService
             return null;
         }
 
-        $links = $restaurant->socialLinks()->get();
+        // Only the venue's own verified profiles — a brand account's og:image
+        // is the chain's logo, not this location.
+        $links = $restaurant->socialLinks()
+            ->where('scope', RestaurantSocialLink::SCOPE_LOCATION)
+            ->whereNotNull('verified_at')
+            ->get();
 
         foreach (['instagram', 'facebook'] as $preferredPlatform) {
             foreach ($links as $link) {
@@ -1901,13 +2013,25 @@ class RestaurantWebsiteScraperService
                 }
 
                 $image = $this->fetchOgImage((string) $link->url);
-                if ($image !== null) {
+                if ($image !== null && ! $this->isEphemeralImageUrl($image)) {
                     return $image;
                 }
             }
         }
 
         return null;
+    }
+
+    /**
+     * Signed social-CDN image URLs (Instagram/Facebook) expire within days to
+     * weeks — 4,253 prod photos pointed at static.cdninstagram.com. Storing
+     * one guarantees a broken image later, so they are never persisted.
+     */
+    private function isEphemeralImageUrl(string $url): bool
+    {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+
+        return $host !== '' && (str_ends_with($host, 'cdninstagram.com') || str_ends_with($host, 'fbcdn.net'));
     }
 
     /**

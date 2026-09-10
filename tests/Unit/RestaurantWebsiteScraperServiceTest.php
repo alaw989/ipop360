@@ -675,6 +675,46 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
         $this->assertEquals('https://www.facebook.com/RealPage', $result['facebook']);
     }
 
+    public function test_scrape_social_ignores_namespace_pixel_and_builder_footer_links(): void
+    {
+        // Real-world markup that the old raw regex turned into "social links"
+        // on thousands of prod rows: the xmlns:fb namespace URI (2008/fbml),
+        // the Meta Pixel noscript image (/tr), an id-less profile.php, a
+        // tweet-intent button and the site builder's own footer accounts.
+        $html = '<html xmlns:fb="http://www.facebook.com/2008/fbml"><head>'
+            .'<noscript><img height="1" width="1" src="https://www.facebook.com/tr?id=123456789&ev=PageView&noscript=1"/></noscript>'
+            .'</head><body>'
+            .'<a href="https://www.facebook.com/profile.php">Facebook</a>'
+            .'<a href="https://twitter.com/intent/tweet?text=Great+tacos">Tweet this</a>'
+            .'<footer>Powered by <a href="https://www.instagram.com/squarespace">Squarespace</a> <a href="https://www.facebook.com/wix">Wix</a></footer>'
+            .'</body></html>';
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/*' => Http::response($html, 200),
+        ]);
+
+        $this->assertNull($this->service->scrapeSocial('https://example.com'));
+    }
+
+    public function test_scrape_social_prefers_json_ld_same_as_and_canonicalizes(): void
+    {
+        $html = '<html><head><script type="application/ld+json">'
+            .'{"@context":"https://schema.org","@type":"Restaurant","name":"Blue Heron Bistro",'
+            .'"sameAs":["https://m.facebook.com/BlueHeronBistro/","https://instagram.com/blueheron.bistro/"]}'
+            .'</script></head><body><a href="https://www.facebook.com/SomeOtherPage">Friends</a></body></html>';
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/*' => Http::response($html, 200),
+        ]);
+
+        $this->assertSame([
+            'facebook' => 'https://www.facebook.com/BlueHeronBistro',
+            'instagram' => 'https://www.instagram.com/blueheron.bistro',
+        ], $this->service->scrapeSocial('https://example.com'));
+    }
+
     public function test_verify_profile_url_returns_true_for_a_reachable_url(): void
     {
         Http::fake([

@@ -213,6 +213,32 @@ class PopularityScoreServiceTest extends TestCase
         $this->assertGreaterThan($sparseScore, $richScore);
     }
 
+    public function test_ai_guessed_fields_do_not_count_toward_completeness(): void
+    {
+        // A price level / phone the AI "filled" (no browsing — a guess) must
+        // not make a listing look as complete as one with sourced values.
+        $sourced = $this->makeRestaurant($this->fullFreeFields());
+        $guessed = $this->makeRestaurant(array_merge($this->fullFreeFields(), [
+            'ai_metadata' => ['fields_updated' => ['price_range', 'phone', 'website_url']],
+        ]));
+        $verifiedAiWebsite = $this->makeRestaurant(array_merge($this->fullFreeFields(), [
+            'ai_metadata' => ['fields_updated' => ['website_url']],
+            'website_identity' => 'verified',
+        ]));
+
+        $all = new Collection([$sourced, $guessed, $verifiedAiWebsite]);
+
+        $this->assertGreaterThan(
+            $this->service->calculateScore($guessed, $all),
+            $this->service->calculateScore($sourced, $all)
+        );
+        $this->assertSame(
+            $this->service->calculateScore($sourced, $all),
+            $this->service->calculateScore($verifiedAiWebsite, $all),
+            'an AI-suggested website that passed the identity check is real data'
+        );
+    }
+
     public function test_log_normalization_contains_outlier(): void
     {
         // A 5000-review outlier must not crush everyone else toward zero the way
