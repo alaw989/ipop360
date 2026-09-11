@@ -34,6 +34,7 @@ const props = defineProps<{
 
 const segmentColors: Record<string, string> = {
   'Quality': 'bg-red-500',
+  'Verified Presence': 'bg-sky-500',
   'Yelp Rating': 'bg-amber-500',
   'Yelp Reviews': 'bg-blue-500',
   'Google Rating': 'bg-red-500',

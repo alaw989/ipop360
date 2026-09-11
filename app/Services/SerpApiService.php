@@ -49,6 +49,12 @@ class SerpApiService
      */
     private bool $lastConsumePoolSucceeded = false;
 
+    /**
+     * The call-log row of the most recent real call, so the enrichment caller
+     * can add what persisting its results produced (see takeLastCallLog()).
+     */
+    private ?SerpApiCallLog $lastCallLog = null;
+
     public function __construct()
     {
         $this->apiKey = config('services.serpapi.api_key');
@@ -250,6 +256,7 @@ class SerpApiService
             return [];
         }
 
+        $logged = false;
         try {
             $response = Http::timeout(15)
                 ->get('https://serpapi.com/search', [
@@ -260,9 +267,9 @@ class SerpApiService
                     'api_key' => $this->apiKey,
                 ]);
 
-            SerpApiCallLog::record();
-
             if ($response->failed()) {
+                $this->logCall(['context' => 'search'], $lat, $lng, $query, null);
+                $logged = true;
                 $this->detectProviderExhaustion($response);
                 $this->recordFailedCall($cacheKey);
                 Log::warning('SerpApi request failed', [
@@ -276,6 +283,8 @@ class SerpApiService
 
             $data = $response->json();
             $localResults = $data['local_results'] ?? [];
+            $this->logCall(['context' => 'search'], $lat, $lng, $query, $localResults);
+            $logged = true;
 
             $results = $this->normalizeResults($localResults, $lat, $lng);
 
@@ -283,7 +292,9 @@ class SerpApiService
 
             return $results;
         } catch (\Throwable $e) {
-            SerpApiCallLog::record();
+            if (! $logged) {
+                $this->logCall(['context' => 'search'], $lat, $lng, $query, null);
+            }
             $this->recordFailedCall($cacheKey);
             Log::warning('SerpApi threw exception', [
                 'message' => $e->getMessage(),
@@ -388,27 +399,66 @@ class SerpApiService
     }
 
     /**
+     * Hand over (and forget) the call-log row of the most recent real call, so
+     * the caller can record what persisting its results produced. Null when no
+     * real call was made since the last take.
+     */
+    public function takeLastCallLog(): ?SerpApiCallLog
+    {
+        $log = $this->lastCallLog;
+        $this->lastCallLog = null;
+
+        return $log;
+    }
+
+    /**
+     * Append a row to the call log (one per real outbound call — this is the
+     * quota count) with what the call returned. $localResults is null for a
+     * failed call.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @param  array<int, mixed>|null  $localResults
+     */
+    private function logCall(array $attributes, float $lat, float $lng, ?string $query, ?array $localResults): void
+    {
+        $rated = $localResults === null ? null : count(array_filter(
+            $localResults,
+            fn ($r): bool => is_array($r) && is_numeric($r['rating'] ?? null) && (float) $r['rating'] > 0.0
+        ));
+
+        $this->lastCallLog = SerpApiCallLog::record($attributes + [
+            'status' => $localResults === null ? 'failed' : 'ok',
+            'query' => $query === null ? null : mb_substr($query, 0, 120),
+            'lat' => round($lat, 6),
+            'lng' => round($lng, 6),
+            'results' => $localResults === null ? null : count($localResults),
+            'rated_results' => $rated,
+        ]);
+    }
+
+    /**
      * Consume pooled responses for the live read path: parse, cache the raw
      * payload (30-day SerpApi TTL), and normalize. Quota-safe: the cache pass
      * runs before this, so a repeat search never reaches here.
      *
      * @param  array<int, Response|\Throwable>  $responses
+     * @param  array<string, mixed>  $logAttributes  extra call-log columns, e.g. ['context' => 'live']
      * @return array<int, array<string, mixed>>
      */
-    public function consumePoolResponses(array $responses, float $lat, float $lng, ?string $cuisine, string $cacheKey): array
+    public function consumePoolResponses(array $responses, float $lat, float $lng, ?string $cuisine, string $cacheKey, array $logAttributes = []): array
     {
         $this->lastConsumePoolSucceeded = false;
 
         foreach ($responses as $response) {
-            SerpApiCallLog::record();
-
             if ($response instanceof \Throwable) {
+                $this->logCall($logAttributes, $lat, $lng, $cuisine, null);
                 $this->recordFailedCall($cacheKey);
 
                 continue;
             }
 
             $localResults = $this->parsePoolResponse($response, $lat, $lng);
+            $this->logCall($logAttributes, $lat, $lng, $cuisine, $localResults);
             if ($localResults === null) {
                 $this->recordFailedCall($cacheKey);
 

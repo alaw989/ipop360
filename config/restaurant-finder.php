@@ -263,6 +263,12 @@ return [
     'ranking' => [
         'weights' => [
             'quality' => (float) env('RANK_WEIGHT_QUALITY', 0.35),
+            // Data-integrity phase 4: verified-presence evidence — the stand-in
+            // for `quality` on UNRATED venues only (never both active; see
+            // PopularityScoreService::evidenceFor). Same weight as quality so
+            // rated and unrated venues share one scale; evidence itself is
+            // capped at ~4.25★-equivalent.
+            'evidence' => (float) env('RANK_WEIGHT_EVIDENCE', 0.35),
             'proximity' => (float) env('RANK_WEIGHT_PROXIMITY', 0.15),
             'data_completeness' => (float) env('RANK_WEIGHT_DATA_COMPLETENESS', 0.05),
             'has_award' => (float) env('RANK_WEIGHT_HAS_AWARD', 0.05),
@@ -283,7 +289,11 @@ return [
             // average (mean gap 0.29); the old "no overlap" guarantee has a small
             // exception — ~1.6% of link-rich unrated venues score above the
             // lowest-rated venue (see docs/ranking-audit-2026-08.md).
-            'social_links_count' => (float) env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.20),
+            // Phase 4 (2026-09): retired as a standalone signal — raw link
+            // counts were the ranking for unrated venues and were dominated by
+            // junk/corporate links. Verified location-scoped socials are now
+            // one component of `evidence`.
+            'social_links_count' => (float) env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.0),
             'website_clicks_count' => (float) env('RANK_WEIGHT_WEBSITE_CLICKS', 0.20),
             'pageviews_count' => (float) env('RANK_WEIGHT_PAGEVIEWS', 0.10),
             'social_link_clicks_count' => (float) env('RANK_WEIGHT_SOCIAL_LINK_CLICKS', 0.05),
@@ -340,6 +350,14 @@ return [
         // presence is meant to differentiate. A scale-appropriate floor spreads
         // it. See docs/ranking-metrics.md and the item #1 rebalance.
         'social_links_log_floor' => (int) env('RANK_SOCIAL_LINKS_LOG_FLOOR', 10),
+
+        // Ceiling (0–1) for the `evidence` signal on unrated venues: full
+        // verified-presence evidence normalizes like a Bayesian quality of this
+        // value × 5 stars. 0.85 ≈ 4.25★ — a well-evidenced unknown passes weak
+        // ratings but never a well-reviewed venue (most rated venues sit ≥ 0.86
+        // after Bayesian shrinkage). Raise toward 0.91 (≈ the credible mean) to
+        // let strong unknowns compete with average-rated venues.
+        'evidence_cap' => (float) env('RANK_EVIDENCE_CAP', 0.85),
 
         // Fallback denominator when the collection is empty or all-zero so the
         // log scale still produces sane, bounded values.

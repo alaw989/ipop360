@@ -163,6 +163,9 @@ class RankingAuditCommand extends Command
     {
         $signals = [
             'quality' => fn () => (clone $query)->where('google_rating', '>', 0)->count(),
+            // The stand-in for quality on every unrated row (see evidenceFor()).
+            'evidence' => fn () => (clone $query)->where(fn ($q) => $q->whereNull('google_rating')->orWhere('google_rating', '<=', 0))->count(),
+            'evidence (Overture-corroborated)' => fn () => (clone $query)->where(fn ($q) => $q->whereNull('google_rating')->orWhere('google_rating', '<=', 0))->where('overture_sources', '>', 0)->count(),
             'social_links_count' => fn () => (clone $query)->where('social_links_count', '>', 0)->count(),
             'website_clicks_count' => fn () => (clone $query)->where('website_clicks_count', '>', 0)->count(),
             'pageviews_count' => fn () => (clone $query)->where('pageviews_count', '>', 0)->count(),
@@ -276,6 +279,7 @@ class RankingAuditCommand extends Command
             'has_award', 'website_clicks_count', 'pageviews_count',
             'social_link_clicks_count', 'menu_click_count',
             'directions_clicks_count', 'call_clicks_count', 'ai_metadata',
+            'overture_confidence', 'overture_sources', 'overture_status',
         ];
     }
 

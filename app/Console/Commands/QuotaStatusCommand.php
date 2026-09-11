@@ -56,6 +56,19 @@ class QuotaStatusCommand extends Command
             $monthlyBudget > 0 ? ($remainingFromBudget / $monthlyBudget) * 100 : 0,
         ));
 
+        $yield = SerpApiCallLog::enrichmentYieldLast30Days();
+        if ($yield['calls'] > 0) {
+            $this->line(sprintf(
+                '  Enrichment yield: %d calls → %d rated results; %d matched existing rows (%d newly rated), %d new rated rows (%.1f newly rated + new per call)',
+                $yield['calls'],
+                $yield['rated_results'],
+                $yield['matched'],
+                $yield['newly_rated'],
+                $yield['created_rows'],
+                ($yield['newly_rated'] + $yield['created_rows']) / $yield['calls'],
+            ));
+        }
+
         if ($providerExhausted) {
             $this->warn('  Provider status: EXHAUSTED — the SerpApi account reports "out of searches".');
             $this->warn('  Live fetches are paused; free sources (BizData/Overpass/Socrata) still serve.');

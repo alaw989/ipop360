@@ -22,6 +22,11 @@ class PopularityScoreService
      */
     private const DEFAULT_WEIGHTS = [
         'quality' => 0.35,
+        // Data-integrity phase 4: the stand-in for `quality` on venues with no
+        // usable rating (~90% of the corpus). Active ONLY when quality is not,
+        // so rated and unrated venues are scored on the same scale — see
+        // evidenceFor().
+        'evidence' => 0.35,
         'proximity' => 0.15,
         'data_completeness' => 0.05,
         'has_award' => 0.05,
@@ -33,7 +38,9 @@ class PopularityScoreService
         'google_rating' => 0.0,
         'google_review_count' => 0.0,
         'popular_times_avg_busyness' => 0.0,
-        'social_links_count' => 0.20,
+        // Retired as a standalone signal (phase 4): verified location-scoped
+        // social presence is one component of `evidence`.
+        'social_links_count' => 0.0,
         'website_clicks_count' => 0.20,
         'pageviews_count' => 0.10,
         'social_link_clicks_count' => 0.05,
@@ -46,6 +53,14 @@ class PopularityScoreService
     ];
 
     /**
+     * Default ceiling for the `evidence` signal (config ranking.evidence_cap):
+     * full verified-presence evidence normalizes like a ~4.25★ Bayesian
+     * quality (4.25/5), so an unrated venue can overtake weakly rated venues
+     * but never a well-reviewed one.
+     */
+    private const EVIDENCE_CAP = 0.85;
+
+    /**
      * Per-signal normalization method. See docs/ranking-metrics.md.
      */
     private const METHODS = [
@@ -54,6 +69,7 @@ class PopularityScoreService
         'yelp_review_count' => 'log_count',
         'google_review_count' => 'log_count',
         'quality' => 'bayesian_quality',
+        'evidence' => 'evidence',
         'proximity' => 'inverse_distance',
         'data_completeness' => 'completeness',
         'has_award' => 'boolean',
@@ -131,6 +147,8 @@ class PopularityScoreService
 
     private float $qualityMeanFallback;
 
+    private float $evidenceCap;
+
     /**
      * Per-signal log floor overrides. social_links_count is a small integer
      * (typically 0-5) but would otherwise share the review-scale log floor
@@ -152,6 +170,7 @@ class PopularityScoreService
         $this->logReviewDefault = $logReviewDefault ?? (int) $this->configValue('restaurant-finder.ranking.log_review_default', 5000);
         $this->qualityPrior = $qualityPrior ?? (float) $this->configValue('restaurant-finder.ranking.quality_prior_reviews', 50);
         $this->qualityMeanFallback = $qualityMeanFallback ?? (float) $this->configValue('restaurant-finder.ranking.quality_mean_fallback', 4.0);
+        $this->evidenceCap = max(0.0, min(1.0, (float) $this->configValue('restaurant-finder.ranking.evidence_cap', self::EVIDENCE_CAP)));
         $this->logFloorOverrides = [
             'social_links_count' => $socialLinksLogFloor ?? (int) $this->configValue('restaurant-finder.ranking.social_links_log_floor', 10),
         ];
@@ -272,6 +291,7 @@ class PopularityScoreService
             'yelp_rating' => 'Yelp Rating',
             'yelp_review_count' => 'Yelp Reviews',
             'quality' => 'Quality',
+            'evidence' => 'Verified Presence',
             'proximity' => 'Proximity',
             'data_completeness' => 'Profile Completeness',
             'has_award' => 'Award',
@@ -346,6 +366,7 @@ class PopularityScoreService
     {
         return match ($signal) {
             'quality' => $this->qualityDetail($raw),
+            'evidence' => $this->evidenceDetail($raw),
             'proximity' => sprintf('%.1f mi from your search location.', (float) $raw * 0.621371),
             'data_completeness' => 'Profile completeness reflects how much information is available for this restaurant.',
             'has_award' => 'Award-winning restaurant. This recognition is a strong quality signal.',
@@ -421,7 +442,105 @@ class PopularityScoreService
             ];
         }
 
+        if ($signal === 'evidence') {
+            return $this->evidenceFor($restaurant);
+        }
+
         return $restaurant[$signal] ?? null;
+    }
+
+    /**
+     * Verified-presence evidence for a venue with NO usable rating (null when
+     * the quality signal applies instead — the two are never both active).
+     *
+     * Ratings are a walled garden (SerpApi's quota is the only free source),
+     * so ~90% of venues are unrated. Unknown is not bad: an unrated venue that
+     * several independent datasets confirm, with its own verified website and
+     * social profiles, is a real, going concern. Components (each 0–1):
+     *   corroboration 30% — independent datasets Overture merged (1→0.5, 2→0.8, 3+→1)
+     *   confidence    20% — Overture's existence confidence
+     *   website       20% — identity-verified 1, brand homepage 0.6, unchecked 0.3
+     *   socials       15% — verified location-scoped profiles (3+ → 1)
+     *   OSM detail    15% — OSM amenity/feature tags present
+     * The total is scaled to at most ranking.evidence_cap (default 0.85 ≈ a
+     * 4.25★ Bayesian quality): full evidence lets an unrated venue pass weakly
+     * rated ones while well-reviewed venues stay on top. A place Overture
+     * reports permanently closed scores 0.
+     *
+     * @param  array<string, mixed>  $restaurant
+     * @return array{score: float, sources: int, confidence: float, website: string, socials: int}|null
+     */
+    private function evidenceFor(array $restaurant): ?array
+    {
+        $rating = $restaurant['google_rating'] ?? null;
+        if ($this->qualitySourceConfigured() && is_numeric($rating) && (float) $rating > 0.0) {
+            return null;
+        }
+
+        $sources = (int) ($restaurant['overture_sources'] ?? 0);
+        $confidence = max(0.0, min(1.0, (float) ($restaurant['overture_confidence'] ?? 0.0)));
+        $identity = $restaurant['website_identity'] ?? null;
+        $hasWebsite = trim((string) ($restaurant['website_url'] ?? '')) !== '';
+        $socials = max(0, (int) ($restaurant['social_links_count'] ?? 0));
+        $features = $restaurant['features'] ?? null;
+        if (is_string($features)) {
+            $features = json_decode($features, true);
+        }
+
+        if (($restaurant['overture_status'] ?? null) === 'permanently_closed') {
+            return ['score' => 0.0, 'sources' => $sources, 'confidence' => $confidence, 'website' => 'none', 'socials' => $socials];
+        }
+
+        $corroboration = match (true) {
+            $sources >= 3 => 1.0,
+            $sources === 2 => 0.8,
+            $sources === 1 => 0.5,
+            default => 0.0,
+        };
+        $website = match (true) {
+            ! $hasWebsite => 'none',
+            $identity === 'verified' => 'verified',
+            $identity === 'brand' => 'brand',
+            default => 'unchecked',
+        };
+        $websiteScore = ['verified' => 1.0, 'brand' => 0.6, 'unchecked' => 0.3, 'none' => 0.0][$website];
+        $osmDetail = is_array($features) && $features !== [] ? 1.0 : 0.0;
+
+        $raw = 0.30 * $corroboration
+            + 0.20 * $confidence
+            + 0.20 * $websiteScore
+            + 0.15 * min(1.0, $socials / 3)
+            + 0.15 * $osmDetail;
+
+        return [
+            'score' => round($this->evidenceCap * $raw, 4),
+            'sources' => $sources,
+            'confidence' => $confidence,
+            'website' => $website,
+            'socials' => $socials,
+        ];
+    }
+
+    private function evidenceDetail(mixed $raw): string
+    {
+        if (! is_array($raw)) {
+            return '';
+        }
+
+        $parts = [];
+        if (($raw['sources'] ?? 0) > 0) {
+            $parts[] = sprintf('confirmed by %d independent data source(s)', (int) $raw['sources']);
+        }
+        if (($raw['website'] ?? 'none') === 'verified') {
+            $parts[] = 'verified own website';
+        } elseif (($raw['website'] ?? 'none') === 'brand') {
+            $parts[] = 'brand website';
+        }
+        if (($raw['socials'] ?? 0) > 0) {
+            $parts[] = sprintf('%d verified social profile(s)', (int) $raw['socials']);
+        }
+
+        return 'Not yet rated — ranked on verified public data'.($parts === [] ? ' (little found so far).' : ': '.implode(', ', $parts).'.');
     }
 
     /**
@@ -453,6 +572,11 @@ class PopularityScoreService
         if ($signal === 'proximity') {
             // Proximity only active when distance is present (geolocated search)
             return $raw !== null && (float) $raw >= 0.0;
+        }
+
+        if ($signal === 'evidence') {
+            // Null = the venue is rated, so `quality` carries this slot instead.
+            return $raw !== null;
         }
 
         if ($signal === 'cuisine_match') {
@@ -520,6 +644,7 @@ class PopularityScoreService
             'boolean' => $raw ? 1.0 : 0.0,
             // spec-071: cuisine_match is pre-normalized 0–1 by the stamp; just clamp.
             'passthrough' => max(0.0, min(1.0, (float) $raw)),
+            'evidence' => is_array($raw) ? max(0.0, min(1.0, (float) ($raw['score'] ?? 0.0))) : 0.0,
             'minmax' => $this->normalizeMinMax((float) $raw, $minmax[$signal] ?? null),
             'bayesian_quality' => $this->normalizeBayesianQuality($raw, $qualityMean),
             default => 0.0,

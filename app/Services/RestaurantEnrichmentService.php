@@ -28,6 +28,14 @@ class RestaurantEnrichmentService
     /** Box half-width (degrees) for the single Wikidata award query (~28km). */
     private const AWARD_BOX_DEGREES = 0.25;
 
+    /**
+     * What persisting the current combo's rated venues produced — written onto
+     * the SerpApi call-log row (ratings come only from SerpApi).
+     *
+     * @var array{matched: int, newly_rated: int, created_rows: int}
+     */
+    private array $ratingYield = ['matched' => 0, 'newly_rated' => 0, 'created_rows' => 0];
+
     public function __construct(
         private OverpassService $overpass,
         private BizDataApiService $bizData,
@@ -51,8 +59,14 @@ class RestaurantEnrichmentService
     {
         // Fetch all sources concurrently (skip SerpApi when freeOnly)
         $venues = $this->fetchAndNormalizeAllSources($lat, $lng, $cuisine, $freeOnly);
+        $callLog = $this->serpApiService->takeLastCallLog();
+        if ($freeOnly) {
+            $callLog = null;
+        }
+        $this->ratingYield = ['matched' => 0, 'newly_rated' => 0, 'created_rows' => 0];
 
         if (empty($venues)) {
+            $callLog?->update($this->ratingYield);
             Log::channel('enrichment')->info('No free venues found', [
                 'lat' => $lat,
                 'lng' => $lng,
@@ -89,6 +103,8 @@ class RestaurantEnrichmentService
                 ]);
             }
         }
+
+        $callLog?->update($this->ratingYield);
 
         $restaurantIds = array_unique($restaurantIds);
 
@@ -309,7 +325,7 @@ class RestaurantEnrichmentService
 
             $normalized = match ($label) {
                 'bizdata' => $this->bizData->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
-                'serpapi' => $this->serpApiService->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
+                'serpapi' => $this->serpApiService->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey, ['context' => 'enrichment']),
                 'socrata' => $this->socrataService->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
                 'overpass' => $this->overpass->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
                 default => [],
@@ -419,6 +435,7 @@ class RestaurantEnrichmentService
             : null;
 
         $changedFields = null;
+        $hadRating = $existing !== null && (float) $existing->google_rating > 0.0;
         if ($existing !== null) {
             // A matched row keeps what it already has: the source record only
             // fills blanks (and refreshes a positive rating). Writing the raw
@@ -428,6 +445,17 @@ class RestaurantEnrichmentService
             $restaurant = $existing;
         } else {
             $restaurant = Restaurant::create($attributes);
+        }
+
+        if ((float) ($attributes['google_rating'] ?? 0) > 0.0) {
+            if ($existing === null) {
+                $this->ratingYield['created_rows']++;
+            } else {
+                $this->ratingYield['matched']++;
+                if (! $hadRating && (float) $restaurant->google_rating > 0.0) {
+                    $this->ratingYield['newly_rated']++;
+                }
+            }
         }
 
         // Only attach the searched cuisine when the venue actually carries
