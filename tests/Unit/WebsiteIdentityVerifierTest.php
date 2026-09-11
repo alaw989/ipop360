@@ -3,9 +3,12 @@
 namespace Tests\Unit;
 
 use App\Models\Restaurant;
+use App\Services\DomainDnsChecker;
 use App\Services\WebsiteIdentityVerifier;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
+use Tests\Fakes\FakeDnsChecker;
 use Tests\TestCase;
 
 /**
@@ -50,6 +53,18 @@ class WebsiteIdentityVerifierTest extends TestCase
     private function verifier(): WebsiteIdentityVerifier
     {
         return $this->app->make(WebsiteIdentityVerifier::class);
+    }
+
+    /**
+     * Turn the dead-domain check on over a fake DNS: name => records (null =
+     * the lookup failed); unlisted names have no records (NXDOMAIN).
+     *
+     * @param  array<string, list<array<string, mixed>>|null>  $dns
+     */
+    private function withDns(array $dns): void
+    {
+        Config::set('restaurant-finder.data_integrity.website_dead_domain_check', true);
+        $this->app->instance(DomainDnsChecker::class, new FakeDnsChecker($dns));
     }
 
     public function test_blocked_reference_domain_is_rejected_without_fetching(): void
@@ -266,5 +281,39 @@ class WebsiteIdentityVerifierTest extends TestCase
         $challenge = $this->verifier()->verify($this->khue(), 'https://cf.example/');
         $this->assertSame(WebsiteIdentityVerifier::UNREACHABLE, $challenge->status);
         $this->assertSame('bot_challenge', $challenge->reason);
+    }
+
+    public function test_unfetchable_site_on_a_lapsed_domain_is_rejected_as_dead(): void
+    {
+        Http::fake(['*' => fn () => throw new ConnectionException('Could not resolve host')]);
+        $this->withDns(['example.com' => [['type' => 'NS']]]);
+
+        $verdict = $this->verifier()->verify($this->khue(), 'https://www.khueskitchen-lapsed.com/');
+
+        $this->assertSame(WebsiteIdentityVerifier::REJECTED, $verdict->status);
+        $this->assertSame('dead_domain', $verdict->reason);
+    }
+
+    public function test_unfetchable_site_stays_unreachable_unless_dns_is_sure_the_domain_is_gone(): void
+    {
+        Http::fake(['*' => fn () => throw new ConnectionException('timeout')]);
+        $canary = ['example.com' => [['type' => 'NS']]];
+        $url = 'https://www.khueskitchen.com/';
+
+        $cases = [
+            'the domain is still registered (a timeout)' => $canary + ['khueskitchen.com' => [['type' => 'NS']]],
+            'the host still resolves' => $canary + ['www.khueskitchen.com' => [['type' => 'A']]],
+            'the DNS lookup failed (SERVFAIL)' => $canary + ['khueskitchen.com' => null],
+            'the resolver is down (the canary is missing too)' => [],
+        ];
+
+        foreach ($cases as $case => $dns) {
+            $this->withDns($dns);
+            $this->assertSame(WebsiteIdentityVerifier::UNREACHABLE, $this->verifier()->verify($this->khue(), $url)->status, $case);
+        }
+
+        $this->withDns($canary);
+        Config::set('restaurant-finder.data_integrity.website_dead_domain_check', false);
+        $this->assertSame(WebsiteIdentityVerifier::UNREACHABLE, $this->verifier()->verify($this->khue(), $url)->status, 'the check is switched off');
     }
 }
