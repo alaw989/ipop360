@@ -278,6 +278,21 @@ Schedule::command('restaurants:integrity --sample=0')
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 
+// Monthly Overture Maps corroboration + gap fill (the 25th, 20:00 UTC — a few
+// days after Overture's usual mid-month release, in an otherwise idle slot).
+// One DuckDB extract of US food places from the public S3 release (~3–10
+// min), then block-by-block matching; social profiles it adds are
+// reachability-checked inline, so the first run can take a while — 360-min mutex.
+Schedule::command('overture:import --apply')
+    ->monthlyOn(25, '20:00')
+    ->withoutOverlapping(360)
+    ->onOneServer()
+    ->description('Overture Maps: corroborate restaurants, fill empty fields, deactivate closures')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'overture:import --apply']);
+    })
+    ->tap(fn ($event) => SchedulerTelemetry::attach($event));
+
 // Daily scheduler health alert (runs at 15:00 UTC, after the last daily job —
 // the 13:45 photo backfill — completes). Reads scheduler telemetry and emails
 // the configured operator addresses when any command never fired, failed, hung,

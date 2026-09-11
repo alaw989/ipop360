@@ -43,11 +43,24 @@ row with no data scores **0.0**.
 | **Wikidata SPARQL** | free, no key | Michelin/award records (low coverage) | `has_award` |
 | **Nominatim (OSM)** | free | geocoding | `GeolocationService` |
 | **Website social scrape** | free | instagram/facebook/tiktok/twitter/youtube links, HTTP-verified | `social_links_count` |
+| **Overture Maps places** | free, open data (monthly release; attribution in footer) | existence confidence, operating status (closures), multi-source corroboration, phones, websites, socials, addresses | corroboration + empty-field fill (`overture:import`) |
 | **Engagement tracking** | free | website/directions/call/pageview/menu/social clicks | engagement counters (all 7 now scored) |
 | Foursquare Places | basic free; **rating is premium** | name, address, phone, website, categories | parked |
 | Google Places | paid | rating, review_count, photo | optional bonus |
 | Outscraper | paid | popular-times busyness | optional bonus |
 | Yelp Fusion | — | — | **removed** |
+
+### Overture Maps import (data-integrity phase 3)
+
+`overture:import` runs monthly on the 25th at 20:00 UTC, with `--apply`.
+
+- **Extract.** A single DuckDB pass (`App\Services\Overture\DuckDb`, which self-installs a checksum-pinned CLI) keeps only US food places from the newest public release (~1.8M rows) in a local Parquet file.
+- **Match.** Each active restaurant is matched to the place at the same location with `VenuePipeline::venuesMatch`: the same phone, or a name at least 85% similar, within 200 m.
+- **On a match**, the importer:
+  - records `overture_id`, `overture_confidence` (0–1 existence), `overture_sources` (how many independent datasets Overture merged for the place) and `overture_status`;
+  - fills only empty fields: phone (only when its area code fits the restaurant's state), address, website (never a blocked/reference host; identity-checked later by the daily `restaurants:verify-websites`) and validated social profiles;
+  - writes each fill's provenance to `field_sources`, e.g. `{"phone": "overture:2026-08-19.0"}`;
+  - deactivates a place Overture marks `permanently_closed`, through `field_quarantine` (reason `closed_per_overture`, reversible).
 
 ## Weight set (raw — renormalized per row over active signals)
 

@@ -899,4 +899,37 @@ return [
         'website_verify_timeout' => (int) env('WEBSITE_VERIFY_TIMEOUT', 8),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Overture Maps import (data-integrity phase 3)
+    |--------------------------------------------------------------------------
+    | Overture Maps places are free, open data (CDLA-Permissive-2.0 / Apache-2.0
+    | / CC0; attribution shown in the site footer). `overture:import` extracts
+    | US food places from the latest monthly release once (DuckDB over the
+    | public S3 GeoParquet), then matches each restaurant to the place at the
+    | same location (VenuePipeline::venuesMatch) to record corroboration and
+    | fill EMPTY phone/address/website/social fields.
+    |
+    | match_radius_km: max distance for a place to be the same venue.
+    | fill_min_confidence: a place must be at least this confident (0–1) that
+    |   it exists before its values fill empty fields.
+    | cell_size_deg: matching works block by block; restaurants are grouped
+    |   into square blocks this many degrees wide.
+    | duckdb_memory_limit_mb / duckdb_max_threads: keep the extract inside the
+    |   2-CPU / 4 GB droplet's headroom.
+    | categories: Overture basic_category values that are food venues.
+    */
+    'overture' => [
+        'enabled' => filter_var(env('OVERTURE_ENABLED', true), FILTER_VALIDATE_BOOL),
+        'match_radius_km' => (float) env('OVERTURE_MATCH_RADIUS_KM', 0.2),
+        'fill_min_confidence' => (float) env('OVERTURE_FILL_MIN_CONFIDENCE', 0.5),
+        'cell_size_deg' => (float) env('OVERTURE_CELL_SIZE_DEG', 0.5),
+        'duckdb_memory_limit_mb' => (int) env('OVERTURE_DUCKDB_MEMORY_LIMIT_MB', 1024),
+        'duckdb_max_threads' => (int) env('OVERTURE_DUCKDB_MAX_THREADS', 2),
+        'categories' => [
+            'restaurant', 'casual_eatery', 'fast_food_restaurant', 'bar', 'coffee_shop', 'cafe',
+            'food_truck_stand', 'brewery', 'smoothie_juice_bar', 'food_court', 'food_and_drink',
+        ],
+    ],
+
 ];
