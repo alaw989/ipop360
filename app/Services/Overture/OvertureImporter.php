@@ -306,9 +306,14 @@ class OvertureImporter
                     || $this->quarantine->isQuarantined((int) $restaurant->id, 'website_url', $website)) {
                     continue;
                 }
-                // Identity-checked later by the daily restaurants:verify-websites run.
+                // Identity-checked later by the daily restaurants:verify-websites
+                // run, which takes never-checked rows first. Clearing
+                // website_verified_at queues this URL: a row whose previous
+                // website was quarantined still carries that check's timestamp,
+                // which would hide the new URL until the re-check window lapses.
                 $updates['website_url'] = $website;
                 $updates['website_identity'] = null;
+                $updates['website_verified_at'] = null;
                 $sources['website_url'] = $tag;
                 $stats['website_filled']++;
                 break;

@@ -60,6 +60,10 @@ class VerifyRestaurantWebsites extends Command
             // without this every run re-verifies the same first-N-by-id rows
             // forever and later rows never get checked at all.
             ->orderByRaw('website_verified_at IS NOT NULL')
+            // Among never-checked rows, websites an import just filled (tagged
+            // in field_sources) go first: they are new values already shown on
+            // the site, while the untagged backlog has been waiting anyway.
+            ->orderByRaw("json_extract(field_sources, '$.website_url') IS NULL")
             ->orderBy('website_verified_at')
             ->orderBy('id');
 

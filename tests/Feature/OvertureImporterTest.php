@@ -115,6 +115,19 @@ class OvertureImporterTest extends TestCase
         $this->assertSame(1, $fresh->social_links_count);
     }
 
+    public function test_filled_website_is_queued_for_identity_check_even_after_a_quarantine(): void
+    {
+        // A quarantined website leaves website_verified_at stamped; the new URL
+        // must not inherit it, or verify-websites skips it for a month.
+        $r = $this->restaurant(['website_verified_at' => now()->subDay(), 'website_identity' => null]);
+
+        $this->match($r, [$this->place()]);
+
+        $fresh = Restaurant::query()->whereKey($r->id)->firstOrFail();
+        $this->assertSame('https://blueheronbistro.example/', $fresh->website_url);
+        $this->assertNull($fresh->website_verified_at, 'the filled website is queued for the next verify-websites run');
+    }
+
     public function test_existing_values_are_never_overwritten_and_conflicts_are_counted(): void
     {
         $r = $this->restaurant(['phone' => '2535559999', 'address' => '1 Other St', 'website_url' => 'https://own.example']);
