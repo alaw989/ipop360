@@ -185,6 +185,18 @@ class VerifyRestaurantWebsitesCommandTest extends TestCase
         $this->assertNotNull($neverChecked->fresh()?->website_verified_at);
     }
 
+    public function test_import_filled_websites_are_checked_before_the_untagged_backlog(): void
+    {
+        $backlog = $this->venue(['website_url' => 'https://backlog.example/']);
+        $filled = $this->venue(['field_sources' => ['website_url' => 'overture:2026-08-19.0']]);
+        $this->fake(['https://blueheron.example/' => Http::response($this->ownSite())]);
+
+        $this->verifyCommand(['--limit' => 1])->expectsOutputToContain('Done. 1 verified')->run();
+
+        $this->assertNotNull($filled->fresh()?->website_verified_at);
+        $this->assertNull($backlog->fresh()?->website_verified_at);
+    }
+
     public function test_recently_verified_rows_are_skipped_by_max_age(): void
     {
         $this->venue(['website_verified_at' => now()->subDays(5)]);
