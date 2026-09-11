@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\FieldQuarantine;
 use App\Models\Restaurant;
+use App\Services\DomainDnsChecker;
 use App\Services\WebsiteIdentityVerifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\PendingCommand;
+use Tests\Fakes\FakeDnsChecker;
 use Tests\TestCase;
 
 /**
@@ -142,6 +144,38 @@ class VerifyRestaurantWebsitesCommandTest extends TestCase
         $this->assertSame('https://erroring.example/', $freshErroring->website_url);
         $this->assertNotNull($freshErroring->website_verified_at);
         $this->assertSame('https://offline.example/', $offline->fresh()?->website_url);
+        $this->assertSame(0, FieldQuarantine::query()->count());
+    }
+
+    public function test_unfetchable_site_on_a_lapsed_domain_is_quarantined(): void
+    {
+        $restaurant = $this->venue(['website_url' => 'https://www.blueheron-lapsed.com/']);
+        Http::fake(['*' => fn () => throw new ConnectionException('Could not resolve host')]);
+        Config::set('restaurant-finder.data_integrity.website_dead_domain_check', true);
+        $this->app->instance(DomainDnsChecker::class, new FakeDnsChecker(['example.com' => [['type' => 'NS']]]));
+
+        $this->verifyCommand()->expectsOutputToContain('1 rejected, 0 skipped (unreachable).')->run();
+
+        $this->assertNull($restaurant->fresh()?->website_url);
+        $this->assertSame('website_dead_domain', FieldQuarantine::query()->where('restaurant_id', $restaurant->id)->value('reason'));
+    }
+
+    public function test_unreachable_option_rechecks_only_rows_without_an_identity_verdict(): void
+    {
+        $unjudged = $this->venue(['website_verified_at' => now()->subDays(2)]);
+        $judged = $this->venue([
+            'website_url' => 'https://judged.example/',
+            'website_verified_at' => now()->subDays(2),
+            'website_identity' => WebsiteIdentityVerifier::VERIFIED,
+        ]);
+        $neverChecked = $this->venue(['website_url' => 'https://never.example/']);
+        $this->fake(['https://blueheron.example/' => Http::response($this->ownSite())]);
+
+        $this->verifyCommand(['--unreachable' => true])->expectsOutputToContain('Done. 1 verified, 0 brand, 0 unconfirmed, 0 rejected')->run();
+
+        $this->assertSame(WebsiteIdentityVerifier::VERIFIED, $unjudged->fresh()?->website_identity);
+        $this->assertTrue($judged->fresh()?->website_verified_at?->lt(now()->subDay()), 'a row with a verdict is left alone');
+        $this->assertNull($neverChecked->fresh()?->website_verified_at, 'never-checked rows belong to the normal run');
         $this->assertSame(0, FieldQuarantine::query()->count());
     }
 

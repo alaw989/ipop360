@@ -32,8 +32,9 @@ use Illuminate\Support\Str;
  *   BRAND       a strong name match on a distinctive name but no location
  *               (a chain's homepage) — kept when already stored;
  *   UNCONFIRMED names it but shows no location — kept, never newly saved;
- *   REJECTED    blocked/reference/parked domain, dead link, no trace of the
- *               name, or a JSON-LD business address in another state;
+ *   REJECTED    blocked/reference/parked domain, dead link, a domain that no
+ *               longer exists, no trace of the name, or a JSON-LD business
+ *               address in another state;
  *   UNREACHABLE fetch failed / bot-blocked / robots.txt — no judgement.
  */
 class WebsiteIdentityVerifier
@@ -150,7 +151,10 @@ class WebsiteIdentityVerifier
 
     private const MAX_TEXT_CHARS = 400000;
 
-    public function __construct(private RestaurantWebsiteScraperService $scraper) {}
+    public function __construct(
+        private RestaurantWebsiteScraperService $scraper,
+        private DomainDnsChecker $dns,
+    ) {}
 
     /**
      * Cheap pre-check (no fetch): is this URL on a host that is never a
@@ -205,6 +209,12 @@ class WebsiteIdentityVerifier
         $page = $this->scraper->fetchHtml($url, $timeout);
 
         if ($page === null) {
+            // A fetch failure is no judgement — unless the domain itself is
+            // gone from DNS (lapsed), which makes the site dead for everyone.
+            if (config('restaurant-finder.data_integrity.website_dead_domain_check', true) && $this->dns->isDead($url)) {
+                return new WebsiteIdentityVerdict(self::REJECTED, 'dead_domain');
+            }
+
             return new WebsiteIdentityVerdict(self::UNREACHABLE, 'fetch_failed');
         }
         if (in_array($page['status'], [404, 410], true)) {

@@ -891,12 +891,17 @@ return [
     |   shows no phone/street/city, this many contact/location sub-pages are
     |   checked for the location evidence before judging it.
     | website_verify_timeout: per-page fetch timeout (seconds) for identity checks.
+    | website_dead_domain_check: when a site can't be fetched, look its domain
+    |   up in DNS; a domain that no longer exists is rejected as `dead_domain`
+    |   instead of kept as "unreachable" (DomainDnsChecker). Off in the test
+    |   suite so it never does real DNS.
     */
     'data_integrity' => [
         'social_brand_min_restaurants' => (int) env('SOCIAL_BRAND_MIN_RESTAURANTS', 5),
         'website_search_max_candidates' => (int) env('WEBSITE_SEARCH_MAX_CANDIDATES', 3),
         'website_verify_max_extra_pages' => (int) env('WEBSITE_VERIFY_MAX_EXTRA_PAGES', 2),
         'website_verify_timeout' => (int) env('WEBSITE_VERIFY_TIMEOUT', 8),
+        'website_dead_domain_check' => (bool) env('WEBSITE_DEAD_DOMAIN_CHECK', true),
     ],
 
     /*

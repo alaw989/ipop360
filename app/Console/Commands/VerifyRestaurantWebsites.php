@@ -14,18 +14,23 @@ use Illuminate\Support\Facades\Log;
  * Previously a HEAD liveness check: a dictionary page, a parked domain or a
  * different business's site all answer 200, so none of the 2,443 prod rows
  * pointing at merriam-webster/britannica/imdb… were ever cleared. Each URL now
- * goes through WebsiteIdentityVerifier; a REJECTED site (dead link, blocked/
- * parked/reference domain, a page that never names the venue, a business in
- * another state) is moved to field_quarantine — reversible, and never
- * re-saved by the backfill — while verified/brand/unconfirmed outcomes are
- * recorded in website_identity. Unreachable sites keep their URL.
+ * goes through WebsiteIdentityVerifier; a REJECTED site (dead link, lapsed
+ * domain, blocked/parked/reference domain, a page that never names the venue,
+ * a business in another state) is moved to field_quarantine — reversible, and
+ * never re-saved by the backfill — while verified/brand/unconfirmed outcomes
+ * are recorded in website_identity. Unreachable sites keep their URL.
+ *
+ * --unreachable re-checks only websites that carry a check date but no
+ * identity verdict (unreachable last time, or checked before identity checks
+ * existed) without waiting out --max-age-days.
  */
 class VerifyRestaurantWebsites extends Command
 {
     protected $signature = 'restaurants:verify-websites
         {--dry-run : Show what would be quarantined without making changes}
         {--limit=0 : Max restaurants to check (0 = unlimited)}
-        {--max-age-days=30 : Max days since last verification}';
+        {--max-age-days=30 : Max days since last verification}
+        {--unreachable : Re-check only websites checked before without an identity verdict (ignores --max-age-days)}';
 
     protected $description = 'Identity-check stored website URLs and quarantine ones that are not the restaurant\'s own site';
 
@@ -53,9 +58,13 @@ class VerifyRestaurantWebsites extends Command
             ->active()
             ->whereNotNull('website_url')
             ->where('website_url', '!=', '')
-            ->where(function ($q) use ($cutoff) {
-                $q->whereNull('website_verified_at')->orWhere('website_verified_at', '<', $cutoff);
-            })
+            ->when(
+                (bool) $this->option('unreachable'),
+                fn ($q) => $q->whereNull('website_identity')->whereNotNull('website_verified_at'),
+                fn ($q) => $q->where(function ($q) use ($cutoff) {
+                    $q->whereNull('website_verified_at')->orWhere('website_verified_at', '<', $cutoff);
+                }),
+            )
             // Never-checked rows (null) sort first, then oldest-checked —
             // without this every run re-verifies the same first-N-by-id rows
             // forever and later rows never get checked at all.
