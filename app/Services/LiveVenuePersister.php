@@ -21,6 +21,7 @@ class LiveVenuePersister
         private RestaurantValidationService $restaurantValidation,
         private CuisineMatcher $cuisineMatcher,
         private GeolocationService $geolocationService,
+        private RestaurantFieldMerger $fieldMerger = new RestaurantFieldMerger,
     ) {}
 
     /**
@@ -89,6 +90,13 @@ class LiveVenuePersister
             // by the website scraper or RestaurantEnrichmentService.
             unset($attributes['opening_hours']);
             $attributes = $this->guardTransientPhotos($restaurant, $attributes);
+            // The live score is not a stored field the merger reasons about;
+            // keep writing it as before, but never as a null.
+            $liveScore = $attributes['popularity_score'] ?? null;
+            $attributes = $this->fieldMerger->forExisting($restaurant, $attributes);
+            if ($liveScore !== null) {
+                $attributes['popularity_score'] = $liveScore;
+            }
             $restaurant->update($attributes);
         } else {
             $restaurant = Restaurant::create($attributes);

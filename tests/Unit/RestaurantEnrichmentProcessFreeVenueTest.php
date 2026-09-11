@@ -142,7 +142,86 @@ class RestaurantEnrichmentProcessFreeVenueTest extends TestCase
         $this->assertNotNull($restaurant);
         $this->assertSame($existing->id, $restaurant->id);
         $this->assertDatabaseCount('restaurants', 1);
-        $this->assertDatabaseHas('restaurants', ['id' => $existing->id, 'name' => 'Sushi Izakaya']);
+        // A matched row keeps its stored name (source records only fill blanks).
+        $this->assertDatabaseHas('restaurants', ['id' => $existing->id, 'name' => 'Old Name']);
+    }
+
+    public function test_sparse_venue_does_not_erase_a_matched_rows_data(): void
+    {
+        /** @var Cuisine $cuisine */
+        $cuisine = Cuisine::factory()->create(['slug' => 'mexican', 'name' => 'Mexican']);
+        $existing = Restaurant::factory()->create([
+            'name' => 'Rio on Wazee',
+            'latitude' => 39.7527,
+            'longitude' => -104.9990,
+            'address' => '1745 Wazee St',
+            'phone' => '3036235432',
+            'website_url' => 'https://riograndemexican.com/locations/rio-on-wazee/',
+            'photo_url' => 'https://riograndemexican.com/front.jpg',
+            'price_range' => '$$',
+            'description' => 'Mexican restaurant',
+            'google_rating' => 4.2,
+            'google_review_count' => 2782,
+            'is_active' => false,
+        ]);
+
+        // What BizData actually sends for this row every day: a name and a point.
+        $this->processFreeVenue([
+            'name' => 'Rio on Wazee',
+            'lat' => 39.7528,
+            'lng' => -104.9991,
+            'address' => null,
+            'phone' => null,
+            'website_url' => null,
+            'price_range' => null,
+            'photo_url' => null,
+            'source' => 'bizdata',
+        ], $cuisine);
+
+        $fresh = $existing->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('1745 Wazee St', $fresh->address);
+        $this->assertSame('3036235432', $fresh->phone);
+        $this->assertSame('https://riograndemexican.com/locations/rio-on-wazee/', $fresh->website_url);
+        $this->assertSame('https://riograndemexican.com/front.jpg', $fresh->photo_url);
+        $this->assertSame('$$', $fresh->price_range);
+        $this->assertSame('Mexican restaurant', $fresh->description);
+        $this->assertSame(4.2, $fresh->google_rating);
+        $this->assertSame(2782, $fresh->google_review_count);
+        $this->assertFalse($fresh->is_active, 'a closed restaurant must not be reactivated by a source match');
+    }
+
+    public function test_matched_row_takes_a_fresh_rating_and_fills_blanks(): void
+    {
+        /** @var Cuisine $cuisine */
+        $cuisine = Cuisine::factory()->create(['slug' => 'mexican', 'name' => 'Mexican']);
+        $existing = Restaurant::factory()->create([
+            'name' => 'Rio on Wazee',
+            'latitude' => 39.7527,
+            'longitude' => -104.9990,
+            'phone' => null,
+            'website_url' => 'https://riograndemexican.com/locations/rio-on-wazee/',
+            'google_rating' => 4.1,
+            'google_review_count' => 2700,
+        ]);
+
+        $this->processFreeVenue([
+            'name' => 'Rio on Wazee',
+            'lat' => 39.7527,
+            'lng' => -104.9990,
+            'phone' => '(303) 623-5432',
+            'website_url' => 'https://another-site.test',
+            'google_rating' => 4.2,
+            'google_review_count' => 2782,
+            'source' => 'serpapi',
+        ], $cuisine);
+
+        $fresh = $existing->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('3036235432', $fresh->phone);
+        $this->assertSame('https://riograndemexican.com/locations/rio-on-wazee/', $fresh->website_url);
+        $this->assertSame(4.2, $fresh->google_rating);
+        $this->assertSame(2782, $fresh->google_review_count);
     }
 
     public function test_persists_venue_without_coordinates(): void
