@@ -40,6 +40,7 @@ class RestaurantEnrichmentService
         private CuisineMatcher $cuisineMatcher,
         private VenuePipeline $venuePipeline,
         private RestaurantValidationService $restaurantValidation,
+        private RestaurantFieldMerger $fieldMerger = new RestaurantFieldMerger,
     ) {}
 
     /**
@@ -417,8 +418,13 @@ class RestaurantEnrichmentService
             ? $this->findByNameAndProximity($venue['name'], $venue['lat'], $venue['lng'])
             : null;
 
+        $changedFields = null;
         if ($existing !== null) {
-            $existing->update($attributes);
+            // A matched row keeps what it already has: the source record only
+            // fills blanks (and refreshes a positive rating). Writing the raw
+            // attributes nulled every field a sparse BizData/OSM venue lacked.
+            $existing->update($this->fieldMerger->forExisting($existing, $attributes));
+            $changedFields = array_keys(array_diff_key($existing->getChanges(), ['updated_at' => true]));
             $restaurant = $existing;
         } else {
             $restaurant = Restaurant::create($attributes);
@@ -483,6 +489,7 @@ class RestaurantEnrichmentService
                 'cuisine' => $cuisine->name,
                 'has_coords' => $venue['lat'] !== null && $venue['lng'] !== null,
                 'populated_fields' => $populatedFields,
+                'changed_fields' => $changedFields,
                 'google_rating' => $attributes['google_rating'] ?? null,
                 'google_review_count' => $attributes['google_review_count'],
             ]
