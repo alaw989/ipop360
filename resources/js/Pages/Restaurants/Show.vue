@@ -11,7 +11,7 @@ import RestaurantActionBar from '@/Components/RestaurantActionBar.vue';
 import { getRestaurantGradient } from '@/composables/useRestaurantDisplay';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { callPhone, openWebsite, trackDirections, trackPageview, trackMenuClick, directionsUrl } from '@/lib/restaurant';
+import { callPhone, openWebsite, trackDirections, trackPageview, trackMenuClick, directionsUrl, formatFullAddress } from '@/lib/restaurant';
 import { Heart, ArrowLeft, MapPin, Navigation, Phone, Globe, UtensilsCrossed } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
 import { useSeo, generateRestaurantJsonLd } from '@/composables/useSeo';
@@ -205,7 +205,7 @@ function handleMenuClick(): void {
                         <div v-if="restaurant.address" class="flex items-start gap-2.5 text-sm">
                             <MapPin :size="16" class="mt-0.5 shrink-0 text-muted-foreground" />
                             <span class="text-muted-foreground">
-                                {{ restaurant.address }}<span v-if="restaurant.city">, {{ restaurant.city }}</span><span v-if="restaurant.state">, {{ restaurant.state }}</span><span v-if="restaurant.postal_code"> {{ restaurant.postal_code }}</span>
+                                {{ formatFullAddress(restaurant) }}
                             </span>
                         </div>
 

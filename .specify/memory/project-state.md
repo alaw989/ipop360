@@ -198,8 +198,7 @@ queued behind this work (see `backlog.md`).
   `.env`. Run `vendor/bin/phpunit` directly, not `php artisan test`, which
   boots with `.env` first and leaks its values into the child process.
 
-**Status (2026-09-11): phase 3 SHIPPED, plus fixes #175–#178; phase 4 in
-review.**
+**Status (2026-09-11): phases 3–4 SHIPPED, plus fixes #175–#178 and #181.**
 - **Phase 3:** Overture import #172–#174, first applied on prod 09-11.
   Scheduled on the 25th at 20:00 UTC.
 - **#175:** enrichment's `processFreeVenue` and `LiveVenuePersister` were
@@ -212,14 +211,17 @@ review.**
 - **#178:** a website whose domain no longer exists is rejected as
   `dead_domain`; `restaurants:verify-websites --unreachable` re-checks rows
   with a check date but no verdict.
+- **#181:** an address whose ZIP is far from the pin (`App\Support\ZipLocation`,
+  Census ZCTA centroids) is replaced by `overture:import` with the matched
+  place's address, or removed by `restaurants:integrity
+  address_far_from_location` when there's no Overture match. No write path
+  fills a far ZIP.
 - **Backups on the droplet** (`/root/ipop360-backups/`): pre-integrity,
-  pre-overture, pre-restore, pre-dead-domain.
-- **Open follow-up:** addresses copied between chain locations (see
-  `backlog.md`).
-- **Phase 4** is on `feat/evidence-ranking`: the evidence signal, "Not yet
-  rated", and per-call SerpApi yield logging (`serpapi_call_log` yield
-  columns, shown in `quota:status`). Calibration and the evidence-cap choice
-  are in `docs/ranking-metrics.md`.
+  pre-overture, pre-restore, pre-dead-domain, pre-address-fix.
+- **Phase 4** (#179, #180): the evidence signal, "Not yet rated" on result
+  cards, and per-call SerpApi yield logging (`serpapi_call_log` yield columns,
+  shown in `quota:status`). Calibration and the evidence-cap choice are in
+  `docs/ranking-metrics.md`.
 - **Unverified prod env drifts:** `ENRICH_MONTHLY_BUDGET=250` takes the whole
   SerpApi quota, and the AI fallback still points at the retired Azure
   endpoint.

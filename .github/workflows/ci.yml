@@ -6,8 +6,10 @@ on:
       - master
   workflow_dispatch:
 
+# Per branch: a new push supersedes that PR's own in-flight run, never another
+# PR's (a global group let one PR's CI cancel every other PR's).
 concurrency:
-  group: ci-quality
+  group: ci-quality-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
