@@ -852,13 +852,14 @@ See `history.md` and `project-state.md`.
 - **#177:** live search no longer re-creates Overture-closed restaurants.
 - **#178:** websites on lapsed domains are rejected (`dead_domain`); 190
   quarantined on prod.
+- **#181:** addresses copied from another location are corrected from Overture
+  (443) or removed (202) on prod.
 
 See `history.md` (2026-09-11).
 
-### In progress (2026-09-11) — data-integrity overhaul, phase 4
+### ✅ Done (2026-09-11) — data-integrity overhaul, phase 4 (#179, #180)
 
-4. **Evidence-based ranking for the ~90% unrated** (`feat/evidence-ranking`,
-   local). Built:
+4. **Evidence-based ranking for the ~90% unrated.** Built:
    - the `evidence` signal (Overture corroboration + confidence, website
      identity, verified location socials, OSM detail)
    - the "Not yet rated" label
@@ -878,11 +879,13 @@ See `history.md` (2026-09-11).
    Open: revisit `RANK_EVIDENCE_CAP` once the 35k never-checked websites
    clear.
 
-**Follow-up (planning): addresses copied between locations.** 228 groups (922
-active rows) share a name and an exact street address but sit more than 2 km
-apart, some across states. For example, one Bar Louie Fort Collins address is
-on 3 rows about 2,900 km apart. 24 Diner's second row is pinned 11 km from its
-address, which is how Overture matched it to a wrong website (hillscafe.com).
+**Open after #181 (addresses):**
+- 34 unmatched rows whose address ZIP is 10–50 km from the pin: same metro,
+  too close to call without an Overture place.
+- 16 rows where only `postal_code` (not the address) is far from the pin.
+- A few rows also carry a copied `city` field, e.g. a Louisville Buffalo Wild
+  Wings stored as "Cheyenne".
+- 24 Diner's airport row keeps hillscafe.com; Overture's own data lists it.
 
 ### Next up: specs 102–103 (PROPOSED, from the 2026-06-30 fresh-audit wave)
 
