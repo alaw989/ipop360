@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\Overture\DuckDb;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Tests\TestCase;
@@ -23,8 +24,7 @@ class DuckDbTest extends TestCase
 
     protected function tearDown(): void
     {
-        @unlink($this->dir.'/duckdb');
-        @rmdir($this->dir);
+        File::deleteDirectory($this->dir);
         parent::tearDown();
     }
 
@@ -66,5 +66,21 @@ class DuckDbTest extends TestCase
         (new DuckDb($this->dir.'/duckdb'))->binary();
 
         Http::assertNothingSent();
+    }
+
+    public function test_runs_with_an_app_owned_home_for_the_extension_cache(): void
+    {
+        // DuckDB installs httpfs under $HOME/.duckdb, and the scheduler's
+        // www-data home (/var/www) isn't writable — the first prod run failed
+        // with "Failed to create directory /var/www/.duckdb".
+        mkdir($this->dir, 0755, true);
+        file_put_contents($this->dir.'/duckdb', "#!/bin/sh\ncat >/dev/null\necho \"\$HOME\"\n");
+        chmod($this->dir.'/duckdb', 0755);
+        $home = $this->dir.'/home';
+
+        $output = (new DuckDb($this->dir.'/duckdb', homeDirectory: $home))->run('SELECT 1;');
+
+        $this->assertSame($home, trim($output));
+        $this->assertDirectoryExists($home);
     }
 }

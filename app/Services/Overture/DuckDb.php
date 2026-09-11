@@ -15,6 +15,10 @@ use RuntimeException;
  * written, and it is unpacked into storage/app/tools. No deploy-pipeline or
  * system package change is needed, and a tampered or truncated download can
  * never be executed.
+ *
+ * DuckDB installs extensions (httpfs, for S3) under $HOME/.duckdb. The
+ * scheduler's www-data user can't write its home (/var/www), so every run
+ * gets HOME pointed at storage/app/tools/duckdb-home instead.
  */
 class DuckDb
 {
@@ -29,6 +33,7 @@ class DuckDb
         private ?string $binaryPath = null,
         private string $downloadUrl = self::DOWNLOAD_URL,
         private string $sha256 = self::SHA256,
+        private ?string $homeDirectory = null,
     ) {}
 
     /**
@@ -77,6 +82,7 @@ class DuckDb
     public function run(string $sql, int $timeoutSeconds = 3600): string
     {
         $result = Process::timeout($timeoutSeconds)
+            ->env(['HOME' => $this->home()])
             ->input($sql)
             ->run([$this->binary(), '-bail', ':memory:']);
 
@@ -85,6 +91,19 @@ class DuckDb
         }
 
         return $result->output();
+    }
+
+    /**
+     * A HOME directory the app can write, for DuckDB's extension cache.
+     */
+    private function home(): string
+    {
+        $dir = $this->homeDirectory ?? storage_path('app/tools/duckdb-home');
+        if (! is_dir($dir) && ! mkdir($dir, 0755, true) && ! is_dir($dir)) {
+            throw new RuntimeException("Cannot create {$dir}");
+        }
+
+        return $dir;
     }
 
     /**
