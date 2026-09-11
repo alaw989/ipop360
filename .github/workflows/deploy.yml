@@ -150,6 +150,8 @@ jobs:
             --exclude 'storage/framework/sessions/*' \
             --exclude 'storage/framework/views/*' \
             --exclude 'storage/logs/*' \
+            --exclude 'storage/app/tools/' \
+            --exclude 'storage/app/overture/' \
             --exclude 'database/database.sqlite' \
             --exclude 'public/hot' \
             --exclude 'public/sitemap.xml' \
