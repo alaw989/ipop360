@@ -174,6 +174,16 @@ describe('SearchResultCard', () => {
             const wrapper = mountCard({ yelp_rating: null, google_rating: null })
             expect(wrapper.find('[data-testid="star-rating"]').exists()).toBe(false)
         })
+
+        it('labels an unrated venue "Not yet rated" instead of showing stars', () => {
+            const wrapper = mountCard({ yelp_rating: null, google_rating: null })
+            expect(wrapper.find('[data-testid="not-yet-rated"]').text()).toBe('Not yet rated')
+        })
+
+        it('does not show the unrated label when a rating exists', () => {
+            const wrapper = mountCard({ yelp_rating: 4.5, yelp_review_count: 200 })
+            expect(wrapper.find('[data-testid="not-yet-rated"]').exists()).toBe(false)
+        })
     })
 
     describe('price range', () => {
