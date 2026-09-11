@@ -11,9 +11,10 @@ use Illuminate\Support\Facades\File;
  *
  * Report-only by default (matches are counted, nothing is written); --apply
  * records corroboration on each matched restaurant, fills empty
- * phone/address/website/social fields, and deactivates restaurants Overture
- * marks permanently closed (reversibly, via field_quarantine). See
- * OvertureImporter for the matching and fill rules.
+ * phone/address/website/social fields, replaces an address copied from
+ * another location, and deactivates restaurants Overture marks permanently
+ * closed (both reversibly, via field_quarantine). See OvertureImporter for
+ * the matching and fill rules.
  */
 class OvertureImport extends Command
 {
@@ -54,6 +55,9 @@ class OvertureImport extends Command
         $this->info(sprintf('Done in %.0fs.', microtime(true) - $started));
         if ($apply && $stats['closed'] > 0) {
             $this->info("{$stats['closed']} restaurant(s) marked permanently closed were deactivated — undo with: php artisan restaurants:integrity --restore=closed_per_overture");
+        }
+        if ($apply && $stats['address_corrected'] > 0) {
+            $this->info("{$stats['address_corrected']} address(es) copied from another location were replaced — the originals are in field_quarantine (reason address_far_from_location).");
         }
 
         return self::SUCCESS;

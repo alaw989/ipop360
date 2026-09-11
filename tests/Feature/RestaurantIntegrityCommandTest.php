@@ -148,6 +148,35 @@ class RestaurantIntegrityCommandTest extends TestCase
         $this->assertSame('2148 Johnson Ferry Rd NE, Atlanta, GA 30319', $ok->fresh()?->address);
     }
 
+    public function test_address_from_another_metro_is_quarantined_on_unmatched_rows(): void
+    {
+        $copied = 'Virginia Beach Boulevard, 4554, Virginia Beach, 23462';
+        $tampa = ['name' => 'Bahama Breeze', 'city' => 'Tampa', 'state' => 'FL', 'latitude' => 27.970, 'longitude' => -82.563];
+        $unmatched = $this->restaurant(array_merge($tampa, ['address' => $copied, 'postal_code' => '23462', 'overture_id' => null]));
+        // Overture-matched: overture:import replaces it with the place's address.
+        $matched = $this->restaurant(array_merge($tampa, ['address' => $copied, 'postal_code' => '23462', 'overture_id' => 'ov-1', 'latitude' => 27.971]));
+        // Same metro (the airport location of an Austin diner): too close to
+        // call without an Overture place.
+        $nearby = $this->restaurant(['address' => 'North Lamar Boulevard, 600, Austin, 78703', 'postal_code' => null, 'overture_id' => null, 'latitude' => 30.2026, 'longitude' => -97.6641]);
+        // Pinned on the configured Tampa city center: the pin may be the wrong part.
+        $center = $this->restaurant(array_merge($tampa, ['address' => $copied, 'postal_code' => '23462', 'overture_id' => null, 'latitude' => 27.9506, 'longitude' => -82.4572]));
+
+        $this->integrity(['--only' => ['address_far_from_location']])->assertSuccessful()
+            ->expectsOutputToContain('address_far_from_location: 1 flagged (Overture-matched, left to overture:import 1)');
+        $this->integrity(['--apply' => true, '--only' => ['address_far_from_location']])->assertSuccessful();
+
+        $this->assertNull($unmatched->fresh()?->address);
+        $this->assertNull($unmatched->fresh()?->postal_code);
+        $this->assertSame($copied, $matched->fresh()?->address);
+        $this->assertSame('North Lamar Boulevard, 600, Austin, 78703', $nearby->fresh()?->address);
+        $this->assertSame($copied, $center->fresh()?->address);
+
+        $this->integrity(['--restore' => 'address_far_from_location'])->assertSuccessful()->run();
+        $restored = Restaurant::query()->whereKey($unmatched->id)->firstOrFail();
+        $this->assertSame($copied, $restored->address);
+        $this->assertSame('23462', $restored->postal_code);
+    }
+
     public function test_ai_guesses_are_quarantined_but_verified_ai_websites_stay(): void
     {
         $guess = $this->restaurant(['price_range' => '$$', 'ai_metadata' => ['fields_updated' => ['price_range', 'description']]]);

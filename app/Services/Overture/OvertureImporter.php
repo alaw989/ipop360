@@ -12,6 +12,7 @@ use App\Services\WebsiteIdentityVerifier;
 use App\Support\AreaCodeStates;
 use App\Support\SocialProfileUrl;
 use App\Support\StateAbbreviations;
+use App\Support\ZipLocation;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -32,8 +33,12 @@ use RuntimeException;
  *    restaurant's state), address, website (never a blocked/reference host;
  *    identity-checked later by restaurants:verify-websites) and social
  *    profiles (validated + reachability-checked). Each fill is recorded in
- *    field_sources. A place Overture marks permanently_closed deactivates the
- *    restaurant through field_quarantine (reversible).
+ *    field_sources. An address is never filled with a ZIP far from the pin,
+ *    and a stored address whose ZIP is far from the pin (copied from another
+ *    location) is replaced by the place's when the place's ZIP is near it —
+ *    the old one goes to field_quarantine (address_far_from_location). A
+ *    place Overture marks permanently_closed deactivates the restaurant
+ *    through field_quarantine (reversible).
  */
 class OvertureImporter
 {
@@ -259,7 +264,7 @@ class OvertureImporter
      */
     private function applyMatch(Restaurant $restaurant, array $place, string $release, bool $apply, bool $socials = true): array
     {
-        $stats = ['phone_filled' => 0, 'address_filled' => 0, 'website_filled' => 0, 'socials_added' => 0, 'closed' => 0, 'phone_conflicts' => 0];
+        $stats = ['phone_filled' => 0, 'address_filled' => 0, 'address_corrected' => 0, 'website_filled' => 0, 'socials_added' => 0, 'closed' => 0, 'phone_conflicts' => 0];
         $confidence = (float) ($place['confidence'] ?? 0);
         $fillable = $confidence >= (float) config('restaurant-finder.overture.fill_min_confidence', 0.5);
         $datasets = is_array($place['datasets'] ?? null) ? $place['datasets'] : [];
@@ -290,13 +295,40 @@ class OvertureImporter
         }
 
         $street = trim((string) ($place['street'] ?? ''));
-        if ($fillable && $street !== '' && trim((string) $restaurant->address) === '') {
-            $locality = trim((string) ($place['city'] ?? ''));
-            $region = trim((string) ($place['region'] ?? ''));
-            $postcode = trim((string) ($place['postcode'] ?? ''));
-            $updates['address'] = implode(', ', array_filter([$street, $locality, trim($region.' '.$postcode)]));
+        $placeAddress = implode(', ', array_filter([
+            $street, trim((string) ($place['city'] ?? '')), trim(($place['region'] ?? '').' '.($place['postcode'] ?? '')),
+        ]));
+        $placeZip = ZipLocation::zipOf(null, (string) ($place['postcode'] ?? ''));
+        $lat = (float) $restaurant->latitude;
+        $lng = (float) $restaurant->longitude;
+        // Never write an address whose ZIP is somewhere else than the pin.
+        $placeUsable = $fillable && $street !== ''
+            && ($placeZip === null || ZipLocation::isFarFrom($placeZip, $lat, $lng) !== true)
+            && ! $this->quarantine->isQuarantined((int) $restaurant->id, 'address', $placeAddress);
+        $copiedZip = null;
+        if ($placeUsable && trim((string) $restaurant->address) === '') {
+            $updates['address'] = $placeAddress;
             $sources['address'] = $tag;
             $stats['address_filled']++;
+        } elseif ($placeUsable && $placeZip !== null) {
+            // A stored address whose ZIP is far from the pin was copied from
+            // another location (the old name-only backfill). The place at the
+            // pin, in a ZIP near it, has the right one.
+            // The address's own ZIP: a far postal_code alone doesn't prove the
+            // street wrong.
+            $storedZip = ZipLocation::zipOf($restaurant->address);
+            if ($storedZip !== null && $storedZip !== $placeZip && ZipLocation::isFarFrom($storedZip, $lat, $lng) === true) {
+                $copiedZip = $storedZip;
+                $updates['address'] = $placeAddress;
+                $sources['address'] = $tag;
+                // The copy usually carried its ZIP into postal_code, which the
+                // page prints after the address: correct it with the address.
+                if (ZipLocation::zipOf(null, $restaurant->postal_code) === $storedZip) {
+                    $updates['postal_code'] = $placeZip;
+                    $sources['postal_code'] = $tag;
+                }
+                $stats['address_corrected']++;
+            }
         }
 
         if ($fillable && trim((string) $restaurant->website_url) === '') {
@@ -333,6 +365,15 @@ class OvertureImporter
             $stats['socials_added'] += $socials ? count($this->missingSocials($restaurant, $place)) : 0;
 
             return $stats;
+        }
+
+        if ($copiedZip !== null) {
+            // Keep the copied values restorable. Both columns are refilled
+            // just below, so a restore can't put back half of the old address.
+            $fields = array_key_exists('postal_code', $updates) ? ['address', 'postal_code'] : ['address'];
+            $this->quarantine->quarantineFields($restaurant, $fields, 'address_far_from_location', 'overture:import', [
+                'zip' => $copiedZip, 'overture_id' => $place['id'], 'release' => $release,
+            ]);
         }
 
         $restaurant->update($updates);
@@ -412,7 +453,7 @@ class OvertureImporter
     {
         return [
             'blocks' => 0, 'restaurants' => 0, 'matched' => 0, 'phone_filled' => 0, 'address_filled' => 0,
-            'website_filled' => 0, 'socials_added' => 0, 'closed' => 0, 'phone_conflicts' => 0,
+            'address_corrected' => 0, 'website_filled' => 0, 'socials_added' => 0, 'closed' => 0, 'phone_conflicts' => 0,
         ];
     }
 }

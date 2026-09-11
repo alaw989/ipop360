@@ -913,6 +913,13 @@ return [
     |   up in DNS; a domain that no longer exists is rejected as `dead_domain`
     |   instead of kept as "unreachable" (DomainDnsChecker). Off in the test
     |   suite so it never does real DNS.
+    | address_zip_far_km / address_zip_radius_factor: an address's ZIP is "far"
+    |   from the restaurant's pin beyond max(far_km, factor × the ZIP's radius)
+    |   (App\Support\ZipLocation) — overture:import then replaces it with the
+    |   matched place's address, and never fills a far one.
+    | address_zip_unmatched_far_km: with no Overture place to vouch for a
+    |   replacement, restaurants:integrity only removes an address this far off
+    |   (a different metro).
     */
     'data_integrity' => [
         'social_brand_min_restaurants' => (int) env('SOCIAL_BRAND_MIN_RESTAURANTS', 5),
@@ -920,6 +927,9 @@ return [
         'website_verify_max_extra_pages' => (int) env('WEBSITE_VERIFY_MAX_EXTRA_PAGES', 2),
         'website_verify_timeout' => (int) env('WEBSITE_VERIFY_TIMEOUT', 8),
         'website_dead_domain_check' => (bool) env('WEBSITE_DEAD_DOMAIN_CHECK', true),
+        'address_zip_far_km' => (float) env('ADDRESS_ZIP_FAR_KM', 10),
+        'address_zip_radius_factor' => (float) env('ADDRESS_ZIP_RADIUS_FACTOR', 3),
+        'address_zip_unmatched_far_km' => (float) env('ADDRESS_ZIP_UNMATCHED_FAR_KM', 50),
     ],
 
     /*

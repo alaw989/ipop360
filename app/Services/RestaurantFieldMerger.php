@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\FieldQuarantine;
 use App\Models\Restaurant;
+use App\Support\ZipLocation;
 
 /**
  * Decides what an incoming source record may change on an EXISTING restaurant
@@ -26,6 +27,8 @@ use App\Models\Restaurant;
  *    (a fresh provider reading), unless it is the exact pair the integrity
  *    cleanup quarantined for this row.
  *  - A value quarantined for this row is never filled back in.
+ *  - An address or postal code whose ZIP is far from the row's pin is never
+ *    filled (App\Support\ZipLocation): it belongs to another location.
  *  - is_active, slug and has_award never change on an update.
  *  - A stable photo may replace a transient Google gps-cs-s photo. A gallery
  *    is only replaced by one that keeps every stored photo.
@@ -77,6 +80,9 @@ class RestaurantFieldMerger
             if (is_scalar($value) && in_array((string) $value, $quarantined[$field] ?? [], true)) {
                 continue;
             }
+            if (in_array($field, ['address', 'postal_code'], true) && $this->zipFarFromPin($existing, $field, $value)) {
+                continue;
+            }
 
             $current = $existing->getAttribute($field);
 
@@ -123,6 +129,16 @@ class RestaurantFieldMerger
         $countMatches = array_filter($quarantined[$countField] ?? [], fn (string $old): bool => (int) $old === $count);
 
         return $ratingMatches !== [] && $countMatches !== [];
+    }
+
+    private function zipFarFromPin(Restaurant $existing, string $field, mixed $value): bool
+    {
+        if (! is_string($value) || $existing->latitude === null || $existing->longitude === null) {
+            return false;
+        }
+        $zip = $field === 'address' ? ZipLocation::zipOf($value) : ZipLocation::zipOf(null, $value);
+
+        return $zip !== null && ZipLocation::isFarFrom($zip, (float) $existing->latitude, (float) $existing->longitude) === true;
     }
 
     private function replacesTransientPhoto(mixed $current, mixed $incoming): bool
