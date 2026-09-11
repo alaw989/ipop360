@@ -843,16 +843,46 @@ Built directly by Claude (operator decision, not opencode-loop). PRs #169 and
 
 See `history.md` and `project-state.md`.
 
-### In progress (2026-09-10) — data-integrity overhaul, phases 3–4
+### ✅ Done (2026-09-11) — data-integrity phase 3 + fixes
 
-3. **Overture Maps monthly import.** Free: CDLA-Permissive-2.0 / Apache-2.0 /
-   CC0, with attribution required. It fills and corroborates phones, websites,
-   socials, and addresses, and flags `operating_status` closures and
-   low-`confidence` places.
-4. **Evidence-based ranking for the ~90% unrated.** Cross-source
-   corroboration, a verified website, location-scoped socials, Overture
-   confidence, and structured health grades feed an evidence signal, shown
-   with a "not yet rated" label. Plus SerpApi yield targeting.
+- **Phase 3:** the Overture Maps monthly import (#172–#174).
+- **#175:** stops enrichment and live-search upserts from erasing stored data.
+  Prod was repaired afterwards.
+- **#176:** Overture-filled websites are identity-checked promptly.
+- **#177:** live search no longer re-creates Overture-closed restaurants.
+- **#178:** websites on lapsed domains are rejected (`dead_domain`); 190
+  quarantined on prod.
+
+See `history.md` (2026-09-11).
+
+### In progress (2026-09-11) — data-integrity overhaul, phase 4
+
+4. **Evidence-based ranking for the ~90% unrated** (`feat/evidence-ranking`,
+   local). Built:
+   - the `evidence` signal (Overture corroboration + confidence, website
+     identity, verified location socials, OSM detail)
+   - the "Not yet rated" label
+   - per-call SerpApi yield logging
+   - calibration on a fresh prod clone (see `docs/ranking-metrics.md`)
+
+   Dropped after measuring, not guessing:
+   - **Grid targeting.** The last month's 141 calls already yield 18.2 new
+     unique rated places per call (93% unique, max 20). Results spread
+     metro-wide at zoom 11 (median 10 km from center), so there is ≤10%
+     headroom.
+   - **A separate post-enrichment rescore.** Enrichment already rescores what
+     it touches. Batch-local vs corpus aggregates differ by ≤0.006.
+   - **Structured health grades.** Socrata only covers NYC and SF, and 0
+     stored rows carry a grade today.
+
+   Open: revisit `RANK_EVIDENCE_CAP` once the 35k never-checked websites
+   clear.
+
+**Follow-up (planning): addresses copied between locations.** 228 groups (922
+active rows) share a name and an exact street address but sit more than 2 km
+apart, some across states. For example, one Bar Louie Fort Collins address is
+on 3 rows about 2,900 km apart. 24 Diner's second row is pinned 11 km from its
+address, which is how Overture matched it to a wrong website (hillscafe.com).
 
 ### Next up: specs 102–103 (PROPOSED, from the 2026-06-30 fresh-audit wave)
 

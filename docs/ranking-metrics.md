@@ -141,11 +141,22 @@ The result is scaled to at most `ranking.evidence_cap` (`RANK_EVIDENCE_CAP`, def
 
 A place Overture reports `permanently_closed` scores 0. Unrated venues show a **"Not yet rated"** badge on their cards, and the score breakdown's "Verified Presence" line explains what was verified.
 
-Calibration (prod clone with Overture applied, 2026-09-10):
-- 62% of unrated venues are Overture-corroborated.
-- Unrated scores range 0.02–0.34 (median 0.28); rated scores 0.31–0.54 (median 0.42).
-- 0.3% of rated venues score below the best unrated venue.
-- Austin's top 20 are all well-rated venues, and its first unrated venue ranks 263rd of 718.
+Calibration: `ranking:audit --recompute` on a fresh prod clone taken 2026-09-11, after the phase-2 cleanup, the Overture fill and the #175 repair. 41,069 active venues, 4,185 rated.
+- 26,080 venues (63.5% of the corpus) are Overture-corroborated.
+- Unrated scores range 0.02–0.34 (median 0.22). Rated scores range 0.31–0.54 (median 0.41).
+- 1,017 unrated venues (2.8%) score above the lowest-rated venue. 15 rated venues (0.4%) score below the best unrated one.
+- Chains are 0.8% of the top 500 unrated venues, against 7.7% of all unrated. Corporate accounts don't lift them.
+- Austin, New York and Dallas: every rated venue still outranks every unrated one. The first unrated venue ranks 257th of 718 in Austin (behind all 256 rated), 30th in New York and 19th in Dallas.
+
+The best unknowns currently land at about a 3.4★ equivalent. One reason is that 35k stored websites have not been identity-checked yet, so they score "unchecked" (0.3) instead of "verified" (1.0). `restaurants:verify-websites` clears that backlog at 2,000 a day, and evidence rises as it does. Revisit the cap once the backlog is done.
+
+| `RANK_EVIDENCE_CAP` | Austin: rated venues the first unknown outranks | Corpus: rated venues below the best unknown |
+|---|---|---|
+| 0.85 (default) | 0 | 15 (0.4%) |
+| 1.0 | 29, the best a 4.4★ with 596 reviews | 1,005 (24%) |
+
+At 1.0, unknowns pass well-reviewed venues, which is too aggressive.
+
 ## Bayesian quality
 
 `quality` replaces the old separate `google_rating` + `google_review_count`
