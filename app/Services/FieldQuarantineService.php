@@ -28,7 +28,7 @@ class FieldQuarantineService
      * and a restore reactivates it.
      */
     private const FIELDS = [
-        'website_url', 'phone', 'address', 'price_range', 'description',
+        'website_url', 'phone', 'address', 'postal_code', 'price_range', 'description',
         'photo_url', 'photos', 'opening_hours', 'menu_url',
         'google_rating', 'google_review_count', 'is_active',
     ];

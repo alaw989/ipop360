@@ -12,6 +12,7 @@ use App\Services\WebsiteIdentityVerifier;
 use App\Support\AreaCodeStates;
 use App\Support\SocialProfileUrl;
 use App\Support\StateAbbreviations;
+use App\Support\ZipLocation;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
@@ -45,6 +46,14 @@ use Illuminate\Support\Str;
  *   copied_phone         the same name + phone in two or more cities: the
  *                        phone stays only on members in the area code's state.
  *   address_other_state  an address naming a different state than the row.
+ *   address_far_from_location
+ *                        an address whose ZIP is a different metro from the
+ *                        pin (> address_zip_unmatched_far_km), on a row with no
+ *                        Overture match: copied from a same-named venue
+ *                        elsewhere. Overture-matched rows are left to
+ *                        overture:import, which replaces the address with the
+ *                        place's. A pin sitting on a city center (a geocoding
+ *                        fallback) is skipped: there the pin may be the wrong part.
  *   ai_guess             price_range/phone the AI model wrote (a guess), and
  *                        AI-written websites that never passed identity checks.
  */
@@ -59,7 +68,8 @@ class RestaurantIntegrity extends Command
     protected $description = 'Data-integrity scorecard; with --apply, reversibly quarantine provably wrong restaurant data';
 
     public const DETECTORS = [
-        'website_blocked', 'social_junk', 'social_brand', 'copied_rating', 'copied_phone', 'address_other_state', 'ai_guess',
+        'website_blocked', 'social_junk', 'social_brand', 'copied_rating', 'copied_phone', 'address_other_state',
+        'address_far_from_location', 'ai_guess',
     ];
 
     private const DETECTOR = 'restaurants:integrity';
@@ -106,6 +116,7 @@ class RestaurantIntegrity extends Command
                 'copied_rating' => $this->copiedRating($quarantine),
                 'copied_phone' => $this->copiedPhone($quarantine),
                 'address_other_state' => $this->addressOtherState($quarantine),
+                'address_far_from_location' => $this->addressFarFromLocation($quarantine),
                 'ai_guess' => $this->aiGuess($quarantine),
                 default => throw new \LogicException("Unhandled detector '{$detector}'"),
             };
@@ -406,6 +417,72 @@ class RestaurantIntegrity extends Command
         $this->report('address_other_state', $rows, $examples);
 
         return ['rows' => $rows, 'values' => $values];
+    }
+
+    /**
+     * @return array{rows: int, values: int}
+     */
+    private function addressFarFromLocation(FieldQuarantineService $quarantine): array
+    {
+        $rows = 0;
+        $values = 0;
+        $examples = [];
+        $leftToOverture = 0;
+        $minKm = (float) config('restaurant-finder.data_integrity.address_zip_unmatched_far_km', 50);
+
+        Restaurant::query()->active()->whereNotNull('address')->where('address', '!=', '')
+            ->whereNotNull('latitude')->whereNotNull('longitude')
+            ->chunkById(2000, function (Collection $restaurants) use ($quarantine, $minKm, &$rows, &$values, &$examples, &$leftToOverture): void {
+                foreach ($restaurants as $restaurant) {
+                    // The address's own ZIP: a far postal_code alone doesn't
+                    // prove the street wrong.
+                    $zip = ZipLocation::zipOf($restaurant->address);
+                    $lat = (float) $restaurant->latitude;
+                    $lng = (float) $restaurant->longitude;
+                    if ($zip === null || $this->nearCityCenter($lat, $lng)) {
+                        continue;
+                    }
+
+                    if ($restaurant->overture_id !== null) {
+                        $leftToOverture += ZipLocation::isFarFrom($zip, $lat, $lng) === true ? 1 : 0;
+
+                        continue;
+                    }
+                    if (ZipLocation::isFarFrom($zip, $lat, $lng, $minKm) !== true) {
+                        continue;
+                    }
+
+                    $rows++;
+                    if (count($examples) < $this->sample) {
+                        $km = (int) round((float) ZipLocation::distanceKm($zip, $lat, $lng));
+                        $examples[] = "{$restaurant->name} ({$restaurant->city}, {$restaurant->state}) — {$restaurant->address} [ZIP {$zip} is {$km} km away]";
+                    }
+                    if (! $this->apply) {
+                        continue;
+                    }
+
+                    $fields = ZipLocation::zipOf(null, $restaurant->postal_code) === $zip ? ['address', 'postal_code'] : ['address'];
+                    $values += $quarantine->quarantineFields($restaurant, $fields, 'address_far_from_location', self::DETECTOR, [
+                        'zip' => $zip, 'distance_km' => round((float) ZipLocation::distanceKm($zip, $lat, $lng)),
+                    ]);
+                }
+            });
+
+        $this->report('address_far_from_location', $rows, $examples, ['Overture-matched, left to overture:import' => $leftToOverture]);
+
+        return ['rows' => $rows, 'values' => $values];
+    }
+
+    /** A pin within 500 m of a configured city center: likely a geocoding fallback. */
+    private function nearCityCenter(float $lat, float $lng): bool
+    {
+        foreach ((array) config('restaurant-finder.cities', []) as $center) {
+            if (is_array($center) && abs($center[0] - $lat) < 0.0045 && abs($center[1] - $lng) < 0.0045 / max(0.2, cos(deg2rad($lat)))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

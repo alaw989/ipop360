@@ -6,10 +6,12 @@ use App\Models\FieldQuarantine;
 use App\Models\Restaurant;
 use App\Services\FieldQuarantineService;
 use App\Services\Overture\OvertureImporter;
+use App\Support\ZipLocation;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\PendingCommand;
 use Tests\TestCase;
 
 /**
@@ -139,6 +141,59 @@ class OvertureImporterTest extends TestCase
         $this->assertSame('1 Other St', $fresh->address);
         $this->assertSame('https://own.example', $fresh->website_url);
         $this->assertSame(1, $stats['phone_conflicts']);
+    }
+
+    public function test_address_copied_from_another_location_is_replaced_with_the_places(): void
+    {
+        // A Tacoma location carrying the Virginia Beach location's address.
+        $copied = 'Virginia Beach Boulevard, 4554, Virginia Beach, 23462';
+        $r = $this->restaurant(['address' => $copied, 'postal_code' => '23462']);
+
+        $report = $this->match($r, [$this->place()], apply: false);
+        $this->assertSame(1, $report['address_corrected']);
+        $this->assertSame($copied, $r->fresh()?->address, 'report-only writes nothing');
+
+        $this->match($r, [$this->place()]);
+
+        $fresh = Restaurant::query()->whereKey($r->id)->firstOrFail();
+        $this->assertSame('410 Harbor Way, Tacoma, WA 98402', $fresh->address);
+        $this->assertSame('98402', $fresh->postal_code);
+        $this->assertSame('overture:'.self::RELEASE, $fresh->field_sources['address'] ?? null);
+        $quarantined = FieldQuarantine::query()->where('restaurant_id', $r->id)->where('reason', 'address_far_from_location')->pluck('old_value', 'field')->all();
+        $this->assertSame(['address' => $copied, 'postal_code' => '23462'], $quarantined);
+
+        // Restoring can't bring back half the old address next to the new one.
+        /** @var PendingCommand $restore */
+        $restore = $this->artisan('restaurants:integrity', ['--restore' => 'address_far_from_location']);
+        $restore->assertSuccessful()->run();
+        $this->assertSame('98402', $fresh->fresh()?->postal_code);
+    }
+
+    public function test_address_in_the_places_own_zip_is_left_alone(): void
+    {
+        // Key West's ZCTA centroid sits ~12 km out at sea from Duval St, so the
+        // ZIP alone reads as "far"; the place at the pin confirms the address.
+        $keyWest = ['name' => "Willi T's", 'latitude' => 24.5550, 'longitude' => -81.8020, 'city' => 'Key West', 'state' => 'FL'];
+        $r = $this->restaurant($keyWest + ['address' => '525 Duval St, Key West, FL 33040']);
+        $this->assertTrue(ZipLocation::isFarFrom('33040', 24.5550, -81.8020));
+
+        $stats = $this->match($r, [$this->place([
+            'name' => "Willi T's", 'street' => '525 Duval St', 'city' => 'Key West', 'region' => 'FL', 'postcode' => '33040',
+            'lat' => 24.5551, 'lng' => -81.8021, 'phones' => [],
+        ])]);
+
+        $this->assertSame(0, $stats['address_corrected']);
+        $this->assertSame('525 Duval St, Key West, FL 33040', $r->fresh()?->address);
+    }
+
+    public function test_blank_address_is_never_filled_with_a_zip_far_from_the_pin(): void
+    {
+        $r = $this->restaurant();
+
+        $stats = $this->match($r, [$this->place(['street' => '4554 Virginia Beach Blvd', 'city' => 'Virginia Beach', 'region' => 'VA', 'postcode' => '23462'])]);
+
+        $this->assertSame(0, $stats['address_filled']);
+        $this->assertNull($r->fresh()?->address);
     }
 
     public function test_out_of_state_phone_and_blocked_website_are_not_filled(): void

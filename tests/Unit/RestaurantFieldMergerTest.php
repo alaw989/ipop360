@@ -74,6 +74,17 @@ class RestaurantFieldMergerTest extends TestCase
         $this->assertArrayNotHasKey('website_url', $merged);
     }
 
+    public function test_address_or_postal_code_from_another_location_is_not_filled(): void
+    {
+        $existing = Restaurant::factory()->create(['address' => null, 'postal_code' => null, 'latitude' => 37.7936, 'longitude' => -122.3950]);
+
+        $elsewhere = $this->merge($existing, ['address' => 'Virginia Beach Boulevard, 4554, Virginia Beach, 23462', 'postal_code' => '23462']);
+        $local = $this->merge($existing, ['address' => '1 Market St, San Francisco, CA 94105', 'postal_code' => '94105']);
+
+        $this->assertSame([], $elsewhere);
+        $this->assertSame(['address' => '1 Market St, San Francisco, CA 94105', 'postal_code' => '94105'], $local);
+    }
+
     public function test_positive_rating_refreshes_the_pair(): void
     {
         $existing = Restaurant::factory()->create(['google_rating' => 4.1, 'google_review_count' => 300]);
