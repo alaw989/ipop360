@@ -7,7 +7,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-    --font-sans: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-sans: 'Source Sans 3 Variable', 'Source Sans 3', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-heading: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --color-rating: var(--rating);
+    --color-success: var(--success);
     --color-background: var(--background);
     --color-foreground: var(--foreground);
     --color-card: var(--card);
@@ -31,52 +34,61 @@
     --radius: var(--radius);
 }
 
+/* Brand palette (docs/design-audit-2026-09.md). Hex, not oklch, so the brand
+   colors render the same in every browser. The primary is the logo's
+   red-orange (#DC5028), darkened until white text on it passes AA (5.2:1);
+   the rating orange is the logo's orange, deepened to 3.4:1 on white. Greys
+   lean slightly warm toward the red-orange. Green only ever means "open". */
 @layer base {
     :root {
-        --background: oklch(1 0 0);
-        --foreground: oklch(0.145 0 0);
-        --card: oklch(1 0 0);
-        --card-foreground: oklch(0.145 0 0);
-        --popover: oklch(1 0 0);
-        --popover-foreground: oklch(0.145 0 0);
-        --primary: oklch(0.205 0 0);
-        --primary-foreground: oklch(0.985 0 0);
-        --secondary: oklch(0.97 0 0);
-        --secondary-foreground: oklch(0.205 0 0);
-        --muted: oklch(0.97 0 0);
-        --muted-foreground: oklch(0.556 0 0);
-        --accent: oklch(0.97 0 0);
-        --accent-foreground: oklch(0.205 0 0);
+        --background: #ffffff;
+        --foreground: #2b2928;
+        --card: #ffffff;
+        --card-foreground: #2b2928;
+        --popover: #ffffff;
+        --popover-foreground: #2b2928;
+        --primary: #c2401c;
+        --primary-foreground: #ffffff;
+        --secondary: #f7f6f5;
+        --secondary-foreground: #2b2928;
+        --muted: #f7f6f5;
+        --muted-foreground: #6b6663;
+        --accent: #f1eeec;
+        --accent-foreground: #2b2928;
         --destructive: oklch(0.577 0.245 27.325);
         --destructive-solid: oklch(0.50 0.21 27.325);
         --destructive-foreground: oklch(0.985 0 0);
-        --border: oklch(0.922 0 0);
-        --input: oklch(0.922 0 0);
-        --ring: oklch(0.708 0 0);
+        --border: #e6e3e1;
+        --input: #dcd8d5;
+        --ring: #c2401c;
+        --rating: #e0661a;
+        --success: #1e7a3c;
         --radius: 0.625rem;
     }
 
     .dark {
-        --background: oklch(0.145 0 0);
-        --foreground: oklch(0.985 0 0);
-        --card: oklch(0.205 0 0);
-        --card-foreground: oklch(0.985 0 0);
-        --popover: oklch(0.205 0 0);
-        --popover-foreground: oklch(0.985 0 0);
-        --primary: oklch(0.922 0 0);
-        --primary-foreground: oklch(0.205 0 0);
-        --secondary: oklch(0.269 0 0);
-        --secondary-foreground: oklch(0.985 0 0);
-        --muted: oklch(0.269 0 0);
-        --muted-foreground: oklch(0.708 0 0);
-        --accent: oklch(0.269 0 0);
-        --accent-foreground: oklch(0.985 0 0);
+        --background: #1c1b1a;
+        --foreground: #eeebe8;
+        --card: #252322;
+        --card-foreground: #eeebe8;
+        --popover: #252322;
+        --popover-foreground: #eeebe8;
+        --primary: #f0643c;
+        --primary-foreground: #1c1b1a;
+        --secondary: #2e2b29;
+        --secondary-foreground: #eeebe8;
+        --muted: #2e2b29;
+        --muted-foreground: #aba5a1;
+        --accent: #34302e;
+        --accent-foreground: #eeebe8;
         --destructive: oklch(0.704 0.191 22.216);
         --destructive-solid: oklch(0.50 0.21 27.325);
         --destructive-foreground: oklch(0.985 0 0);
-        --border: oklch(1 0 0 / 10%);
-        --input: oklch(1 0 0 / 15%);
-        --ring: oklch(0.556 0 0);
+        --border: #3a3634;
+        --input: #45403d;
+        --ring: #f0643c;
+        --rating: #f07828;
+        --success: #4cb36e;
     }
 }
 
@@ -86,6 +98,9 @@
     }
   body {
     @apply bg-background text-foreground;
+    }
+  h1, h2, h3, h4 {
+    font-family: var(--font-heading);
     }
   button:not(:disabled), [role="button"], summary { cursor: pointer; }
 }

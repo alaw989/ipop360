@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { ChevronDown } from '@lucide/vue'
 import StarRating from '@/Components/StarRating.vue'
+import PriceLevel from '@/Components/PriceLevel.vue'
 import ScoreChip from '@/Components/ScoreChip.vue'
 import { cuisineGradient } from '@/lib/cuisine'
 interface PopularRestaurant {
@@ -156,7 +157,7 @@ function rankBadge(rank: number) {
                             </div>
 
                             <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <span v-if="r.price_range" class="tabular-nums">{{ r.price_range }}</span>
+                                <PriceLevel v-if="r.price_range" :price="r.price_range" />
                                 <span v-if="r.price_range && primaryCuisine(r)" class="text-muted-foreground/40">•</span>
                                 <span v-if="primaryCuisine(r)">{{ primaryCuisine(r)!.name }}</span>
                             </div>

@@ -35,39 +35,44 @@ const sizeClass = computed(() => {
     }
 });
 
+// "210 Google reviews", "Google", or "210 reviews". The ratings come from
+// Google, and saying so keeps anyone from reading them as Yelp reviews.
+const countLabel = computed(() => {
+    const count = props.reviewCount;
+    if (count == null) return props.source ?? null;
+    const noun = count === 1 ? 'review' : 'reviews';
+    return props.source
+        ? `${count.toLocaleString()} ${props.source} ${noun}`
+        : `${count.toLocaleString()} ${noun}`;
+});
+
+const halfId = (i: number) => `half-${i}-${parsedRating.value.toFixed(1).replace('.', '-')}`;
+
 const starViewBox = '0 0 20 20';
 const starPath = 'M10 1l2.5 5.1L18 6.8l-4 3.9.9 5.5L10 13.3l-5 3.4L6 10.7l-4-3.9 5.5-.8z';
 </script>
 
 <template>
-    <span class="inline-flex items-center gap-1" :class="sizeClass">
-        <span class="inline-flex items-center gap-0.5">
-            <template v-for="(type, i) in starTypes" :key="i">
-                <svg
-                    class="h-[1em] w-[1em]"
-                    :class="type === 'empty' ? 'text-gray-300' : 'text-amber-400'"
-                    :viewBox="starViewBox"
-                    aria-hidden="true"
-                >
-                    <defs v-if="type === 'half'">
-                        <linearGradient :id="'half-' + i + '-' + parsedRating.toFixed(1).replace('.', '-')">
-                            <stop offset="50%" stop-color="currentColor" />
-                            <stop offset="50%" stop-color="transparent" />
-                        </linearGradient>
-                    </defs>
-                    <path
-                        :d="starPath"
-                        :fill="type === 'full' ? 'currentColor' : (type === 'half' ? `url(#half-${i}-${parsedRating.toFixed(1).replace('.', '-')})` : 'none')"
-                        :stroke="type === 'empty' ? 'currentColor' : 'currentColor'"
-                        :stroke-width="type === 'empty' ? '0.8' : '0.4'"
-                    />
-                </svg>
-            </template>
+    <span class="inline-flex flex-wrap items-center gap-x-1.5" :class="sizeClass">
+        <span class="inline-flex items-center gap-px" aria-hidden="true">
+            <svg
+                v-for="(type, i) in starTypes"
+                :key="i"
+                class="h-[1em] w-[1em]"
+                :class="type === 'empty' ? 'text-border' : 'text-rating'"
+                :data-star="type"
+                :viewBox="starViewBox"
+            >
+                <defs v-if="type === 'half'">
+                    <linearGradient :id="halfId(i)">
+                        <stop offset="50%" stop-color="currentColor" />
+                        <stop offset="50%" style="stop-color: var(--border)" />
+                    </linearGradient>
+                </defs>
+                <path :d="starPath" :fill="type === 'half' ? `url(#${halfId(i)})` : 'currentColor'" />
+            </svg>
         </span>
-        <span class="font-medium text-foreground">{{ parsedRating.toFixed(1) }}</span>
-        <span v-if="source" class="text-muted-foreground text-[0.85em] font-medium">{{ source }}</span>
-        <span v-if="reviewCount != null" class="text-muted-foreground text-[0.85em] tabular-nums">
-            ({{ reviewCount.toLocaleString() }})
-        </span>
+        <span class="font-semibold text-foreground tabular-nums">{{ parsedRating.toFixed(1) }}<span class="sr-only"> out of {{ max ?? 5 }}</span></span>
+        <span v-if="countLabel" class="text-[0.9em] text-muted-foreground tabular-nums">{{ countLabel }}</span>
     </span>
 </template>

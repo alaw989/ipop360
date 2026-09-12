@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import StarRating from '@/Components/StarRating.vue';
 import CardGallery from '@/Components/CardGallery.vue';
 import ScoreChip from '@/Components/ScoreChip.vue';
+import PriceLevel from '@/Components/PriceLevel.vue';
 import { computed } from 'vue';
 import type { Restaurant } from '@/types/restaurant';
 import { callPhone, openWebsite, trackDirections } from '@/lib/restaurant';
@@ -116,7 +117,7 @@ const rankChangeTitle = computed(() => {
                 <!-- Heart/favorites button (top-right) -->
                 <button
                     class="relative z-10 absolute -right-1.5 -top-1.5 flex h-11 w-11 items-center justify-center rounded-full bg-white/95 text-foreground shadow-md ring-2 ring-white/50 transition-all hover:bg-white hover:scale-110 group-hover:opacity-0"
-                    :class="{ 'text-red-500 fill-red-500': saved, 'opacity-100': saved }"
+                    :class="{ 'text-primary fill-primary': saved, 'opacity-100': saved }"
                     :aria-label="ariaLabel"
                     @click.stop="() => toggle(restaurant)"
                 >
@@ -161,9 +162,7 @@ const rankChangeTitle = computed(() => {
                 >
                     Not yet rated
                 </span>
-                <span v-if="restaurant.price_range" class="text-sm font-semibold text-emerald-500 dark:text-emerald-400">
-                    {{ restaurant.price_range }}
-                </span>
+                <PriceLevel v-if="restaurant.price_range" :price="restaurant.price_range" class="text-sm" />
                 <span v-if="restaurant.distance != null" class="text-xs text-muted-foreground">
                     {{ Number(restaurant.distance).toFixed(1) }} mi
                 </span>
@@ -176,7 +175,7 @@ const rankChangeTitle = computed(() => {
 
             <!-- Cuisine badges -->
             <div v-if="restaurant.cuisines.length > 0" class="flex flex-wrap gap-1">
-                <Badge v-for="cuisine in restaurant.cuisines" :key="cuisine.id" variant="secondary" class="bg-primary/5 text-[11px] font-medium text-primary/70 hover:bg-primary/10">
+                <Badge v-for="cuisine in restaurant.cuisines" :key="cuisine.id" variant="secondary" class="bg-muted text-xs font-medium text-muted-foreground">
                     {{ cuisine.name }}
                 </Badge>
             </div>

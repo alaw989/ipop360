@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import StarRating from '@/Components/StarRating.vue';
 import ScoreChip from '@/Components/ScoreChip.vue';
+import PriceLevel from '@/Components/PriceLevel.vue';
 import { Badge } from '@/components/ui/badge';
 import { Heart, Navigation, Phone, Globe, ArrowUp, ArrowDown, Minus } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
@@ -146,9 +147,7 @@ const rankChangeTitle = computed(() => {
                     >
                         Not yet rated
                     </span>
-                    <span v-if="restaurant.price_range" class="text-sm font-semibold text-emerald-500 dark:text-emerald-400">
-                        {{ restaurant.price_range }}
-                    </span>
+                    <PriceLevel v-if="restaurant.price_range" :price="restaurant.price_range" class="text-sm" />
                     <span v-if="restaurant.distance != null" class="text-xs text-muted-foreground">
                         {{ Number(restaurant.distance).toFixed(1) }} mi
                     </span>
@@ -175,7 +174,7 @@ const rankChangeTitle = computed(() => {
                     >
                         <Badge
                             variant="secondary"
-                            class="bg-primary/5 text-[11px] font-medium text-primary/70 hover:bg-primary/10 cursor-pointer"
+                            class="bg-muted text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
                         >
                             {{ cuisine.name }}
                         </Badge>
@@ -219,7 +218,7 @@ const rankChangeTitle = computed(() => {
                 <!-- Heart -->
                 <button
                     class="relative z-10 ml-auto flex h-9 w-9 items-center justify-center rounded-full transition-all hover:bg-muted"
-                    :class="{ 'text-red-500': saved }"
+                    :class="{ 'text-primary': saved }"
                     :aria-label="saved ? 'Saved' : 'Save restaurant'"
                     @click.stop="() => toggle(restaurant)"
                 >

@@ -4,6 +4,7 @@ import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ScoreChip from '@/Components/ScoreChip.vue';
 import StarRating from '@/Components/StarRating.vue';
+import PriceLevel from '@/Components/PriceLevel.vue';
 import SeoMeta from '@/Components/SeoMeta.vue';
 import { ArrowUp, ArrowDown, Minus } from '@lucide/vue';
 import { useSeo } from '@/composables/useSeo';
@@ -128,7 +129,7 @@ function getDisplayRating(r: Restaurant): { rating: number; count: number; sourc
                                 :review-count="getDisplayRating(r)!.count"
                                                 size="sm"
                             />
-                            <span v-if="r.price_range" class="font-semibold text-emerald-500">{{ r.price_range }}</span>
+                            <PriceLevel v-if="r.price_range" :price="r.price_range" />
                             <span v-if="r.cuisines.length > 0" class="truncate">
                                 {{ r.cuisines.map(c => c.name).join(', ') }}
                             </span>
