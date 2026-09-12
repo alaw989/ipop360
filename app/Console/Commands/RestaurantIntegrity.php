@@ -516,25 +516,17 @@ class RestaurantIntegrity extends Command
         ];
         $unmatchedFarKm = (float) config('restaurant-finder.data_integrity.city_unmatched_far_km', 150);
 
-        Restaurant::query()->active()->whereNotNull('city')->where('city', '!=', '')
-            ->whereNotNull('latitude')->whereNotNull('longitude')
+        // Rows with a city to judge, or an address to check against its ZIP
+        // (a row whose city was removed can still carry the search's city in
+        // its address).
+        Restaurant::query()->active()->whereNotNull('latitude')->whereNotNull('longitude')
+            ->where(fn ($q) => $q->where('city', '!=', '')->orWhere('address', '!=', ''))
             ->chunkById(2000, function (Collection $restaurants) use ($quarantine, $unmatchedFarKm, &$rows, &$values, &$examples, &$counts): void {
                 foreach ($restaurants as $restaurant) {
                     $lat = (float) $restaurant->latitude;
                     $lng = (float) $restaurant->longitude;
-                    $state = $this->stateOf($restaurant->state);
-                    // The ZIP at the pin settles the state.
-                    $zipState = $this->pinZipState($restaurant, $lat, $lng);
-                    // No state: often a foreign venue. A pin on a city center
-                    // with no ZIP there to vouch for it: likely a geocoding
-                    // fallback, so the pin may be the wrong part.
-                    if ($state === null || ($zipState === null && $this->nearCityCenter($lat, $lng))) {
-                        continue;
-                    }
-
                     $city = trim((string) $restaurant->city);
-                    $place = PlaceLocation::withoutStateSuffix($city) ?? $city;
-                    $details = ['city' => $city, 'state' => $restaurant->state];
+                    $details = ['city' => $restaurant->city, 'state' => $restaurant->state];
                     // Counts the row once, however many of its fields change.
                     $flagged = false;
                     $note = function (string $what) use ($restaurant, $city, &$examples, &$flagged, &$rows): void {
@@ -545,12 +537,24 @@ class RestaurantIntegrity extends Command
                         }
                     };
 
+                    // Needs only the address and the pin: its ZIP must be at the pin.
                     $address = $this->addressWithZipState((string) $restaurant->address, $lat, $lng);
                     if ($address !== null) {
                         $counts['address state fixed']++;
                         $note("address now {$address}");
                         $values += $this->apply ? $quarantine->replaceFields($restaurant, ['address' => $address], 'city_far_from_location', self::DETECTOR, $details) : 0;
                     }
+
+                    $state = $this->stateOf($restaurant->state);
+                    // The ZIP at the pin settles the state.
+                    $zipState = $this->pinZipState($restaurant, $lat, $lng);
+                    // No city to judge. No state: often a foreign venue. A pin
+                    // on a city center with no ZIP there to vouch for it: likely
+                    // a geocoding fallback, so the pin may be the wrong part.
+                    if ($city === '' || $state === null || ($zipState === null && $this->nearCityCenter($lat, $lng))) {
+                        continue;
+                    }
+                    $place = PlaceLocation::withoutStateSuffix($city) ?? $city;
 
                     // A place-name check settles whether the stored city is here.
                     $nearest = PlaceLocation::nearest($place, $state, $lat, $lng);

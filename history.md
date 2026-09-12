@@ -149,3 +149,4 @@
 - **Display:** phones print as "(512) 774-0109"; the score breakdown labels every signal (`PopularityScoreService::SIGNAL_LABELS`, with a test that each configured weight has one).
 - **AI fallback off:** no default fallback provider (the Cerebras default is gone; it isn't free). A fallback needs a key, URL and model. The deploy no longer injects `AI_FALLBACK_KEY`.
 - **PR #168** (spec-102 test backfill, Sept 2) merged after a re-run of CI on current master.
+- **#189:** `city_far_from_location`'s address fix also covers rows with no city (the 3 search-city addresses from #187 had their city removed, so the detector skipped them; they were fixed on prod with a guarded one-off first).
