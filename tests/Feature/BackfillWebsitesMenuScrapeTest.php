@@ -197,8 +197,11 @@ class BackfillWebsitesMenuScrapeTest extends TestCase
         $this->assertSame('Our own verified blurb.', $restaurant->description);
     }
 
-    public function test_scrapes_and_persists_price_range_from_own_site(): void
+    public function test_a_row_missing_only_a_price_is_not_scraped(): void
     {
+        // A site's own priceRange matched Google's price level only 45% of the
+        // time (73% of sites said "$$"), so websites are no longer a price
+        // source and a row that lacks only a price has nothing to gain.
         Restaurant::factory()->create([
             'name' => 'Price Me',
             'website_url' => 'https://priceme.example',
@@ -208,43 +211,152 @@ class BackfillWebsitesMenuScrapeTest extends TestCase
             'social_links_count' => 1,
         ]);
 
-        $this->app->instance(RestaurantWebsiteScraperService::class, $this->scraperMock([
-            'opening_hours' => 'Mo-Su 11:00-21:00',
-            'menu_url' => 'https://priceme.example/menu',
-            'photo_url' => null,
-            'photos' => [],
-            'price_range' => '$$',
-        ]));
+        $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
+        $scraper->shouldReceive('scrape')->never();
+        $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
 
-        $this->artisan('restaurants:backfill-websites');
+        $this->artisan('restaurants:backfill-websites', ['--skip-cache' => true, '--skip-search' => true]);
 
-        $restaurant = Restaurant::where('name', 'Price Me')->firstOrFail();
-        $this->assertSame('$$', $restaurant->price_range);
+        $this->assertNull(Restaurant::where('name', 'Price Me')->firstOrFail()->price_range);
     }
 
-    public function test_does_not_overwrite_existing_price_range(): void
+    public function test_never_takes_a_price_from_the_website(): void
     {
         Restaurant::factory()->create([
-            'name' => 'Keeps Own Price',
-            'website_url' => 'https://keepsprice.example',
-            'menu_url' => 'https://keepsprice.example/menu',
-            'opening_hours' => 'Mo-Su 11:00-21:00',
-            'price_range' => '$$$',
+            'name' => 'No Site Price',
+            'website_url' => 'https://nositeprice.example',
+            'menu_url' => null,
+            'opening_hours' => null,
+            'price_range' => null,
             'social_links_count' => 1,
         ]);
 
         $this->app->instance(RestaurantWebsiteScraperService::class, $this->scraperMock([
             'opening_hours' => 'Mo-Su 11:00-21:00',
-            'menu_url' => 'https://keepsprice.example/menu',
+            'menu_url' => 'https://nositeprice.example/menu',
             'photo_url' => null,
             'photos' => [],
-            'price_range' => '$',
+            'price_range' => '$$',
         ]));
 
-        $this->artisan('restaurants:backfill-websites');
+        $this->artisan('restaurants:backfill-websites', ['--skip-cache' => true, '--skip-search' => true]);
 
-        $restaurant = Restaurant::where('name', 'Keeps Own Price')->firstOrFail();
-        $this->assertSame('$$$', $restaurant->price_range);
+        $restaurant = Restaurant::where('name', 'No Site Price')->firstOrFail();
+        $this->assertSame('https://nositeprice.example/menu', $restaurant->menu_url);
+        $this->assertNull($restaurant->price_range);
+    }
+
+    public function test_stamps_every_site_it_reads_hit_or_miss(): void
+    {
+        $hit = Restaurant::factory()->create([
+            'name' => 'Hit Site',
+            'website_url' => 'https://hit.example',
+            'menu_url' => null,
+            'social_links_count' => 1,
+        ]);
+        $miss = Restaurant::factory()->create([
+            'name' => 'Miss Site',
+            'website_url' => 'https://miss.example',
+            'menu_url' => null,
+            'social_links_count' => 1,
+        ]);
+
+        $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
+        $scraper->shouldReceive('scrape')->with('https://hit.example')->andReturn([
+            'opening_hours' => null, 'menu_url' => 'https://hit.example/menu', 'photo_url' => null, 'photos' => [], 'description' => null,
+        ]);
+        $scraper->shouldReceive('scrape')->with('https://miss.example')->andReturn(null);
+        $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
+
+        $this->artisan('restaurants:backfill-websites', ['--skip-cache' => true, '--skip-search' => true]);
+
+        $hit->refresh();
+        $miss->refresh();
+        $this->assertNotNull($hit->website_scraped_at);
+        $this->assertNotNull($miss->website_scraped_at);
+        $this->assertSame('https://hit.example/menu', $hit->menu_url);
+    }
+
+    public function test_a_read_that_fills_nothing_leaves_updated_at_alone(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'name' => 'Quiet Site',
+            'website_url' => 'https://quiet.example',
+            'menu_url' => null,
+            'social_links_count' => 1,
+        ]);
+        Restaurant::query()->whereKey($restaurant->id)->toBase()->update(['updated_at' => now()->subWeek()]);
+        $before = $restaurant->refresh()->updated_at?->toDateTimeString();
+
+        $this->app->instance(RestaurantWebsiteScraperService::class, $this->scraperMock(null));
+
+        $this->artisan('restaurants:backfill-websites', ['--skip-cache' => true, '--skip-search' => true]);
+
+        $restaurant->refresh();
+        $this->assertNotNull($restaurant->website_scraped_at);
+        $this->assertSame($before, $restaurant->updated_at?->toDateTimeString(), 'the sitemap lastmod must not move for a read that changed nothing');
+    }
+
+    public function test_reads_never_scraped_sites_and_skips_recently_scraped_ones(): void
+    {
+        Restaurant::factory()->create([
+            'name' => 'Read Last Week',
+            'website_url' => 'https://lastweek.example',
+            'menu_url' => null,
+            'website_scraped_at' => now()->subDays(7),
+            'popularity_score' => 0.99,
+            'social_links_count' => 1,
+        ]);
+        Restaurant::factory()->create([
+            'name' => 'Never Read',
+            'website_url' => 'https://neverread.example',
+            'menu_url' => null,
+            'website_scraped_at' => null,
+            'popularity_score' => 0.10,
+            'social_links_count' => 1,
+        ]);
+
+        $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
+        $scraper->shouldReceive('scrape')->once()->with('https://neverread.example')->andReturn(null);
+        $scraper->shouldReceive('scrape')->with('https://lastweek.example')->never();
+        $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
+
+        $this->artisan('restaurants:backfill-websites', ['--skip-cache' => true, '--skip-search' => true]);
+    }
+
+    public function test_reads_a_site_again_after_thirty_days(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'name' => 'Read Long Ago',
+            'website_url' => 'https://longago.example',
+            'menu_url' => null,
+            'website_scraped_at' => now()->subDays(31),
+            'social_links_count' => 1,
+        ]);
+
+        $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
+        $scraper->shouldReceive('scrape')->once()->with('https://longago.example')->andReturn(null);
+        $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
+
+        $this->artisan('restaurants:backfill-websites', ['--skip-cache' => true, '--skip-search' => true]);
+
+        $this->assertTrue($restaurant->refresh()->website_scraped_at?->isToday() ?? false);
+    }
+
+    public function test_dry_run_does_not_stamp(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'name' => 'Dry Stamp',
+            'website_url' => 'https://drystamp.example',
+            'menu_url' => null,
+            'social_links_count' => 1,
+        ]);
+
+        $this->app->instance(RestaurantWebsiteScraperService::class, $this->scraperMock(null));
+
+        $this->artisan('restaurants:backfill-websites', ['--dry-run' => true, '--skip-cache' => true, '--skip-search' => true]);
+
+        $this->assertNull($restaurant->refresh()->website_scraped_at);
     }
 
     public function test_restaurant_without_website_url_is_skipped(): void
