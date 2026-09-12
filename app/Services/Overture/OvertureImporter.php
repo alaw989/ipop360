@@ -264,7 +264,7 @@ class OvertureImporter
      */
     private function applyMatch(Restaurant $restaurant, array $place, string $release, bool $apply, bool $socials = true): array
     {
-        $stats = ['phone_filled' => 0, 'address_filled' => 0, 'address_corrected' => 0, 'website_filled' => 0, 'socials_added' => 0, 'closed' => 0, 'phone_conflicts' => 0];
+        $stats = ['phone_filled' => 0, 'address_filled' => 0, 'address_corrected' => 0, 'postal_corrected' => 0, 'website_filled' => 0, 'socials_added' => 0, 'closed' => 0, 'phone_conflicts' => 0];
         $confidence = (float) ($place['confidence'] ?? 0);
         $fillable = $confidence >= (float) config('restaurant-finder.overture.fill_min_confidence', 0.5);
         $datasets = is_array($place['datasets'] ?? null) ? $place['datasets'] : [];
@@ -331,6 +331,21 @@ class OvertureImporter
             }
         }
 
+        // A postal_code from somewhere else, on a row whose address has no ZIP
+        // of its own or one at the pin: the place's postcode, when it's here.
+        $storedPostal = ZipLocation::zipOf(null, $restaurant->postal_code);
+        $addressZip = ZipLocation::zipOf($restaurant->address);
+        $postalFix = null;
+        if (! array_key_exists('postal_code', $updates) && $fillable && $placeZip !== null && $storedPostal !== null
+            && $storedPostal !== $placeZip
+            && ($addressZip === null || ZipLocation::isFarFrom($addressZip, $lat, $lng) === false)
+            && ZipLocation::isFarFrom($storedPostal, $lat, $lng) === true
+            && ZipLocation::isFarFrom($placeZip, $lat, $lng) === false) {
+            $postalFix = ['from' => $storedPostal, 'to' => $placeZip];
+            $sources['postal_code'] = $tag;
+            $stats['postal_corrected']++;
+        }
+
         if ($fillable && trim((string) $restaurant->website_url) === '') {
             foreach ((array) ($place['websites'] ?? []) as $website) {
                 $website = trim((string) $website);
@@ -373,6 +388,13 @@ class OvertureImporter
             $fields = array_key_exists('postal_code', $updates) ? ['address', 'postal_code'] : ['address'];
             $this->quarantine->quarantineFields($restaurant, $fields, 'address_far_from_location', 'overture:import', [
                 'zip' => $copiedZip, 'overture_id' => $place['id'], 'release' => $release,
+            ]);
+        }
+
+        if ($postalFix !== null) {
+            // Restorable while the column still holds the place's postcode.
+            $this->quarantine->replaceFields($restaurant, ['postal_code' => $postalFix['to']], 'postal_far_from_location', 'overture:import', [
+                'zip' => $postalFix['from'], 'overture_id' => $place['id'], 'release' => $release,
             ]);
         }
 
@@ -453,7 +475,7 @@ class OvertureImporter
     {
         return [
             'blocks' => 0, 'restaurants' => 0, 'matched' => 0, 'phone_filled' => 0, 'address_filled' => 0,
-            'address_corrected' => 0, 'website_filled' => 0, 'socials_added' => 0, 'closed' => 0, 'phone_conflicts' => 0,
+            'address_corrected' => 0, 'postal_corrected' => 0, 'website_filled' => 0, 'socials_added' => 0, 'closed' => 0, 'phone_conflicts' => 0,
         ];
     }
 }

@@ -56,6 +56,7 @@ class OvertureImporterTest extends TestCase
             'longitude' => -122.4443,
             'phone' => null,
             'address' => null,
+            'postal_code' => null,
             'website_url' => null,
             'is_active' => true,
             'social_links_count' => 0,
@@ -169,13 +170,36 @@ class OvertureImporterTest extends TestCase
         $this->assertSame('98402', $fresh->fresh()?->postal_code);
     }
 
+    public function test_postal_code_from_another_location_is_replaced_with_the_places(): void
+    {
+        // The street is the Tacoma location's; the postal code is Virginia Beach's.
+        $r = $this->restaurant(['address' => '410 Harbor Way', 'postal_code' => '23462']);
+
+        $report = $this->match($r, [$this->place()], apply: false);
+        $this->assertSame(1, $report['postal_corrected']);
+        $this->assertSame('23462', $r->fresh()?->postal_code, 'report-only writes nothing');
+
+        $this->match($r, [$this->place()]);
+
+        $fresh = Restaurant::query()->whereKey($r->id)->firstOrFail();
+        $this->assertSame('98402', $fresh->postal_code);
+        $this->assertSame('410 Harbor Way', $fresh->address);
+        $this->assertSame('overture:'.self::RELEASE, $fresh->field_sources['postal_code'] ?? null);
+
+        /** @var PendingCommand $restore */
+        $restore = $this->artisan('restaurants:integrity', ['--restore' => 'postal_far_from_location']);
+        $restore->assertSuccessful()->run();
+        $this->assertSame('23462', $fresh->fresh()?->postal_code);
+    }
+
     public function test_address_in_the_places_own_zip_is_left_alone(): void
     {
-        // Key West's ZCTA centroid sits ~12 km out at sea from Duval St, so the
-        // ZIP alone reads as "far"; the place at the pin confirms the address.
+        // Key West's Census ZCTA point sits ~12 km out at sea from Duval St
+        // (corrected in zip_centroid_overrides.php); the place at the pin
+        // confirms the address either way.
         $keyWest = ['name' => "Willi T's", 'latitude' => 24.5550, 'longitude' => -81.8020, 'city' => 'Key West', 'state' => 'FL'];
         $r = $this->restaurant($keyWest + ['address' => '525 Duval St, Key West, FL 33040']);
-        $this->assertTrue(ZipLocation::isFarFrom('33040', 24.5550, -81.8020));
+        $this->assertFalse(ZipLocation::isFarFrom('33040', 24.5550, -81.8020));
 
         $stats = $this->match($r, [$this->place([
             'name' => "Willi T's", 'street' => '525 Duval St', 'city' => 'Key West', 'region' => 'FL', 'postcode' => '33040',

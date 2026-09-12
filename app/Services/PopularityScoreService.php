@@ -7,6 +7,28 @@ use Illuminate\Support\Collection;
 
 class PopularityScoreService
 {
+    /** What the score breakdown calls each weighted signal. */
+    public const SIGNAL_LABELS = [
+        'yelp_rating' => 'Yelp Rating',
+        'yelp_review_count' => 'Yelp Reviews',
+        'quality' => 'Quality',
+        'evidence' => 'Verified Presence',
+        'proximity' => 'Proximity',
+        'data_completeness' => 'Profile Completeness',
+        'has_award' => 'Award',
+        'cuisine_match' => 'Cuisine Match',
+        'google_rating' => 'Google Rating',
+        'google_review_count' => 'Google Reviews',
+        'popular_times_avg_busyness' => 'Busyness',
+        'social_links_count' => 'Social Presence',
+        'website_clicks_count' => 'Website Traffic',
+        'pageviews_count' => 'Page Views',
+        'social_link_clicks_count' => 'Social Link Clicks',
+        'menu_click_count' => 'Menu Clicks',
+        'directions_clicks_count' => 'Directions Clicks',
+        'call_clicks_count' => 'Call Clicks',
+    ];
+
     /**
      * Fallback weight set used when the container/config is unavailable (e.g.
      * pure unit tests). Mirrors config/restaurant-finder.php -> ranking.weights
@@ -287,25 +309,6 @@ class PopularityScoreService
         $minmax = $aggregates['minmax'];
         $qualityMean = (float) $aggregates['quality']['mean_rating'];
 
-        $signalLabels = [
-            'yelp_rating' => 'Yelp Rating',
-            'yelp_review_count' => 'Yelp Reviews',
-            'quality' => 'Quality',
-            'evidence' => 'Verified Presence',
-            'proximity' => 'Proximity',
-            'data_completeness' => 'Profile Completeness',
-            'has_award' => 'Award',
-            'cuisine_match' => 'Cuisine Match',
-            'google_rating' => 'Google Rating',
-            'google_review_count' => 'Google Reviews',
-            'popular_times_avg_busyness' => 'Busyness',
-            'social_links_count' => 'Social Presence',
-            'website_clicks_count' => 'Website Traffic',
-            'pageviews_count' => 'Page Views',
-            'social_link_clicks_count' => 'Social Link Clicks',
-            'menu_click_count' => 'Menu Clicks',
-        ];
-
         $activeWeights = [];
         $activeNormalized = [];
         $activeRaw = [];
@@ -340,7 +343,7 @@ class PopularityScoreService
             $score += $contribution;
             $raw = $activeRaw[$signal] ?? null;
             $signals[] = [
-                'label' => $signalLabels[$signal] ?? $signal,
+                'label' => self::SIGNAL_LABELS[$signal] ?? $signal,
                 'weight' => round($weight / $totalActiveWeight, 4),
                 'normalized' => round($normalized, 4),
                 'contribution' => round($contribution, 4),

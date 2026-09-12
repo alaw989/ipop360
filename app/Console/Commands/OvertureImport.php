@@ -59,6 +59,9 @@ class OvertureImport extends Command
         if ($apply && $stats['address_corrected'] > 0) {
             $this->info("{$stats['address_corrected']} address(es) copied from another location were replaced — the originals are in field_quarantine (reason address_far_from_location).");
         }
+        if ($apply && $stats['postal_corrected'] > 0) {
+            $this->info("{$stats['postal_corrected']} postal code(s) from another location were replaced — the originals are in field_quarantine (reason postal_far_from_location).");
+        }
 
         return self::SUCCESS;
     }

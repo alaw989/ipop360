@@ -245,6 +245,14 @@ town. Corrections are restorable (`--restore=city_far_from_location`,
 now keeps Pint off the generated `database/data` files (#186): uncached, they
 pushed the deploy's quality job past its timeout.
 
+**Status (2026-09-12): wrap-up (#188).** ZIP centroid overrides for four
+detached Census points (`database/data/zip_centroid_overrides.php`, e.g.
+Anchorage 99503), `postal_far_from_location`, formatted phones, full score
+breakdown labels, and the AI fallback is off (no default provider; Cerebras
+isn't free, so never a default). Remaining time-gated items: revisit
+`RANK_EVIDENCE_CAP` once the ~35k never-checked websites clear; the Overture
+monthly run on the 25th (no deploys during it).
+
 
 ## Binding process rules (opencode-loop workflow)
 

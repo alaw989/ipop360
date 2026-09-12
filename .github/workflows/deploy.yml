@@ -203,21 +203,6 @@ jobs:
                  "cat >> ${{ secrets.DEPLOY_PATH }}/.env" \
             && echo 'AI_API_KEY injected into .env'
 
-      - name: Inject AI fallback key into server .env
-        # Cerebras free tier (gpt-oss-120b) used when Groq is rate-limited/down.
-        env:
-          AI_FALLBACK_KEY: ${{ secrets.AI_FALLBACK_KEY }}
-        if: ${{ env.AI_FALLBACK_KEY != '' }}
-        run: |
-          ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
-            "cd ${{ secrets.DEPLOY_PATH }} && sed -i '/^AI_FALLBACK_KEY=/d' .env" \
-            && printf 'AI_FALLBACK_KEY=%s\n' "$AI_FALLBACK_KEY" \
-               | ssh -i ~/.ssh/deploy_key \
-                 ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
-                 "cat >> ${{ secrets.DEPLOY_PATH }}/.env" \
-            && echo 'AI_FALLBACK_KEY injected into .env'
-
       - name: Inject Google Custom Search key into server .env
         # Free tier: 100 queries/day. Searches configured review sites for images.
         env:

@@ -201,7 +201,7 @@ class AiEnrichmentService
         ];
 
         foreach (config('services.ai.fallback', []) as $fallback) {
-            if (! empty($fallback['api_key'])) {
+            if (! empty($fallback['api_key']) && ! empty($fallback['base_url']) && ! empty($fallback['model'])) {
                 $providers[] = $fallback;
             }
         }

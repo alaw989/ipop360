@@ -880,9 +880,12 @@ See `history.md` (2026-09-11).
    clear.
 
 **Open after #181 (addresses):**
-- 34 unmatched rows whose address ZIP is 10–50 km from the pin: same metro,
-  too close to call without an Overture place.
-- 16 rows where only `postal_code` (not the address) is far from the pin.
+- 26 unmatched rows (was 34) whose address ZIP is 10–50 km from the pin:
+  same metro, too close to call without an Overture place. Left as is; the
+  monthly Overture run corrects any that gain a match.
+- ~~Rows where only `postal_code` is far from the pin.~~ #188:
+  `postal_far_from_location` plus `overture:import`'s postcode replacement.
+  Same-metro ones on unmatched rows are left (too close to call).
 - ~~A few rows also carry a copied `city` field, e.g. a Louisville Buffalo
   Wild Wings stored as "Cheyenne".~~ Fixed by #184 (`city_far_from_location`).
 - 24 Diner's airport row keeps hillscafe.com; Overture's own data lists it.
@@ -900,9 +903,11 @@ both queue workers busy.
   a try, a provider outage doesn't.
 
 **Open after #183:**
-- Prod's AI fallback is dead. The droplet `.env` pins the retired Azure URL
-  (`AI_FALLBACK_URL`/`AI_FALLBACK_MODEL`), and the deploy injects a GitHub
-  token as `AI_FALLBACK_KEY`. Remove both, or set a Cerebras key.
+- ~~Prod's AI fallback is dead.~~ Removed in the 2026-09-12 wrap-up (#188):
+  no default fallback provider (Cerebras isn't free), the deploy no longer
+  injects `AI_FALLBACK_KEY`, and the droplet `.env` lines are gone. The unused
+  `AI_FALLBACK_KEY` GitHub secret (a retired GitHub Models token) can be
+  deleted.
 - `restaurants:backfill-websites` checks quarantine for `website_url` only.
   On prod it refilled 81 copied ratings, 165 address/phone values, 6 phones
   and 64 prices. (The wrong city/state on some refilled rows, e.g. Farzi NYC

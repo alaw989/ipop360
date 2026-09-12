@@ -23,9 +23,9 @@ class AiEnrichmentServiceTest extends TestCase
 {
     private const PRIMARY_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-    private const FALLBACK_BASE_URL = 'https://api.cerebras.ai/v1';
+    private const FALLBACK_BASE_URL = 'https://fallback.example/v1';
 
-    private const FALLBACK_MODEL = 'gpt-oss-120b';
+    private const FALLBACK_MODEL = 'fallback-model';
 
     private const FALLBACK_URL = self::FALLBACK_BASE_URL.'/chat/completions';
 
@@ -501,16 +501,24 @@ class AiEnrichmentServiceTest extends TestCase
         $this->assertSame('42 Fallback St', $result['normalized_address']);
     }
 
-    public function test_fallback_config_defaults_to_cerebras(): void
+    public function test_no_fallback_provider_is_configured_by_default(): void
     {
-        $fallbacks = config('services.ai.fallback');
-        $this->assertIsArray($fallbacks);
-        $this->assertArrayHasKey(0, $fallbacks);
+        // No paid provider is ever a default: the fallback is off unless an
+        // operator sets AI_FALLBACK_KEY, AI_FALLBACK_URL and AI_FALLBACK_MODEL.
+        $this->assertNull(config('services.ai.fallback.0.base_url'));
+        $this->assertNull(config('services.ai.fallback.0.model'));
+    }
 
-        $fallback = $fallbacks[0];
-        $this->assertIsArray($fallback);
+    public function test_a_fallback_without_a_url_is_not_used(): void
+    {
+        config(['services.ai' => $this->providerConfig(fallback: ['api_key' => 'pk-fallback', 'base_url' => '', 'model' => ''])]);
+        Http::fake([self::PRIMARY_URL => Http::response(['error' => 'rate limited'], 429)]);
 
-        $this->assertSame(self::FALLBACK_BASE_URL, $fallback['base_url']);
-        $this->assertSame(self::FALLBACK_MODEL, $fallback['model']);
+        try {
+            $this->service->enrichRestaurant(['name' => 'Test']);
+            $this->fail('expected the providers to be unavailable');
+        } catch (AiProvidersUnavailableException) {
+            Http::assertSentCount(1);
+        }
     }
 }

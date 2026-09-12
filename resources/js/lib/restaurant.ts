@@ -76,6 +76,22 @@ export function mapsUrl(name: string, city: string | null = null): string {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
+/**
+ * A US phone number for display: "5127740109" or "15127740109" becomes
+ * "(512) 774-0109". Anything else (an extension, a foreign number) is shown as
+ * stored.
+ */
+export function formatPhone(phone: string | null | undefined): string {
+    const raw = (phone ?? '').trim();
+    const digits = raw.replace(/\D/g, '');
+    const national = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+    if (national.length !== 10 || /[a-z]/i.test(raw)) {
+        return raw;
+    }
+
+    return `(${national.slice(0, 3)}) ${national.slice(3, 6)}-${national.slice(6)}`;
+}
+
 export function directionsUrl(lat: number, lng: number): string {
     return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 }

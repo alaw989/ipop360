@@ -74,6 +74,7 @@ vi.mock('@/lib/restaurant', async (importOriginal) => ({
   trackMenuClick: mockTrackMenuClick,
   directionsUrl: mockDirectionsUrl,
   formatFullAddress: (await importOriginal<typeof import('@/lib/restaurant')>()).formatFullAddress,
+  formatPhone: (await importOriginal<typeof import('@/lib/restaurant')>()).formatPhone,
 }))
 
 watch: false
@@ -288,6 +289,13 @@ describe('Restaurants/Show', () => {
       const buttons = wrapper.findAll('button')
       const phoneBtn = buttons.find(b => b.text().includes('555-1234'))
       expect(phoneBtn).toBeTruthy()
+    })
+
+    it('shows a US number formatted', () => {
+      const wrapper = mountComponent({
+        restaurant: makeRestaurant({ phone: '5127740109' }),
+      })
+      expect(wrapper.findAll('button').some(b => b.text().includes('(512) 774-0109'))).toBe(true)
     })
 
     it('calls callPhone on click', async () => {

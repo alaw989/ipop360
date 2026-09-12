@@ -57,17 +57,16 @@ return [
         'api_key' => env('AI_API_KEY'),
         'base_url' => env('AI_BASE_URL', 'https://api.groq.com/openai/v1'),
         'model' => env('AI_MODEL', 'openai/gpt-oss-120b'),
-        // Fallback provider chain — tried when the primary is rate-limited (429),
-        // returns a 5xx, or is unreachable (connection/network error).
-        // Each entry needs api_key, base_url, and model. Defaults to Cerebras
-        // (free trial, OpenAI-compatible, serves gpt-oss-120b) — the previous
-        // GitHub Models endpoint (models.inference.ai.azure.com / gpt-4o-mini)
-        // was retired on 2026-07-30 and returns 404.
+        // Optional fallback provider chain — tried when the primary is
+        // rate-limited (429), returns a 5xx, or is unreachable. An entry is used
+        // only when it has an api_key, base_url and model (OpenAI-compatible).
+        // None is configured by default: the free option (GitHub Models) was
+        // retired on 2026-07-30, and a paid provider is never a default.
         'fallback' => [
             [
                 'api_key' => env('AI_FALLBACK_KEY'),
-                'base_url' => env('AI_FALLBACK_URL', 'https://api.cerebras.ai/v1'),
-                'model' => env('AI_FALLBACK_MODEL', 'gpt-oss-120b'),
+                'base_url' => env('AI_FALLBACK_URL'),
+                'model' => env('AI_FALLBACK_MODEL'),
             ],
         ],
         // restaurants:ai-enrich queues at most this many jobs per 6-hourly
