@@ -265,6 +265,8 @@ class RestaurantIntegrityCommandTest extends TestCase
         // is unknown, not "Washington, MD".
         $harbor = $at('151 American Way, Washington, DC 20745', '20745', 38.7842, -77.0156);
         $annandale = $at('7131 Little River Turnpike, Washington DC, DC 22003', '22003', 38.8288, -77.1917);
+        // Its city already removed: the address still gets fixed.
+        $cleared = $this->restaurant(['city' => null, 'state' => 'MD', 'address' => '153 Waterfront Street, Washington, DC 20745', 'postal_code' => '20745', 'latitude' => 38.7844, 'longitude' => -77.0167]);
         // A town the Census doesn't list as a place: the ZIP vouches for it.
         $natick = $this->restaurant(['city' => 'Worcester', 'state' => 'MA', 'address' => '58 Main St, Natick, MA 01760', 'postal_code' => null, 'latitude' => 42.2835, 'longitude' => -71.3495]);
 
@@ -278,6 +280,8 @@ class RestaurantIntegrityCommandTest extends TestCase
         $this->assertSame('151 American Way, 20745', $harbor->fresh()?->address);
         $this->assertSame('7131 Little River Turnpike, 22003', $annandale->fresh()?->address);
         $this->assertSame('58 Main St, Natick, MA 01760', $natick->fresh()?->address);
+        $this->assertSame('153 Waterfront Street, 20745', Restaurant::query()->whereKey($cleared->id)->value('address'));
+        $this->assertSame([null, 'MD'], $place($cleared));
     }
 
     public function test_postal_code_from_another_location_is_corrected_or_removed(): void
