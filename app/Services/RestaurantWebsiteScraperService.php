@@ -655,7 +655,10 @@ class RestaurantWebsiteScraperService
                     ->get($robotsUrl);
 
                 if ($response->successful()) {
-                    return $response->body();
+                    // Cached in the database store, whose utf8mb4 column rejects
+                    // invalid bytes: a stray non-UTF-8 byte in a comment
+                    // (alaskaair.com's) crashed the whole website backfill.
+                    return mb_scrub($response->body(), 'UTF-8');
                 }
 
                 // If robots.txt doesn't exist, assume allowed
