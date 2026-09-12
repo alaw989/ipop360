@@ -920,6 +920,12 @@ return [
     | address_zip_unmatched_far_km: with no Overture place to vouch for a
     |   replacement, restaurants:integrity only removes an address this far off
     |   (a different metro).
+    | city_place_far_km / city_place_radius_factor: a city is "far" from the pin
+    |   beyond max(far_km, factor × the place's radius) (App\Support\PlaceLocation);
+    |   restaurants:integrity then corrects it from the row's own address.
+    | city_unmatched_far_km: with no address to vouch for a replacement, a far
+    |   city (and its state) is only removed this far off. Census internal
+    |   points can sit tens of km off-center (San Francisco's is 55 km out).
     */
     'data_integrity' => [
         'social_brand_min_restaurants' => (int) env('SOCIAL_BRAND_MIN_RESTAURANTS', 5),
@@ -930,6 +936,9 @@ return [
         'address_zip_far_km' => (float) env('ADDRESS_ZIP_FAR_KM', 10),
         'address_zip_radius_factor' => (float) env('ADDRESS_ZIP_RADIUS_FACTOR', 3),
         'address_zip_unmatched_far_km' => (float) env('ADDRESS_ZIP_UNMATCHED_FAR_KM', 50),
+        'city_place_far_km' => (float) env('CITY_PLACE_FAR_KM', 25),
+        'city_place_radius_factor' => (float) env('CITY_PLACE_RADIUS_FACTOR', 3),
+        'city_unmatched_far_km' => (float) env('CITY_UNMATCHED_FAR_KM', 150),
     ],
 
     /*

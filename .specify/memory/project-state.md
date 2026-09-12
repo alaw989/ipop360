@@ -234,6 +234,15 @@ failure, and each run queues at most `AI_ENRICH_PER_RUN` (75) jobs spread
 over 6 hours, never-tried rows first, with a 30-day retry
 (`AI_ENRICH_RETRY_DAYS`). See `history.md`.
 
+**Status (2026-09-12): wrong cities (#184).** `restaurants:integrity
+city_far_from_location` corrects a city or state that isn't where the pin is:
+the state from a ZIP at the pin (`ZipLocation::state()`), the city from the
+row's own address, checked against Census places (`PlaceLocation`). Enrichment
+no longer stores the search grid's name on venues whose address names their
+town. Corrections are restorable (`--restore=city_far_from_location`,
+`--restore=city_grid_label`). Prod apply follows the usual report → backup →
+apply → browser-check steps, each with an OK.
+
 
 ## Binding process rules (opencode-loop workflow)
 

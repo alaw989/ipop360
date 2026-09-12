@@ -98,6 +98,26 @@ class EnrichFreeOnlyTest extends TestCase
         $this->assertFalse((bool) $restaurant->has_award);
     }
 
+    public function test_a_venue_takes_its_city_from_its_own_address_before_the_grid(): void
+    {
+        $novi = ['address' => '39777 Grand River Ave, Novi, MI 48375'] + $this->bizDataVenue('Pho Lucky', ['lat' => 42.4806, 'lon' => -83.4755]);
+        Http::fake([
+            'bizdata-web.vercel.app/*' => Http::response([
+                'businesses' => [$novi, $this->bizDataVenue('Test Italian', ['lat' => 38.9170, 'lon' => -77.0405])],
+            ], 200),
+            'overpass-api.de/*' => Http::response(['elements' => []], 200),
+            'query.wikidata.org/*' => Http::response(['results' => ['bindings' => []]], 200),
+        ]);
+
+        app(RestaurantEnrichmentService::class)->enrichByCuisine(38.9072, -77.0369, $this->makeCuisine(), false, 'washington dc', 'DC');
+
+        $pho = Restaurant::where('name', 'Pho Lucky')->firstOrFail();
+        $this->assertSame(['Novi', 'MI'], [$pho->city, $pho->state], 'not the grid city');
+        // No city in the address: the grid's, without the state its key carries.
+        $italian = Restaurant::where('name', 'Test Italian')->firstOrFail();
+        $this->assertSame(['washington', 'DC'], [$italian->city, $italian->state]);
+    }
+
     public function test_google_is_skipped_without_a_key(): void
     {
 

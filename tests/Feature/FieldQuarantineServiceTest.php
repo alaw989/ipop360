@@ -126,4 +126,40 @@ class FieldQuarantineServiceTest extends TestCase
         $this->assertSame('http://www.facebook.com/2008', $restored->url);
         $this->assertNotNull($restored->verified_at);
     }
+
+    public function test_a_correction_is_restorable_while_the_column_holds_it(): void
+    {
+        $restaurant = Restaurant::factory()->create(['city' => 'Ann Arbor', 'state' => 'MI', 'postal_code' => null]);
+
+        $count = $this->service()->replaceFields($restaurant, ['city' => 'Novi', 'state' => 'MI', 'postal_code' => '48375'], 'city_far_from_location', 'test');
+
+        $this->assertSame(2, $count, 'an unchanged column is not recorded');
+        $fresh = Restaurant::query()->whereKey($restaurant->id)->firstOrFail();
+        $this->assertSame('Novi', $fresh->city);
+        $this->assertSame('48375', $fresh->postal_code);
+        $this->assertSame('Novi', $restaurant->city, 'the in-memory model reflects the correction');
+
+        $this->assertSame(['city', 'postal_code'], FieldQuarantine::query()->orderBy('field')->pluck('field')->all());
+        $city = FieldQuarantine::query()->where('field', 'city')->firstOrFail();
+        $zip = FieldQuarantine::query()->where('field', 'postal_code')->firstOrFail();
+        $this->assertSame('Ann Arbor', $city->old_value);
+        $this->assertSame('Novi', $city->details['replaced_with'] ?? null);
+        $this->assertNull($zip->old_value, 'a filled empty column is recorded too');
+
+        $this->assertTrue($this->service()->restore($city));
+        $this->assertTrue($this->service()->restore($zip));
+        $fresh = Restaurant::query()->whereKey($restaurant->id)->firstOrFail();
+        $this->assertSame('Ann Arbor', $fresh->city);
+        $this->assertNull($fresh->postal_code);
+    }
+
+    public function test_a_correction_is_not_restored_over_a_newer_value(): void
+    {
+        $restaurant = Restaurant::factory()->create(['city' => 'Ann Arbor']);
+        $this->service()->replaceFields($restaurant, ['city' => 'Novi'], 'city_far_from_location', 'test');
+        Restaurant::query()->whereKey($restaurant->id)->update(['city' => 'Wixom']);
+
+        $this->assertFalse($this->service()->restore(FieldQuarantine::query()->firstOrFail()));
+        $this->assertSame('Wixom', Restaurant::query()->whereKey($restaurant->id)->value('city'));
+    }
 }

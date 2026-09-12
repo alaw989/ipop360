@@ -177,6 +177,84 @@ class RestaurantIntegrityCommandTest extends TestCase
         $this->assertSame('23462', $restored->postal_code);
     }
 
+    public function test_address_in_another_state_is_kept_when_its_zip_is_at_the_pin(): void
+    {
+        // Farzi NYC: the address is right, the row's "Anchorage, AK" is wrong.
+        $r = $this->restaurant(['city' => 'Anchorage', 'state' => 'AK', 'address' => '78 Leonard St, New York, NY 10013', 'latitude' => 40.7172, 'longitude' => -74.0053]);
+
+        $this->integrity(['--apply' => true, '--only' => ['address_other_state']])->assertSuccessful();
+
+        $this->assertSame('78 Leonard St, New York, NY 10013', $r->fresh()?->address);
+    }
+
+    public function test_city_far_from_location_is_corrected_from_the_evidence_and_restorable(): void
+    {
+        $at = fn (string $city, string $state, ?string $address, float $lat, float $lng, array $extra = []) => $this->restaurant(
+            $extra + ['city' => $city, 'state' => $state, 'address' => $address, 'postal_code' => null, 'latitude' => $lat, 'longitude' => $lng]
+        );
+        // The search grid's city on a venue in the next town.
+        $novi = $at('Ann Arbor', 'MI', '39777 Grand River Ave, Novi, MI 48375', 42.4806, -83.4755);
+        // Copied by the old name-only backfill; the pin sits on the configured
+        // New York center, which the address's ZIP vouches for.
+        $farzi = $at('Anchorage', 'AK', '78 Leonard St, New York, NY 10013', 40.7172, -74.0053);
+        $berkeley = $at('San Francisco', 'CA', 'Shattuck Avenue, 2429, Berkeley, 94704', 37.8651, -122.2675);
+        // The ZIP at the pin settles the state when the address names no city.
+        $kck = $at('Kansas City', 'MO', 'Rainbow Boulevard, 4316, 66103', 39.0512, -94.6107);
+        $wny = $at('New York', 'NY', 'Bergenline Avenue, 5901, 07093', 40.7870, -74.0109);
+        // No evidence at all, thousands of km off.
+        $bronx = $at('Anchorage', 'AK', null, 40.8176, -73.9282);
+        // address_other_state removed the right address for disagreeing with
+        // the wrong city: it comes back as the evidence.
+        $parsippany = $at('Charleston Wv', 'WV', null, 40.8579, -74.4260);
+        FieldQuarantine::query()->create([
+            'restaurant_id' => $parsippany->id, 'field' => 'address', 'old_value' => '321 US-46, Parsippany, NJ 07054',
+            'reason' => 'address_other_state', 'detector' => 'restaurants:integrity', 'quarantined_at' => now(),
+        ]);
+        // An address built with the search's state: the ZIP is Maryland's.
+        $silver = $at('Silver Spring', 'DC', '8311 Fenton Street, Silver Spring, DC 20910', 38.9937, -77.0269);
+        $label = $at('Washington Dc', 'DC', '2400 18th St NW, Washington, DC 20009', 38.9170, -77.0405);
+        // Left alone: a neighborhood its own address names; a village the
+        // Census lists only across the river (the ZIP is Pennsylvania's); San
+        // Francisco, whose Census point sits 55 km out on the Farallon Islands.
+        $charlestown = $at('Charlestown', 'MA', '28 Austin St, Charlestown, MA 02129', 42.3782, -71.0602);
+        $crossing = $at('Washington Crossing', 'PA', '1251 River Road', 40.3136, -74.8957, ['postal_code' => '18977']);
+        $mission = $at('San Francisco', 'CA', '4000 18th St, San Francisco, CA 94114', 37.7609, -122.4351);
+
+        $this->integrity(['--only' => ['city_far_from_location']])->assertSuccessful()->expectsOutputToContain(
+            'city_far_from_location: 9 flagged (corrected from address 5, address restored 1, state corrected 1, state corrected, city removed 1, removed 1, address state fixed 1, grid labels renamed 1, left, no evidence 1)'
+        );
+        $this->assertSame('Ann Arbor', $novi->fresh()?->city, 'report only');
+
+        $this->integrity(['--apply' => true, '--only' => ['city_far_from_location']])->assertSuccessful();
+
+        $place = fn (Restaurant $r) => [$r->fresh()?->city, $r->fresh()?->state];
+        $this->assertSame(['Novi', 'MI'], $place($novi));
+        $this->assertSame(['New York', 'NY'], $place($farzi));
+        $this->assertSame(['Berkeley', 'CA'], $place($berkeley));
+        $this->assertSame(['Kansas City', 'KS'], $place($kck));
+        $this->assertSame([null, 'NJ'], $place($wny));
+        $this->assertSame([null, null], $place($bronx));
+        $this->assertSame(['Parsippany', 'NJ'], $place($parsippany));
+        $this->assertSame('321 US-46, Parsippany, NJ 07054', $parsippany->fresh()?->address);
+        $this->assertSame(['Silver Spring', 'MD'], $place($silver));
+        $this->assertSame('8311 Fenton Street, Silver Spring, MD 20910', $silver->fresh()?->address);
+        $this->assertSame(['Washington', 'DC'], $place($label));
+        $this->assertSame(['Charlestown', 'MA'], $place($charlestown));
+        $this->assertSame(['Washington Crossing', 'PA'], $place($crossing));
+        $this->assertSame(['San Francisco', 'CA'], $place($mission));
+
+        $this->integrity(['--restore' => 'city_far_from_location'])->assertSuccessful()->run();
+        $this->integrity(['--restore' => 'city_grid_label'])->assertSuccessful()->run();
+
+        $this->assertSame(['Ann Arbor', 'MI'], $place($novi));
+        $this->assertSame(['Anchorage', 'AK'], $place($farzi));
+        $this->assertSame(['New York', 'NY'], $place($wny));
+        $this->assertSame(['Anchorage', 'AK'], $place($bronx));
+        $this->assertSame(['Silver Spring', 'DC'], $place($silver));
+        $this->assertSame('8311 Fenton Street, Silver Spring, DC 20910', Restaurant::query()->whereKey($silver->id)->value('address'));
+        $this->assertSame(['Washington Dc', 'DC'], $place($label));
+    }
+
     public function test_ai_guesses_are_quarantined_but_verified_ai_websites_stay(): void
     {
         $guess = $this->restaurant(['price_range' => '$$', 'ai_metadata' => ['fields_updated' => ['price_range', 'description']]]);

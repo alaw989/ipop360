@@ -14,8 +14,10 @@ use Illuminate\Support\Facades\Log;
  * Integrity checks never null/delete a value in place: the raw column value is
  * copied into field_quarantine (with the reason and the detector that flagged
  * it), then cleared on the row. restore() puts it back — but only into an
- * empty column, so a newer good value is never clobbered. Raw values are read
- * and written with casts bypassed so JSON/array columns round-trip exactly.
+ * empty column, so a newer good value is never clobbered. A value corrected by
+ * replaceFields() comes back while the column still holds the correction.
+ * Raw values are read and written with casts bypassed so JSON/array columns
+ * round-trip exactly.
  */
 class FieldQuarantineService
 {
@@ -28,7 +30,7 @@ class FieldQuarantineService
      * and a restore reactivates it.
      */
     private const FIELDS = [
-        'website_url', 'phone', 'address', 'postal_code', 'price_range', 'description',
+        'website_url', 'phone', 'address', 'city', 'state', 'postal_code', 'price_range', 'description',
         'photo_url', 'photos', 'opening_hours', 'menu_url',
         'google_rating', 'google_review_count', 'is_active',
     ];
@@ -100,6 +102,57 @@ class FieldQuarantineService
     }
 
     /**
+     * Correct columns in place, keeping the old values restorable: the entry
+     * records the replacement, and restore() puts the old value back while the
+     * column still holds it. A column that was empty is recorded too, so a
+     * restore empties it again. Returns how many columns changed.
+     *
+     * @param  array<string, string>  $values  column => corrected value
+     * @param  array<string, mixed>  $details
+     */
+    public function replaceFields(Restaurant $restaurant, array $values, string $reason, string $detector, array $details = []): int
+    {
+        $values = array_intersect_key($values, array_flip(self::FIELDS));
+
+        return DB::transaction(function () use ($restaurant, $values, $reason, $detector, $details): int {
+            $changed = [];
+            foreach ($values as $field => $value) {
+                $raw = $restaurant->getRawOriginal($field);
+                if ((string) $raw === $value) {
+                    continue;
+                }
+
+                FieldQuarantine::create([
+                    'restaurant_id' => $restaurant->id,
+                    'field' => $field,
+                    'old_value' => $this->isEmptyValue($field, $raw) ? null : (string) $raw,
+                    'reason' => $reason,
+                    'detector' => $detector,
+                    'details' => $details + ['replaced_with' => $value],
+                    'quarantined_at' => now(),
+                ]);
+                $changed[$field] = $value;
+            }
+
+            if ($changed === []) {
+                return 0;
+            }
+
+            Restaurant::query()->whereKey($restaurant->id)->update($changed);
+            $restaurant->forceFill($changed)->syncOriginal();
+
+            Log::channel('enrichment')->info('Restaurant fields corrected', [
+                'restaurant_id' => $restaurant->id,
+                'fields' => array_keys($changed),
+                'reason' => $reason,
+                'detector' => $detector,
+            ]);
+
+            return count($changed);
+        });
+    }
+
+    /**
      * Quarantine a google rating + review count pair together.
      *
      * @param  array<string, mixed>  $details
@@ -151,8 +204,9 @@ class FieldQuarantineService
 
     /**
      * Put a quarantined value back. Returns false (and leaves the entry
-     * un-restored) when the target column has since been filled, or the social
-     * link platform slot is taken — a newer value always wins.
+     * un-restored) when the target column has since been filled — unless it
+     * still holds this entry's own correction — or the social link platform
+     * slot is taken: a newer value always wins.
      */
     public function restore(FieldQuarantine $entry): bool
     {
@@ -185,7 +239,9 @@ class FieldQuarantineService
                 // Raw column value (toBase skips casts: a cast is_active reads
                 // as boolean false, which is not the stored "cleared" 0).
                 $current = Restaurant::query()->whereKey($entry->restaurant_id)->toBase()->value($entry->field);
-                if (! $this->isEmptyValue($entry->field, $current)) {
+                $replacedWith = $entry->details['replaced_with'] ?? null;
+                $ownCorrection = is_string($replacedWith) && (string) $current === $replacedWith;
+                if (! $ownCorrection && ! $this->isEmptyValue($entry->field, $current)) {
                     return false;
                 }
 

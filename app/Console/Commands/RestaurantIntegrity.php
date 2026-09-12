@@ -9,7 +9,9 @@ use App\Services\FieldQuarantineService;
 use App\Services\RestaurantWebsiteScraperService;
 use App\Services\SocialLinkRecorder;
 use App\Services\WebsiteIdentityVerifier;
+use App\Support\AddressParts;
 use App\Support\AreaCodeStates;
+use App\Support\PlaceLocation;
 use App\Support\SocialProfileUrl;
 use App\Support\StateAbbreviations;
 use App\Support\ZipLocation;
@@ -45,7 +47,9 @@ use Illuminate\Support\Str;
  *                        from all (SerpApi re-rates the true venue).
  *   copied_phone         the same name + phone in two or more cities: the
  *                        phone stays only on members in the area code's state.
- *   address_other_state  an address naming a different state than the row.
+ *   address_other_state  an address naming a different state than the row,
+ *                        unless its ZIP is at the pin (then the row's city and
+ *                        state are the wrong part: city_far_from_location).
  *   address_far_from_location
  *                        an address whose ZIP is a different metro from the
  *                        pin (> address_zip_unmatched_far_km), on a row with no
@@ -54,6 +58,20 @@ use Illuminate\Support\Str;
  *                        overture:import, which replaces the address with the
  *                        place's. A pin sitting on a city center (a geocoding
  *                        fallback) is skipped: there the pin may be the wrong part.
+ *   city_far_from_location
+ *                        a city that isn't where the pin is: the search grid's
+ *                        name on a venue in the next town (Novi stored as "Ann
+ *                        Arbor"), or a city copied from a same-named venue
+ *                        elsewhere (Farzi NYC stored as "Anchorage, AK"). It is
+ *                        corrected from the row's own address when that address
+ *                        is the pin's (its ZIP is near the pin) and names a
+ *                        place at the pin. An address address_other_state
+ *                        removed for disagreeing with the wrong city comes back
+ *                        as that evidence. With no evidence the city and state
+ *                        are removed only when the city is a place in the row's
+ *                        state over city_unmatched_far_km away. A grid label
+ *                        with its state glued on ("Washington Dc") becomes the
+ *                        place it names (reason city_grid_label).
  *   ai_guess             price_range/phone the AI model wrote (a guess), and
  *                        AI-written websites that never passed identity checks.
  */
@@ -69,7 +87,7 @@ class RestaurantIntegrity extends Command
 
     public const DETECTORS = [
         'website_blocked', 'social_junk', 'social_brand', 'copied_rating', 'copied_phone', 'address_other_state',
-        'address_far_from_location', 'ai_guess',
+        'address_far_from_location', 'city_far_from_location', 'ai_guess',
     ];
 
     private const DETECTOR = 'restaurants:integrity';
@@ -117,6 +135,7 @@ class RestaurantIntegrity extends Command
                 'copied_phone' => $this->copiedPhone($quarantine),
                 'address_other_state' => $this->addressOtherState($quarantine),
                 'address_far_from_location' => $this->addressFarFromLocation($quarantine),
+                'city_far_from_location' => $this->cityFarFromLocation($quarantine),
                 'ai_guess' => $this->aiGuess($quarantine),
                 default => throw new \LogicException("Unhandled detector '{$detector}'"),
             };
@@ -393,7 +412,7 @@ class RestaurantIntegrity extends Command
                     }
                     $addressState = StateAbbreviations::toAbbreviation($m[1]);
                     $rowState = $this->stateOf($restaurant->state);
-                    if ($addressState === null || $rowState === null || $addressState === $rowState) {
+                    if ($addressState === null || $rowState === null || $addressState === $rowState || $this->addressAtPin($restaurant)) {
                         continue;
                     }
 
@@ -471,6 +490,220 @@ class RestaurantIntegrity extends Command
         $this->report('address_far_from_location', $rows, $examples, ['Overture-matched, left to overture:import' => $leftToOverture]);
 
         return ['rows' => $rows, 'values' => $values];
+    }
+
+    /**
+     * @return array{rows: int, values: int}
+     */
+    private function cityFarFromLocation(FieldQuarantineService $quarantine): array
+    {
+        $rows = 0;
+        $values = 0;
+        $examples = [];
+        $counts = [
+            'corrected from address' => 0, 'address restored' => 0, 'state corrected' => 0, 'state corrected, city removed' => 0,
+            'removed' => 0, 'address state fixed' => 0, 'grid labels renamed' => 0, 'left, no evidence' => 0,
+        ];
+        $unmatchedFarKm = (float) config('restaurant-finder.data_integrity.city_unmatched_far_km', 150);
+
+        Restaurant::query()->active()->whereNotNull('city')->where('city', '!=', '')
+            ->whereNotNull('latitude')->whereNotNull('longitude')
+            ->chunkById(2000, function (Collection $restaurants) use ($quarantine, $unmatchedFarKm, &$rows, &$values, &$examples, &$counts): void {
+                foreach ($restaurants as $restaurant) {
+                    $lat = (float) $restaurant->latitude;
+                    $lng = (float) $restaurant->longitude;
+                    $state = $this->stateOf($restaurant->state);
+                    // The ZIP at the pin settles the state.
+                    $zipState = $this->pinZipState($restaurant, $lat, $lng);
+                    // No state: often a foreign venue. A pin on a city center
+                    // with no ZIP there to vouch for it: likely a geocoding
+                    // fallback, so the pin may be the wrong part.
+                    if ($state === null || ($zipState === null && $this->nearCityCenter($lat, $lng))) {
+                        continue;
+                    }
+
+                    $city = trim((string) $restaurant->city);
+                    $place = PlaceLocation::withoutStateSuffix($city) ?? $city;
+                    $details = ['city' => $city, 'state' => $restaurant->state];
+                    // Counts the row once, however many of its fields change.
+                    $flagged = false;
+                    $note = function (string $what) use ($restaurant, $city, &$examples, &$flagged, &$rows): void {
+                        $rows += $flagged ? 0 : 1;
+                        $flagged = true;
+                        if (count($examples) < $this->sample && $what !== '') {
+                            $examples[] = "{$restaurant->name} ({$city}, {$restaurant->state}) — {$what}";
+                        }
+                    };
+
+                    $address = $this->addressWithZipState((string) $restaurant->address, $lat, $lng);
+                    if ($address !== null) {
+                        $counts['address state fixed']++;
+                        $note("address now {$address}");
+                        $values += $this->apply ? $quarantine->replaceFields($restaurant, ['address' => $address], 'city_far_from_location', self::DETECTOR, $details) : 0;
+                    }
+
+                    // A place-name check settles whether the stored city is here.
+                    $nearest = PlaceLocation::nearest($place, $state, $lat, $lng);
+                    $cityHere = $nearest !== null && $nearest['km'] <= $nearest['far_km'];
+                    $wrong = ($zipState !== null && $zipState !== $state)
+                        || ($nearest !== null && ! $cityHere)
+                        // A name the state has no place for, that is a place
+                        // somewhere but nowhere near the pin ("Cheyenne, KY" on
+                        // a Louisville venue). Anything else is a neighborhood.
+                        || ($nearest === null && PlaceLocation::named($place) !== [] && PlaceLocation::statesAt($place, $lat, $lng) === []);
+
+                    if (! $wrong) {
+                        if ($place !== $city && $cityHere) {
+                            $note('');
+                            $counts['grid labels renamed']++;
+                            $values += $this->apply ? $quarantine->replaceFields($restaurant, ['city' => $place], 'city_grid_label', self::DETECTOR, $details) : 0;
+                        }
+
+                        continue;
+                    }
+
+                    $evidence = $this->cityFromAddress((string) $restaurant->address, $lat, $lng, $zipState);
+                    $restore = null;
+                    if ($evidence === null && trim((string) $restaurant->address) === '') {
+                        // address_other_state removed addresses that disagreed
+                        // with the row's state. At the pin, the state was wrong.
+                        $restore = FieldQuarantine::query()->where('restaurant_id', $restaurant->id)->where('field', 'address')
+                            ->where('reason', 'address_other_state')->whereNull('restored_at')->latest('id')->first();
+                        $evidence = $restore === null ? null : $this->cityFromAddress((string) $restore->old_value, $lat, $lng, $zipState);
+                        $restore = $evidence === null ? null : $restore;
+                    }
+                    // The address names the stored city itself (a neighborhood
+                    // such as Charlestown, MA): nothing to correct.
+                    if ($evidence !== null && $evidence['state'] === $state && PlaceLocation::normalize($evidence['city']) === PlaceLocation::normalize($place)) {
+                        continue;
+                    }
+
+                    if ($evidence === null && $zipState !== null && $zipState !== $state) {
+                        $km = PlaceLocation::nearest($place, $zipState, $lat, $lng);
+                        if ($km !== null && $km['km'] <= $km['far_km']) {
+                            // "Kansas City, MO" on a Kansas venue.
+                            $counts['state corrected']++;
+                            $note("{$place}, {$zipState} per the ZIP");
+                            $values += $this->apply ? $quarantine->replaceFields($restaurant, ['city' => $place, 'state' => $zipState], 'city_far_from_location', self::DETECTOR, $details) : 0;
+                        } else {
+                            // The state is certain, the city isn't here ("Omaha, NE"
+                            // on a Council Bluffs, IA venue whose address names none).
+                            $counts['state corrected, city removed']++;
+                            $note("state {$zipState} per the ZIP, city removed");
+                            if ($this->apply) {
+                                $values += $quarantine->quarantineFields($restaurant, ['city'], 'city_far_from_location', self::DETECTOR, $details);
+                                $values += $quarantine->replaceFields($restaurant, ['state' => $zipState], 'city_far_from_location', self::DETECTOR, $details);
+                            }
+                        }
+
+                        continue;
+                    }
+
+                    $remove = $evidence === null && $zipState === null && $nearest !== null && $nearest['km'] > $unmatchedFarKm;
+                    if ($evidence === null && ! $remove) {
+                        $counts['left, no evidence']++;
+
+                        continue;
+                    }
+
+                    $details['distance_km'] = $nearest === null ? null : (int) round($nearest['km']);
+                    if ($evidence === null) {
+                        $counts['removed']++;
+                        $note(($details['distance_km'] ?? '?').' km away, no evidence: removed');
+                        $values += $this->apply ? $quarantine->quarantineFields($restaurant, ['city', 'state'], 'city_far_from_location', self::DETECTOR, $details) : 0;
+
+                        continue;
+                    }
+
+                    $counts['corrected from address']++;
+                    $counts['address restored'] += $restore !== null ? 1 : 0;
+                    $note("{$evidence['city']}, {$evidence['state']} per ".($restore === null ? 'its address' : 'its removed address, restored'));
+                    if (! $this->apply) {
+                        continue;
+                    }
+                    if ($restore !== null && $quarantine->restore($restore)) {
+                        $values++;
+                    }
+                    $values += $quarantine->replaceFields($restaurant, $evidence, 'city_far_from_location', self::DETECTOR, $details);
+                }
+            });
+
+        $this->report('city_far_from_location', $rows, $examples, $counts);
+
+        return ['rows' => $rows, 'values' => $values];
+    }
+
+    /**
+     * The city and state an address names, when the address is the pin's (its
+     * ZIP, if any, is near the pin: a copied address names the copy's city).
+     * The state comes from the ZIP, never the address text, which some sources
+     * build with the search's state ("Silver Spring, DC 20910"). The city must
+     * be a place at the pin in that state, or no Census place at all (a
+     * township, a neighborhood) with a ZIP to vouch for it.
+     *
+     * @return array{city: string, state: string}|null
+     */
+    private function cityFromAddress(string $address, float $lat, float $lng, ?string $pinZipState): ?array
+    {
+        $city = AddressParts::city($address);
+        $zip = ZipLocation::zipOf($address);
+        if ($city === null || ($zip !== null && ZipLocation::isFarFrom($zip, $lat, $lng) !== false)) {
+            return null;
+        }
+
+        $state = ($zip === null ? null : ZipLocation::state($zip)) ?? $pinZipState;
+        if ($state !== null) {
+            return PlaceLocation::isFarFrom($city, $state, $lat, $lng) !== true ? ['city' => $city, 'state' => $state] : null;
+        }
+
+        // No ZIP: the one state where the city is a place at the pin.
+        $states = PlaceLocation::statesAt($city, $lat, $lng);
+        $named = AddressParts::state($address);
+        if ($named !== null) {
+            return in_array($named, $states, true) ? ['city' => $city, 'state' => $named] : null;
+        }
+
+        return count($states) === 1 ? ['city' => $city, 'state' => $states[0]] : null;
+    }
+
+    /** The state of a ZIP at the pin: the address's own ZIP, else postal_code. */
+    private function pinZipState(Restaurant $restaurant, float $lat, float $lng): ?string
+    {
+        $zip = ZipLocation::zipOf($restaurant->address, $restaurant->postal_code);
+
+        return $zip !== null && ZipLocation::isFarFrom($zip, $lat, $lng) === false ? ZipLocation::state($zip) : null;
+    }
+
+    /**
+     * The address with its state token matching its own ZIP ("…, Silver
+     * Spring, DC 20910" → "…, Silver Spring, MD 20910"), or null when it
+     * already matches or can't be vouched for: the ZIP must be at the pin and
+     * the address's city a place there, in the ZIP's state.
+     */
+    private function addressWithZipState(string $address, float $lat, float $lng): ?string
+    {
+        $named = AddressParts::state($address);
+        $city = AddressParts::city($address);
+        $zip = ZipLocation::zipOf($address);
+        $zipState = $zip === null ? null : ZipLocation::state($zip);
+        if ($named === null || $city === null || $zipState === null || $zipState === $named
+            || ZipLocation::isFarFrom((string) $zip, $lat, $lng) !== false
+            || PlaceLocation::isFarFrom($city, $zipState, $lat, $lng) !== false) {
+            return null;
+        }
+
+        $fixed = preg_replace('/\b'.$named.'(\s+'.$zip.'(?:-\d{4})?)(\s*(?:,\s*(?:USA|US|United States)\.?)?)$/', $zipState.'$1$2', $address, 1, $replaced);
+
+        return $replaced === 1 ? (string) $fixed : null;
+    }
+
+    /** The address's own ZIP sits at the pin. */
+    private function addressAtPin(Restaurant $restaurant): bool
+    {
+        $zip = ZipLocation::zipOf($restaurant->address);
+
+        return $zip !== null && $restaurant->latitude !== null && $restaurant->longitude !== null
+            && ZipLocation::isFarFrom($zip, (float) $restaurant->latitude, (float) $restaurant->longitude) === false;
     }
 
     /** A pin within 500 m of a configured city center: likely a geocoding fallback. */

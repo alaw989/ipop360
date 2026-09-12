@@ -883,8 +883,8 @@ See `history.md` (2026-09-11).
 - 34 unmatched rows whose address ZIP is 10–50 km from the pin: same metro,
   too close to call without an Overture place.
 - 16 rows where only `postal_code` (not the address) is far from the pin.
-- A few rows also carry a copied `city` field, e.g. a Louisville Buffalo Wild
-  Wings stored as "Cheyenne".
+- ~~A few rows also carry a copied `city` field, e.g. a Louisville Buffalo
+  Wild Wings stored as "Cheyenne".~~ Fixed by #184 (`city_far_from_location`).
 - 24 Diner's airport row keeps hillscafe.com; Overture's own data lists it.
 
 ### ✅ Done (2026-09-12) — AI enrichment flood (#183)
@@ -905,8 +905,33 @@ both queue workers busy.
   token as `AI_FALLBACK_KEY`. Remove both, or set a Cerebras key.
 - `restaurants:backfill-websites` checks quarantine for `website_url` only.
   On prod it refilled 81 copied ratings, 165 address/phone values, 6 phones
-  and 64 prices. Some refilled rows also carry the wrong city/state (e.g.
-  Farzi NYC stored as Anchorage, AK).
+  and 64 prices. (The wrong city/state on some refilled rows, e.g. Farzi NYC
+  stored as Anchorage, AK, is fixed by #184.)
+
+### ✅ Done (2026-09-12) — cities and states that aren't where the venue is (#184)
+
+SerpApi venues carry no city, so enrichment stored the search grid's name
+(Novi as "Ann Arbor", Vancouver, WA as "Portland, OR"); the old name-only
+backfill copied cities between same-named venues; `address_other_state`
+removed 159 right addresses for disagreeing with a wrong state.
+- `restaurants:integrity city_far_from_location`: state from a ZIP at the
+  pin (`ZipLocation::state()`), city from the row's own address, sanity-checked
+  against Census places (`PlaceLocation`). Restores wrongly removed addresses,
+  fixes address state tokens, renames grid labels ("Washington Dc").
+- Corrections are restorable (`FieldQuarantineService::replaceFields()`).
+- Enrichment and live persistence prefer the venue's own address city.
+- Clone report 2026-09-12: 1,484 rows (1,107 from the address, 79 state
+  fixes, 9 removed, 289 grid labels). Prod apply pending the operator's OK:
+  report-only on prod, backup, `--apply --only=city_far_from_location`,
+  browser check (Farzi NYC, a Novi row, a Vancouver, WA row).
+
+**Open after #184:**
+- 1,009 rows left without evidence, mostly San Francisco rows (the Census
+  point is 55 km out) and near-metro labels with no city in the address.
+- ~750 stored cities the Census doesn't list (neighborhoods, townships) are
+  never judged.
+- The 45-odd rows whose address names no city get the ZIP's state and no
+  city; a later Overture or reverse-geocode pass could name it.
 
 ### Next up: specs 102–103 (PROPOSED, from the 2026-06-30 fresh-audit wave)
 

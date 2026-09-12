@@ -14,13 +14,17 @@ namespace App\Support;
  * away, so big rural ZIPs get proportionally more room.
  *
  * Centroids: US Census 2024 ZCTA Gazetteer (database/data/zip_centroids.php,
- * public domain). ZCTAs approximate USPS ZIPs; a ZIP without a ZCTA (PO
- * boxes, single-building ZIPs) answers null — no judgement.
+ * public domain). States: the Census 2020 ZCTA-to-county relationship file
+ * (database/data/zip_states.php). ZCTAs approximate USPS ZIPs; a ZIP without
+ * a ZCTA (PO boxes, single-building ZIPs) answers null — no judgement.
  */
 class ZipLocation
 {
     /** @var array<int|string, array{0: float, 1: float, 2: float}>|null */
     private static ?array $centroids = null;
+
+    /** @var array<int|string, string>|null */
+    private static ?array $states = null;
 
     /**
      * The address's ZIP: its final token ("…, Austin, TX 78703", "…, 600,
@@ -53,6 +57,14 @@ class ZipLocation
         $row = self::$centroids[$zip] ?? null;
 
         return $row === null ? null : ['lat' => $row[0], 'lng' => $row[1], 'radius_km' => $row[2]];
+    }
+
+    /** The ZIP's state ("20910" → "MD"), or null for an unknown ZIP. */
+    public static function state(string $zip): ?string
+    {
+        self::$states ??= require database_path('data/zip_states.php');
+
+        return self::$states[$zip] ?? null;
     }
 
     /** Distance from the ZIP's centroid to the point, or null for an unknown ZIP. */
