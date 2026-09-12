@@ -95,6 +95,34 @@ class VenuePipelineNonRestaurantTest extends TestCase
         $this->assertNotNull($reason);
     }
 
+    public function test_keeps_untyped_row_with_wax_substring_city_or_pub_name(): void
+    {
+        // 'wax' is matched on word boundaries, so a restaurant named after the
+        // Texas city "Waxahachie" — or a pub like "Waxy O'Connor's" — survives
+        // the untyped NAME fallback instead of being dropped as a waxing salon.
+        $venues = [
+            ['name' => 'Waxahachie Smokehouse', 'source' => 'bizdata', 'place_types' => []],
+            ['name' => "Waxy O'Connor's", 'source' => 'serpapi', 'place_types' => []],
+        ];
+
+        $kept = array_column($this->pipeline->filterNonRestaurants($venues), 'name');
+
+        $this->assertContains('Waxahachie Smokehouse', $kept);
+        $this->assertContains("Waxy O'Connor's", $kept);
+    }
+
+    public function test_still_drops_untyped_wax_salon_names_on_word_boundary(): void
+    {
+        $venues = [
+            ['name' => 'European Wax Center', 'source' => 'serpapi', 'place_types' => []],
+            ['name' => 'Waxing the City', 'source' => 'bizdata', 'place_types' => []],
+        ];
+
+        $kept = array_column($this->pipeline->filterNonRestaurants($venues), 'name');
+
+        $this->assertSame([], $kept);
+    }
+
     public function test_looks_non_restaurant_keeps_genuine_untyped_restaurant(): void
     {
         $reason = $this->pipeline->looksNonRestaurant([

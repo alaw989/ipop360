@@ -109,8 +109,19 @@ class VenuePipeline
      * See nameLooksNonRestaurant().
      */
     private const NAME_NON_RESTAURANT_PATTERNS = [
-        'wax', 'waxing', 'bail bond', 'bail bonds', 'attorney', 'notary', 'insurance agency',
+        'bail bond', 'bail bonds', 'attorney', 'notary', 'insurance agency',
     ];
+
+    /**
+     * Single-word NAME substrings matched on WORD BOUNDARIES only — raw
+     * str_contains collides with real venue names: 'wax' ⊂ 'Waxahachie' (TX city),
+     * 'Waxman', "Waxy O'Connor's" (pub); 'waxing' ⊂ "Waxing Moon" (bar). Word
+     * boundaries keep the intended "European Wax Center" / "Waxing the City"
+     * salon drop while protecting those names. The multi-word legal/financial
+     * phrases stay in NAME_NON_RESTAURANT_PATTERNS (substring) so a
+     * "bail bondsman" variant is still caught ('bonds' tail is word-adjacent).
+     */
+    private const NAME_NON_RESTAURANT_WORDS = ['wax', 'waxing'];
 
     public function __construct(
         private PriceLevelNormalizer $priceLevelNormalizer,
@@ -760,6 +771,11 @@ class VenuePipeline
         }
         foreach (self::NAME_NON_RESTAURANT_PATTERNS as $pattern) {
             if (str_contains($name, $pattern)) {
+                return true;
+            }
+        }
+        foreach (self::NAME_NON_RESTAURANT_WORDS as $word) {
+            if (preg_match('/\b'.preg_quote($word, '/').'\b/', $name)) {
                 return true;
             }
         }
