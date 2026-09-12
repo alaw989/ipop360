@@ -16,7 +16,9 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Same budget as ci.yml's quality job. The job runs 7.7–9.6 min, and a slow
+    # dependency install pushed #184's deploy past 10 and cancelled it.
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
