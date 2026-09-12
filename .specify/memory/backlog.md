@@ -920,10 +920,12 @@ removed 159 right addresses for disagreeing with a wrong state.
   fixes address state tokens, renames grid labels ("Washington Dc").
 - Corrections are restorable (`FieldQuarantineService::replaceFields()`).
 - Enrichment and live persistence prefer the venue's own address city.
-- Clone report 2026-09-12: 1,484 rows (1,107 from the address, 79 state
-  fixes, 9 removed, 289 grid labels). Prod apply pending the operator's OK:
-  report-only on prod, backup, `--apply --only=city_far_from_location`,
-  browser check (Farzi NYC, a Novi row, a Vancouver, WA row).
+- Applied on prod 2026-09-12 20:04 UTC after a backup
+  (`ipop360-pre-city-fix-20260912T200403Z.sql.gz`): 1,484 rows (1,107 from
+  the address, 79 state fixes, 9 removed, 289 grid labels), browser-verified.
+  #186 unblocked the deploy (Pint off `database/data`, 15-min quality job);
+  #187 fixed 3 rows that got "Washington, MD" from an address carrying the
+  search's city.
 
 **Open after #184:**
 - 1,009 rows left without evidence, mostly San Francisco rows (the Census
