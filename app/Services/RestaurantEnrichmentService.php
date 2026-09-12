@@ -7,6 +7,7 @@ use App\Models\Cuisine;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use App\Models\SerpApiCallLog;
+use App\Support\AddressParts;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
@@ -359,6 +360,19 @@ class RestaurantEnrichmentService
     }
 
     /**
+     * A grid key as a city name, without the state some keys carry to tell
+     * same-named cities apart ("washington dc" → "washington").
+     */
+    private function gridCity(?string $key, ?string $stateCode): ?string
+    {
+        if ($key === null || $stateCode === null) {
+            return $key;
+        }
+
+        return (string) preg_replace('/\s+'.preg_quote($stateCode, '/').'$/i', '', $key);
+    }
+
+    /**
      * Process a single free venue: build attributes, upsert, attach cuisine.
      * Upserts by yelp_business_id when present, else by name + ≤200m proximity.
      *
@@ -387,8 +401,10 @@ class RestaurantEnrichmentService
         $attributes = [
             'name' => $venue['name'],
             'address' => $venue['address'] ?? null,
-            'city' => $venue['city'] ?? $cityName,
-            'state' => $venue['state'] ?? $stateCode,
+            // The venue's own address names its town. The grid's city is only
+            // where the search was centered (a Novi venue stored as "Ann Arbor").
+            'city' => $venue['city'] ?? AddressParts::city($venue['address'] ?? null) ?? $this->gridCity($cityName, $stateCode),
+            'state' => $venue['state'] ?? AddressParts::state($venue['address'] ?? null) ?? $stateCode,
             'postal_code' => $venue['postal_code'] ?? null,
             'country' => $venue['country'] ?? 'US',
             'latitude' => $venue['lat'] ?? null,

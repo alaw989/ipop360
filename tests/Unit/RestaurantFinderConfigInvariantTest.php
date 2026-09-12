@@ -46,6 +46,8 @@ class RestaurantFinderConfigInvariantTest extends TestCase
         'ranking.evidence_cap' => [0, 1],
         'data_integrity.address_zip_far_km' => [1, 100],
         'data_integrity.address_zip_unmatched_far_km' => [10, 1000],
+        'data_integrity.city_place_far_km' => [1, 100],
+        'data_integrity.city_unmatched_far_km' => [10, 1000],
     ];
 
     /** Operational sections (i.e. the config minus the data catalogs). */

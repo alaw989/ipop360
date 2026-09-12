@@ -7,6 +7,7 @@ use App\Models\Restaurant;
 use App\Services\AiEnrichmentService;
 use App\Services\RestaurantDeduplicationService;
 use App\Services\RestaurantValidationService;
+use App\Support\AddressParts;
 use App\Support\StateAbbreviations;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -780,76 +781,10 @@ class DataHygiene extends Command
     private function normalizeCity(?string $city, ?string $address): ?string
     {
         if ($city === null || trim($city) === '') {
-            $city = $this->deriveCityFromAddress($address);
+            $city = AddressParts::city($address);
         }
 
         return $this->titleCaseCity($city);
-    }
-
-    /**
-     * Derive a plausible city from a street address, or null when the address
-     * cannot name one. Supports the two shapes the corpus mixes:
-     *   - US style: "622 E Adams St, Phoenix, AZ 85004" — city sits right
-     *     before the "ST ZIP" tail.
-     *   - OSM style: "West Southern Avenue, 706, Mesa, 85210" — street, house
-     *     number, city, zip; city is the segment before the numeric zip.
-     * Guarded so a street-only address, an address without a city segment, or a
-     * junk tail (foreign postal codes) never yields a bogus city.
-     */
-    private function deriveCityFromAddress(?string $address): ?string
-    {
-        if ($address === null) {
-            return null;
-        }
-
-        $parts = array_values(array_filter(
-            array_map('trim', explode(',', $address)),
-            fn ($part) => $part !== ''
-        ));
-
-        $count = count($parts);
-        if ($count < 2) {
-            return null;
-        }
-
-        $last = $parts[$count - 1];
-
-        // US "ST ZIP" tail: "Phoenix, AZ 85004".
-        if (preg_match('/^[A-Z]{2}\s+\d{5}(?:-\d{4})?$/', $last) === 1) {
-            return $this->plausibleCity($parts[$count - 2]);
-        }
-
-        // OSM numeric-zip tail: "Mesa, 85210".
-        if (preg_match('/^\d{5}(?:-\d{4})?$/', $last) === 1 && $count >= 3) {
-            return $this->plausibleCity($parts[$count - 2]);
-        }
-
-        // OSM without zip: "North 28th Drive, 12418, Phoenix".
-        if ($count === 3 && preg_match('/^\d+$/', $parts[1]) === 1) {
-            return $this->plausibleCity($parts[2]);
-        }
-
-        return null;
-    }
-
-    /**
-     * A city token worth persisting, or null. Rejects digit-led tokens (house
-     * numbers, zip codes), very short tokens, and non-letter junk so nothing
-     * bogus is stored as a city.
-     */
-    private function plausibleCity(?string $candidate): ?string
-    {
-        if ($candidate === null) {
-            return null;
-        }
-
-        $candidate = trim($candidate);
-
-        if (mb_strlen($candidate) < 2 || preg_match('/^\d/', $candidate) === 1) {
-            return null;
-        }
-
-        return preg_match('/^[A-Za-z][A-Za-z .\'\-]+$/', $candidate) === 1 ? $candidate : null;
     }
 
     private function collapseWhitespace(?string $value): ?string

@@ -32,6 +32,15 @@ class ZipLocationTest extends TestCase
         $this->assertNull(ZipLocation::zipOf(null, 'n/a'));
     }
 
+    public function test_state_comes_from_the_census_relationship_file(): void
+    {
+        $this->assertSame('MD', ZipLocation::state('20910'), 'Silver Spring');
+        $this->assertSame('VA', ZipLocation::state('22043'), 'Falls Church');
+        $this->assertSame('KS', ZipLocation::state('66103'), 'Kansas City, KS');
+        $this->assertSame('PA', ZipLocation::state('18977'), 'Washington Crossing, PA');
+        $this->assertNull(ZipLocation::state('00000'));
+    }
+
     public function test_centroid_comes_from_the_census_file(): void
     {
         $this->assertEqualsWithDelta(30.29, ZipLocation::centroid('78703')['lat'] ?? 0, 0.01);

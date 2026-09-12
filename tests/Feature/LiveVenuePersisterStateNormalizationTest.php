@@ -74,4 +74,14 @@ class LiveVenuePersisterStateNormalizationTest extends TestCase
 
         $this->assertSame('FL', $result['restaurant']->state);
     }
+
+    public function test_persist_takes_the_city_from_the_venues_own_address_before_the_search_location(): void
+    {
+        $result = $this->persister->persist(
+            $this->venue('place_novi', 'Pho Lucky', ['address' => '39777 Grand River Ave, Novi, MI 48375']),
+            defaultLocation: ['city' => 'Ann Arbor', 'state' => 'MI'],
+        );
+
+        $this->assertSame(['Novi', 'MI'], [$result['restaurant']->city, $result['restaurant']->state]);
+    }
 }
