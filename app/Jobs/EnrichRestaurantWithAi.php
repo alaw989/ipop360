@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Exceptions\AiProvidersUnavailableException;
 use App\Models\Cuisine;
 use App\Models\Restaurant;
 use App\Services\AiEnrichmentService;
@@ -99,7 +100,18 @@ class EnrichRestaurantWithAi implements ShouldQueue
             $enriched = $aiEnrichment->enrichRestaurant($restaurantData);
 
             if ($enriched === null) {
-                Log::debug('AI enrichment returned no data (no key or error)', [
+                // With a key set, null means a provider answered but gave
+                // nothing usable (bad JSON, a rejected prompt). Stamp the
+                // attempt so the row goes to the back of the queue instead of
+                // being re-sent every run.
+                if (! empty(config('services.ai.api_key'))) {
+                    $restaurant->update(['ai_metadata' => [
+                        ...(is_array($restaurant->ai_metadata) ? $restaurant->ai_metadata : []),
+                        'attempted_at' => now()->toISOString(),
+                    ]]);
+                }
+
+                Log::debug('AI enrichment returned no data (no key or unusable answer)', [
                     'restaurant_id' => $restaurant->id,
                 ]);
 
@@ -221,12 +233,16 @@ class EnrichRestaurantWithAi implements ShouldQueue
                     'restaurant_id' => $restaurant->id,
                 ]);
             }
+        } catch (AiProvidersUnavailableException) {
+            // Every provider is rate-limited or down, and the service already
+            // logged the cooldown. Skip quietly: the row wasn't tried, so it
+            // stays eligible for the next scheduled pass.
+            return;
         } catch (\Throwable $e) {
-            // Best-effort enrichment: a provider outage (all AI providers down /
-            // rate-limited / unreachable) must NOT fail the job or 500 the
-            // requesting live-search call. Log and skip this row — the next
-            // scheduled enrichment pass retries it.
-            Log::warning('AI enrichment job skipped (provider unavailable)', [
+            // Best-effort enrichment: an unexpected failure must NOT fail the
+            // job or 500 the requesting live-search call. Log and skip this
+            // row — the next scheduled enrichment pass retries it.
+            Log::warning('AI enrichment job skipped (unexpected error)', [
                 'restaurant_id' => $restaurant->id,
                 'message' => $e->getMessage(),
             ]);

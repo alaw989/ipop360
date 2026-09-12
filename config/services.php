@@ -70,6 +70,14 @@ return [
                 'model' => env('AI_FALLBACK_MODEL', 'gpt-oss-120b'),
             ],
         ],
+        // restaurants:ai-enrich queues at most this many jobs per 6-hourly
+        // run, spread over the 6 hours. Groq's free tier caps gpt-oss-120b at
+        // 200k tokens a day (~350 enrichments), shared with the ingestion,
+        // grid and hygiene dispatches; anything more is queued to fail.
+        'enrich_per_run' => (int) env('AI_ENRICH_PER_RUN', 75),
+        // A row the AI already tried becomes eligible again after this many
+        // days (the model has no browsing, so a quick retry repeats itself).
+        'enrich_retry_days' => (int) env('AI_ENRICH_RETRY_DAYS', 30),
     ],
 
     'google_custom_search' => [
