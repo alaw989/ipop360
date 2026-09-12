@@ -401,8 +401,11 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
         );
     }
 
-    public function test_scrape_extracts_price_range_from_json_ld(): void
+    public function test_scrape_does_not_return_a_price(): void
     {
+        // A site's own priceRange matched Google's price level only 45% of the
+        // time, so it is no longer read. A page whose only structured data is
+        // a price yields nothing.
         $jsonLd = json_encode([
             '@type' => 'Restaurant',
             'name' => 'Example Bistro',
@@ -417,18 +420,23 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
             ),
         ]);
 
-        $result = $this->service->scrape('https://example.com/');
-
-        $this->assertIsArray($result);
-        $this->assertSame('$$', $result['price_range']);
+        $this->assertNull($this->service->scrape('https://example.com/'));
     }
 
-    public function test_scrape_extracts_price_range_from_numeric_json_ld(): void
+    public function test_scrape_reads_hours_from_a_json_ld_graph(): void
     {
+        // WordPress/Yoast and most site builders wrap every node in @graph.
         $jsonLd = json_encode([
-            '@type' => 'Restaurant',
-            'name' => 'Example Diner',
-            'priceRange' => '$10-20',
+            '@context' => 'https://schema.org',
+            '@graph' => [
+                ['@type' => 'WebSite', 'name' => 'Example Grill'],
+                ['@type' => 'WebPage', 'name' => 'Home'],
+                [
+                    '@type' => 'Restaurant',
+                    'name' => 'Example Grill',
+                    'openingHours' => ['Mo-Fr 11:00-22:00', 'Sa-Su 10:00-23:00'],
+                ],
+            ],
         ]);
 
         Http::fake([
@@ -442,15 +450,17 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
         $result = $this->service->scrape('https://example.com/');
 
         $this->assertIsArray($result);
-        $this->assertSame('$$', $result['price_range']);
+        $this->assertNotNull($result['opening_hours']);
     }
 
-    public function test_scrape_rejects_bogus_json_ld_price_range(): void
+    public function test_scrape_takes_the_graph_business_description_not_the_site_tagline(): void
     {
         $jsonLd = json_encode([
-            '@type' => 'Restaurant',
-            'name' => 'Example Lounge',
-            'priceRange' => 'Price on request',
+            '@context' => 'https://schema.org',
+            '@graph' => [
+                ['@type' => 'WebSite', 'description' => 'Just another WordPress site for testing purposes'],
+                ['@type' => ['Restaurant', 'LocalBusiness'], 'description' => 'Family-run Lebanese kitchen grilling kebabs over charcoal since 1998.'],
+            ],
         ]);
 
         Http::fake([
@@ -461,11 +471,30 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
             ),
         ]);
 
-        // A non-dollars, non-numeric price value is not a usable price range;
-        // when it is the only extractable field the scrape returns null.
         $result = $this->service->scrape('https://example.com/');
 
-        $this->assertNull($result);
+        $this->assertIsArray($result);
+        $this->assertSame('Family-run Lebanese kitchen grilling kebabs over charcoal since 1998.', $result['description']);
+    }
+
+    public function test_scrape_never_takes_a_website_nodes_tagline_as_the_description(): void
+    {
+        $jsonLd = json_encode([
+            '@context' => 'https://schema.org',
+            '@graph' => [
+                ['@type' => 'WebSite', 'description' => 'Just another WordPress site for testing purposes'],
+            ],
+        ]);
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><body><script type="application/ld+json">'.$jsonLd.'</script></body></html>',
+                200
+            ),
+        ]);
+
+        $this->assertNull($this->service->scrape('https://example.com/'));
     }
 
     public function test_scrape_does_not_extract_short_or_empty_description(): void

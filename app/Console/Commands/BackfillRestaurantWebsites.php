@@ -40,12 +40,22 @@ class BackfillRestaurantWebsites extends Command
     private const CACHE_SOURCES = ['serpapi', 'preview', 'bizdata'];
 
     /**
-     * Max restaurants whose menu URL + opening hours are scraped per run.
-     * Bounded so a single daily sweep never hammers every website at once;
-     * the scrape result is cached per-domain (7d TTL) so the next run picks up
-     * where this one left off cheaply.
+     * Max restaurants whose own website is read for its menu link, hours and
+     * description per run. Each site is read once (robots.txt, then the page),
+     * one site at a time, and stamped website_scraped_at, so the queue moves
+     * through every website instead of re-reading the same ones.
      */
-    private const MENU_SCRAPE_DAILY_LIMIT = 200;
+    private const MENU_SCRAPE_DAILY_LIMIT = 2000;
+
+    /**
+     * The scrape phase stops starting new sites after this long, so a run full
+     * of slow sites can't hold the command's 240-minute lock. Sites it doesn't
+     * reach keep a NULL website_scraped_at and go first on the next run.
+     */
+    private const MENU_SCRAPE_TIME_BUDGET_SECONDS = 5400;
+
+    /** Days before a scraped site is read again for fields it still lacks. */
+    private const MENU_SCRAPE_RETRY_DAYS = 30;
 
     /**
      * Max restaurants whose social links are scraped per run. Without this
@@ -173,6 +183,7 @@ class BackfillRestaurantWebsites extends Command
                     $website = $venue['website'] ?? $venue['website_url'] ?? null;
                     $parsedPrice = $this->parseExtractedPrice($venue);
                     $entryData = [
+                        '_source' => $source,
                         '_name' => (string) ($venue['title'] ?? $venue['name'] ?? ''),
                         '_lat' => $coordinates[0],
                         '_lng' => $coordinates[1],
@@ -244,6 +255,9 @@ class BackfillRestaurantWebsites extends Command
                 }
                 if (empty($restaurant->price_range) && is_string($entryData['_price_range'])) {
                     $updates['price_range'] = $entryData['_price_range'];
+                    // Where the price came from, so it can be audited or cleared by source.
+                    $sources = is_array($restaurant->field_sources) ? $restaurant->field_sources : [];
+                    $updates['field_sources'] = ['price_range' => $entryData['_source']] + $sources;
                 }
                 $phone = $this->normalizeCachePhone($entryData['_phone'] ?? null);
                 if (empty($restaurant->phone) && $phone !== null) {
@@ -1129,83 +1143,93 @@ class BackfillRestaurantWebsites extends Command
     }
 
     /**
-     * Scrape menu URLs + opening hours + description + price range from the
-     * websites of restaurants that have a website_url but are missing menu_url,
-     * opening_hours, description or price_range (description and price_range are
-     * the corpus's biggest gaps — 96% and 94% of active rows — previously served
-     * only by cache + quota-bound AI). Fill-empty only — existing values are
-     * never clobbered, and rows missing only some fields are revisited until
-     * every field is filled. Bounded per run by
-     * {@see self::MENU_SCRAPE_DAILY_LIMIT} and driven by the same per-domain
-     * cache as the rest of the scraper.
+     * Read the restaurant's own website for its menu link, opening hours and
+     * description, on rows with a website that lack any of the three.
+     * Fill-empty only: existing values are never replaced.
+     *
+     * Every site read is stamped website_scraped_at, hit or miss. The queue
+     * takes never-read sites first, then the longest-unread, and a site is
+     * read again only after {@see self::MENU_SCRAPE_RETRY_DAYS} days. Without
+     * the stamp the phase took the same top rows by popularity every day,
+     * since a site with no hours on it stays "missing hours" for good, and
+     * never reached the rest.
+     *
+     * Price is not taken from websites. Checked against Google's price level
+     * on restaurants that have both, a site's own JSON-LD priceRange matched
+     * only 45% of the time, and 73% of sites said "$$", a common site-builder
+     * default.
      */
     private function scrapeMenuData(RestaurantWebsiteScraperService $scraper, bool $dryRun): void
     {
-        $query = $this->scrapeableWebsites()
+        $restaurants = $this->scrapeableWebsites()
             ->where(function ($q) {
                 $q->whereNull('menu_url')->orWhere('menu_url', '')
                     ->orWhereNull('opening_hours')->orWhere('opening_hours', '')
-                    ->orWhereNull('description')->orWhere('description', '')
-                    ->orWhereNull('price_range')->orWhere('price_range', '');
+                    ->orWhereNull('description')->orWhere('description', '');
             })
+            ->where(function ($q) {
+                $q->whereNull('website_scraped_at')
+                    ->orWhere('website_scraped_at', '<', now()->subDays(self::MENU_SCRAPE_RETRY_DAYS));
+            })
+            ->orderByRaw('website_scraped_at IS NOT NULL')
+            ->orderBy('website_scraped_at')
             ->orderByRaw('COALESCE(popularity_score, 0) DESC')
             ->orderBy('id')
-            ->limit(self::MENU_SCRAPE_DAILY_LIMIT);
+            ->limit(self::MENU_SCRAPE_DAILY_LIMIT)
+            ->get();
 
-        $restaurants = $query->get();
         $total = $restaurants->count();
 
         if ($total === 0) {
             return;
         }
 
-        $this->info("Scraping menu URLs + hours + description + price for {$total} restaurant(s)...");
+        $this->info("Scraping menu URLs + hours + description for {$total} restaurant(s)...");
 
         $bar = $this->output->createProgressBar($total);
         $bar->start();
 
         $found = 0;
+        $scraped = 0;
+        $deadline = microtime(true) + self::MENU_SCRAPE_TIME_BUDGET_SECONDS;
 
         foreach ($restaurants as $restaurant) {
-            try {
-                if ($restaurant->website_url === null || $restaurant->website_url === '') {
-                    $bar->advance();
+            if (microtime(true) >= $deadline) {
+                $this->newLine();
+                $this->warn('  Time budget reached; the rest go first next run.');
+                break;
+            }
 
-                    continue;
+            try {
+                $data = $scraper->scrape((string) $restaurant->website_url);
+
+                $updates = [];
+                if ($data !== null) {
+                    if (! empty($data['menu_url']) && empty($restaurant->menu_url)) {
+                        $updates['menu_url'] = $data['menu_url'];
+                    }
+                    if (! empty($data['opening_hours']) && empty($restaurant->opening_hours)) {
+                        $updates['opening_hours'] = $data['opening_hours'];
+                    }
+                    if (! empty($data['description']) && empty($restaurant->description)) {
+                        $updates['description'] = $data['description'];
+                    }
                 }
 
-                $scraped = $scraper->scrape($restaurant->website_url);
-
-                if ($scraped !== null && (! empty($scraped['menu_url']) || ! empty($scraped['opening_hours']) || ! empty($scraped['description']) || ! empty($scraped['price_range']))) {
-                    $updates = [];
-
-                    if (! empty($scraped['menu_url']) && empty($restaurant->menu_url)) {
-                        $updates['menu_url'] = $scraped['menu_url'];
-                    }
-                    if (! empty($scraped['opening_hours']) && empty($restaurant->opening_hours)) {
-                        $updates['opening_hours'] = $scraped['opening_hours'];
-                    }
-                    if (! empty($scraped['description']) && empty($restaurant->description)) {
-                        $updates['description'] = $scraped['description'];
-                    }
-                    if (! empty($scraped['price_range']) && empty($restaurant->price_range)) {
-                        $updates['price_range'] = $scraped['price_range'];
-                    }
-
-                    if (! $dryRun && ! empty($updates)) {
-                        $restaurant->update($updates);
-                        Log::channel('enrichment')->info('Menu URL + hours + description + price backfilled from website scrape', [
-                            'restaurant_id' => $restaurant->id,
-                            'restaurant_name' => $restaurant->name,
-                            'website_url' => $restaurant->website_url,
-                            'menu_url' => $scraped['menu_url'] ?? null,
-                            'opening_hours' => $scraped['opening_hours'] ?? null,
-                            'description' => $scraped['description'] ?? null,
-                            'price_range' => $scraped['price_range'] ?? null,
-                        ]);
-                    }
-
+                if ($updates !== []) {
                     $found++;
+                }
+
+                if (! $dryRun && $updates !== []) {
+                    $restaurant->update($updates + ['website_scraped_at' => now()]);
+                    Log::channel('enrichment')->info('Menu URL + hours + description backfilled from website scrape', [
+                        'restaurant_id' => $restaurant->id,
+                        'restaurant_name' => $restaurant->name,
+                        'website_url' => $restaurant->website_url,
+                        'filled' => array_keys($updates),
+                    ]);
+                } elseif (! $dryRun) {
+                    $this->stampScraped($restaurant);
                 }
             } catch (\Throwable $e) {
                 Log::channel('enrichment')->warning('Menu scrape failed during website backfill', [
@@ -1213,14 +1237,34 @@ class BackfillRestaurantWebsites extends Command
                     'website_url' => $restaurant->website_url ?? null,
                     'message' => $e->getMessage(),
                 ]);
+                // Stamped anyway, so a site that fails every time doesn't sit
+                // at the front of the queue.
+                if (! $dryRun) {
+                    try {
+                        $this->stampScraped($restaurant);
+                    } catch (\Throwable) {
+                        // The next run picks it up again.
+                    }
+                }
             }
 
+            $scraped++;
             $bar->advance();
         }
 
         $bar->finish();
         $this->newLine();
-        $this->line("  Menu/hours/description/price scraped for {$found} restaurant(s).");
+        $this->line("  Websites read: {$scraped}; menu/hours/description filled for {$found} restaurant(s).");
+    }
+
+    /**
+     * Mark a website as read without touching updated_at, which feeds the
+     * sitemap's lastmod: a read that filled nothing changed nothing a visitor
+     * can see.
+     */
+    private function stampScraped(Restaurant $restaurant): void
+    {
+        Restaurant::query()->whereKey($restaurant->id)->toBase()->update(['website_scraped_at' => now()]);
     }
 
     private function guessFromTitle(bool $dryRun): void

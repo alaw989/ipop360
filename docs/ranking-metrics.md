@@ -215,7 +215,7 @@ row — no dedicated column. The ten fields:
 | phone | `phone` | BizData / OSM |
 | latitude | `latitude` | BizData / OSM |
 | longitude | `longitude` | BizData / OSM |
-| price_range | `price_range` | BizData / Overpass |
+| price_range | `price_range` | SerpApi (Google) / Overpass; never the restaurant's website (below) |
 | website_url | `website_url` | BizData / OSM / backfill |
 | photo_url | `photo_url` | BizData / Wikimedia image enrichment |
 | features | `features` | OSM tag extraction |
@@ -230,6 +230,16 @@ an AI-written `website_url` that never passed `WebsiteIdentityVerifier`. Those
 fields (identified via `ai_metadata.fields_updated` + `website_identity`) count
 as unpopulated. `EnrichRestaurantWithAi` no longer writes phone/price at all
 (kept in `ai_metadata.inferred`), so this only discounts legacy rows.
+
+**Where prices come from (2026-09-13).** Only 10.7% of active restaurants have a
+price: 86% of rated rows, 2.2% of unrated ones, because the price arrives with
+the SerpApi/Google rating (~250 lookups a month). The restaurant's own website
+is **not** a price source. Checked against Google's level on 49 restaurants
+that publish both, a site's JSON-LD `priceRange` matched exactly 45% of the time
+(within one level 98%), and 73% of sites said "$$", a common site-builder
+default; 16 of the 21 restaurants Google calls "$" claimed "$$". The
+backfill-websites cache phase tags each price it fills with its cache source in
+`field_sources.price_range` (`serpapi`, `preview`, `bizdata`).
 
 ## Social link verification (spec-109)
 

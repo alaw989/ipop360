@@ -713,6 +713,38 @@ class BackfillWebsitesCachePhoneTest extends TestCase
 
         $restaurant = Restaurant::where('name', 'Priced Eatery')->firstOrFail();
         $this->assertSame('$$', $restaurant->price_range);
+        $this->assertSame('bizdata', $restaurant->field_sources['price_range'] ?? null, 'the filled price records the cache source it came from');
+    }
+
+    public function test_price_source_tag_keeps_other_field_sources(): void
+    {
+        $this->seedCache('serpapi', [
+            [
+                'title' => 'Tagged Eatery',
+                'website' => 'https://taggedeatery.example',
+                'extracted_price' => 12,
+            ],
+        ]);
+
+        $this->restaurantAtCache([
+            'name' => 'Tagged Eatery',
+            'website_url' => 'https://taggedeatery.example',
+            'phone' => '5550006666',
+            'price_range' => null,
+            'field_sources' => ['phone' => 'overture:2026-08-19.0'],
+            'menu_url' => 'https://taggedeatery.example/menu',
+            'opening_hours' => 'Mo-Su 11:00-21:00',
+            'social_links_count' => 1,
+        ]);
+
+        $this->artisan('restaurants:backfill-websites', ['--skip-search' => true]);
+
+        $restaurant = Restaurant::where('name', 'Tagged Eatery')->firstOrFail();
+        $this->assertSame('$', $restaurant->price_range);
+        $this->assertSame(
+            ['price_range' => 'serpapi', 'phone' => 'overture:2026-08-19.0'],
+            $restaurant->field_sources
+        );
     }
 
     public function test_backfills_photo_from_cached_serpapi_thumbnail_for_name_match(): void
