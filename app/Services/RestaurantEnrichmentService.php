@@ -736,12 +736,9 @@ class RestaurantEnrichmentService
 
         foreach ($restaurants as $restaurant) {
             try {
-                // Skip if recently enriched (within 7 days)
-                if (! empty($restaurant->ai_metadata['enriched_at'])) {
-                    $enrichedAt = now()->parse($restaurant->ai_metadata['enriched_at']);
-                    if ($enrichedAt->gt(now()->subDays(7))) {
-                        continue;
-                    }
+                // Skip if the AI looked at it recently (within 7 days)
+                if ($restaurant->lastAiAttemptAt()?->gt(now()->subDays(7))) {
+                    continue;
                 }
 
                 // Dispatch async job (never blocks request path)

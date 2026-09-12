@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\PhotoSourceTier;
 use App\Support\SqlDialect;
+use Carbon\CarbonImmutable;
 use Database\Factories\RestaurantFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -166,6 +167,27 @@ class Restaurant extends Model
         }
 
         return $query->count();
+    }
+
+    /**
+     * When the AI last looked at this row: its last enrichment, or a later
+     * attempt whose answer was unusable. Null when never tried. Every path
+     * that queues EnrichRestaurantWithAi gates on this, so a row the AI
+     * couldn't help isn't re-sent each run.
+     */
+    public function lastAiAttemptAt(): ?CarbonImmutable
+    {
+        $metadata = is_array($this->ai_metadata) ? $this->ai_metadata : [];
+        $last = null;
+
+        foreach (['enriched_at', 'attempted_at'] as $key) {
+            if (is_string($metadata[$key] ?? null) && $metadata[$key] !== '') {
+                $at = CarbonImmutable::parse($metadata[$key]);
+                $last = $last === null || $at->gt($last) ? $at : $last;
+            }
+        }
+
+        return $last;
     }
 
     /**

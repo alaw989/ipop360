@@ -887,6 +887,27 @@ See `history.md` (2026-09-11).
   Wings stored as "Cheyenne".
 - 24 Diner's airport row keeps hillscafe.com; Overture's own data lists it.
 
+### ✅ Done (2026-09-12) — AI enrichment flood (#183)
+
+A read-only prod check found `restaurants:ai-enrich` sending ~163k failed AI
+calls a day (a Groq 429, then the dead Azure fallback) against a free tier
+that answers ~350. The failures also wrote ~180 MB of logs a day and kept
+both queue workers busy.
+- A failing provider is skipped for a cooldown (Groq's Retry-After on a 429).
+- The command queues at most `AI_ENRICH_PER_RUN` (75) jobs per run, spread
+  over the 6 hours, never-tried rows first.
+- A tried row waits `AI_ENRICH_RETRY_DAYS` (30); an unusable answer counts as
+  a try, a provider outage doesn't.
+
+**Open after #183:**
+- Prod's AI fallback is dead. The droplet `.env` pins the retired Azure URL
+  (`AI_FALLBACK_URL`/`AI_FALLBACK_MODEL`), and the deploy injects a GitHub
+  token as `AI_FALLBACK_KEY`. Remove both, or set a Cerebras key.
+- `restaurants:backfill-websites` checks quarantine for `website_url` only.
+  On prod it refilled 81 copied ratings, 165 address/phone values, 6 phones
+  and 64 prices. Some refilled rows also carry the wrong city/state (e.g.
+  Farzi NYC stored as Anchorage, AK).
+
 ### Next up: specs 102–103 (PROPOSED, from the 2026-06-30 fresh-audit wave)
 
 1. **102 — Test-coverage backfill** (P2/P3, regression-guard gaps)

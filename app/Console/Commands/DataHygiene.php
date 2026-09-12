@@ -677,9 +677,9 @@ class DataHygiene extends Command
             ->limit($cap * 5)
             ->get(['id', 'name', 'ai_metadata'])
             ->filter(function (Restaurant $restaurant) use ($retryCutoff): bool {
-                $enrichedAt = $restaurant->ai_metadata['enriched_at'] ?? null;
+                $lastAttempt = $restaurant->lastAiAttemptAt();
 
-                return ! is_string($enrichedAt) || now()->parse($enrichedAt)->lt($retryCutoff);
+                return $lastAttempt === null || $lastAttempt->lt($retryCutoff);
             })
             ->take($cap)
             ->values();

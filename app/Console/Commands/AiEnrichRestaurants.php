@@ -5,25 +5,37 @@ namespace App\Console\Commands;
 use App\Jobs\EnrichRestaurantWithAi;
 use App\Models\Restaurant;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 
 /**
  * Backfill command to dispatch AI enrichment jobs for eligible restaurants.
  *
  * With no AI key configured, this command exits cleanly (no-op).
- * With a key, it dispatches jobs for restaurants that haven't been enriched
- * or were enriched more than the freshness window ago. Rows missing an
- * AI-fillable field (description, verified website_url, empty address)
- * re-enter eligibility after 1 day; complete rows after 7. Neediest rows
- * dispatch first.
+ * With a key, it dispatches a bounded batch per run (services.ai.enrich_per_run),
+ * spread evenly over the 6 hours until the next scheduled run. Groq's free
+ * tier answers ~350 enrichments a day, so queueing the whole backlog each run
+ * (it once dispatched ~40k jobs every 6 hours) only produced 429s.
+ *
+ * Rows the AI has never tried go first, neediest (most missing AI-fillable
+ * fields: description, website_url, address) then highest popularity_score.
+ * A row the AI already tried (see Restaurant::lastAiAttemptAt) is eligible
+ * again after services.ai.enrich_retry_days.
  */
 class AiEnrichRestaurants extends Command
 {
     /**
+     * Seconds the batch is spread over: the gap between the everySixHours
+     * runs scheduled in routes/console.php.
+     */
+    private const DISPATCH_WINDOW_SECONDS = 6 * 3600;
+
+    /**
      * The name and signature of the console command.
      */
     protected $signature = 'restaurants:ai-enrich
-                            {--all : Process all restaurants, not just those needing enrichment}
+                            {--all : Ignore the retry window (rows tried recently are eligible too)}
                             {--id=* : Specific restaurant IDs to enrich}
+                            {--limit= : Most jobs to dispatch this run (default: services.ai.enrich_per_run)}
                             {--dry-run : Show what would be processed without dispatching jobs}';
 
     /**
@@ -52,49 +64,11 @@ class AiEnrichRestaurants extends Command
             $this->info('Dry-run mode: showing what would be processed...');
         }
 
-        $query = Restaurant::active();
-
-        // Filter by specific IDs if provided
         if (! empty($specificIds)) {
-            $query->whereIn('id', $specificIds);
+            $restaurants = Restaurant::active()->whereIn('id', $specificIds)->get(['id', 'name']);
             $this->info('Processing specific restaurant IDs: '.implode(', ', $specificIds));
-        } elseif (! $processAll) {
-            // Only process restaurants needing enrichment (null ai_metadata or
-            // enriched more than 7 days ago). Filter in PHP because the previous
-            // SQL approach (whereJsonDoesntContain) matched an exact microsecond
-            // timestamp and was true for virtually every row.
-            $this->info('Processing restaurants not enriched in the last 7 days...');
         } else {
-            $this->info('Processing all active restaurants...');
-        }
-
-        $restaurants = $query->get();
-
-        if (! $processAll && empty($specificIds)) {
-            $restaurants = $restaurants->filter(function ($restaurant) {
-                $missingCount = $this->missingFieldCount($restaurant);
-                $windowDays = $missingCount > 0 ? 1 : 7;
-
-                if (empty($restaurant->ai_metadata['enriched_at'])) {
-                    return true;
-                }
-
-                $enrichedAt = now()->parse($restaurant->ai_metadata['enriched_at']);
-
-                return $enrichedAt->lt(now()->subDays($windowDays));
-            });
-
-            // Neediest first: rows missing the most AI-fillable fields get
-            // dispatched before rows that are already mostly complete, so the
-            // free AI quota closes the deepest gaps first. Among equally needy
-            // rows, the higher search impact (popularity_score) row dispatches
-            // first — the quota is spent on the most-visible rows first.
-            $restaurants = $restaurants
-                ->sortByDesc(fn ($restaurant) => [
-                    $this->missingFieldCount($restaurant),
-                    (float) ($restaurant->popularity_score ?? 0),
-                ])
-                ->values();
+            $restaurants = $this->eligibleRestaurants((bool) $processAll);
         }
 
         if ($restaurants->isEmpty()) {
@@ -105,34 +79,24 @@ class AiEnrichRestaurants extends Command
 
         $this->info('Found '.$restaurants->count().' restaurant(s) to process.');
 
-        $bar = $this->output->createProgressBar($restaurants->count());
-        $bar->start();
-
+        // Hand-picked IDs run now; the scheduled batch is spread out.
+        $spacing = empty($specificIds) ? intdiv(self::DISPATCH_WINDOW_SECONDS, $restaurants->count()) : 0;
         $dispatched = 0;
-        $i = 0;
 
-        foreach ($restaurants as $restaurant) {
+        foreach ($restaurants->values() as $i => $restaurant) {
             if ($dryRun) {
-                $this->newLine();
                 $this->line("  Would dispatch: Restaurant #{$restaurant->id} - {$restaurant->name}");
             } else {
                 EnrichRestaurantWithAi::dispatch($restaurant->id)
-                    ->delay(now()->addSeconds(min($i * 5, 3600)));
+                    ->delay(now()->addSeconds($i * $spacing));
                 $dispatched++;
             }
-
-            $i++;
-
-            $bar->advance();
         }
-
-        $bar->finish();
-        $this->newLine();
 
         if ($dryRun) {
             $this->info('Dry-run complete. No jobs were dispatched.');
         } else {
-            $this->info("Dispatched {$dispatched} AI enrichment job(s) to the queue.");
+            $this->info("Dispatched {$dispatched} AI enrichment job(s), one every {$spacing}s.");
             $this->info('Make sure a queue worker is running: php artisan queue:work');
         }
 
@@ -140,10 +104,46 @@ class AiEnrichRestaurants extends Command
     }
 
     /**
+     * This run's batch: never-tried rows first, then neediest, then highest
+     * popularity_score, capped at --limit (default services.ai.enrich_per_run).
+     *
+     * @return Collection<int, Restaurant>
+     */
+    private function eligibleRestaurants(bool $ignoreRetryWindow): Collection
+    {
+        $limit = $this->option('limit') !== null
+            ? max(1, (int) $this->option('limit'))
+            : max(1, (int) config('services.ai.enrich_per_run', 75));
+        $retryCutoff = now()->subDays((int) config('services.ai.enrich_retry_days', 30));
+
+        $this->info($ignoreRetryWindow
+            ? 'Processing all active restaurants...'
+            : 'Processing restaurants the AI has not tried in the last '.config('services.ai.enrich_retry_days', 30).' days...');
+
+        return Restaurant::active()
+            ->get(['id', 'name', 'description', 'website_url', 'address', 'popularity_score', 'ai_metadata'])
+            ->filter(function (Restaurant $restaurant) use ($ignoreRetryWindow, $retryCutoff): bool {
+                $lastAttempt = $restaurant->lastAiAttemptAt();
+
+                return $ignoreRetryWindow || $lastAttempt === null || $lastAttempt->lt($retryCutoff);
+            })
+            // Among equally needy rows, the higher search impact
+            // (popularity_score) row goes first: the free AI quota is spent
+            // on the most-visible rows first.
+            ->sortByDesc(fn (Restaurant $restaurant) => [
+                $restaurant->lastAiAttemptAt() === null ? 1 : 0,
+                $this->missingFieldCount($restaurant),
+                (float) ($restaurant->popularity_score ?? 0),
+            ])
+            ->take($limit)
+            ->values();
+    }
+
+    /**
      * Count AI-fillable fields that are missing on a restaurant.
      * Higher = more urgent; used to dispatch neediest rows first. Phone and
      * price_range are not AI-fillable (EnrichRestaurantWithAi keeps them as
-     * inference only), so a row missing just those isn't re-queued daily.
+     * inference only), so they don't count.
      */
     private function missingFieldCount(Restaurant $restaurant): int
     {
