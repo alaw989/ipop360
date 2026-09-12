@@ -70,6 +70,22 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
         $this->assertArrayHasKey('opening_hours', $result);
     }
 
+    public function test_robots_txt_with_invalid_utf8_is_cached_as_valid_utf8(): void
+    {
+        Http::fake([
+            // A Latin-1 byte in a comment, as in alaskaair.com's robots.txt.
+            'https://example.com/robots.txt' => Http::response("#Updated 2/24/2025 \xD0 2:00pm PT\nUser-agent: *\nDisallow: /admin", 200),
+            'https://example.com/' => Http::response('<html><body><div itemprop="openingHours">Mo-Fr 09:00-17:00</div></body></html>', 200),
+        ]);
+
+        $this->assertIsArray($this->service->scrape('https://example.com/'));
+
+        $cached = Cache::get('robots_txt:example.com');
+        $this->assertIsString($cached);
+        $this->assertTrue(mb_check_encoding($cached, 'UTF-8'), 'the database cache store rejects invalid UTF-8');
+        $this->assertStringContainsString('Disallow: /admin', $cached);
+    }
+
     public function test_scrape_proceeds_when_robots_txt_missing(): void
     {
         Http::fake([
