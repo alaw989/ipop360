@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\FieldQuarantine;
 use App\Models\Restaurant;
 use Illuminate\Support\Collection;
 
@@ -63,7 +64,7 @@ class UnifiedSearchService
 
         $dbRows = $this->fetchDbRows($lat, $lng, $distanceKm);
 
-        $merged = $this->merge($dbRows, $liveRows);
+        $merged = $this->merge($dbRows, $liveRows, $this->fetchClosedRows($lat, $lng, $distanceKm));
 
         // Price-range filter (parity with SearchController's `where('price_range',
         // ...)`). Runs BEFORE scoring so the aggregates (credible quality mean,
@@ -122,16 +123,46 @@ class UnifiedSearchService
     }
 
     /**
+     * Nearby restaurants recorded as closed: deactivated through an unrestored
+     * `is_active` quarantine (e.g. `closed_per_overture`). The free sources
+     * still list many of them, so a live row matching one must be dropped —
+     * otherwise the closed venue shows in results and is re-created as a new,
+     * active duplicate row.
+     *
+     * Other inactive rows are deliberately not included: a favorites-created
+     * row is inactive only until vetted (spec-088) and is a real venue, and
+     * non-restaurants never reach the merge (LiveSearchService filters them).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchClosedRows(float $lat, float $lng, ?float $distanceKm): array
+    {
+        return Restaurant::query()
+            ->where('is_active', false)
+            ->whereIn('id', FieldQuarantine::query()
+                ->select('restaurant_id')
+                ->where('field', 'is_active')
+                ->whereNull('restored_at'))
+            ->nearby($lat, $lng, $distanceKm)
+            ->get()
+            ->map(fn (Restaurant $r): array => $r->toArray() + ['lat' => $r->latitude, 'lng' => $r->longitude])
+            ->all();
+    }
+
+    /**
      * Merge DB rows and live rows into a single union. DB row wins as the base;
      * each live row folds into at most one DB row (match keys in precedence
      * order); unmatched live rows are tagged `_persist` and appended (persisted
-     * after the union is scored, so they carry a real union score + id).
+     * after the union is scored, so they carry a real union score + id). A
+     * live row that matches no active row but does match a closed one is a
+     * known-closed venue and is dropped.
      *
      * @param  array<int, array<string, mixed>>  $dbRows
      * @param  array<int, array<string, mixed>>  $liveRows
+     * @param  array<int, array<string, mixed>>  $closedRows
      * @return array<int, array<string, mixed>>
      */
-    private function merge(array $dbRows, array $liveRows): array
+    private function merge(array $dbRows, array $liveRows, array $closedRows = []): array
     {
         $merged = [];
         $consumedLive = [];
@@ -156,6 +187,12 @@ class UnifiedSearchService
         foreach ($liveRows as $i => $live) {
             if (isset($consumedLive[$i])) {
                 continue;
+            }
+
+            foreach ($closedRows as $closed) {
+                if ($this->sameVenue($closed, $live)) {
+                    continue 2;
+                }
             }
 
             $live['_persist'] = true;

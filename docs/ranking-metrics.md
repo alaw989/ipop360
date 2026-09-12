@@ -43,19 +43,33 @@ row with no data scores **0.0**.
 | **Wikidata SPARQL** | free, no key | Michelin/award records (low coverage) | `has_award` |
 | **Nominatim (OSM)** | free | geocoding | `GeolocationService` |
 | **Website social scrape** | free | instagram/facebook/tiktok/twitter/youtube links, HTTP-verified | `social_links_count` |
+| **Overture Maps places** | free, open data (monthly release; attribution in footer) | existence confidence, operating status (closures), multi-source corroboration, phones, websites, socials, addresses | corroboration + empty-field fill (`overture:import`) |
 | **Engagement tracking** | free | website/directions/call/pageview/menu/social clicks | engagement counters (all 7 now scored) |
 | Foursquare Places | basic free; **rating is premium** | name, address, phone, website, categories | parked |
 | Google Places | paid | rating, review_count, photo | optional bonus |
 | Outscraper | paid | popular-times busyness | optional bonus |
 | Yelp Fusion | — | — | **removed** |
 
+### Overture Maps import (data-integrity phase 3)
+
+`overture:import` runs monthly on the 25th at 20:00 UTC, with `--apply`.
+
+- **Extract.** A single DuckDB pass (`App\Services\Overture\DuckDb`, which self-installs a checksum-pinned CLI) keeps only US food places from the newest public release (~1.8M rows) in a local Parquet file.
+- **Match.** Each active restaurant is matched to the place at the same location with `VenuePipeline::venuesMatch`: the same phone, or a name at least 85% similar, within 200 m.
+- **On a match**, the importer:
+  - records `overture_id`, `overture_confidence` (0–1 existence), `overture_sources` (how many independent datasets Overture merged for the place) and `overture_status`;
+  - fills only empty fields: phone (only when its area code fits the restaurant's state), address, website (never a blocked/reference host; identity-checked later by the daily `restaurants:verify-websites`) and validated social profiles;
+  - writes each fill's provenance to `field_sources`, e.g. `{"phone": "overture:2026-08-19.0"}`;
+  - deactivates a place Overture marks `permanently_closed`, through `field_quarantine` (reason `closed_per_overture`, reversible).
+
 ## Weight set (raw — renormalized per row over active signals)
 
 | Signal | Weight | Source | Always active? |
 |---|---|---|---|
 | `quality` | **0.35** | SerpApi (Bayesian rating, folds in reviews) | only with a quality key **and** a rating |
+| `evidence` | **0.35** | Overture corroboration + verified website/socials + OSM detail | **only when `quality` is not** (every unrated venue) |
 | `website_clicks_count` | **0.20** | engagement | **yes** (0.0 when absent) |
-| `social_links_count` | **0.20** | website social scrape | only when links found (>0) |
+| `social_links_count` | 0.0 | website social scrape | retired as a standalone signal (a component of `evidence`) |
 | `proximity` | **0.15** | User coordinates | live search only (`distance` present) |
 | `pageviews_count` | **0.10** | engagement | **yes** (0.0 when absent) |
 | `has_award` | **0.05** | Wikidata (free) | only when `true` (a false award drops out) |
@@ -104,6 +118,44 @@ was taxing every score. Rated stays above unrated on average (mean gap 0.29),
 but the old "no overlap" guarantee no longer strictly holds: ~1.6% of unrated
 venues with heavy social links score above the lowest-rated venue (see
 `docs/ranking-audit-2026-08.md`).
+
+## Verified-presence evidence (data-integrity phase 4)
+
+Ratings are a walled garden. SerpApi's 250 calls a month is the only free source, so about 90% of venues have no rating. The old ranking ordered that 90% by raw social-link count, which turned out to be dominated by junk and corporate links.
+
+`evidence` is the stand-in for `quality` on unrated venues. It has the same weight (0.35) and is active **only** when `quality` is not, so rated and unrated venues are scored on one scale. It is a weighted mean (`PopularityScoreService::evidenceFor`):
+
+| Component | Weight | Value |
+|---|---|---|
+| Independent-source corroboration | 30% | `overture_sources`: 1 → 0.5, 2 → 0.8, 3+ → 1.0 |
+| Existence confidence | 20% | `overture_confidence` (0–1) |
+| Website identity | 20% | verified 1.0 · brand homepage 0.6 · unchecked 0.3 · none 0 |
+| Verified location socials | 15% | `social_links_count` / 3, capped at 1 (brand accounts never count) |
+| OSM detail | 15% | OSM feature/amenity tags present |
+
+The result is scaled to at most `ranking.evidence_cap` (`RANK_EVIDENCE_CAP`, default **0.85** ≈ a 4.25★ Bayesian quality). Bayesian shrinkage puts almost every rated venue at or above about 0.86, so:
+
+- a fully evidenced unknown outranks only weakly rated venues;
+- well-reviewed venues stay on top;
+- among unrated venues, a confirmed going concern outranks an unverified listing.
+
+A place Overture reports `permanently_closed` scores 0. Unrated venues show a **"Not yet rated"** badge on their cards, and the score breakdown's "Verified Presence" line explains what was verified.
+
+Calibration: `ranking:audit --recompute` on a fresh prod clone taken 2026-09-11, after the phase-2 cleanup, the Overture fill and the #175 repair. 41,069 active venues, 4,185 rated.
+- 26,080 venues (63.5% of the corpus) are Overture-corroborated.
+- Unrated scores range 0.02–0.34 (median 0.22). Rated scores range 0.31–0.54 (median 0.41).
+- 1,017 unrated venues (2.8%) score above the lowest-rated venue. 15 rated venues (0.4%) score below the best unrated one.
+- Chains are 0.8% of the top 500 unrated venues, against 7.7% of all unrated. Corporate accounts don't lift them.
+- Austin, New York and Dallas: every rated venue still outranks every unrated one. The first unrated venue ranks 257th of 718 in Austin (behind all 256 rated), 30th in New York and 19th in Dallas.
+
+The best unknowns currently land at about a 3.4★ equivalent. One reason is that 35k stored websites have not been identity-checked yet, so they score "unchecked" (0.3) instead of "verified" (1.0). `restaurants:verify-websites` clears that backlog at 2,000 a day, and evidence rises as it does. Revisit the cap once the backlog is done.
+
+| `RANK_EVIDENCE_CAP` | Austin: rated venues the first unknown outranks | Corpus: rated venues below the best unknown |
+|---|---|---|
+| 0.85 (default) | 0 | 15 (0.4%) |
+| 1.0 | 29, the best a 4.4★ with 596 reviews | 1,005 (24%) |
+
+At 1.0, unknowns pass well-reviewed venues, which is too aggressive.
 
 ## Bayesian quality
 
@@ -172,6 +224,13 @@ row — no dedicated column. The ten fields:
 A field counts as populated when non-null and (for strings) non-empty. A fully
 free-enriched row typically reaches 9/10 (social_links_count often 0) ≈ 0.90.
 
+**AI guesses don't count (2026-09 data-integrity overhaul).** The AI enrichment
+model has no browsing, so a `price_range`/`phone` it "filled" is a guess, as is
+an AI-written `website_url` that never passed `WebsiteIdentityVerifier`. Those
+fields (identified via `ai_metadata.fields_updated` + `website_identity`) count
+as unpopulated. `EnrichRestaurantWithAi` no longer writes phone/price at all
+(kept in `ai_metadata.inferred`), so this only discounts legacy rows.
+
 ## Social link verification (spec-109)
 
 Before spec-109, `social_links_count` counted any platform URL
@@ -200,6 +259,23 @@ Tightening this signal to verified-only links is expected to reduce the
 30.7%-unrated-above-lowest-rated overlap noted below (fewer unrated venues
 will have a nonzero `social_links_count`); re-run `ranking:audit` after
 deploy to confirm.
+
+### Only real, location-scoped profiles count (2026-09 data-integrity overhaul)
+
+Reachability was not enough: the raw regex stored the `xmlns:fb` namespace URI
+`facebook.com/2008` (1,929 prod rows), the Meta Pixel `facebook.com/tr`
+(1,048), id-less `profile.php` (467), share/intent endpoints and website-builder
+footer accounts — all answer HTTP 200, so all were "verified". And every chain
+location carried the corporate account (528 Domino's rows with @dominos).
+
+- `extractSocialLinks` now takes candidates from JSON-LD `sameAs`, then `<a
+  href>`, then a raw-HTML fallback, and every candidate must pass
+  `App\Support\SocialProfileUrl::canonicalize` (real profile shapes only).
+- `SocialLinkRecorder` (the single write path) marks a URL shared by
+  `data_integrity.social_brand_min_restaurants` (default 5) or more restaurants
+  as `scope = brand`. `countScoredSocialLinks()` counts only verified
+  `scope = location` links, so corporate marketing no longer lifts chains over
+  independents.
 
 ## Redistribution
 

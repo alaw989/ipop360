@@ -2,12 +2,14 @@
 
 namespace Tests\Unit;
 
+use App\Exceptions\AiProvidersUnavailableException;
 use App\Services\AiEnrichmentService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -29,11 +31,13 @@ class AiEnrichmentServiceTest extends TestCase
 
     private AiEnrichmentService $service;
 
+    private MockInterface $log;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->service = new AiEnrichmentService;
-        Log::spy();
+        $this->log = Log::spy();
     }
 
     /**
@@ -240,6 +244,135 @@ class AiEnrichmentServiceTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    #[DataProvider('rejectedStatusProvider')]
+    public function test_rejected_key_url_or_model_fails_over_to_fallback(int $status): void
+    {
+        config(['services.ai' => $this->providerConfig([], $this->fallbackProvider())]);
+
+        Http::fake([
+            self::PRIMARY_URL => Http::response('', $status),
+            self::FALLBACK_URL => Http::response($this->chatResponse((string) json_encode([
+                'price_range' => '$',
+            ]))),
+        ]);
+
+        $result = $this->service->enrichRestaurant(['name' => 'Test']);
+
+        $this->assertIsArray($result);
+        $this->assertSame('$', $result['price_range']);
+
+        Http::assertSentCount(2);
+    }
+
+    public function test_rejected_fallback_counts_as_unavailable_not_as_an_empty_answer(): void
+    {
+        // Prod's retired fallback: a GitHub token sent to another provider
+        // gets a 401. That must not read as "this row has nothing to fill".
+        config(['services.ai' => $this->providerConfig([], $this->fallbackProvider())]);
+
+        Http::fake([
+            self::PRIMARY_URL => Http::response('', 429),
+            self::FALLBACK_URL => Http::response('', 401),
+        ]);
+
+        $this->expectException(AiProvidersUnavailableException::class);
+
+        $this->service->enrichRestaurant(['name' => 'Test']);
+    }
+
+    public function test_rate_limited_provider_is_skipped_until_its_retry_after_passes(): void
+    {
+        config(['services.ai' => $this->providerConfig()]);
+
+        Http::fake([
+            self::PRIMARY_URL => Http::sequence()
+                ->push('', 429, ['Retry-After' => '120'])
+                ->push($this->chatResponse((string) json_encode(['price_range' => '$']))),
+        ]);
+
+        $this->assertUnavailable();
+        $this->travel(119)->seconds();
+        $this->assertUnavailable();
+        Http::assertSentCount(1);
+
+        $this->travel(2)->seconds();
+        $result = $this->service->enrichRestaurant(['name' => 'Test']);
+
+        $this->assertIsArray($result);
+        Http::assertSentCount(2);
+    }
+
+    public function test_rate_limit_without_retry_after_cools_down_for_a_minute(): void
+    {
+        config(['services.ai' => $this->providerConfig()]);
+
+        Http::fake([
+            self::PRIMARY_URL => Http::response('', 429),
+        ]);
+
+        $this->assertUnavailable();
+        $this->travel(59)->seconds();
+        $this->assertUnavailable();
+        Http::assertSentCount(1);
+
+        $this->travel(2)->seconds();
+        $this->assertUnavailable();
+        Http::assertSentCount(2);
+    }
+
+    public function test_unreachable_provider_is_skipped_for_fifteen_minutes(): void
+    {
+        config(['services.ai' => $this->providerConfig([], $this->fallbackProvider())]);
+
+        $primaryCalls = 0;
+        Http::fake([
+            self::PRIMARY_URL => function () use (&$primaryCalls) {
+                $primaryCalls++;
+                throw new ConnectionException('Could not resolve host');
+            },
+            self::FALLBACK_URL => Http::response($this->chatResponse('{}')),
+        ]);
+
+        $this->assertSame([], $this->service->enrichRestaurant(['name' => 'Test']));
+        $this->travel(14)->minutes();
+        $this->assertSame([], $this->service->enrichRestaurant(['name' => 'Test']));
+        $this->assertSame(1, $primaryCalls);
+
+        $this->travel(2)->minutes();
+        $this->service->enrichRestaurant(['name' => 'Test']);
+        $this->assertSame(2, $primaryCalls);
+    }
+
+    public function test_cooldown_is_logged_once_not_per_skipped_call(): void
+    {
+        config(['services.ai' => $this->providerConfig()]);
+
+        Http::fake([
+            self::PRIMARY_URL => Http::response('{"error":{"message":"Rate limit reached on tokens per day (TPD)"}}', 429),
+        ]);
+
+        foreach (range(1, 5) as $ignored) {
+            $this->assertUnavailable();
+        }
+
+        Http::assertSentCount(1);
+        $this->log->shouldHaveReceived('warning')->once()->withArgs(
+            fn (string $message, array $context) => $message === 'AI provider cooling down'
+                && $context['seconds'] === 60
+                && str_contains($context['reason'], 'tokens per day (TPD)')
+        );
+    }
+
+    private function assertUnavailable(): void
+    {
+        try {
+            $this->service->enrichRestaurant(['name' => 'Test']);
+            $this->fail('Expected AiProvidersUnavailableException');
+        } catch (AiProvidersUnavailableException) {
+            $this->addToAssertionCount(1);
+        }
+    }
+
     /** @return array<string, array{int}> */
     public static function retryableStatusProvider(): array
     {
@@ -255,6 +388,14 @@ class AiEnrichmentServiceTest extends TestCase
     {
         return [
             'bad request' => [400],
+            'unprocessable' => [422],
+        ];
+    }
+
+    /** @return array<string, array{int}> */
+    public static function rejectedStatusProvider(): array
+    {
+        return [
             'unauthorized' => [401],
             'forbidden' => [403],
             'not found' => [404],
@@ -270,7 +411,7 @@ class AiEnrichmentServiceTest extends TestCase
             self::FALLBACK_URL => Http::response('', 429),
         ]);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(AiProvidersUnavailableException::class);
         $this->expectExceptionMessage('All AI providers rate-limited or failed');
 
         $this->service->enrichRestaurant(['name' => 'Test']);

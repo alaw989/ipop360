@@ -126,7 +126,7 @@ class SchedulerReportTest extends TestCase
     {
         // The operational "confirm all commands fire on time" workflow depends
         // on scheduler:report LISTING every registered command in its header
-        // count ("Registered commands: 19"), even when none have telemetry
+        // count ("Registered commands: 21"), even when none have telemetry
         // yet. If the command set drifts, the count diverges and this fails.
         // (We assert the header count rather than each table cell — the
         // test's narrow BufferedOutput truncates long table cells, while the
@@ -135,7 +135,7 @@ class SchedulerReportTest extends TestCase
 
         /** @var PendingCommand $command */
         $command = $this->artisan('scheduler:report', ['--days' => 7]);
-        $command->expectsOutputToContain('Registered commands: 19')
+        $command->expectsOutputToContain('Registered commands: 21')
             ->expectsOutputToContain('NEVER FIRED')
             ->assertSuccessful();
     }
@@ -178,9 +178,11 @@ class SchedulerReportTest extends TestCase
             // that so commands with args (e.g. backfill-photos --apply) resolve
             // to the same key the report's registeredCommands() produces.
             $prefixed = "'/usr/bin/php' 'artisan' ".trim((string) preg_replace('/^\S+\s+\S+\s+/', '', $event->command ?? ''));
-            $startedAt = CronExpression::factory($event->getExpression())
-                ->getPreviousRunDate(now(), 0, true)
-                ->format('Y-m-d\TH:i:s+00:00');
+            $previousSlot = CronExpression::factory($event->getExpression())->getPreviousRunDate(now(), 0, true);
+            if ($previousSlot < now()->subDays(7)) {
+                continue; // no slot inside the 7-day window (e.g. the monthly Overture import) — it would not have fired
+            }
+            $startedAt = $previousSlot->format('Y-m-d\TH:i:s+00:00');
             $lines[] = $this->telemetryLine('Scheduled command started', $prefixed, ['started_at' => $startedAt]);
             $lines[] = $this->telemetryLine('Scheduled command completed', $prefixed, ['runtime_seconds' => 0.5]);
         }
@@ -654,7 +656,7 @@ class SchedulerReportTest extends TestCase
     public function test_command_prints_healthy_verdict_when_all_commands_fired(): void
     {
         // The item-5 workflow needs one scannable line: when every registered
-        // command is healthy, print "Verdict: all 19 registered commands healthy".
+        // command is healthy, print "Verdict: all 21 registered commands healthy".
         $this->travelTo(Carbon::parse('2026-08-17 10:00:30', 'UTC'));
 
         /** @var Schedule $schedule */
@@ -663,9 +665,11 @@ class SchedulerReportTest extends TestCase
         $lines = [];
         foreach ($schedule->events() as $event) {
             $prefixed = "'/usr/bin/php' 'artisan' ".trim((string) preg_replace('/^\S+\s+\S+\s+/', '', $event->command ?? ''));
-            $startedAt = CronExpression::factory($event->getExpression())
-                ->getPreviousRunDate(now(), 0, true)
-                ->format('Y-m-d\TH:i:s+00:00');
+            $previousSlot = CronExpression::factory($event->getExpression())->getPreviousRunDate(now(), 0, true);
+            if ($previousSlot < now()->subDays(7)) {
+                continue; // no slot inside the 7-day window (e.g. the monthly Overture import) — it would not have fired
+            }
+            $startedAt = $previousSlot->format('Y-m-d\TH:i:s+00:00');
             $lines[] = $this->telemetryLine('Scheduled command started', $prefixed, ['started_at' => $startedAt]);
             $lines[] = $this->telemetryLine('Scheduled command completed', $prefixed, ['runtime_seconds' => 0.5]);
         }
@@ -675,7 +679,7 @@ class SchedulerReportTest extends TestCase
 
         /** @var PendingCommand $command */
         $command = $this->artisan('scheduler:report', ['--days' => 7]);
-        $command->expectsOutputToContain('Verdict: all 19 registered commands healthy')
+        $command->expectsOutputToContain('Verdict: all 21 registered commands healthy')
             ->assertSuccessful();
     }
 
@@ -694,9 +698,11 @@ class SchedulerReportTest extends TestCase
                 continue; // leave one command silent -> it becomes the problem
             }
             $prefixed = "'/usr/bin/php' 'artisan' ".trim((string) preg_replace('/^\S+\s+\S+\s+/', '', $event->command ?? ''));
-            $startedAt = CronExpression::factory($event->getExpression())
-                ->getPreviousRunDate(now(), 0, true)
-                ->format('Y-m-d\TH:i:s+00:00');
+            $previousSlot = CronExpression::factory($event->getExpression())->getPreviousRunDate(now(), 0, true);
+            if ($previousSlot < now()->subDays(7)) {
+                continue; // no slot inside the 7-day window (e.g. the monthly Overture import) — it would not have fired
+            }
+            $startedAt = $previousSlot->format('Y-m-d\TH:i:s+00:00');
             $lines[] = $this->telemetryLine('Scheduled command started', $prefixed, ['started_at' => $startedAt]);
             $lines[] = $this->telemetryLine('Scheduled command completed', $prefixed, ['runtime_seconds' => 0.5]);
         }
@@ -706,7 +712,7 @@ class SchedulerReportTest extends TestCase
 
         /** @var PendingCommand $command */
         $command = $this->artisan('scheduler:report', ['--days' => 7]);
-        $command->expectsOutputToContain('Verdict: 1 of 19 registered commands have a problem (see above); 18 healthy')
+        $command->expectsOutputToContain('Verdict: 1 of 21 registered commands have a problem (see above); 20 healthy')
             ->assertSuccessful();
     }
 
@@ -717,6 +723,7 @@ class SchedulerReportTest extends TestCase
         // counts, and per-category problem command lists. (Asserted by decoding
         // the JSON — substring matching against the harness's mocked output only
         // evaluates the first expectation per write.)
+        $this->travelTo(Carbon::parse('2026-08-17 10:00:30', 'UTC'));
         $this->writeLog('scheduler-'.now()->format('Y-m-d').'.log', [
             $this->telemetryLine('Scheduled command started', 'restaurants:score'),
         ]);
@@ -728,8 +735,10 @@ class SchedulerReportTest extends TestCase
 
         $this->assertIsArray($doc);
         $this->assertFalse($doc['healthy']);
-        $this->assertSame(19, $doc['registered_count']);
-        $this->assertSame(0, $doc['healthy_count']);
+        $this->assertSame(21, $doc['registered_count']);
+        // Every command with a cron slot in the window is flagged; the monthly
+        // Overture import (last slot Jul 25) had none, so it is the one healthy.
+        $this->assertSame(1, $doc['healthy_count']);
         $this->assertContains('restaurants:score', $doc['problems']['unfinished_runs']);
     }
 
@@ -758,9 +767,11 @@ class SchedulerReportTest extends TestCase
         $lines = [];
         foreach ($schedule->events() as $event) {
             $prefixed = "'/usr/bin/php' 'artisan' ".trim((string) preg_replace('/^\S+\s+\S+\s+/', '', $event->command ?? ''));
-            $startedAt = CronExpression::factory($event->getExpression())
-                ->getPreviousRunDate(now(), 0, true)
-                ->format('Y-m-d\TH:i:s+00:00');
+            $previousSlot = CronExpression::factory($event->getExpression())->getPreviousRunDate(now(), 0, true);
+            if ($previousSlot < now()->subDays(7)) {
+                continue; // no slot inside the 7-day window (e.g. the monthly Overture import) — it would not have fired
+            }
+            $startedAt = $previousSlot->format('Y-m-d\TH:i:s+00:00');
             $lines[] = $this->telemetryLine('Scheduled command started', $prefixed, ['started_at' => $startedAt]);
             $lines[] = $this->telemetryLine('Scheduled command completed', $prefixed, ['runtime_seconds' => 0.5]);
         }
@@ -774,7 +785,7 @@ class SchedulerReportTest extends TestCase
         $this->assertIsArray($doc);
         $this->assertTrue($doc['healthy']);
         $this->assertSame(0, $doc['problem_count']);
-        $this->assertSame(19, $doc['healthy_count']);
+        $this->assertSame(21, $doc['healthy_count']);
     }
 
     public function test_json_output_includes_runtime_and_drift_telemetry(): void
@@ -796,7 +807,7 @@ class SchedulerReportTest extends TestCase
 
         $this->assertIsArray($doc);
         $this->assertContains('stale:command', $doc['unregistered']);
-        $this->assertSame(19, count($doc['commands']), 'orphaned command must live in "unregistered", not "commands"');
+        $this->assertSame(21, count($doc['commands']), 'orphaned command must live in "unregistered", not "commands"');
     }
 
     public function test_json_output_reports_unregistered_telemetry_commands(): void
@@ -818,7 +829,7 @@ class SchedulerReportTest extends TestCase
 
         $this->assertIsArray($doc);
         $this->assertContains('stale:command', $doc['unregistered']);
-        $this->assertSame(19, count($doc['commands']), 'orphaned command must live in "unregistered", not "commands"');
+        $this->assertSame(21, count($doc['commands']), 'orphaned command must live in "unregistered", not "commands"');
     }
 
     public function test_json_output_includes_last_failure_output(): void

@@ -4,14 +4,27 @@ namespace App\Console\Commands;
 
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
-use App\Models\RestaurantSocialLink;
 use App\Services\CuisineTagMapper;
+use App\Services\FieldQuarantineService;
 use App\Services\RestaurantWebsiteScraperService;
+use App\Services\SocialLinkRecorder;
+use App\Services\VenuePipeline;
+use App\Services\WebsiteIdentityVerifier;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Backfills missing restaurant fields from free sources, in trust order:
+ * cached live-search venue data (matched by LOCATION — same phone or same
+ * name within the dedup radius, never by name alone across cities), then web
+ * search, then domain guessing. Every website found by search or guessing
+ * must pass WebsiteIdentityVerifier (the page names this restaurant AND shows
+ * its phone/street/city) before it is saved — the old "first search result"
+ * and "any 2xx HEAD on {name}.com" rules stored dictionary pages, parked
+ * domains and other businesses' sites at scale.
+ */
 class BackfillRestaurantWebsites extends Command
 {
     protected $signature = 'restaurants:backfill-websites
@@ -74,8 +87,24 @@ class BackfillRestaurantWebsites extends Command
         'pub', 'buffet', 'food', 'cuisine', 'supplier', 'suppliers', 'parlor',
     ];
 
-    public function handle(RestaurantWebsiteScraperService $scraper, CuisineTagMapper $cuisineTagMapper): int
-    {
+    private WebsiteIdentityVerifier $verifier;
+
+    private FieldQuarantineService $quarantine;
+
+    private VenuePipeline $pipeline;
+
+    public function handle(
+        RestaurantWebsiteScraperService $scraper,
+        CuisineTagMapper $cuisineTagMapper,
+        WebsiteIdentityVerifier $verifier,
+        FieldQuarantineService $quarantine,
+        VenuePipeline $pipeline,
+        SocialLinkRecorder $recorder,
+    ): int {
+        $this->verifier = $verifier;
+        $this->quarantine = $quarantine;
+        $this->pipeline = $pipeline;
+
         $dryRun = $this->option('dry-run');
         $skipCache = $this->option('skip-cache');
         $skipSearch = $this->option('skip-search');
@@ -99,7 +128,7 @@ class BackfillRestaurantWebsites extends Command
         $newWebsites = $this->countNewWebsites();
         if ($newWebsites > 0 && ! $dryRun) {
             $this->info("Scraping social links for {$newWebsites} new website(s)...");
-            $this->scrapeSocialLinks($scraper);
+            $this->scrapeSocialLinks($scraper, $recorder);
         }
 
         $this->scrapeMenuData($scraper, $dryRun);
@@ -132,9 +161,21 @@ class BackfillRestaurantWebsites extends Command
                     $venues = [$venues];
                 }
                 foreach ($venues as $venue) {
+                    if (! is_array($venue)) {
+                        continue;
+                    }
+                    // A cached venue is only ever matched by location, so one
+                    // without coordinates can never be used safely.
+                    $coordinates = $this->venueCoordinates($venue);
+                    if ($coordinates === null) {
+                        continue;
+                    }
                     $website = $venue['website'] ?? $venue['website_url'] ?? null;
                     $parsedPrice = $this->parseExtractedPrice($venue);
                     $entryData = [
+                        '_name' => (string) ($venue['title'] ?? $venue['name'] ?? ''),
+                        '_lat' => $coordinates[0],
+                        '_lng' => $coordinates[1],
                         '_website' => $website,
                         '_price_range' => $parsedPrice,
                         '_phone' => $venue['phone'] ?? null,
@@ -155,15 +196,15 @@ class BackfillRestaurantWebsites extends Command
                     if ($this->entryHasNothingUseful($entryData)) {
                         continue;
                     }
-                    $name = $this->normalize($venue['title'] ?? $venue['name'] ?? '');
+                    $name = $this->normalize($entryData['_name']);
                     if ($name !== '') {
-                        $nameIndex[$name] = $entryData;
+                        $nameIndex[$name][] = $entryData;
                     }
                     $phone = $venue['phone'] ?? null;
                     if (! empty($phone)) {
                         $digits = substr(preg_replace('/\D+/', '', (string) $phone) ?? '', -10);
                         if (strlen($digits) === 10) {
-                            $phoneIndex[$digits] = $entryData;
+                            $phoneIndex[$digits][] = $entryData;
                         }
                     }
                 }
@@ -184,29 +225,21 @@ class BackfillRestaurantWebsites extends Command
         $cuisinesBackfilled = 0;
 
         foreach ($missing as $restaurant) {
-            $entryData = null;
-
-            // Try name match
-            $nameKey = $this->normalize($restaurant->name);
-            if (isset($nameIndex[$nameKey])) {
-                $entryData = $nameIndex[$nameKey];
-            }
-
-            // Try phone match
-            if ($entryData === null) {
-                $phoneDigits = substr((string) preg_replace('/\D+/', '', $restaurant->phone ?? ''), -10);
-                if (strlen($phoneDigits) === 10 && isset($phoneIndex[$phoneDigits])) {
-                    $entryData = $phoneIndex[$phoneDigits];
-                }
-            }
+            $entryData = $this->locatedCacheMatch($restaurant, $nameIndex, $phoneIndex);
 
             if ($entryData !== null) {
                 $updates = [];
                 if (empty($restaurant->website_url) && is_string($entryData['_website'])) {
-                    if (! $this->isSkipDomainUrl($entryData['_website'])) {
-                        $updates['website_url'] = $entryData['_website'];
+                    $cachedUrl = $entryData['_website'];
+                    if ($this->isSkipDomainUrl($cachedUrl) || $this->verifier->isBlockedUrl($cachedUrl)) {
+                        $this->line("  Skipped cache URL (non-restaurant domain): {$cachedUrl}");
+                    } elseif ($this->quarantine->isQuarantined($restaurant->id, 'website_url', $cachedUrl)) {
+                        $this->line("  Skipped cache URL (previously rejected for this restaurant): {$cachedUrl}");
                     } else {
-                        $this->line("  Skipped cache URL (non-restaurant domain): {$entryData['_website']}");
+                        // The venue's own listing named this site; identity is
+                        // still unchecked until restaurants:verify-websites runs.
+                        $updates['website_url'] = $cachedUrl;
+                        $updates['website_identity'] = null;
                     }
                 }
                 if (empty($restaurant->price_range) && is_string($entryData['_price_range'])) {
@@ -334,6 +367,73 @@ class BackfillRestaurantWebsites extends Command
                     $rating->whereNull('google_rating')->orWhere('google_rating', '<=', 0);
                 })->orWhereDoesntHave('cuisines');
             });
+    }
+
+    /**
+     * The cached venue that is the SAME place as this restaurant, or null.
+     *
+     * Candidates share the restaurant's normalized name or phone, and one only
+     * matches through VenuePipeline::venuesMatch — same phone or similar name
+     * AND within the dedup radius — the rule live search uses to merge sources.
+     * The old name-only lookup matched any same-named venue in any city and
+     * copied its phone, address and rating: 1,920 prod rated rows carried a
+     * rating identical to a same-named restaurant elsewhere (one Fogo de Chão's
+     * 4.7★/10,085 reviews on nine locations).
+     *
+     * @param  array<string, list<array<string, mixed>>>  $nameIndex
+     * @param  array<string, list<array<string, mixed>>>  $phoneIndex
+     * @return array<string, mixed>|null
+     */
+    private function locatedCacheMatch(Restaurant $restaurant, array $nameIndex, array $phoneIndex): ?array
+    {
+        if ($restaurant->latitude === null || $restaurant->longitude === null) {
+            return null;
+        }
+
+        $candidates = $nameIndex[$this->normalize((string) $restaurant->name)] ?? [];
+        $digits = substr((string) preg_replace('/\D+/', '', (string) $restaurant->phone), -10);
+        if (strlen($digits) === 10) {
+            $candidates = [...$candidates, ...($phoneIndex[$digits] ?? [])];
+        }
+
+        $self = [
+            'name' => (string) $restaurant->name,
+            'phone' => $restaurant->phone,
+            'lat' => (float) $restaurant->latitude,
+            'lng' => (float) $restaurant->longitude,
+        ];
+        $radius = (float) config('restaurant-finder.dedup.match_radius_km', 0.2);
+        $similarity = (float) config('restaurant-finder.dedup.name_similarity_threshold', 85.0);
+
+        foreach ($candidates as $entry) {
+            $venue = ['name' => $entry['_name'], 'phone' => $entry['_phone'], 'lat' => $entry['_lat'], 'lng' => $entry['_lng']];
+            if ($this->pipeline->venuesMatch($self, $venue, $radius, $similarity)) {
+                return $entry;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * A cached venue's coordinates across the three cache shapes: SerpApi
+     * `gps_coordinates{latitude,longitude}`, preview `lat/lng`, BizData
+     * `lat/lon`. Null when absent or null-island.
+     *
+     * @param  array<string, mixed>  $venue
+     * @return array{0: float, 1: float}|null
+     */
+    private function venueCoordinates(array $venue): ?array
+    {
+        $gps = is_array($venue['gps_coordinates'] ?? null) ? $venue['gps_coordinates'] : [];
+        $lat = $gps['latitude'] ?? $venue['lat'] ?? $venue['latitude'] ?? null;
+        $lng = $gps['longitude'] ?? $venue['lng'] ?? $venue['lon'] ?? $venue['longitude'] ?? null;
+
+        if (! is_numeric($lat) || ! is_numeric($lng) || ((float) $lat === 0.0 && (float) $lng === 0.0)) {
+            return null;
+        }
+
+        return [(float) $lat, (float) $lng];
     }
 
     /**
@@ -692,17 +792,45 @@ class BackfillRestaurantWebsites extends Command
         $bar->start();
 
         $found = 0;
+        $rejected = 0;
+        $maxCandidates = max(1, (int) config('restaurant-finder.data_integrity.website_search_max_candidates', 3));
 
         foreach ($restaurants as $restaurant) {
-            $url = $this->searchWeb($restaurant->name, $restaurant->city, $restaurant->state);
+            $url = null;
+            $verdict = null;
 
-            if ($url !== null) {
+            // Search results are only candidates: each must be identity-
+            // verified as THIS restaurant's site before it can be saved.
+            $candidates = array_values(array_filter(
+                $this->searchCandidates((string) $restaurant->name, $restaurant->city, $restaurant->state),
+                fn (string $candidate) => ! $this->verifier->isBlockedUrl($candidate)
+            ));
+
+            foreach (array_slice($candidates, 0, $maxCandidates) as $candidate) {
+                if ($this->quarantine->isQuarantined($restaurant->id, 'website_url', $candidate)) {
+                    continue;
+                }
+                $verdict = $this->verifier->verify($restaurant, $candidate);
+                if ($verdict->acceptsNew()) {
+                    $url = $candidate;
+                    break;
+                }
+                $rejected++;
+            }
+
+            if ($url !== null && $verdict !== null) {
                 if (! $dryRun) {
-                    $restaurant->update(['website_url' => $url]);
+                    $restaurant->update([
+                        'website_url' => $url,
+                        'website_identity' => WebsiteIdentityVerifier::VERIFIED,
+                        'website_verified_at' => now(),
+                    ]);
                     Log::channel('enrichment')->info('Website backfilled from web search', [
                         'restaurant_id' => $restaurant->id,
                         'restaurant_name' => $restaurant->name,
                         'website_url' => $url,
+                        'identity_reason' => $verdict->reason,
+                        'identity_evidence' => $verdict->evidence,
                     ]);
                 }
                 $found++;
@@ -719,28 +847,34 @@ class BackfillRestaurantWebsites extends Command
 
         $bar->finish();
         $this->newLine();
-        $this->line("  Web search found {$found} website(s).");
+        $this->line("  Web search found {$found} verified website(s); {$rejected} candidate(s) failed the identity check.");
     }
 
     /**
-     * Try Bing first, fall back to DuckDuckGo if Bing fails or returns nothing.
+     * Candidate website URLs from web search, best first: Bing, falling back
+     * to DuckDuckGo when Bing fails or returns nothing. Known non-restaurant
+     * domains are already dropped; the caller identity-verifies the rest.
+     *
+     * @return list<string>
      */
-    private function searchWeb(string $name, ?string $city, ?string $state): ?string
+    private function searchCandidates(string $name, ?string $city, ?string $state): array
     {
-        $url = $this->searchBing($name, $city, $state);
+        $urls = $this->searchBing($name, $city, $state);
 
-        if ($url !== null) {
-            return $url;
+        if ($urls === []) {
+            $urls = $this->searchDuckDuckGoHtml($name, $city, $state);
         }
 
-        return $this->searchDuckDuckGoHtml($name, $city, $state);
+        return array_values(array_unique($urls));
     }
 
     /**
      * Search Bing HTML results for the restaurant website.
      * Parses base64-encoded redirect URLs from Bing's search result links.
+     *
+     * @return list<string>
      */
-    private function searchBing(string $name, ?string $city, ?string $state): ?string
+    private function searchBing(string $name, ?string $city, ?string $state): array
     {
         $query = trim("{$name} {$city} {$state} official website");
         $query = substr($query, 0, 200);
@@ -752,7 +886,7 @@ class BackfillRestaurantWebsites extends Command
                 ->get('https://www.bing.com/search', ['q' => $query]);
 
             if (! $response->successful()) {
-                return null;
+                return [];
             }
 
             $html = $response->body();
@@ -760,10 +894,7 @@ class BackfillRestaurantWebsites extends Command
             // Bing stores the real URL in the u= parameter of ck/a redirect links
             preg_match_all('~u=a1([a-zA-Z0-9+/=]+)~i', $html, $matches);
 
-            if (empty($matches[1])) {
-                return null;
-            }
-
+            $urls = [];
             foreach ($matches[1] as $encoded) {
                 $decoded = base64_decode($encoded, true);
                 if ($decoded === false || empty($decoded)) {
@@ -777,21 +908,23 @@ class BackfillRestaurantWebsites extends Command
                 }
 
                 if (! $this->isSkipDomainUrl($url)) {
-                    return $url;
+                    $urls[] = $url;
                 }
             }
 
-            return null;
+            return $urls;
         } catch (\Throwable $e) {
-            return null;
+            return [];
         }
     }
 
     /**
      * Fallback search using DuckDuckGo HTML.
      * Parses redirect URLs from DuckDuckGo's search result links (uddg parameter).
+     *
+     * @return list<string>
      */
-    private function searchDuckDuckGoHtml(string $name, ?string $city, ?string $state): ?string
+    private function searchDuckDuckGoHtml(string $name, ?string $city, ?string $state): array
     {
         $query = trim("{$name} {$city} {$state} official website");
         $query = substr($query, 0, 200);
@@ -803,7 +936,7 @@ class BackfillRestaurantWebsites extends Command
                 ->get('https://html.duckduckgo.com/html/', ['q' => $query]);
 
             if (! $response->successful()) {
-                return null;
+                return [];
             }
 
             $html = $response->body();
@@ -811,6 +944,8 @@ class BackfillRestaurantWebsites extends Command
             // DuckDuckGo wraps result links in <a> with class result__a
             // They redirect via the uddg parameter (base64-encoded URL)
             preg_match_all('#uddg=([a-zA-Z0-9+/=%]+)#i', $html, $matches);
+
+            $urls = [];
 
             if (empty($matches[1])) {
                 // Fallback: try scraping direct href from result links
@@ -823,42 +958,39 @@ class BackfillRestaurantWebsites extends Command
                 $links = $xpath->query("//a[contains(@class, 'result__a')]");
 
                 if ($links === false) {
-                    return null;
+                    return [];
                 }
 
                 foreach ($links as $link) {
+                    if (! $link instanceof \DOMElement) {
+                        continue;
+                    }
                     $href = $link->getAttribute('href');
                     if (empty($href)) {
                         continue;
                     }
-                    // Direct URL (no DDG redirect wrapper)
-                    if (str_starts_with($href, 'http://') || str_starts_with($href, 'https://')) {
-                        if (! $this->isSkipDomainUrl($href)) {
-                            return $href;
-                        }
-
-                        continue;
-                    }
-                    // Maybe a DDG-style redirect URL
-                    $url = $this->extractUrlFromDdgRedirect($href);
+                    // Direct URL (no DDG redirect wrapper), else maybe a DDG-style redirect URL
+                    $url = (str_starts_with($href, 'http://') || str_starts_with($href, 'https://'))
+                        ? $href
+                        : $this->extractUrlFromDdgRedirect($href);
                     if ($url !== null && ! $this->isSkipDomainUrl($url)) {
-                        return $url;
+                        $urls[] = $url;
                     }
                 }
 
-                return null;
+                return $urls;
             }
 
             foreach ($matches[1] as $encoded) {
                 $url = $this->extractUrlFromDdgRedirect($encoded);
                 if ($url !== null && ! $this->isSkipDomainUrl($url)) {
-                    return $url;
+                    $urls[] = $url;
                 }
             }
 
-            return null;
+            return $urls;
         } catch (\Throwable $e) {
-            return null;
+            return [];
         }
     }
 
@@ -914,12 +1046,27 @@ class BackfillRestaurantWebsites extends Command
 
     private function countNewWebsites(): int
     {
+        return $this->scrapeableWebsites()
+            ->where('social_links_count', 0)
+            ->count();
+    }
+
+    /**
+     * Active rows with a website that has not been identity-rejected — the
+     * only websites whose socials/menu/hours/description may be scraped (a
+     * rejected site's data belongs to some other business).
+     *
+     * @return Builder<Restaurant>
+     */
+    private function scrapeableWebsites(): Builder
+    {
         return Restaurant::query()
             ->active()
             ->whereNotNull('website_url')
             ->where('website_url', '!=', '')
-            ->where('social_links_count', 0)
-            ->count();
+            ->where(function ($q) {
+                $q->whereNull('website_identity')->orWhere('website_identity', '!=', WebsiteIdentityVerifier::REJECTED);
+            });
     }
 
     /** @return Builder<Restaurant> */
@@ -938,12 +1085,9 @@ class BackfillRestaurantWebsites extends Command
         return $q;
     }
 
-    private function scrapeSocialLinks(RestaurantWebsiteScraperService $scraper): void
+    private function scrapeSocialLinks(RestaurantWebsiteScraperService $scraper, SocialLinkRecorder $recorder): void
     {
-        $restaurants = Restaurant::query()
-            ->active()
-            ->whereNotNull('website_url')
-            ->where('website_url', '!=', '')
+        $restaurants = $this->scrapeableWebsites()
             ->where('social_links_count', 0)
             ->orderBy('id')
             ->limit(self::SOCIAL_SCRAPE_DAILY_LIMIT)
@@ -967,19 +1111,7 @@ class BackfillRestaurantWebsites extends Command
                 $links = $scraper->scrapeSocial($restaurant->website_url);
 
                 if ($links !== null) {
-                    RestaurantSocialLink::where('restaurant_id', $restaurant->id)->delete();
-                    $now = now();
-                    foreach ($links as $platform => $url) {
-                        $verified = $scraper->verifyProfileUrl($url);
-                        RestaurantSocialLink::create([
-                            'restaurant_id' => $restaurant->id,
-                            'platform' => $platform,
-                            'url' => $url,
-                            'verified_at' => $verified ? $now : null,
-                            'last_check_failed_at' => $verified ? null : $now,
-                        ]);
-                    }
-                    $restaurant->update(['social_links_count' => $restaurant->countScoredSocialLinks()]);
+                    $recorder->record($restaurant, $links);
                 }
             } catch (\Throwable $e) {
                 Log::channel('enrichment')->warning('Social scrape failed during website backfill', [
@@ -1009,10 +1141,7 @@ class BackfillRestaurantWebsites extends Command
      */
     private function scrapeMenuData(RestaurantWebsiteScraperService $scraper, bool $dryRun): void
     {
-        $query = Restaurant::query()
-            ->active()
-            ->whereNotNull('website_url')
-            ->where('website_url', '!=', '')
+        $query = $this->scrapeableWebsites()
             ->where(function ($q) {
                 $q->whereNull('menu_url')->orWhere('menu_url', '')
                     ->orWhereNull('opening_hours')->orWhere('opening_hours', '')
@@ -1110,37 +1239,39 @@ class BackfillRestaurantWebsites extends Command
         $found = 0;
 
         foreach ($restaurants as $restaurant) {
-            $candidates = $this->candidateDomains($restaurant->name, $restaurant->city);
             $url = null;
+            $verdict = null;
 
-            foreach ($candidates as $domain) {
-                try {
-                    $response = Http::timeout(5)
-                        ->withUserAgent('Mozilla/5.0')
-                        ->head($domain);
-
-                    if ($response->successful()) {
-                        $url = $domain;
-                        break;
-                    }
-                } catch (\Throwable $e) {
+            foreach ($this->candidateDomains($restaurant->name, $restaurant->city) as $domain) {
+                if ($this->isSkipDomainUrl($domain) || $this->quarantine->isQuarantined($restaurant->id, 'website_url', $domain)) {
                     continue;
+                }
+
+                // A guessed host matches the name by construction, so the
+                // domain can't vouch for identity — the page itself must name
+                // the restaurant and show its phone/street/city. (A bare 2xx
+                // HEAD used to be enough: parked domains and same-name
+                // businesses in other cities were saved wholesale.)
+                $verdict = $this->verifier->verify($restaurant, $domain, domainCountsAsName: false);
+                if ($verdict->acceptsNew()) {
+                    $url = $domain;
+                    break;
                 }
             }
 
-            if ($url !== null) {
-                if ($this->isSkipDomainUrl($url)) {
-                    $this->line("  Skipped guessed URL (non-restaurant domain): {$url}");
-                    $bar->advance();
-
-                    continue;
-                }
+            if ($url !== null && $verdict !== null) {
                 if (! $dryRun) {
-                    $restaurant->update(['website_url' => $url]);
+                    $restaurant->update([
+                        'website_url' => $url,
+                        'website_identity' => WebsiteIdentityVerifier::VERIFIED,
+                        'website_verified_at' => now(),
+                    ]);
                     Log::channel('enrichment')->info('Website backfilled from domain guess', [
                         'restaurant_id' => $restaurant->id,
                         'restaurant_name' => $restaurant->name,
                         'website_url' => $url,
+                        'identity_reason' => $verdict->reason,
+                        'identity_evidence' => $verdict->evidence,
                     ]);
                 }
                 $found++;
@@ -1152,7 +1283,7 @@ class BackfillRestaurantWebsites extends Command
 
         $bar->finish();
         $this->newLine();
-        $this->line("  Domain guessing found {$found} website(s).");
+        $this->line("  Domain guessing found {$found} verified website(s).");
     }
 
     /** @return array<string> */

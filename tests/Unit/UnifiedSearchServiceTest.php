@@ -6,6 +6,7 @@ use App\Models\Cuisine;
 use App\Models\CuisineCategory;
 use App\Models\Restaurant;
 use App\Services\CuisineMatcher;
+use App\Services\FieldQuarantineService;
 use App\Services\LiveSearchService;
 use App\Services\LiveVenuePersister;
 use App\Services\PopularityScoreService;
@@ -158,6 +159,60 @@ class UnifiedSearchServiceTest extends TestCase
         $this->assertNotEmpty($results);
         $this->assertSame(1, Restaurant::count(), 'New live venue must be persisted to the DB');
         $this->assertGreaterThan(0, (int) $results[0]['id'], 'Merged live venue must carry a real positive DB id');
+    }
+
+    public function test_live_venue_matching_a_closed_restaurant_is_dropped_not_recreated(): void
+    {
+        // Closed per Overture (is_active quarantined), with its own slug. The free
+        // sources still list it under a different slug and no place id.
+        $closed = Restaurant::factory()->create([
+            'name' => 'Sweet Lime',
+            'slug' => 'sweet-lime-PlANV6',
+            'google_place_id' => null,
+            'latitude' => 30.65,
+            'longitude' => -88.20,
+        ]);
+        $this->app->make(FieldQuarantineService::class)
+            ->quarantineFields($closed, ['is_active'], 'closed_per_overture', 'overture:import');
+
+        $service = $this->makeService([
+            'name' => 'Sweet Lime',
+            'slug' => 'sweet-lime-3fa9c1',
+            'source' => 'bizdata',
+            'lat' => 30.6501,
+            'lng' => -88.2001,
+        ]);
+
+        $results = $service->search(30.6199783, -88.1967496, null, null, 'best_match', 25.0);
+
+        $this->assertNotContains('Sweet Lime', array_column($results, 'name'), 'a closed restaurant must not appear in results');
+        $this->assertSame(1, Restaurant::count(), 'a closed restaurant must not be re-created as a new active row');
+        $this->assertSame(0, Restaurant::query()->where('is_active', true)->count());
+    }
+
+    public function test_live_venue_matching_an_unvetted_favorites_row_still_shows(): void
+    {
+        // Created inactive by FavoriteController (spec-088: unvetted, not closed).
+        Restaurant::factory()->create([
+            'name' => 'Sweet Lime',
+            'slug' => 'sweet-lime-PlANV6',
+            'google_place_id' => null,
+            'latitude' => 30.65,
+            'longitude' => -88.20,
+            'is_active' => false,
+        ]);
+
+        $service = $this->makeService([
+            'name' => 'Sweet Lime',
+            'slug' => 'sweet-lime-3fa9c1',
+            'source' => 'bizdata',
+            'lat' => 30.6501,
+            'lng' => -88.2001,
+        ]);
+
+        $results = $service->search(30.6199783, -88.1967496, null, null, 'best_match', 25.0);
+
+        $this->assertContains('Sweet Lime', array_column($results, 'name'), 'an inactive row that is not a closure must not hide the venue');
     }
 
     public function test_live_venue_matched_by_slug_merges_into_db_row(): void

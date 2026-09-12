@@ -2,16 +2,26 @@
 
 namespace App\Services;
 
+use App\Exceptions\AiProvidersUnavailableException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * AI enrichment service using OpenAI-compatible API (default: Groq).
  *
  * Supports a fallback provider chain — when the primary is rate-limited (429),
- * subsequent providers are tried before the job releases back to the queue.
+ * down, or rejects the key, subsequent providers are tried in order.
  * All providers must be OpenAI-compatible (same chat/completions format).
+ *
+ * A provider that fails is skipped for a cooldown (a 429 honours the
+ * provider's Retry-After). Without it, every queued job re-hit a provider
+ * that had already said no: on prod ~163k failed calls a day against Groq's
+ * free tier, which answers ~350.
  *
  * Normalizes and extracts structured fields from restaurant data:
  * - cuisines (normalized list)
@@ -27,8 +37,25 @@ class AiEnrichmentService
     private const SYSTEM_PROMPT = 'You are a data normalization assistant for restaurant data. Extract structured information and normalize it. NEVER invent ratings or scores - only extract structural/attribute fields that are present or can be reasonably inferred. Return valid JSON only.';
 
     /**
+     * Seconds a failing provider is skipped. A 429 uses the provider's own
+     * Retry-After when it sends one.
+     */
+    private const COOLDOWN_RATE_LIMITED = 60;
+
+    private const COOLDOWN_SERVER_ERROR = 60;
+
+    private const COOLDOWN_UNREACHABLE = 900;
+
+    private const COOLDOWN_REJECTED = 3600;
+
+    private const COOLDOWN_MAX = 86400;
+
+    /**
      * @param  array<string, mixed>  $restaurantData
-     * @return array<string, mixed>|null
+     * @return array<string, mixed>|null null when no key is configured or the
+     *                                   provider's answer was unusable
+     *
+     * @throws AiProvidersUnavailableException when no provider answered
      */
     public function enrichRestaurant(array $restaurantData): ?array
     {
@@ -71,9 +98,12 @@ class AiEnrichmentService
 
     /**
      * Run a prompt through the provider chain, returning the parsed JSON
-     * response (or null when the model produced nothing usable).
+     * response (or null when the model produced nothing usable). Providers
+     * in a cooldown are skipped without a request.
      *
      * @return array<string, mixed>|null
+     *
+     * @throws AiProvidersUnavailableException
      */
     private function callProviders(string $prompt): ?array
     {
@@ -83,41 +113,73 @@ class AiEnrichmentService
             return null;
         }
 
-        $lastException = null;
-
         foreach ($providers as $provider) {
-            if (empty($provider['api_key'])) {
+            if (Cache::has($this->cooldownKey($provider))) {
                 continue;
             }
 
             try {
                 return $this->tryProvider($prompt, $provider);
+            } catch (RequestException $e) {
+                $this->coolDown(
+                    $provider,
+                    $this->cooldownSeconds($e->response),
+                    'HTTP '.$e->response->status().': '.$e->response->body()
+                );
             } catch (\Throwable $e) {
-                $status = $e instanceof RequestException ? $e->response->status() : null;
-
-                if ($status !== null && ! $this->isRetryableStatus($status)) {
-                    Log::warning('AI provider returned non-retryable error', [
-                        'provider' => $provider['base_url'],
-                        'status' => $status,
-                    ]);
-
-                    return null;
-                }
-
-                $lastException = $e;
-                Log::warning('AI provider failed, trying fallback', [
-                    'provider' => $provider['base_url'],
-                    'message' => $e->getMessage(),
-                    'status' => $status,
-                ]);
+                $this->coolDown(
+                    $provider,
+                    $e instanceof ConnectionException ? self::COOLDOWN_UNREACHABLE : self::COOLDOWN_SERVER_ERROR,
+                    $e->getMessage()
+                );
             }
         }
 
-        Log::warning('All AI providers exhausted', [
-            'last_error' => $lastException?->getMessage(),
-        ]);
+        throw new AiProvidersUnavailableException;
+    }
 
-        throw new \RuntimeException('All AI providers rate-limited or failed');
+    /**
+     * @param  array<string, mixed>  $provider
+     */
+    private function cooldownKey(array $provider): string
+    {
+        return 'ai_provider_cooldown:'.sha1($provider['base_url'].'|'.$provider['model']);
+    }
+
+    /**
+     * Skip a provider for $seconds. Logged once here, instead of once per
+     * queued job for as long as the provider keeps saying no.
+     *
+     * @param  array<string, mixed>  $provider
+     */
+    private function coolDown(array $provider, int $seconds, string $reason): void
+    {
+        Cache::put($this->cooldownKey($provider), true, $seconds);
+
+        Log::warning('AI provider cooling down', [
+            'provider' => $provider['base_url'],
+            'seconds' => $seconds,
+            'reason' => Str::limit($reason, 300),
+        ]);
+    }
+
+    /**
+     * How long to skip a provider after a failed response: its Retry-After
+     * for a 429, an hour when it rejects the key, URL or model, else a minute.
+     */
+    private function cooldownSeconds(Response $response): int
+    {
+        $status = $response->status();
+
+        if ($status === 429) {
+            $retryAfter = $response->header('Retry-After');
+
+            return is_numeric($retryAfter)
+                ? max(1, min((int) ceil((float) $retryAfter), self::COOLDOWN_MAX))
+                : self::COOLDOWN_RATE_LIMITED;
+        }
+
+        return $this->isRejectedStatus($status) ? self::COOLDOWN_REJECTED : self::COOLDOWN_SERVER_ERROR;
     }
 
     /**
@@ -150,8 +212,9 @@ class AiEnrichmentService
     /**
      * A response status is retryable (fail over to the next provider) when it
      * indicates the provider is rate-limited (429), temporarily unavailable
-     * (5xx), or otherwise failing server-side. Client errors that are never
-     * going to succeed on another provider — 400/401/403/404 — are a hard stop.
+     * (5xx), or otherwise failing server-side. Other client errors (400, 422)
+     * mean the request itself was bad and are a hard stop; 401/403/404 are
+     * covered by isRejectedStatus().
      */
     private function isRetryableStatus(int $status): bool
     {
@@ -160,6 +223,15 @@ class AiEnrichmentService
         }
 
         return in_array($status, [408, 425, 409], true);
+    }
+
+    /**
+     * The provider refused the key (401/403) or doesn't know the URL or model
+     * (404). The provider's fault, not the prompt's, so the chain moves on.
+     */
+    private function isRejectedStatus(int $status): bool
+    {
+        return in_array($status, [401, 403, 404], true);
     }
 
     /**
@@ -192,7 +264,7 @@ class AiEnrichmentService
         if ($response->failed()) {
             $status = $response->status();
 
-            if ($this->isRetryableStatus($status)) {
+            if ($this->isRetryableStatus($status) || $this->isRejectedStatus($status)) {
                 throw new RequestException($response);
             }
 

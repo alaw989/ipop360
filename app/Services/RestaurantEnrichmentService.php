@@ -7,6 +7,7 @@ use App\Models\Cuisine;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use App\Models\SerpApiCallLog;
+use App\Support\AddressParts;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Collection;
@@ -28,6 +29,14 @@ class RestaurantEnrichmentService
     /** Box half-width (degrees) for the single Wikidata award query (~28km). */
     private const AWARD_BOX_DEGREES = 0.25;
 
+    /**
+     * What persisting the current combo's rated venues produced — written onto
+     * the SerpApi call-log row (ratings come only from SerpApi).
+     *
+     * @var array{matched: int, newly_rated: int, created_rows: int}
+     */
+    private array $ratingYield = ['matched' => 0, 'newly_rated' => 0, 'created_rows' => 0];
+
     public function __construct(
         private OverpassService $overpass,
         private BizDataApiService $bizData,
@@ -40,6 +49,7 @@ class RestaurantEnrichmentService
         private CuisineMatcher $cuisineMatcher,
         private VenuePipeline $venuePipeline,
         private RestaurantValidationService $restaurantValidation,
+        private RestaurantFieldMerger $fieldMerger = new RestaurantFieldMerger,
     ) {}
 
     /**
@@ -50,8 +60,14 @@ class RestaurantEnrichmentService
     {
         // Fetch all sources concurrently (skip SerpApi when freeOnly)
         $venues = $this->fetchAndNormalizeAllSources($lat, $lng, $cuisine, $freeOnly);
+        $callLog = $this->serpApiService->takeLastCallLog();
+        if ($freeOnly) {
+            $callLog = null;
+        }
+        $this->ratingYield = ['matched' => 0, 'newly_rated' => 0, 'created_rows' => 0];
 
         if (empty($venues)) {
+            $callLog?->update($this->ratingYield);
             Log::channel('enrichment')->info('No free venues found', [
                 'lat' => $lat,
                 'lng' => $lng,
@@ -88,6 +104,8 @@ class RestaurantEnrichmentService
                 ]);
             }
         }
+
+        $callLog?->update($this->ratingYield);
 
         $restaurantIds = array_unique($restaurantIds);
 
@@ -308,7 +326,7 @@ class RestaurantEnrichmentService
 
             $normalized = match ($label) {
                 'bizdata' => $this->bizData->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
-                'serpapi' => $this->serpApiService->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
+                'serpapi' => $this->serpApiService->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey, ['context' => 'enrichment']),
                 'socrata' => $this->socrataService->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
                 'overpass' => $this->overpass->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
                 default => [],
@@ -342,6 +360,19 @@ class RestaurantEnrichmentService
     }
 
     /**
+     * A grid key as a city name, without the state some keys carry to tell
+     * same-named cities apart ("washington dc" → "washington").
+     */
+    private function gridCity(?string $key, ?string $stateCode): ?string
+    {
+        if ($key === null || $stateCode === null) {
+            return $key;
+        }
+
+        return (string) preg_replace('/\s+'.preg_quote($stateCode, '/').'$/i', '', $key);
+    }
+
+    /**
      * Process a single free venue: build attributes, upsert, attach cuisine.
      * Upserts by yelp_business_id when present, else by name + ≤200m proximity.
      *
@@ -370,8 +401,10 @@ class RestaurantEnrichmentService
         $attributes = [
             'name' => $venue['name'],
             'address' => $venue['address'] ?? null,
-            'city' => $venue['city'] ?? $cityName,
-            'state' => $venue['state'] ?? $stateCode,
+            // The venue's own address names its town. The grid's city is only
+            // where the search was centered (a Novi venue stored as "Ann Arbor").
+            'city' => $venue['city'] ?? AddressParts::city($venue['address'] ?? null) ?? $this->gridCity($cityName, $stateCode),
+            'state' => $venue['state'] ?? AddressParts::state($venue['address'] ?? null) ?? $stateCode,
             'postal_code' => $venue['postal_code'] ?? null,
             'country' => $venue['country'] ?? 'US',
             'latitude' => $venue['lat'] ?? null,
@@ -417,11 +450,28 @@ class RestaurantEnrichmentService
             ? $this->findByNameAndProximity($venue['name'], $venue['lat'], $venue['lng'])
             : null;
 
+        $changedFields = null;
+        $hadRating = $existing !== null && (float) $existing->google_rating > 0.0;
         if ($existing !== null) {
-            $existing->update($attributes);
+            // A matched row keeps what it already has: the source record only
+            // fills blanks (and refreshes a positive rating). Writing the raw
+            // attributes nulled every field a sparse BizData/OSM venue lacked.
+            $existing->update($this->fieldMerger->forExisting($existing, $attributes));
+            $changedFields = array_keys(array_diff_key($existing->getChanges(), ['updated_at' => true]));
             $restaurant = $existing;
         } else {
             $restaurant = Restaurant::create($attributes);
+        }
+
+        if ((float) ($attributes['google_rating'] ?? 0) > 0.0) {
+            if ($existing === null) {
+                $this->ratingYield['created_rows']++;
+            } else {
+                $this->ratingYield['matched']++;
+                if (! $hadRating && (float) $restaurant->google_rating > 0.0) {
+                    $this->ratingYield['newly_rated']++;
+                }
+            }
         }
 
         // Only attach the searched cuisine when the venue actually carries
@@ -483,6 +533,7 @@ class RestaurantEnrichmentService
                 'cuisine' => $cuisine->name,
                 'has_coords' => $venue['lat'] !== null && $venue['lng'] !== null,
                 'populated_fields' => $populatedFields,
+                'changed_fields' => $changedFields,
                 'google_rating' => $attributes['google_rating'] ?? null,
                 'google_review_count' => $attributes['google_review_count'],
             ]
@@ -701,12 +752,9 @@ class RestaurantEnrichmentService
 
         foreach ($restaurants as $restaurant) {
             try {
-                // Skip if recently enriched (within 7 days)
-                if (! empty($restaurant->ai_metadata['enriched_at'])) {
-                    $enrichedAt = now()->parse($restaurant->ai_metadata['enriched_at']);
-                    if ($enrichedAt->gt(now()->subDays(7))) {
-                        continue;
-                    }
+                // Skip if the AI looked at it recently (within 7 days)
+                if ($restaurant->lastAiAttemptAt()?->gt(now()->subDays(7))) {
+                    continue;
                 }
 
                 // Dispatch async job (never blocks request path)

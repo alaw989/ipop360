@@ -824,6 +824,117 @@ live-verified (home 200; API graceful 200 on pole coords `lat=95&lng=200`
 vs. a hang; valid-coords API returns real data; `?sort=rating`/`?sort=
 nearest` both 200).
 
+### ✅ Done (2026-09-10) — data-integrity overhaul, phases 1–2
+
+Built directly by Claude (operator decision, not opencode-loop). PRs #169 and
+#170 merged, deployed, and browser-verified.
+
+- **#169 (phase 1)** stops the pipelines writing guessed data:
+  - website identity verification;
+  - location-safe cache matching;
+  - validated, brand-scoped social links;
+  - no AI address overwrites and no AI phone/price;
+  - the `field_quarantine` table.
+- **#170 (phase 2)** adds `restaurants:integrity`.
+- **Prod cleanup:** applied with a full DB backup first. 20,705 values were
+  quarantined (reversible) and restaurants rescored; the scorecard reads 0.
+- **Follow-up:** `restaurants:verify-websites` is now daily at 2000/run, and a
+  weekly report-only `restaurants:integrity` runs Mondays at 11:15.
+
+See `history.md` and `project-state.md`.
+
+### ✅ Done (2026-09-11) — data-integrity phase 3 + fixes
+
+- **Phase 3:** the Overture Maps monthly import (#172–#174).
+- **#175:** stops enrichment and live-search upserts from erasing stored data.
+  Prod was repaired afterwards.
+- **#176:** Overture-filled websites are identity-checked promptly.
+- **#177:** live search no longer re-creates Overture-closed restaurants.
+- **#178:** websites on lapsed domains are rejected (`dead_domain`); 190
+  quarantined on prod.
+- **#181:** addresses copied from another location are corrected from Overture
+  (443) or removed (202) on prod.
+
+See `history.md` (2026-09-11).
+
+### ✅ Done (2026-09-11) — data-integrity overhaul, phase 4 (#179, #180)
+
+4. **Evidence-based ranking for the ~90% unrated.** Built:
+   - the `evidence` signal (Overture corroboration + confidence, website
+     identity, verified location socials, OSM detail)
+   - the "Not yet rated" label
+   - per-call SerpApi yield logging
+   - calibration on a fresh prod clone (see `docs/ranking-metrics.md`)
+
+   Dropped after measuring, not guessing:
+   - **Grid targeting.** The last month's 141 calls already yield 18.2 new
+     unique rated places per call (93% unique, max 20). Results spread
+     metro-wide at zoom 11 (median 10 km from center), so there is ≤10%
+     headroom.
+   - **A separate post-enrichment rescore.** Enrichment already rescores what
+     it touches. Batch-local vs corpus aggregates differ by ≤0.006.
+   - **Structured health grades.** Socrata only covers NYC and SF, and 0
+     stored rows carry a grade today.
+
+   Open: revisit `RANK_EVIDENCE_CAP` once the 35k never-checked websites
+   clear.
+
+**Open after #181 (addresses):**
+- 34 unmatched rows whose address ZIP is 10–50 km from the pin: same metro,
+  too close to call without an Overture place.
+- 16 rows where only `postal_code` (not the address) is far from the pin.
+- ~~A few rows also carry a copied `city` field, e.g. a Louisville Buffalo
+  Wild Wings stored as "Cheyenne".~~ Fixed by #184 (`city_far_from_location`).
+- 24 Diner's airport row keeps hillscafe.com; Overture's own data lists it.
+
+### ✅ Done (2026-09-12) — AI enrichment flood (#183)
+
+A read-only prod check found `restaurants:ai-enrich` sending ~163k failed AI
+calls a day (a Groq 429, then the dead Azure fallback) against a free tier
+that answers ~350. The failures also wrote ~180 MB of logs a day and kept
+both queue workers busy.
+- A failing provider is skipped for a cooldown (Groq's Retry-After on a 429).
+- The command queues at most `AI_ENRICH_PER_RUN` (75) jobs per run, spread
+  over the 6 hours, never-tried rows first.
+- A tried row waits `AI_ENRICH_RETRY_DAYS` (30); an unusable answer counts as
+  a try, a provider outage doesn't.
+
+**Open after #183:**
+- Prod's AI fallback is dead. The droplet `.env` pins the retired Azure URL
+  (`AI_FALLBACK_URL`/`AI_FALLBACK_MODEL`), and the deploy injects a GitHub
+  token as `AI_FALLBACK_KEY`. Remove both, or set a Cerebras key.
+- `restaurants:backfill-websites` checks quarantine for `website_url` only.
+  On prod it refilled 81 copied ratings, 165 address/phone values, 6 phones
+  and 64 prices. (The wrong city/state on some refilled rows, e.g. Farzi NYC
+  stored as Anchorage, AK, is fixed by #184.)
+
+### ✅ Done (2026-09-12) — cities and states that aren't where the venue is (#184)
+
+SerpApi venues carry no city, so enrichment stored the search grid's name
+(Novi as "Ann Arbor", Vancouver, WA as "Portland, OR"); the old name-only
+backfill copied cities between same-named venues; `address_other_state`
+removed 159 right addresses for disagreeing with a wrong state.
+- `restaurants:integrity city_far_from_location`: state from a ZIP at the
+  pin (`ZipLocation::state()`), city from the row's own address, sanity-checked
+  against Census places (`PlaceLocation`). Restores wrongly removed addresses,
+  fixes address state tokens, renames grid labels ("Washington Dc").
+- Corrections are restorable (`FieldQuarantineService::replaceFields()`).
+- Enrichment and live persistence prefer the venue's own address city.
+- Applied on prod 2026-09-12 20:04 UTC after a backup
+  (`ipop360-pre-city-fix-20260912T200403Z.sql.gz`): 1,484 rows (1,107 from
+  the address, 79 state fixes, 9 removed, 289 grid labels), browser-verified.
+  #186 unblocked the deploy (Pint off `database/data`, 15-min quality job);
+  #187 fixed 3 rows that got "Washington, MD" from an address carrying the
+  search's city.
+
+**Open after #184:**
+- 1,009 rows left without evidence, mostly San Francisco rows (the Census
+  point is 55 km out) and near-metro labels with no city in the address.
+- ~750 stored cities the Census doesn't list (neighborhoods, townships) are
+  never judged.
+- The 45-odd rows whose address names no city get the ZIP's state and no
+  city; a later Overture or reverse-geocode pass could name it.
+
 ### Next up: specs 102–103 (PROPOSED, from the 2026-06-30 fresh-audit wave)
 
 1. **102 — Test-coverage backfill** (P2/P3, regression-guard gaps)

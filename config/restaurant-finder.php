@@ -263,6 +263,12 @@ return [
     'ranking' => [
         'weights' => [
             'quality' => (float) env('RANK_WEIGHT_QUALITY', 0.35),
+            // Data-integrity phase 4: verified-presence evidence — the stand-in
+            // for `quality` on UNRATED venues only (never both active; see
+            // PopularityScoreService::evidenceFor). Same weight as quality so
+            // rated and unrated venues share one scale; evidence itself is
+            // capped at ~4.25★-equivalent.
+            'evidence' => (float) env('RANK_WEIGHT_EVIDENCE', 0.35),
             'proximity' => (float) env('RANK_WEIGHT_PROXIMITY', 0.15),
             'data_completeness' => (float) env('RANK_WEIGHT_DATA_COMPLETENESS', 0.05),
             'has_award' => (float) env('RANK_WEIGHT_HAS_AWARD', 0.05),
@@ -283,7 +289,11 @@ return [
             // average (mean gap 0.29); the old "no overlap" guarantee has a small
             // exception — ~1.6% of link-rich unrated venues score above the
             // lowest-rated venue (see docs/ranking-audit-2026-08.md).
-            'social_links_count' => (float) env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.20),
+            // Phase 4 (2026-09): retired as a standalone signal — raw link
+            // counts were the ranking for unrated venues and were dominated by
+            // junk/corporate links. Verified location-scoped socials are now
+            // one component of `evidence`.
+            'social_links_count' => (float) env('RANK_WEIGHT_SOCIAL_LINKS_COUNT', 0.0),
             'website_clicks_count' => (float) env('RANK_WEIGHT_WEBSITE_CLICKS', 0.20),
             'pageviews_count' => (float) env('RANK_WEIGHT_PAGEVIEWS', 0.10),
             'social_link_clicks_count' => (float) env('RANK_WEIGHT_SOCIAL_LINK_CLICKS', 0.05),
@@ -340,6 +350,14 @@ return [
         // presence is meant to differentiate. A scale-appropriate floor spreads
         // it. See docs/ranking-metrics.md and the item #1 rebalance.
         'social_links_log_floor' => (int) env('RANK_SOCIAL_LINKS_LOG_FLOOR', 10),
+
+        // Ceiling (0–1) for the `evidence` signal on unrated venues: full
+        // verified-presence evidence normalizes like a Bayesian quality of this
+        // value × 5 stars. 0.85 ≈ 4.25★ — a well-evidenced unknown passes weak
+        // ratings but never a well-reviewed venue (most rated venues sit ≥ 0.86
+        // after Bayesian shrinkage). Raise toward 0.91 (≈ the credible mean) to
+        // let strong unknowns compete with average-rated venues.
+        'evidence_cap' => (float) env('RANK_EVIDENCE_CAP', 0.85),
 
         // Fallback denominator when the collection is empty or all-zero so the
         // log scale still produces sane, bounded values.
@@ -872,6 +890,88 @@ return [
             env('FAVORITES_ALLOW_USER_CREATE_RESTAURANTS', true), FILTER_VALIDATE_BOOL
         ),
         'index_cap' => (int) env('FAVORITES_INDEX_CAP', 200),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Data integrity (2026-09 overhaul)
+    |--------------------------------------------------------------------------
+    | Guards that stop inferred data being stored as fact.
+    |
+    | social_brand_min_restaurants: a social profile URL attached to at least
+    |   this many distinct restaurants is a corporate/brand account (every
+    |   Domino's location linking @dominos), not the venue's own — it is kept
+    |   but scoped 'brand' and never counts toward social_links_count.
+    | website_search_max_candidates: how many web-search results per restaurant
+    |   the website backfill identity-checks before giving up (each costs a page
+    |   fetch; only a 'verified' page is ever saved).
+    | website_verify_max_extra_pages: when a page names the restaurant but
+    |   shows no phone/street/city, this many contact/location sub-pages are
+    |   checked for the location evidence before judging it.
+    | website_verify_timeout: per-page fetch timeout (seconds) for identity checks.
+    | website_dead_domain_check: when a site can't be fetched, look its domain
+    |   up in DNS; a domain that no longer exists is rejected as `dead_domain`
+    |   instead of kept as "unreachable" (DomainDnsChecker). Off in the test
+    |   suite so it never does real DNS.
+    | address_zip_far_km / address_zip_radius_factor: an address's ZIP is "far"
+    |   from the restaurant's pin beyond max(far_km, factor × the ZIP's radius)
+    |   (App\Support\ZipLocation) — overture:import then replaces it with the
+    |   matched place's address, and never fills a far one.
+    | address_zip_unmatched_far_km: with no Overture place to vouch for a
+    |   replacement, restaurants:integrity only removes an address this far off
+    |   (a different metro).
+    | city_place_far_km / city_place_radius_factor: a city is "far" from the pin
+    |   beyond max(far_km, factor × the place's radius) (App\Support\PlaceLocation);
+    |   restaurants:integrity then corrects it from the row's own address.
+    | city_unmatched_far_km: with no address to vouch for a replacement, a far
+    |   city (and its state) is only removed this far off. Census internal
+    |   points can sit tens of km off-center (San Francisco's is 55 km out).
+    */
+    'data_integrity' => [
+        'social_brand_min_restaurants' => (int) env('SOCIAL_BRAND_MIN_RESTAURANTS', 5),
+        'website_search_max_candidates' => (int) env('WEBSITE_SEARCH_MAX_CANDIDATES', 3),
+        'website_verify_max_extra_pages' => (int) env('WEBSITE_VERIFY_MAX_EXTRA_PAGES', 2),
+        'website_verify_timeout' => (int) env('WEBSITE_VERIFY_TIMEOUT', 8),
+        'website_dead_domain_check' => (bool) env('WEBSITE_DEAD_DOMAIN_CHECK', true),
+        'address_zip_far_km' => (float) env('ADDRESS_ZIP_FAR_KM', 10),
+        'address_zip_radius_factor' => (float) env('ADDRESS_ZIP_RADIUS_FACTOR', 3),
+        'address_zip_unmatched_far_km' => (float) env('ADDRESS_ZIP_UNMATCHED_FAR_KM', 50),
+        'city_place_far_km' => (float) env('CITY_PLACE_FAR_KM', 25),
+        'city_place_radius_factor' => (float) env('CITY_PLACE_RADIUS_FACTOR', 3),
+        'city_unmatched_far_km' => (float) env('CITY_UNMATCHED_FAR_KM', 150),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Overture Maps import (data-integrity phase 3)
+    |--------------------------------------------------------------------------
+    | Overture Maps places are free, open data (CDLA-Permissive-2.0 / Apache-2.0
+    | / CC0; attribution shown in the site footer). `overture:import` extracts
+    | US food places from the latest monthly release once (DuckDB over the
+    | public S3 GeoParquet), then matches each restaurant to the place at the
+    | same location (VenuePipeline::venuesMatch) to record corroboration and
+    | fill EMPTY phone/address/website/social fields.
+    |
+    | match_radius_km: max distance for a place to be the same venue.
+    | fill_min_confidence: a place must be at least this confident (0–1) that
+    |   it exists before its values fill empty fields.
+    | cell_size_deg: matching works block by block; restaurants are grouped
+    |   into square blocks this many degrees wide.
+    | duckdb_memory_limit_mb / duckdb_max_threads: keep the extract inside the
+    |   2-CPU / 4 GB droplet's headroom.
+    | categories: Overture basic_category values that are food venues.
+    */
+    'overture' => [
+        'enabled' => filter_var(env('OVERTURE_ENABLED', true), FILTER_VALIDATE_BOOL),
+        'match_radius_km' => (float) env('OVERTURE_MATCH_RADIUS_KM', 0.2),
+        'fill_min_confidence' => (float) env('OVERTURE_FILL_MIN_CONFIDENCE', 0.5),
+        'cell_size_deg' => (float) env('OVERTURE_CELL_SIZE_DEG', 0.5),
+        'duckdb_memory_limit_mb' => (int) env('OVERTURE_DUCKDB_MEMORY_LIMIT_MB', 1024),
+        'duckdb_max_threads' => (int) env('OVERTURE_DUCKDB_MAX_THREADS', 2),
+        'categories' => [
+            'restaurant', 'casual_eatery', 'fast_food_restaurant', 'bar', 'coffee_shop', 'cafe',
+            'food_truck_stand', 'brewery', 'smoothie_juice_bar', 'food_court', 'food_and_drink',
+        ],
     ],
 
 ];

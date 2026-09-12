@@ -7,6 +7,7 @@ use App\Models\Restaurant;
 use App\Services\AiEnrichmentService;
 use App\Services\RestaurantDeduplicationService;
 use App\Services\RestaurantValidationService;
+use App\Support\AddressParts;
 use App\Support\StateAbbreviations;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -57,6 +58,9 @@ class DataHygiene extends Command
      * day's run picks up where this one left off.
      */
     private const ENRICH_DAILY_LIMIT = 200;
+
+    /** Days before a row the AI already processed is eligible again. */
+    private const AI_RETRY_DAYS = 7;
 
     public function __construct(
         private readonly RestaurantDeduplicationService $dedupe,
@@ -645,31 +649,41 @@ class DataHygiene extends Command
     }
 
     /**
-     * Dispatch {@see EnrichRestaurantWithAi} jobs for rows still missing
-     * description/price_range/phone/website_url, highest popularity score
-     * first, bounded to the --limit option per run but never above
-     * {@see self::ENRICH_DAILY_LIMIT}. Requires --apply and an AI key;
-     * otherwise only the eligible count is reported.
+     * Dispatch {@see EnrichRestaurantWithAi} jobs for rows still missing an
+     * AI-fillable field (description, a verifiable website_url, an empty
+     * address — phone/price_range are never AI-written), highest popularity
+     * score first, bounded to the --limit option per run but never above
+     * {@see self::ENRICH_DAILY_LIMIT}. Rows the AI already tried within
+     * {@see self::AI_RETRY_DAYS} are skipped so the same top rows aren't
+     * re-sent every night. Requires --apply and an AI key; otherwise only the
+     * eligible count is reported.
      *
      * @return array{eligible: int, dispatched: int}
      */
     private function enrichMissingFields(bool $apply, ?int $limit): array
     {
         $cap = $limit === null ? self::ENRICH_DAILY_LIMIT : min($limit, self::ENRICH_DAILY_LIMIT);
+        $retryCutoff = now()->subDays(self::AI_RETRY_DAYS);
 
         $eligible = Restaurant::query()
             ->whereNotNull('name')
             ->whereRaw("trim(name) <> ''")
             ->where(function ($missing) {
                 $missing->whereNull('description')->orWhereRaw("trim(description) = ''")
-                    ->orWhereNull('price_range')->orWhereRaw("trim(price_range) = ''")
-                    ->orWhereNull('phone')->orWhereRaw("trim(phone) = ''")
-                    ->orWhereNull('website_url')->orWhereRaw("trim(website_url) = ''");
+                    ->orWhereNull('website_url')->orWhereRaw("trim(website_url) = ''")
+                    ->orWhereNull('address')->orWhereRaw("trim(address) = ''");
             })
             ->orderByRaw('COALESCE(popularity_score, 0) DESC')
             ->orderBy('id')
-            ->limit($cap)
-            ->get(['id', 'name']);
+            ->limit($cap * 5)
+            ->get(['id', 'name', 'ai_metadata'])
+            ->filter(function (Restaurant $restaurant) use ($retryCutoff): bool {
+                $lastAttempt = $restaurant->lastAiAttemptAt();
+
+                return $lastAttempt === null || $lastAttempt->lt($retryCutoff);
+            })
+            ->take($cap)
+            ->values();
 
         $this->enrichStats['eligible'] = $eligible->count();
 
@@ -767,76 +781,10 @@ class DataHygiene extends Command
     private function normalizeCity(?string $city, ?string $address): ?string
     {
         if ($city === null || trim($city) === '') {
-            $city = $this->deriveCityFromAddress($address);
+            $city = AddressParts::city($address);
         }
 
         return $this->titleCaseCity($city);
-    }
-
-    /**
-     * Derive a plausible city from a street address, or null when the address
-     * cannot name one. Supports the two shapes the corpus mixes:
-     *   - US style: "622 E Adams St, Phoenix, AZ 85004" — city sits right
-     *     before the "ST ZIP" tail.
-     *   - OSM style: "West Southern Avenue, 706, Mesa, 85210" — street, house
-     *     number, city, zip; city is the segment before the numeric zip.
-     * Guarded so a street-only address, an address without a city segment, or a
-     * junk tail (foreign postal codes) never yields a bogus city.
-     */
-    private function deriveCityFromAddress(?string $address): ?string
-    {
-        if ($address === null) {
-            return null;
-        }
-
-        $parts = array_values(array_filter(
-            array_map('trim', explode(',', $address)),
-            fn ($part) => $part !== ''
-        ));
-
-        $count = count($parts);
-        if ($count < 2) {
-            return null;
-        }
-
-        $last = $parts[$count - 1];
-
-        // US "ST ZIP" tail: "Phoenix, AZ 85004".
-        if (preg_match('/^[A-Z]{2}\s+\d{5}(?:-\d{4})?$/', $last) === 1) {
-            return $this->plausibleCity($parts[$count - 2]);
-        }
-
-        // OSM numeric-zip tail: "Mesa, 85210".
-        if (preg_match('/^\d{5}(?:-\d{4})?$/', $last) === 1 && $count >= 3) {
-            return $this->plausibleCity($parts[$count - 2]);
-        }
-
-        // OSM without zip: "North 28th Drive, 12418, Phoenix".
-        if ($count === 3 && preg_match('/^\d+$/', $parts[1]) === 1) {
-            return $this->plausibleCity($parts[2]);
-        }
-
-        return null;
-    }
-
-    /**
-     * A city token worth persisting, or null. Rejects digit-led tokens (house
-     * numbers, zip codes), very short tokens, and non-letter junk so nothing
-     * bogus is stored as a city.
-     */
-    private function plausibleCity(?string $candidate): ?string
-    {
-        if ($candidate === null) {
-            return null;
-        }
-
-        $candidate = trim($candidate);
-
-        if (mb_strlen($candidate) < 2 || preg_match('/^\d/', $candidate) === 1) {
-            return null;
-        }
-
-        return preg_match('/^[A-Za-z][A-Za-z .\'\-]+$/', $candidate) === 1 ? $candidate : null;
     }
 
     private function collapseWhitespace(?string $value): ?string

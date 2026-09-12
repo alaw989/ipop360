@@ -81,6 +81,7 @@ class ContextImageSearchTest extends TestCase
             'restaurant_id' => $restaurant->id,
             'platform' => 'instagram',
             'url' => 'https://www.instagram.com/curryhouseatx',
+            'verified_at' => now(),
         ]);
 
         // No website, no OSM tag → falls to the stored social handle.
@@ -89,12 +90,43 @@ class ContextImageSearchTest extends TestCase
                 '<html><head><meta property="og:image" content="https://scontent.example/prof.jpg" /></head></html>',
                 200
             ),
+            '*' => Http::response('', 404),
         ]);
 
         $result = $this->service->searchImageForRestaurant($restaurant);
 
         $this->assertSame('https://scontent.example/prof.jpg', $result['url'] ?? null, 'the stored instagram handle must yield a profile image');
         $this->assertSame('social', $result['source']);
+    }
+
+    public function test_social_image_ignores_unverified_brand_and_expiring_cdn_sources(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'name' => 'Curry House',
+            'website_url' => null,
+            'photo_url' => null,
+            'photos' => [],
+        ]);
+
+        // Unverified own profile, a verified brand account, and a verified
+        // own profile whose og:image is a signed (expiring) Instagram CDN URL.
+        RestaurantSocialLink::create(['restaurant_id' => $restaurant->id, 'platform' => 'instagram', 'url' => 'https://www.instagram.com/curryhouse_unverified']);
+        RestaurantSocialLink::create(['restaurant_id' => $restaurant->id, 'platform' => 'facebook', 'url' => 'https://www.facebook.com/CurryHouseCorporate', 'scope' => RestaurantSocialLink::SCOPE_BRAND, 'verified_at' => now()]);
+
+        Http::fake([
+            'www.instagram.com/*' => Http::response('<html><head><meta property="og:image" content="https://instagram.fabc1-1.fna.fbcdn.net/v/t51/p.jpg?oe=66AA" /></head></html>', 200),
+            'www.facebook.com/*' => Http::response('<html><head><meta property="og:image" content="https://corporate.example/logo.jpg" /></head></html>', 200),
+            '*' => Http::response('', 404),
+        ]);
+
+        $this->assertNull($this->service->searchSocialProfileImage($restaurant));
+
+        RestaurantSocialLink::query()->where('platform', 'instagram')->update(['verified_at' => now()]);
+
+        $this->assertNull(
+            $this->service->searchSocialProfileImage($restaurant->fresh() ?? $restaurant),
+            'a signed fbcdn/cdninstagram URL expires, so it is never returned for storage'
+        );
     }
 
     public function test_osm_image_tag_is_used_before_keyword_search(): void

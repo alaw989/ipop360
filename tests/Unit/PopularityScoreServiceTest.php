@@ -65,8 +65,10 @@ class PopularityScoreServiceTest extends TestCase
         // distance, no Google rating) and has_award=false is inactive (no award).
         // data_completeness (8/10=0.8, weight 0.05) plus the six always-active
         // engagement signals at 0.0 (weight 0.50 combined) share the active
-        // set: total active weight 0.55. = (0.05*0.8)/0.55 = 0.0727
-        $this->assertEqualsWithDelta(0.0727, $score, 0.001);
+        // set, plus evidence (0.35) for this unrated venue: an unchecked website
+        // scores 0.2*0.3 = 0.06 → 0.85*0.06 = 0.051. Total active weight 0.90:
+        // (0.05*0.8 + 0.35*0.051)/0.90 = 0.0643
+        $this->assertEqualsWithDelta(0.0643, $score, 0.001);
     }
 
     public function test_no_data_scores_zero(): void
@@ -107,9 +109,10 @@ class PopularityScoreServiceTest extends TestCase
         // has_award = 0 (inactive). Proximity + quality inactive.
         // data_completeness (weight 0.05) plus the six always-active engagement
         // signals at 0.0 (weight 0.50 combined) share the active set: total
-        // active weight 0.55. = (0.05*0.1)/0.55 = 0.0091.
+        // active weight 0.55, plus evidence (0.35, value 0 — no website, no
+        // corroboration) = 0.90. = (0.05*0.1)/0.90 = 0.0056.
         // (With the isFilled bug, lat/lng would count -> completeness 3/10 -> 0.3.)
-        $this->assertEqualsWithDelta(0.0091, $score, 0.001);
+        $this->assertEqualsWithDelta(0.0056, $score, 0.001);
     }
 
     public function test_high_quality_outscores_low_quality(): void
@@ -137,8 +140,10 @@ class PopularityScoreServiceTest extends TestCase
         // has_award (weight 0.05) plus data_completeness now share the active
         // set with the six always-active engagement signals (0.0, weight 0.50
         // combined) — total active weight 0.60 for $high (has_award true) vs
-        // 0.55 for $low (has_award false, inactive).
-        $this->assertGreaterThan(0.12, $highScore);
+        // 0.55 for $low (has_award false, inactive) — plus evidence (0.35) for
+        // both, since neither has a google rating: $high ≈ (0.04+0.05+0.35*0.051)/0.95
+        // = 0.1135, $low ≈ 0.015/0.90.
+        $this->assertGreaterThan(0.10, $highScore);
         $this->assertLessThan(0.05, $lowScore);
     }
 
@@ -213,6 +218,129 @@ class PopularityScoreServiceTest extends TestCase
         $this->assertGreaterThan($sparseScore, $richScore);
     }
 
+    public function test_ai_guessed_fields_do_not_count_toward_completeness(): void
+    {
+        // A price level / phone the AI "filled" (no browsing — a guess) must
+        // not make a listing look as complete as one with sourced values.
+        $sourced = $this->makeRestaurant($this->fullFreeFields() + ['website_identity' => 'verified']);
+        $guessed = $this->makeRestaurant(array_merge($this->fullFreeFields(), [
+            'ai_metadata' => ['fields_updated' => ['price_range', 'phone', 'website_url']],
+        ]));
+        $verifiedAiWebsite = $this->makeRestaurant(array_merge($this->fullFreeFields(), [
+            'ai_metadata' => ['fields_updated' => ['website_url']],
+            'website_identity' => 'verified',
+        ]));
+
+        $all = new Collection([$sourced, $guessed, $verifiedAiWebsite]);
+
+        $this->assertGreaterThan(
+            $this->service->calculateScore($guessed, $all),
+            $this->service->calculateScore($sourced, $all)
+        );
+        $this->assertSame(
+            $this->service->calculateScore($sourced, $all),
+            $this->service->calculateScore($verifiedAiWebsite, $all),
+            'an AI-suggested website that passed the identity check is real data'
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function unrated(array $extra = []): Restaurant
+    {
+        return $this->makeRestaurant(array_merge($this->fullFreeFields(), [
+            'google_rating' => null,
+            'google_review_count' => 0,
+        ], $extra));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function strongEvidence(): array
+    {
+        return [
+            'overture_sources' => 3,
+            'overture_confidence' => 1.0,
+            'overture_status' => 'open',
+            'website_identity' => 'verified',
+            'social_links_count' => 3,
+            'features' => ['outdoor_seating'],
+        ];
+    }
+
+    /**
+     * @param  array{signals: array<int, array<string, mixed>>, total: float}  $breakdown
+     * @return list<string>
+     */
+    private function labels(array $breakdown): array
+    {
+        return array_values(array_map(fn (array $s) => (string) $s['label'], $breakdown['signals']));
+    }
+
+    public function test_evidence_stands_in_for_quality_only_on_unrated_venues(): void
+    {
+        $rated = $this->makeRestaurant(array_merge($this->fullFreeFields(), $this->strongEvidence(), ['google_rating' => 4.6, 'google_review_count' => 800]));
+        $unrated = $this->unrated($this->strongEvidence());
+        $all = new Collection([$rated, $unrated]);
+
+        $ratedLabels = $this->labels($this->service->calculateBreakdown($rated, $all));
+        $unratedLabels = $this->labels($this->service->calculateBreakdown($unrated, $all));
+
+        $this->assertContains('Quality', $ratedLabels);
+        $this->assertNotContains('Verified Presence', $ratedLabels);
+        $this->assertContains('Verified Presence', $unratedLabels);
+        $this->assertNotContains('Quality', $unratedLabels);
+    }
+
+    public function test_strong_evidence_outranks_weak_evidence_among_unrated_venues(): void
+    {
+        $strong = $this->unrated($this->strongEvidence());
+        $weak = $this->unrated(['website_url' => null, 'features' => null]);
+        $all = new Collection([$strong, $weak]);
+
+        $this->assertGreaterThan(
+            $this->service->calculateScore($weak, $all),
+            $this->service->calculateScore($strong, $all)
+        );
+    }
+
+    public function test_full_evidence_beats_a_poorly_rated_venue_but_not_a_well_reviewed_one(): void
+    {
+        $strongUnrated = $this->unrated($this->strongEvidence());
+        $wellReviewed = $this->makeRestaurant(array_merge($this->fullFreeFields(), ['google_rating' => 4.7, 'google_review_count' => 2400]));
+        // Many reviews: Bayesian shrinkage barely moves it (a 9-review 3.2★ would be
+        // pulled up to ~the credible mean and legitimately outrank unknowns).
+        $poorlyRated = $this->makeRestaurant(array_merge($this->fullFreeFields(), ['google_rating' => 3.6, 'google_review_count' => 400]));
+        $all = new Collection([$strongUnrated, $wellReviewed, $poorlyRated]);
+
+        $unratedScore = $this->service->calculateScore($strongUnrated, $all);
+
+        $this->assertLessThan($this->service->calculateScore($wellReviewed, $all), $unratedScore);
+        $this->assertGreaterThan($this->service->calculateScore($poorlyRated, $all), $unratedScore);
+    }
+
+    public function test_evidence_is_capped_and_closed_places_score_zero(): void
+    {
+        $strong = $this->unrated($this->strongEvidence());
+        $closed = $this->unrated(array_merge($this->strongEvidence(), ['overture_status' => 'permanently_closed']));
+        $all = new Collection([$strong, $closed]);
+
+        $evidence = function (Restaurant $r) use ($all): array {
+            $signal = collect($this->service->calculateBreakdown($r, $all)['signals'])->firstWhere('label', 'Verified Presence');
+            $this->assertIsArray($signal, 'unrated venues carry a Verified Presence signal');
+
+            return $signal;
+        };
+
+        $strongSignal = $evidence($strong);
+        $this->assertSame(0.85, $strongSignal['normalized']);
+        $this->assertSame(0.0, $evidence($closed)['normalized']);
+        $this->assertStringContainsString('Not yet rated', (string) $strongSignal['detail']);
+        $this->assertStringContainsString('confirmed by 3 independent data source(s)', (string) $strongSignal['detail']);
+    }
+
     public function test_log_normalization_contains_outlier(): void
     {
         // A 5000-review outlier must not crush everyone else toward zero the way
@@ -238,8 +366,8 @@ class PopularityScoreServiceTest extends TestCase
         // (no distance, Yelp-only) and has_award=false is inactive.
         // data_completeness (8/10=0.8, weight 0.05) plus the six always-active
         // engagement signals at 0.0 (weight 0.50 combined) share the active
-        // set: total active weight 0.55. = (0.05*0.8)/0.55 = 0.0727
-        $this->assertEqualsWithDelta(0.0727, $venueScore, 0.001);
+        // set, plus evidence (0.35 at 0.051): (0.05*0.8 + 0.35*0.051)/0.90 = 0.0643
+        $this->assertEqualsWithDelta(0.0643, $venueScore, 0.001);
     }
 
     public function test_log_floor_prevents_compression(): void
@@ -544,12 +672,15 @@ class PopularityScoreServiceTest extends TestCase
         $all = new Collection([$linkRich, $linkSparse]);
 
         // Review-scale floor (500) — squashes the spread.
-        $reviewFloorService = new PopularityScoreService(null, 500, null, null, null, 500);
+        // social_links_count is weighted 0 by default since phase 4 (it is a
+        // component of evidence); weight it explicitly to test its log floor.
+        $weights = ['data_completeness' => 0.05, 'social_links_count' => 0.20];
+        $reviewFloorService = new PopularityScoreService($weights, 500, null, null, null, 500);
         $reviewGap = $reviewFloorService->calculateScore($linkRich, $all)
             - $reviewFloorService->calculateScore($linkSparse, $all);
 
         // Social-scale floor (10) — the signal now meaningfully separates.
-        $socialFloorService = new PopularityScoreService(null, 500, null, null, null, 10);
+        $socialFloorService = new PopularityScoreService($weights, 500, null, null, null, 10);
         $socialGap = $socialFloorService->calculateScore($linkRich, $all)
             - $socialFloorService->calculateScore($linkSparse, $all);
 

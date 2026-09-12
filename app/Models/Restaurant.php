@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\PhotoSourceTier;
 use App\Support\SqlDialect;
+use Carbon\CarbonImmutable;
 use Database\Factories\RestaurantFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -39,12 +40,19 @@ class Restaurant extends Model
         'phone',
         'website_url',
         'website_verified_at',
+        'website_identity',
         'price_range',
         'photo_url',
         'photo_source',
         'photo_verified_at',
         'photos',
         'google_place_id',
+        'overture_id',
+        'overture_confidence',
+        'overture_sources',
+        'overture_status',
+        'overture_checked_at',
+        'field_sources',
         'yelp_business_id',
         'google_rating',
         'google_review_count',
@@ -83,6 +91,10 @@ class Restaurant extends Model
         'photos' => 'array',
         'photo_verified_at' => 'datetime',
         'website_verified_at' => 'datetime',
+        'overture_confidence' => 'float',
+        'overture_sources' => 'integer',
+        'overture_checked_at' => 'datetime',
+        'field_sources' => 'array',
         'score_breakdown' => 'array',
         'has_award' => 'boolean',
         'is_active' => 'boolean',
@@ -142,17 +154,40 @@ class Restaurant extends Model
      * otherwise every distinct platform row regardless of reachability
      * (pre-spec-109 behavior, the kill-switch fallback). Callers that create/
      * recompute rows on $this->socialLinks() should re-count via this method
-     * rather than a bare count() so the two never drift.
+     * rather than a bare count() so the two never drift. Brand-scoped links (a
+     * corporate account shared by many locations) never count: they say
+     * nothing about this venue.
      */
     public function countScoredSocialLinks(): int
     {
-        $query = $this->socialLinks();
+        $query = $this->socialLinks()->where('scope', RestaurantSocialLink::SCOPE_LOCATION);
 
         if (config('restaurant-finder.require_verified_social_links', true)) {
             $query->whereNotNull('verified_at');
         }
 
         return $query->count();
+    }
+
+    /**
+     * When the AI last looked at this row: its last enrichment, or a later
+     * attempt whose answer was unusable. Null when never tried. Every path
+     * that queues EnrichRestaurantWithAi gates on this, so a row the AI
+     * couldn't help isn't re-sent each run.
+     */
+    public function lastAiAttemptAt(): ?CarbonImmutable
+    {
+        $metadata = is_array($this->ai_metadata) ? $this->ai_metadata : [];
+        $last = null;
+
+        foreach (['enriched_at', 'attempted_at'] as $key) {
+            if (is_string($metadata[$key] ?? null) && $metadata[$key] !== '') {
+                $at = CarbonImmutable::parse($metadata[$key]);
+                $last = $last === null || $at->gt($last) ? $at : $last;
+            }
+        }
+
+        return $last;
     }
 
     /**
@@ -297,6 +332,7 @@ class Restaurant extends Model
         $columns = implode(', ', [
             'id', 'slug', 'name', 'description', 'address', 'city', 'state',
             'postal_code', 'latitude', 'longitude', 'phone', 'website_url',
+            'website_identity', 'overture_confidence', 'overture_sources', 'overture_status',
             'price_range', 'photo_url', 'source', 'google_place_id',
             'yelp_business_id', 'google_rating', 'google_review_count',
             'yelp_rating', 'yelp_review_count', 'popular_times_avg_busyness',

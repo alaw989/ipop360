@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\Restaurant;
 use App\Services\RestaurantWebsiteScraperService;
+use App\Services\SocialLinkRecorder;
+use App\Services\WebsiteIdentityVerifier;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -14,12 +16,17 @@ class ScrapeRestaurantSocialLinks extends Command
 
     protected $description = 'Scrape restaurant websites for social media links';
 
-    public function handle(RestaurantWebsiteScraperService $scraper): int
+    public function handle(RestaurantWebsiteScraperService $scraper, SocialLinkRecorder $recorder): int
     {
+        // A website the identity check rejected belongs to someone else — its
+        // socials would be that business's, not this restaurant's.
         $query = Restaurant::query()
             ->active()
             ->whereNotNull('website_url')
-            ->where('website_url', '!=', '');
+            ->where('website_url', '!=', '')
+            ->where(function ($q) {
+                $q->whereNull('website_identity')->orWhere('website_identity', '!=', WebsiteIdentityVerifier::REJECTED);
+            });
 
         $totalWithWebsites = $query->count();
         $force = $this->option('force');
@@ -57,7 +64,7 @@ class ScrapeRestaurantSocialLinks extends Command
         $errors = 0;
         $scrapedRestaurants = [];
 
-        $query->chunkById(50, function ($restaurants) use ($scraper, &$scraped, &$skipped, &$errors, &$scrapedRestaurants, $bar) {
+        $query->chunkById(50, function ($restaurants) use ($scraper, $recorder, &$scraped, &$skipped, &$errors, &$scrapedRestaurants, $bar) {
             foreach ($restaurants as $restaurant) {
                 $startTime = microtime(true);
 
@@ -67,22 +74,7 @@ class ScrapeRestaurantSocialLinks extends Command
                     $elapsed = (microtime(true) - $startTime) * 1000;
 
                     if ($links !== null) {
-                        $restaurant->socialLinks()->delete();
-
-                        $platforms = [];
-                        $now = now();
-                        foreach ($links as $platform => $url) {
-                            $verified = $scraper->verifyProfileUrl($url);
-                            $restaurant->socialLinks()->create([
-                                'platform' => $platform,
-                                'url' => $url,
-                                'verified_at' => $verified ? $now : null,
-                                'last_check_failed_at' => $verified ? null : $now,
-                            ]);
-                            $platforms[] = $platform.($verified ? '' : ':unverified');
-                        }
-
-                        $restaurant->update(['social_links_count' => $restaurant->countScoredSocialLinks()]);
+                        $platforms = $recorder->record($restaurant, $links);
                         $scraped++;
 
                         $scrapedRestaurants[] = [

@@ -66,13 +66,14 @@ vi.mock('@/composables/useRestaurantDisplay', () => ({
   getRestaurantGradient: vi.fn(() => 'linear-gradient(to bottom, #1a1a2e, #16213e)'),
 }))
 
-vi.mock('@/lib/restaurant', () => ({
+vi.mock('@/lib/restaurant', async (importOriginal) => ({
   callPhone: mockCallPhone,
   openWebsite: mockOpenWebsite,
   trackDirections: mockTrackDirections,
   trackPageview: mockTrackPageview,
   trackMenuClick: mockTrackMenuClick,
   directionsUrl: mockDirectionsUrl,
+  formatFullAddress: (await importOriginal<typeof import('@/lib/restaurant')>()).formatFullAddress,
 }))
 
 watch: false
@@ -256,6 +257,19 @@ describe('Restaurants/Show', () => {
       expect(wrapper.text()).toContain('New York')
       expect(wrapper.text()).toContain('NY')
       expect(wrapper.text()).toContain('10001')
+    })
+
+    it('does not repeat the city and state a full address already contains', () => {
+      const wrapper = mountComponent({
+        restaurant: makeRestaurant({
+          address: '3600 Presidential Blvd, Austin, TX 78719',
+          city: 'austin',
+          state: 'TX',
+          postal_code: null,
+        }),
+      })
+      expect(wrapper.text()).toContain('3600 Presidential Blvd, Austin, TX 78719')
+      expect(wrapper.text()).not.toContain('78719, austin')
     })
 
     it('does not render address section when address is null', () => {

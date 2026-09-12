@@ -33,5 +33,6 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="WEBSITE_DEAD_DOMAIN_CHECK" value="false"/>
     </php>
 </phpunit>

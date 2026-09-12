@@ -52,9 +52,11 @@ class SchedulerHealthTest extends TestCase
         $schedule = app(Schedule::class);
         foreach ($schedule->events() as $event) {
             $prefixed = "'/usr/bin/php' 'artisan' ".trim((string) preg_replace('/^\S+\s+\S+\s+/', '', $event->command ?? ''));
-            $startedAt = CronExpression::factory($event->getExpression())
-                ->getPreviousRunDate(now(), 0, true)
-                ->format('Y-m-d\TH:i:s+00:00');
+            $previousSlot = CronExpression::factory($event->getExpression())->getPreviousRunDate(now(), 0, true);
+            if ($previousSlot < now()->subDays(7)) {
+                continue; // no slot inside the 7-day window (e.g. the monthly Overture import) — it would not have fired
+            }
+            $startedAt = $previousSlot->format('Y-m-d\TH:i:s+00:00');
             $lines[] = $this->telemetryLine('Scheduled command started', $prefixed, ['started_at' => $startedAt]);
             $lines[] = $this->telemetryLine('Scheduled command completed', $prefixed, ['runtime_seconds' => 0.5]);
         }

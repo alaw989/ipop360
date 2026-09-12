@@ -70,6 +70,22 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
         $this->assertArrayHasKey('opening_hours', $result);
     }
 
+    public function test_robots_txt_with_invalid_utf8_is_cached_as_valid_utf8(): void
+    {
+        Http::fake([
+            // A Latin-1 byte in a comment, as in alaskaair.com's robots.txt.
+            'https://example.com/robots.txt' => Http::response("#Updated 2/24/2025 \xD0 2:00pm PT\nUser-agent: *\nDisallow: /admin", 200),
+            'https://example.com/' => Http::response('<html><body><div itemprop="openingHours">Mo-Fr 09:00-17:00</div></body></html>', 200),
+        ]);
+
+        $this->assertIsArray($this->service->scrape('https://example.com/'));
+
+        $cached = Cache::get('robots_txt:example.com');
+        $this->assertIsString($cached);
+        $this->assertTrue(mb_check_encoding($cached, 'UTF-8'), 'the database cache store rejects invalid UTF-8');
+        $this->assertStringContainsString('Disallow: /admin', $cached);
+    }
+
     public function test_scrape_proceeds_when_robots_txt_missing(): void
     {
         Http::fake([
@@ -673,6 +689,46 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
         $this->assertNotNull($result);
         $this->assertArrayHasKey('facebook', $result);
         $this->assertEquals('https://www.facebook.com/RealPage', $result['facebook']);
+    }
+
+    public function test_scrape_social_ignores_namespace_pixel_and_builder_footer_links(): void
+    {
+        // Real-world markup that the old raw regex turned into "social links"
+        // on thousands of prod rows: the xmlns:fb namespace URI (2008/fbml),
+        // the Meta Pixel noscript image (/tr), an id-less profile.php, a
+        // tweet-intent button and the site builder's own footer accounts.
+        $html = '<html xmlns:fb="http://www.facebook.com/2008/fbml"><head>'
+            .'<noscript><img height="1" width="1" src="https://www.facebook.com/tr?id=123456789&ev=PageView&noscript=1"/></noscript>'
+            .'</head><body>'
+            .'<a href="https://www.facebook.com/profile.php">Facebook</a>'
+            .'<a href="https://twitter.com/intent/tweet?text=Great+tacos">Tweet this</a>'
+            .'<footer>Powered by <a href="https://www.instagram.com/squarespace">Squarespace</a> <a href="https://www.facebook.com/wix">Wix</a></footer>'
+            .'</body></html>';
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/*' => Http::response($html, 200),
+        ]);
+
+        $this->assertNull($this->service->scrapeSocial('https://example.com'));
+    }
+
+    public function test_scrape_social_prefers_json_ld_same_as_and_canonicalizes(): void
+    {
+        $html = '<html><head><script type="application/ld+json">'
+            .'{"@context":"https://schema.org","@type":"Restaurant","name":"Blue Heron Bistro",'
+            .'"sameAs":["https://m.facebook.com/BlueHeronBistro/","https://instagram.com/blueheron.bistro/"]}'
+            .'</script></head><body><a href="https://www.facebook.com/SomeOtherPage">Friends</a></body></html>';
+
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/*' => Http::response($html, 200),
+        ]);
+
+        $this->assertSame([
+            'facebook' => 'https://www.facebook.com/BlueHeronBistro',
+            'instagram' => 'https://www.instagram.com/blueheron.bistro',
+        ], $this->service->scrapeSocial('https://example.com'));
     }
 
     public function test_verify_profile_url_returns_true_for_a_reachable_url(): void

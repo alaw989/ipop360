@@ -51,7 +51,13 @@ Verify: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8090/` should r
 **Prod runs MySQL**, not SQLite — flipped 2026-08-03 (see
 `specs/104-infra-mysql-migration.md`) specifically to kill `database is locked`
 errors from concurrent writers. The live droplet is at `167.71.107.253` (SSH
-key `~/.ssh/droplet-vp-nuxt`), MySQL creds in the droplet's `.env` (`DB_*`).
+as `root` with whichever key is authorized on this machine — `~/.ssh/droplet-vp-nuxt`
+on the original dev box, `~/.ssh/id_ed25519_nopass` on the Steam Deck; add
+`-o IdentitiesOnly=yes -i <key>`), MySQL creds in the droplet's `.env` (`DB_*`).
+To avoid a temp file on the droplet, you can also stream the dump straight to
+your machine: `ssh … 'bash -s' > dump.sql.gz` with a script that reads `DB_*`
+from the droplet `.env` and pipes `mysqldump --single-transaction --no-tablespaces
+--set-gtid-purged=OFF` into `gzip`.
 `mysqldump --single-transaction` takes a consistent snapshot without locking
 out live writers, so there's no PDO-export dance needed anymore:
 

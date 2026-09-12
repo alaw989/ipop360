@@ -43,6 +43,11 @@ class RestaurantFinderConfigInvariantTest extends TestCase
         'live_search.min_score' => [0, 1],
         'trending.min_popularity_score' => [0, 1],
         'dedup.name_similarity_threshold' => [0, 100],
+        'ranking.evidence_cap' => [0, 1],
+        'data_integrity.address_zip_far_km' => [1, 100],
+        'data_integrity.address_zip_unmatched_far_km' => [10, 1000],
+        'data_integrity.city_place_far_km' => [1, 100],
+        'data_integrity.city_unmatched_far_km' => [10, 1000],
     ];
 
     /** Operational sections (i.e. the config minus the data catalogs). */
@@ -61,6 +66,8 @@ class RestaurantFinderConfigInvariantTest extends TestCase
         'trending',
         'homepage',
         'favorites',
+        'data_integrity',
+        'overture',
     ];
 
     /** Knobs whose committed value is intentionally a string. */

@@ -17,7 +17,8 @@ restaurant:
 |---|---|---|---|
 | **Quality** | 0.35 | Bayesian-weighted rating (rating × review credibility) | SerpApi (Google Maps) |
 | **Website Traffic** | 0.20 | Clicks on the website link from search results | engagement tracking |
-| **Social Presence** | 0.20 | Distinct social platforms found on the venue's own site | website social scrape |
+| **Verified Presence** | 0.35 (unrated venues only — the stand-in for Quality) | Independent-source corroboration, verified own website, verified location social profiles, OSM detail | Overture Maps + identity checks |
+| **Social Presence** | 0.0 (retired; now part of Verified Presence) | Verified location-scoped social profiles | website social scrape |
 | **Proximity** | 0.15 | How close the restaurant is to the user (live search only) | user's lat/lng |
 | **Page Views** | 0.10 | Detail-page views | engagement tracking |
 | **Award** | 0.05 | Whether it has a Michelin star in Wikidata | Wikidata (free) |
@@ -55,10 +56,11 @@ Q = (reviews / (reviews + 50)) × rating + (50 / (reviews + 50)) × credible_mea
 - **Many reviews** (e.g., 500): 91% of Q comes from the venue's own rating.
 - **Few reviews** (e.g., 3): 94% comes from the credible mean — the data isn't
   trusted yet.
-- **No rating at all**: the quality signal is **dropped entirely** for that
-  venue. Because a missing rating leaves only low-weight signals active, an
-  unrated venue's ceiling is far below a rated venue's floor — by design,
-  rated venues rank above unrated ones.
+- **No rating at all**: the quality signal is dropped for that venue and
+  **Verified Presence** takes its slot at the same weight (below). Its value
+  is capped at 0.85 (≈ a 4.25★ Bayesian quality), so a well-evidenced
+  unknown can pass weakly rated venues but never a well-reviewed one. Cards
+  label these venues **"Not yet rated"**.
 
 The **credible mean** is the average rating of restaurants with 50+ reviews in
 the scored collection (excluding the 0,0 null-island artifact).
@@ -81,12 +83,23 @@ score = 1 / (1 + distance_km / 2)
 Proximity requires a `distance` value, which only `scopeNearby` / live search
 provide. **The persisted daily score never includes it.**
 
-### Social Presence (0.20)
+### Verified Presence (0.35) — unrated venues only
 
-Count of distinct platforms (instagram, facebook, tiktok, twitter, youtube)
-found by regex on the venue's own website. Note: **0 means "no data"** — the
-venue may not be scraped, have no website, or genuinely have no links. The
-signal rewards presence; it never penalizes absence.
+About 90% of venues have no rating: ratings are a walled garden, and SerpApi's 250 calls a month is the only free source. Verified Presence ranks them on public evidence that they are real, going concerns. It is a weighted mean:
+
+| Component | Weight |
+|---|---|
+| Corroboration: how many independent datasets Overture merged for the place | 30% |
+| Overture's existence confidence | 20% |
+| Website identity (verified own site › brand homepage › unchecked) | 20% |
+| Verified location-scoped social profiles | 15% |
+| OSM detail tags | 15% |
+
+The result is capped at 0.85. A place Overture reports permanently closed scores 0. The breakdown line spells out what was verified, e.g. "Not yet rated — ranked on verified public data: confirmed by 3 independent data source(s), verified own website."
+
+### Social Presence (retired as a standalone signal)
+
+Raw social-link counts used to order the unrated 90%, and they were dominated by junk: the `facebook.com/2008` namespace URI, the Meta Pixel, and corporate accounts shared by every chain location. Only validated, verified, location-scoped profiles count now, and only as a component of Verified Presence.
 
 ### Award (0.05)
 

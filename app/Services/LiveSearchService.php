@@ -269,7 +269,8 @@ class LiveSearchService
                 $lat,
                 $lng,
                 $queryCuisine,
-                $cacheKey
+                $cacheKey,
+                ['context' => 'live'],
             );
 
             // Debit the per-IP limiter only when the fetch actually succeeded

@@ -6,6 +6,7 @@ use App\Jobs\EnrichNewRestaurantPhoto;
 use App\Jobs\EnrichRestaurantWithAi;
 use App\Models\Cuisine;
 use App\Models\Restaurant;
+use App\Support\AddressParts;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -21,6 +22,7 @@ class LiveVenuePersister
         private RestaurantValidationService $restaurantValidation,
         private CuisineMatcher $cuisineMatcher,
         private GeolocationService $geolocationService,
+        private RestaurantFieldMerger $fieldMerger = new RestaurantFieldMerger,
     ) {}
 
     /**
@@ -34,8 +36,10 @@ class LiveVenuePersister
      */
     public function persist(array $venue, array $cuisineIds = [], ?array $defaultLocation = null): array
     {
-        $city = $venue['city'] ?? ($defaultLocation['city'] ?? null);
-        $state = $venue['state'] ?? ($defaultLocation['state'] ?? null);
+        // The venue's own address before the search location's city: a search
+        // reaches the next town over.
+        $city = $venue['city'] ?? AddressParts::city($venue['address'] ?? null) ?? ($defaultLocation['city'] ?? null);
+        $state = $venue['state'] ?? AddressParts::state($venue['address'] ?? null) ?? ($defaultLocation['state'] ?? null);
 
         $attributes = [
             'name' => $venue['name'] ?? 'Unknown',
@@ -89,6 +93,13 @@ class LiveVenuePersister
             // by the website scraper or RestaurantEnrichmentService.
             unset($attributes['opening_hours']);
             $attributes = $this->guardTransientPhotos($restaurant, $attributes);
+            // The live score is not a stored field the merger reasons about;
+            // keep writing it as before, but never as a null.
+            $liveScore = $attributes['popularity_score'] ?? null;
+            $attributes = $this->fieldMerger->forExisting($restaurant, $attributes);
+            if ($liveScore !== null) {
+                $attributes['popularity_score'] = $liveScore;
+            }
             $restaurant->update($attributes);
         } else {
             $restaurant = Restaurant::create($attributes);

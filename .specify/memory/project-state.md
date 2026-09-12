@@ -132,11 +132,119 @@ spec-100, the highest-risk item).
 
 ## In-flight work (check before starting anything new)
 
-Nothing in flight as of 2026-09-02 — working tree clean, zero open PRs, local
-`master` fast-forwarded to `origin/master`. Always check `git status` +
-`ITERATION_NOTES.md` before starting a new backlog goal; don't stack a new
-loop branch on top of unfinished/uncommitted work. Next queued work is specs
-101–103 (see `backlog.md`).
+**Data-integrity + ranking overhaul (started 2026-09-10).** Built directly by
+Claude: an operator decision that overrides the opencode-loop rule below for
+this judgment-heavy work. The local-first gate still applies: no push, PR,
+deploy, or prod-data change without an explicit OK. Four stacked phases, one
+PR each:
+
+1. **`feat/data-integrity-verify` — stop writing junk.**
+   - `WebsiteIdentityVerifier` gates every searched, guessed, or AI-suggested
+     website.
+   - The cache backfill matches by location; it used to match by name alone
+     across cities.
+   - `SocialProfileUrl` + `SocialLinkRecorder`: no pixel or namespace URIs, and
+     corporate accounts are brand-scoped (not scored).
+   - The AI never overwrites addresses and never writes phone or price.
+   - A `field_quarantine` table + `FieldQuarantineService` make every removal
+     reversible.
+2. **Reversible bulk cleanup** of existing prod junk (`restaurants:integrity`).
+3. **Overture Maps monthly import** (free; attribution required).
+4. **Evidence-based ranking** for the 88% unrated, plus SerpApi yield targeting.
+
+**The prod baseline that motivated it (2026-09-10, read-only):**
+- Websites on 96% of rows; 2,443 of them are dictionary, encyclopedia, or IMDb
+  pages.
+- 1,920 of 4,892 rated rows share an exact rating + review count with a
+  restaurant in another city (from the name-only cache matching).
+- 13,180 restaurants (32%) carry shared or junk social URLs.
+- 3,663 addresses were rewritten by the AI.
+
+A local prod clone lives in MariaDB `ipop360_prodclone`; run commands against
+it with `php artisan --env=prodclone` (see AGENTS.md). Specs 102–103 stay
+queued behind this work (see `backlog.md`).
+
+**Status (2026-09-10): phases 1–2 SHIPPED; phases 3–4 in progress.**
+
+- **Merged and verified:** PR #169 (phase 1) and PR #170 (phase 2) merged,
+  deployed, and browser-verified live.
+- **Prod cleanup applied** after a full DB backup
+  (`/root/ipop360-backups/ipop360-pre-integrity-20260910T191913Z.sql.gz` on
+  the droplet; the apply log is alongside it).
+
+| What was cleaned | Count |
+|---|---|
+| Websites (+ photos/socials scraped from them; 245 were the venue's own social profiles → moved to social links) | 4,014 |
+| Junk social links (+ 3,935 canonicalized) | 5,420 |
+| Corporate accounts re-scoped `brand` | 1,181 shared URLs |
+| Copied ratings (owner kept in 181 clusters) | 835 |
+| Copied phones | 1,283 |
+| Wrong-state addresses | 424 |
+| AI guesses | 3,139 |
+
+- **Totals:** 20,705 values in `field_quarantine`. Undo any detector with
+  `php artisan restaurants:integrity --restore=<reason>`, then
+  `restaurants:score`.
+- **After the rescore:** the scorecard reads 0 on all 7 detectors. Rated
+  restaurants: 4,058 (9.9%). `social_links_count` is active on 20.1% (was
+  52%).
+- **Follow-up PR:** `restaurants:verify-websites` runs daily at 2000/run
+  (16:00 UTC), and a weekly report-only `restaurants:integrity` runs Mondays
+  11:15.
+- **Local `.env` note:** it has stale `LIVE_SEARCH_MAX_RESULTS=30` and
+  `RANK_WEIGHT_*` values that skew `ranking:audit` and fail two config-default
+  tests. Use the prod clone env for audits. To run the tests like CI, create an
+  empty `.env.testing`: with APP_ENV=testing, Laravel then loads it instead of
+  `.env`. Run `vendor/bin/phpunit` directly, not `php artisan test`, which
+  boots with `.env` first and leaks its values into the child process.
+
+**Status (2026-09-11): phases 3–4 SHIPPED, plus fixes #175–#178 and #181.**
+- **Phase 3:** Overture import #172–#174, first applied on prod 09-11.
+  Scheduled on the 25th at 20:00 UTC.
+- **#175:** enrichment's `processFreeVenue` and `LiveVenuePersister` were
+  nulling stored fields and reopening closures on every source match. The
+  shared `RestaurantFieldMerger` now decides what a source record may change.
+  Prod repaired (see `history.md`).
+- **#176:** Overture-filled websites are queued first for identity checks.
+- **#177:** live search drops rows matching a nearby closed restaurant instead
+  of re-creating it.
+- **#178:** a website whose domain no longer exists is rejected as
+  `dead_domain`; `restaurants:verify-websites --unreachable` re-checks rows
+  with a check date but no verdict.
+- **#181:** an address whose ZIP is far from the pin (`App\Support\ZipLocation`,
+  Census ZCTA centroids) is replaced by `overture:import` with the matched
+  place's address, or removed by `restaurants:integrity
+  address_far_from_location` when there's no Overture match. No write path
+  fills a far ZIP.
+- **Backups on the droplet** (`/root/ipop360-backups/`): pre-integrity,
+  pre-overture, pre-restore, pre-dead-domain, pre-address-fix.
+- **Phase 4** (#179, #180): the evidence signal, "Not yet rated" on result
+  cards, and per-call SerpApi yield logging (`serpapi_call_log` yield columns,
+  shown in `quota:status`). Calibration and the evidence-cap choice are in
+  `docs/ranking-metrics.md`.
+- **Prod env check (2026-09-12):** `ENRICH_MONTHLY_BUDGET` is 150 on prod, not
+  250, and the budget counts every SerpApi call, so it can't overspend. The AI
+  fallback is dead: the droplet `.env` pins the retired Azure URL and the
+  deploy injects a GitHub token as `AI_FALLBACK_KEY` (see `backlog.md`).
+
+**Status (2026-09-12): AI enrichment flood fixed (#183).** `restaurants:ai-enrich`
+had been queueing ~40k jobs every 6 hours, ~163k failed calls a day against
+Groq's free tier (~350 answers a day). Providers now cool down after a
+failure, and each run queues at most `AI_ENRICH_PER_RUN` (75) jobs spread
+over 6 hours, never-tried rows first, with a 30-day retry
+(`AI_ENRICH_RETRY_DAYS`). See `history.md`.
+
+**Status (2026-09-12): wrong cities (#184).** `restaurants:integrity
+city_far_from_location` corrects a city or state that isn't where the pin is:
+the state from a ZIP at the pin (`ZipLocation::state()`), the city from the
+row's own address, checked against Census places (`PlaceLocation`). Enrichment
+no longer stores the search grid's name on venues whose address names their
+town. Corrections are restorable (`--restore=city_far_from_location`,
+`--restore=city_grid_label`). Applied on prod 2026-09-12 20:04 UTC (backup
+`ipop360-pre-city-fix-20260912T200403Z.sql.gz`), browser-verified. `pint.json`
+now keeps Pint off the generated `database/data` files (#186): uncached, they
+pushed the deploy's quality job past its timeout.
+
 
 ## Binding process rules (opencode-loop workflow)
 

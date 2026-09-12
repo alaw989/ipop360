@@ -1,5 +1,33 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { callPhone, openWebsite, mapsUrl, directionsUrl } from '@/lib/restaurant';
+import { callPhone, openWebsite, mapsUrl, directionsUrl, formatFullAddress } from '@/lib/restaurant';
+
+describe('formatFullAddress', () => {
+    it('does not repeat a city, state or ZIP the address already contains', () => {
+        expect(formatFullAddress({ address: '3600 Presidential Blvd, Austin, TX 78719', city: 'austin', state: 'TX', postal_code: '78719' }))
+            .toBe('3600 Presidential Blvd, Austin, TX 78719');
+        // "North Charleston" already names Charleston.
+        expect(formatFullAddress({ address: '7811 Rivers Ave, North Charleston, SC 29406', city: 'Charleston', state: 'SC' }))
+            .toBe('7811 Rivers Ave, North Charleston, SC 29406');
+    });
+
+    it('appends what the address lacks, title-casing a lowercase city', () => {
+        expect(formatFullAddress({ address: 'Research Boulevard, 13376', city: 'austin', state: 'TX', postal_code: '78750' }))
+            .toBe('Research Boulevard, 13376, Austin, TX 78750');
+        expect(formatFullAddress({ address: 'North Lamar Boulevard, 600, Austin, 78703', city: 'austin', state: 'TX', postal_code: '78703' }))
+            .toBe('North Lamar Boulevard, 600, Austin, TX 78703');
+        expect(formatFullAddress({ address: '100 Main St', city: 'salt lake city', state: null }))
+            .toBe('100 Main St, Salt Lake City');
+    });
+
+    it('keeps a mixed-case city as stored and matches a 2-letter state only in capitals', () => {
+        expect(formatFullAddress({ address: '12 Walk in Way', city: 'McAllen', state: 'IN' }))
+            .toBe('12 Walk in Way, McAllen, IN');
+    });
+
+    it('works without an address', () => {
+        expect(formatFullAddress({ address: null, city: 'Tampa', state: 'FL', postal_code: '33607' })).toBe('Tampa, FL 33607');
+    });
+});
 
 describe('mapsUrl / directionsUrl (pure URL builders)', () => {
     it('mapsUrl encodes name + city', () => {

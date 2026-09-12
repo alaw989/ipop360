@@ -39,7 +39,9 @@ class SchedulerManifestTest extends TestCase
         'restaurants:data-hygiene --apply --limit=200' => '0 1 * * *',
         'restaurants:ai-enrich' => '0 */6 * * *',
         'restaurants:coverage' => '0 11 * * 1',
-        'restaurants:verify-websites --limit=200' => '0 11 * * 0',
+        'restaurants:verify-websites --limit=2000' => '0 16 * * *',
+        'restaurants:integrity --sample=0' => '15 11 * * 1',
+        'overture:import --apply' => '0 20 25 * *',
         'scheduler:health' => '0 15 * * *',
     ];
 
