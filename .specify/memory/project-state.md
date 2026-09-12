@@ -240,8 +240,10 @@ the state from a ZIP at the pin (`ZipLocation::state()`), the city from the
 row's own address, checked against Census places (`PlaceLocation`). Enrichment
 no longer stores the search grid's name on venues whose address names their
 town. Corrections are restorable (`--restore=city_far_from_location`,
-`--restore=city_grid_label`). Prod apply follows the usual report → backup →
-apply → browser-check steps, each with an OK.
+`--restore=city_grid_label`). Applied on prod 2026-09-12 20:04 UTC (backup
+`ipop360-pre-city-fix-20260912T200403Z.sql.gz`), browser-verified. `pint.json`
+now keeps Pint off the generated `database/data` files (#186): uncached, they
+pushed the deploy's quality job past its timeout.
 
 
 ## Binding process rules (opencode-loop workflow)

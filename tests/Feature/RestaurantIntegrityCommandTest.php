@@ -255,6 +255,27 @@ class RestaurantIntegrityCommandTest extends TestCase
         $this->assertSame(['Washington Dc', 'DC'], $place($label));
     }
 
+    public function test_an_address_naming_the_search_city_across_a_state_line_is_no_evidence(): void
+    {
+        $at = fn (string $address, string $zip, float $lat, float $lng) => $this->restaurant(
+            ['city' => 'Washington Dc', 'state' => 'DC', 'address' => $address, 'postal_code' => $zip, 'latitude' => $lat, 'longitude' => $lng]
+        );
+        // National Harbor, MD and Annandale, VA venues whose source wrote the
+        // search's city into the address. The ZIP settles the state; the city
+        // is unknown, not "Washington, MD".
+        $harbor = $at('151 American Way, Washington, DC 20745', '20745', 38.7842, -77.0156);
+        $annandale = $at('7131 Little River Turnpike, Washington DC, DC 22003', '22003', 38.8288, -77.1917);
+        // A town the Census doesn't list as a place: the ZIP vouches for it.
+        $natick = $this->restaurant(['city' => 'Worcester', 'state' => 'MA', 'address' => '58 Main St, Natick, MA 01760', 'postal_code' => null, 'latitude' => 42.2835, 'longitude' => -71.3495]);
+
+        $this->integrity(['--apply' => true, '--only' => ['city_far_from_location']])->assertSuccessful();
+
+        $place = fn (Restaurant $r) => [$r->fresh()?->city, $r->fresh()?->state];
+        $this->assertSame([null, 'MD'], $place($harbor));
+        $this->assertSame([null, 'VA'], $place($annandale));
+        $this->assertSame(['Natick', 'MA'], $place($natick));
+    }
+
     public function test_ai_guesses_are_quarantined_but_verified_ai_websites_stay(): void
     {
         $guess = $this->restaurant(['price_range' => '$$', 'ai_metadata' => ['fields_updated' => ['price_range', 'description']]]);
