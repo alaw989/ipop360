@@ -222,9 +222,17 @@ queued behind this work (see `backlog.md`).
   cards, and per-call SerpApi yield logging (`serpapi_call_log` yield columns,
   shown in `quota:status`). Calibration and the evidence-cap choice are in
   `docs/ranking-metrics.md`.
-- **Unverified prod env drifts:** `ENRICH_MONTHLY_BUDGET=250` takes the whole
-  SerpApi quota, and the AI fallback still points at the retired Azure
-  endpoint.
+- **Prod env check (2026-09-12):** `ENRICH_MONTHLY_BUDGET` is 150 on prod, not
+  250, and the budget counts every SerpApi call, so it can't overspend. The AI
+  fallback is dead: the droplet `.env` pins the retired Azure URL and the
+  deploy injects a GitHub token as `AI_FALLBACK_KEY` (see `backlog.md`).
+
+**Status (2026-09-12): AI enrichment flood fixed (#183).** `restaurants:ai-enrich`
+had been queueing ~40k jobs every 6 hours, ~163k failed calls a day against
+Groq's free tier (~350 answers a day). Providers now cool down after a
+failure, and each run queues at most `AI_ENRICH_PER_RUN` (75) jobs spread
+over 6 hours, never-tried rows first, with a 30-day retry
+(`AI_ENRICH_RETRY_DAYS`). See `history.md`.
 
 
 ## Binding process rules (opencode-loop workflow)
