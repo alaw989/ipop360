@@ -638,8 +638,11 @@ class RestaurantIntegrity extends Command
      * ZIP, if any, is near the pin: a copied address names the copy's city).
      * The state comes from the ZIP, never the address text, which some sources
      * build with the search's state ("Silver Spring, DC 20910"). The city must
-     * be a place at the pin in that state, or no Census place at all (a
-     * township, a neighborhood) with a ZIP to vouch for it.
+     * be a place at the pin in that state, or a name the Census doesn't list
+     * there (a New England town, a township, a neighborhood) with a ZIP to
+     * vouch for it, unless that name is a place at the pin across a state
+     * line: the search's city written into the address ("151 American Way,
+     * Washington, DC 20745" on a National Harbor, MD venue).
      *
      * @return array{city: string, state: string}|null
      */
@@ -651,9 +654,15 @@ class RestaurantIntegrity extends Command
             return null;
         }
 
+        // A search label glued into the address ("…, Washington DC, DC 22003").
+        $city = PlaceLocation::withoutStateSuffix($city) ?? $city;
         $state = ($zip === null ? null : ZipLocation::state($zip)) ?? $pinZipState;
         if ($state !== null) {
-            return PlaceLocation::isFarFrom($city, $state, $lat, $lng) !== true ? ['city' => $city, 'state' => $state] : null;
+            $far = PlaceLocation::isFarFrom($city, $state, $lat, $lng);
+
+            return $far === false || ($far === null && PlaceLocation::statesAt($city, $lat, $lng) === [])
+                ? ['city' => $city, 'state' => $state]
+                : null;
         }
 
         // No ZIP: the one state where the city is a place at the pin.
