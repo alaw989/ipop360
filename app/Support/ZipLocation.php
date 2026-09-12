@@ -16,7 +16,9 @@ namespace App\Support;
  * Centroids: US Census 2024 ZCTA Gazetteer (database/data/zip_centroids.php,
  * public domain). States: the Census 2020 ZCTA-to-county relationship file
  * (database/data/zip_states.php). ZCTAs approximate USPS ZIPs; a ZIP without
- * a ZCTA (PO boxes, single-building ZIPs) answers null — no judgement.
+ * a ZCTA (PO boxes, single-building ZIPs) answers null — no judgement. A few
+ * Census points sit in a detached part of their ZCTA (Midtown Anchorage's is
+ * 448 km west); database/data/zip_centroid_overrides.php corrects those.
  */
 class ZipLocation
 {
@@ -53,7 +55,10 @@ class ZipLocation
      */
     public static function centroid(string $zip): ?array
     {
-        self::$centroids ??= require database_path('data/zip_centroids.php');
+        self::$centroids ??= array_replace(
+            require database_path('data/zip_centroids.php'),
+            require database_path('data/zip_centroid_overrides.php'),
+        );
         $row = self::$centroids[$zip] ?? null;
 
         return $row === null ? null : ['lat' => $row[0], 'lng' => $row[1], 'radius_km' => $row[2]];

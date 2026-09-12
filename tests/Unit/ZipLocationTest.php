@@ -41,6 +41,14 @@ class ZipLocationTest extends TestCase
         $this->assertNull(ZipLocation::state('00000'));
     }
 
+    public function test_census_points_in_a_detached_part_of_the_zcta_are_corrected(): void
+    {
+        // Midtown Anchorage: the Census point for 99503 is 448 km west.
+        $this->assertFalse(ZipLocation::isFarFrom('99503', 61.1930, -149.9070), 'Bleu Sage Noshery, 3002 Spenard Rd');
+        $this->assertFalse(ZipLocation::isFarFrom('33040', 24.5550, -81.8020), "Willi T's, 525 Duval St, Key West");
+        $this->assertTrue(ZipLocation::isFarFrom('99503', 64.8378, -147.7164), 'still far from Fairbanks');
+    }
+
     public function test_centroid_comes_from_the_census_file(): void
     {
         $this->assertEqualsWithDelta(30.29, ZipLocation::centroid('78703')['lat'] ?? 0, 0.01);

@@ -11,7 +11,7 @@ import RestaurantActionBar from '@/Components/RestaurantActionBar.vue';
 import { getRestaurantGradient } from '@/composables/useRestaurantDisplay';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { callPhone, openWebsite, trackDirections, trackPageview, trackMenuClick, directionsUrl, formatFullAddress } from '@/lib/restaurant';
+import { callPhone, openWebsite, trackDirections, trackPageview, trackMenuClick, directionsUrl, formatFullAddress, formatPhone } from '@/lib/restaurant';
 import { Heart, ArrowLeft, MapPin, Navigation, Phone, Globe, UtensilsCrossed } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
 import { useSeo, generateRestaurantJsonLd } from '@/composables/useSeo';
@@ -227,7 +227,7 @@ function handleMenuClick(): void {
                             @click="() => callPhone(restaurant.phone!, restaurant.id)"
                         >
                             <Phone :size="16" class="shrink-0" />
-                            {{ restaurant.phone }}
+                            {{ formatPhone(restaurant.phone) }}
                         </button>
 
                         <button

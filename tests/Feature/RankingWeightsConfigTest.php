@@ -124,4 +124,13 @@ class RankingWeightsConfigTest extends TestCase
         $property = (new ReflectionClass(Env::class))->getProperty('repository');
         $property->setValue(null, null);
     }
+
+    public function test_every_ranking_signal_has_a_breakdown_label(): void
+    {
+        // An unlabeled signal shows its raw key on restaurant pages
+        // ("directions_clicks_count").
+        foreach (array_keys((array) config('restaurant-finder.ranking.weights')) as $signal) {
+            $this->assertArrayHasKey($signal, PopularityScoreService::SIGNAL_LABELS, "No breakdown label for '{$signal}'");
+        }
+    }
 }

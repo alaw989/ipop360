@@ -1,5 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { callPhone, openWebsite, mapsUrl, directionsUrl, formatFullAddress } from '@/lib/restaurant';
+import { callPhone, openWebsite, mapsUrl, directionsUrl, formatFullAddress, formatPhone } from '@/lib/restaurant';
+
+describe('formatPhone', () => {
+    it('formats a 10- or 11-digit US number', () => {
+        expect(formatPhone('5127740109')).toBe('(512) 774-0109');
+        expect(formatPhone('15127740109')).toBe('(512) 774-0109');
+        expect(formatPhone('+1 (512) 774-0109')).toBe('(512) 774-0109');
+    });
+
+    it('shows anything else as stored', () => {
+        expect(formatPhone('512-774-0109 ext. 4')).toBe('512-774-0109 ext. 4');
+        expect(formatPhone('+44 20 7946 0958')).toBe('+44 20 7946 0958');
+        expect(formatPhone(null)).toBe('');
+    });
+});
 
 describe('formatFullAddress', () => {
     it('does not repeat a city, state or ZIP the address already contains', () => {
@@ -17,6 +31,11 @@ describe('formatFullAddress', () => {
             .toBe('North Lamar Boulevard, 600, Austin, TX 78703');
         expect(formatFullAddress({ address: '100 Main St', city: 'salt lake city', state: null }))
             .toBe('100 Main St, Salt Lake City');
+    });
+
+    it('puts the state before the ZIP of a street-and-ZIP address with no city', () => {
+        expect(formatFullAddress({ address: '151 American Way, 20745', city: null, state: 'MD', postal_code: '20745' }))
+            .toBe('151 American Way, MD 20745');
     });
 
     it('keeps a mixed-case city as stored and matches a 2-letter state only in capitals', () => {

@@ -274,6 +274,43 @@ class RestaurantIntegrityCommandTest extends TestCase
         $this->assertSame([null, 'MD'], $place($harbor));
         $this->assertSame([null, 'VA'], $place($annandale));
         $this->assertSame(['Natick', 'MA'], $place($natick));
+        // The search's city and state go from the address too; street and ZIP stay.
+        $this->assertSame('151 American Way, 20745', $harbor->fresh()?->address);
+        $this->assertSame('7131 Little River Turnpike, 22003', $annandale->fresh()?->address);
+        $this->assertSame('58 Main St, Natick, MA 01760', $natick->fresh()?->address);
+    }
+
+    public function test_postal_code_from_another_location_is_corrected_or_removed(): void
+    {
+        $at = fn (string $city, string $state, string $address, string $postal, float $lat, float $lng, ?string $overture = null) => $this->restaurant(
+            ['city' => $city, 'state' => $state, 'address' => $address, 'postal_code' => $postal, 'latitude' => $lat, 'longitude' => $lng, 'overture_id' => $overture]
+        );
+        // The address carries its own ZIP at the pin: it wins.
+        $atlanta = $at('Brookhaven', 'GA', '2148 Johnson Ferry Rd NE, Atlanta, GA 30319', '23462', 33.8760, -84.3348);
+        // A Texas ZIP on Oklahoma City rows, and no ZIP in the address.
+        $okc = $at('Oklahoma City', 'OK', '12112 North Pennsylvania Avenue', '77706', 35.5813, -97.5737);
+        $okcMatched = $at('Oklahoma City', 'OK', '13220 North Pennsylvania Avenue', '77706', 35.5813, -97.5737, 'ov-okc');
+        // Same metro (Buffalo's ZIP on a Williamsville venue): too close to call.
+        $williamsville = $at('Williamsville', 'NY', '5151 Main Street', '14222', 42.9845, -78.7228);
+        // Midtown Anchorage's own ZIP, whose Census point is corrected.
+        $anchorage = $at('Anchorage', 'AK', '3002 Spenard Rd', '99503', 61.1930, -149.9070);
+        // The city agrees with the ZIP; only the pin is 60 km off.
+        $etown = $this->restaurant(['city' => 'Elizabethtown', 'state' => 'KY', 'address' => '4111 North Dixie Highway', 'postal_code' => '42701', 'latitude' => 38.2500, 'longitude' => -85.7600, 'overture_id' => null]);
+
+        $this->integrity(['--only' => ['postal_far_from_location']])->assertSuccessful()
+            ->expectsOutputToContain('postal_far_from_location: 2 flagged (corrected from the address 1, removed 1, Overture-matched, left to overture:import 1)');
+        $this->integrity(['--apply' => true, '--only' => ['postal_far_from_location']])->assertSuccessful();
+
+        $this->assertSame('30319', $atlanta->fresh()?->postal_code);
+        $this->assertNull($okc->fresh()?->postal_code);
+        $this->assertSame('77706', $okcMatched->fresh()?->postal_code);
+        $this->assertSame('14222', $williamsville->fresh()?->postal_code);
+        $this->assertSame('99503', $anchorage->fresh()?->postal_code);
+        $this->assertSame('42701', $etown->fresh()?->postal_code);
+
+        $this->integrity(['--restore' => 'postal_far_from_location'])->assertSuccessful()->run();
+        $this->assertSame('23462', Restaurant::query()->whereKey($atlanta->id)->value('postal_code'));
+        $this->assertSame('77706', Restaurant::query()->whereKey($okc->id)->value('postal_code'));
     }
 
     public function test_ai_guesses_are_quarantined_but_verified_ai_websites_stay(): void
