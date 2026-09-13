@@ -129,4 +129,20 @@ class WikimediaPhotoAuditorTest extends TestCase
         $this->assertSame(WikimediaPhotoAuditor::VERDICT_UNCHECKABLE, $result['verdict']);
         Http::assertNothingSent();
     }
+
+    public function test_a_failed_commons_lookup_is_uncheckable_not_unverified(): void
+    {
+        // A transient Commons failure must never read as "unverified": an
+        // --apply run would otherwise quarantine a genuinely verified photo.
+        Http::fake([
+            'commons.wikimedia.org/*' => Http::response('service unavailable', 503),
+        ]);
+
+        $wikidata = Mockery::mock(WikidataService::class);
+        $wikidata->shouldNotReceive('findRestaurantImagesInBox');
+
+        $result = (new WikimediaPhotoAuditor($wikidata))->audit($this->restaurant(self::PHOTO));
+
+        $this->assertSame(WikimediaPhotoAuditor::VERDICT_UNCHECKABLE, $result['verdict']);
+    }
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\FieldQuarantine;
 use App\Models\Restaurant;
 use App\Services\WikimediaPhotoAuditor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -84,5 +85,59 @@ class WikimediaPhotoAuditCommandTest extends TestCase
         /** @var PendingCommand $command */
         $command = $this->artisan('restaurants:wikimedia-photo-audit', ['--source' => 'wikimedia']);
         $command->expectsOutputToContain('Audited: 1')->assertSuccessful()->run();
+    }
+
+    public function test_apply_quarantines_unverified_photos_reversibly(): void
+    {
+        $junk = 'https://upload.wikimedia.org/junk.jpg';
+        $row = $this->row($junk, [
+            'photos' => [$junk, 'https://cdn.example.com/real.jpg'],
+            'photo_thumb' => '1-abcdef0123.webp',
+        ]);
+
+        $this->fakeAuditor([WikimediaPhotoAuditor::VERDICT_UNVERIFIED]);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:wikimedia-photo-audit', ['--apply' => true]);
+        $command->expectsOutputToContain('APPLIED')->assertSuccessful()->run();
+
+        $fresh = $row->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertNull($fresh->photo_url);
+        $this->assertSame(['https://cdn.example.com/real.jpg'], $fresh->photos);
+        $this->assertNull($fresh->photo_thumb);
+
+        $entry = FieldQuarantine::query()
+            ->where('restaurant_id', $row->id)
+            ->where('field', 'photo_url')
+            ->whereNull('restored_at')
+            ->first();
+        $this->assertNotNull($entry);
+        $this->assertSame($junk, $entry->old_value);
+        $this->assertSame('wikimedia_name_only_match', $entry->reason);
+
+        /** @var PendingCommand $restore */
+        $restore = $this->artisan('restaurants:integrity', ['--restore' => 'wikimedia_name_only_match']);
+        $restore->assertSuccessful()->run();
+        $this->assertSame($junk, $row->fresh()?->photo_url);
+    }
+
+    public function test_apply_leaves_verified_and_uncheckable_rows_alone(): void
+    {
+        $verified = $this->row('https://upload.wikimedia.org/verified.jpg');
+        $uncheckable = $this->row('https://upload.wikimedia.org/unknown.jpg', ['latitude' => null, 'longitude' => null]);
+
+        $this->fakeAuditor([
+            WikimediaPhotoAuditor::VERDICT_COMMONS,
+            WikimediaPhotoAuditor::VERDICT_UNCHECKABLE,
+        ]);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('restaurants:wikimedia-photo-audit', ['--apply' => true]);
+        $command->assertSuccessful()->run();
+
+        $this->assertNotNull($verified->fresh()?->photo_url);
+        $this->assertNotNull($uncheckable->fresh()?->photo_url);
+        $this->assertSame(0, FieldQuarantine::query()->count());
     }
 }
