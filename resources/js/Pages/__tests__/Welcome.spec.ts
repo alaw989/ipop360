@@ -102,7 +102,11 @@ const stubs = {
     },
     BlogPreview: {
         props: ['posts'],
-        template: '<div class="blog-preview-stub" />',
+        template: '<div class="blog-preview-stub" :data-count="posts.length" />',
+    },
+    FeaturedRestaurant: {
+        props: ['spotlight'],
+        template: '<div class="spotlight-stub">{{ spotlight.name }}</div>',
     },
     Button: {
         props: ['variant', 'size', 'as', 'href'],
@@ -272,10 +276,31 @@ describe('Welcome', () => {
     })
 
     describe('scroll-reveal stagger', () => {
+        it('spotlights the featured restaurant first, then cities, restaurants and the blog', () => {
+            const wrapper = mountWelcome({ featuredRestaurant: { name: 'Moose Pizza', slug: 'moose', story: null, cuisines: [], picked: true } })
+            expect(wrapper.find('.spotlight-stub').text()).toBe('Moose Pizza')
+            const html = wrapper.html()
+            expect(html.indexOf('spotlight-stub')).toBeLessThan(html.indexOf('popular-cities-stub'))
+            expect(html.indexOf('popular-restaurants-stub')).toBeLessThan(html.indexOf('blog-preview-stub'))
+        })
+
+        it('leaves the spotlight out when there is nothing to feature', () => {
+            const wrapper = mountWelcome({ featuredRestaurant: null })
+            expect(wrapper.find('.spotlight-stub').exists()).toBe(false)
+        })
+
+        it("keeps the spotlight's story out of the blog list below", () => {
+            const wrapper = mountWelcome({
+                featuredRestaurant: { name: 'Moose Pizza', slug: 'moose', cuisines: [], picked: true, story: { title: 'Story', slug: 'moose-story' } },
+                latestPosts: [makeBlogPost({ id: 1, slug: 'moose-story' }), makeBlogPost({ id: 2, slug: 'other' })],
+            })
+            expect(wrapper.find('.blog-preview-stub').attributes('data-count')).toBe('1')
+        })
+
         it('staggers the homepage sections so they cascade in', () => {
             const wrapper = mountWelcome()
             const delays = wrapper.findAll('.scroll-reveal-stub').map(n => n.attributes('data-delay'))
-            expect(delays).toEqual(['0', '80', '160'])
+            expect(delays).toEqual(['0', '80', '160', '240'])
         })
     })
 

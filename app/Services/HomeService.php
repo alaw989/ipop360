@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\BlogPost;
 use App\Models\Cuisine;
 use App\Models\CuisineCategory;
+use App\Models\FeaturedRestaurant;
 use App\Models\Restaurant;
 use App\Support\StateAbbreviations;
 use Illuminate\Database\Eloquent\Builder;
@@ -97,9 +98,65 @@ class HomeService
             'popularCuisines' => $popularCuisines,
             'popularCities' => config('restaurant-finder.homepage.popular_cities', []),
             'popularRestaurants' => $popularRestaurants,
+            'featuredRestaurant' => $this->featuredRestaurant($popularRestaurants),
             'latestPosts' => $latestPosts,
             'location' => $effectiveLocation,
             'stats' => $stats,
+        ];
+    }
+
+    /**
+     * The home page spotlight: the admin's current pick (with its story, if
+     * one is linked) while its restaurant is active; otherwise the top-ranked
+     * restaurant in the list the visitor already sees (their city's, when
+     * they picked one) that has a photo and a rating. Null when neither
+     * exists.
+     *
+     * @param  Collection<int, Restaurant>  $popularRestaurants
+     * @return array<string, mixed>|null
+     */
+    public function featuredRestaurant(Collection $popularRestaurants): ?array
+    {
+        $pick = FeaturedRestaurant::current()
+            ->with(['restaurant.cuisines', 'blogPost'])
+            ->whereHas('restaurant', fn (Builder $q) => $q->where('is_active', true))
+            ->first();
+
+        if ($pick !== null) {
+            $story = $pick->blogPost !== null && $pick->blogPost->status === 'published' ? $pick->blogPost : null;
+
+            return $this->spotlight($pick->restaurant, $story, picked: true, image: $pick->image_url, credit: $pick->image_credit);
+        }
+
+        $top = $popularRestaurants->first(
+            fn (Restaurant $r): bool => ! empty($r->photo_url) && (float) $r->google_rating > 0.0
+        );
+
+        return $top !== null ? $this->spotlight($top, null, picked: false) : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function spotlight(Restaurant $restaurant, ?BlogPost $story, bool $picked, ?string $image = null, ?string $credit = null): array
+    {
+        return [
+            'id' => $restaurant->id,
+            'name' => $restaurant->name,
+            'slug' => $restaurant->slug,
+            'city' => $restaurant->city,
+            'state' => $restaurant->state,
+            'price_range' => $restaurant->price_range,
+            'google_rating' => $restaurant->google_rating,
+            'google_review_count' => $restaurant->google_review_count,
+            'cuisines' => $restaurant->cuisines->map(fn (Cuisine $c) => ['id' => $c->id, 'name' => $c->name, 'slug' => $c->slug])->values(),
+            // A photo picked for the spotlight (with its credit) leads, then the
+            // story's image, then the restaurant's own.
+            'image' => $image ?: ($story?->featured_image ?: $restaurant->photo_url),
+            'image_credit' => $image ? $credit : null,
+            'quote' => $story?->excerpt ?: $restaurant->description,
+            'story' => $story !== null ? ['title' => $story->title, 'slug' => $story->slug] : null,
+            'picked' => $picked,
         ];
     }
 
