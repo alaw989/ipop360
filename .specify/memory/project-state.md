@@ -289,10 +289,19 @@ the rest to opencode.
   `/search?city=Austin&state=TX` dropped from **17.6 MB to 325 KB (390px) /
   366 KB (1440px)**, under the ~1.5 MB goal. See backlog goal 17 for the
   storage/deploy deviations and the skipped-vs-failed counting follow-up.
-- **Next:** backlog goals 18–20 (`.specify/memory/backlog.md`):
-  1. the Instagram-logo junk photos;
-  2. the Wikimedia name-match photos;
-  3. check PR 1's first daily run.
+- **Shipped — backlog goal 18 (redesign 9), PR #201 (`d00226a`), merged +
+  deployed + live-verified:** platform logo sprites (Instagram/Facebook
+  `rsrc.php`) rejected at every photo write path via new
+  `App\Support\PhotoUrl::isPlatformAsset()`, plus `restaurants:photo-junk`
+  (report-first, reversible). Prod: backup taken, report flagged 3,850 rows,
+  `--apply` left 0 sprites and 3,906 quarantine entries; site + API 200.
+  See backlog goal 18.
+- **Verified — backlog goal 20:** first daily `restaurants:backfill-websites`
+  run of the new code set `website_scraped_at` on 2,000 rows, no site fetched
+  twice (duplicate domains cache-served), and 0 website-sourced prices. See
+  backlog goal 20; note the 87-min runtime vs `withoutOverlapping(240)`.
+- **Next:** backlog goal 19 — the Wikimedia name-match photo audit
+  (report-first; don't remove in bulk without the operator's OK).
 
   Hand-built with TDD (the `opencode-loop` harness is no longer on this
   machine), each on its own branch, full gate after each, no push until the
