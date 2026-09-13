@@ -300,8 +300,12 @@ the rest to opencode.
   run of the new code set `website_scraped_at` on 2,000 rows, no site fetched
   twice (duplicate domains cache-served), and 0 website-sourced prices. See
   backlog goal 20; note the 87-min runtime vs `withoutOverlapping(240)`.
-- **Next:** backlog goal 19 — the Wikimedia name-match photo audit
-  (report-first; don't remove in bulk without the operator's OK).
+- **Report delivered — backlog goal 19:** `restaurants:wikimedia-photo-audit`
+  (report-only, PR #203 `947724f`) classifies Wikimedia photos as
+  Commons-geotag / Wikidata-P18 verified or name-only. Bounded prod run (top
+  1,000): **996 unverified**, 4 Wikidata-verified, 0 Commons-verified. Samples
+  are clear junk (a recipes PDF, a history book, a person named Ela, a logo
+  SVG). Bulk removal awaits the operator's OK.
 
   Hand-built with TDD (the `opencode-loop` harness is no longer on this
   machine), each on its own branch, full gate after each, no push until the
