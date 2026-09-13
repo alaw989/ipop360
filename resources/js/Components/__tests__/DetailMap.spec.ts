@@ -130,8 +130,15 @@ describe('DetailMap', () => {
     it('binds a popup to the marker with restaurant name', async () => {
         await mountComponent({ lat: 30, lng: -97, name: 'Taco Palace' })
         expect(mockMarker.bindPopup).toHaveBeenCalledTimes(1)
-        const popupHtml = mockMarker.bindPopup.mock.calls[0][0]
-        expect(popupHtml).toContain('Taco Palace')
+        const popup = mockMarker.bindPopup.mock.calls[0][0] as HTMLElement
+        expect(popup.textContent).toBe('Taco Palace')
+    })
+
+    it('puts the name in the popup as text, never as HTML', async () => {
+        await mountComponent({ lat: 30, lng: -97, name: '<img src=x onerror=alert(1)>' })
+        const popup = mockMarker.bindPopup.mock.calls[0][0] as HTMLElement
+        expect(popup.querySelector('img')).toBeNull()
+        expect(popup.textContent).toBe('<img src=x onerror=alert(1)>')
     })
 
     it('calls fitBounds after adding marker', async () => {
@@ -143,13 +150,13 @@ describe('DetailMap', () => {
         ])
     })
 
-    it('creates a divIcon with red background styling', async () => {
+    it('creates a divIcon in the brand color', async () => {
         await mountComponent({ lat: 30, lng: -97 })
         expect(leafletDivIcon).toHaveBeenCalledTimes(1)
         expect(leafletDivIcon).toHaveBeenCalledWith(
             expect.objectContaining({
                 className: 'custom-pin',
-                html: expect.stringContaining('#ef4444'),
+                html: expect.stringContaining('#c2401c'),
                 iconSize: [18, 18],
                 iconAnchor: [9, 9],
             }),

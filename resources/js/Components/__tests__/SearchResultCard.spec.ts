@@ -117,21 +117,34 @@ describe('SearchResultCard', () => {
         })
     })
 
-    describe('rank badge', () => {
-        it('renders fire emoji for rank 1', () => {
-            const wrapper = mountCard({}, { rank: 1 })
-            expect(wrapper.text()).toContain('🔥')
-            expect(wrapper.text()).not.toContain('#1')
+    describe('rank', () => {
+        it('puts the rank in the name, as on Yelp', () => {
+            const wrapper = mountCard({ name: 'Austhentico' }, { rank: 1 })
+            expect(wrapper.get('[data-testid="rank"]').text()).toBe('1.')
+            expect(wrapper.get('h3').text()).toContain('1. Austhentico')
         })
 
-        it('renders #2 for rank 2', () => {
-            const wrapper = mountCard({}, { rank: 2 })
-            expect(wrapper.text()).toContain('#2')
-        })
-
-        it('renders #N for rank > 1', () => {
+        it('uses a plain number for every rank, never an emoji or a pill', () => {
             const wrapper = mountCard({}, { rank: 5 })
-            expect(wrapper.text()).toContain('#5')
+            expect(wrapper.get('[data-testid="rank"]').text()).toBe('5.')
+            expect(wrapper.text()).not.toContain('🔥')
+            expect(wrapper.text()).not.toContain('#5')
+        })
+    })
+
+    describe('photo badge', () => {
+        it('shows at most one badge, and none for an ordinary restaurant', () => {
+            expect(mountCard({ popularity_score: 0.5 }).find('[data-testid="photo-badge"]').exists()).toBe(false)
+        })
+
+        it('names a top tier on the photo', () => {
+            expect(mountCard({ popularity_score: 0.85 }).get('[data-testid="photo-badge"]').text()).toBe('Top rated')
+        })
+
+        it('prefers an award over the tier', () => {
+            const badges = mountCard({ has_award: true, popularity_score: 0.95 }).findAll('[data-testid="photo-badge"]')
+            expect(badges).toHaveLength(1)
+            expect(badges[0]!.text()).toBe('Award winner')
         })
     })
 
@@ -241,17 +254,22 @@ describe('SearchResultCard', () => {
             expect(wrapper.text()).toContain('Pizza')
         })
 
-        it('does not render badges when no cuisines', () => {
-            const wrapper = mountCard({ cuisines: [] })
-            expect(wrapper.findAll('.badge').length).toBe(0)
-        })
-
-        it('links cuisine badges to search page', () => {
+        it('links each cuisine to its search', () => {
             const wrapper = mountCard({
                 cuisines: [{ id: 1, name: 'Italian', slug: 'italian' }],
             })
-            const link = wrapper.findAll('.badge')
-            expect(link.length).toBe(1)
+            expect(wrapper.get('[data-testid="meta"] a[href="/search?cuisine=italian"]').text()).toBe('Italian')
+        })
+
+        it('lists at most two cuisines in the meta line', () => {
+            const wrapper = mountCard({
+                cuisines: [
+                    { id: 1, name: 'Italian', slug: 'italian' },
+                    { id: 2, name: 'Pizza', slug: 'pizza' },
+                    { id: 3, name: 'Pasta', slug: 'pasta' },
+                ],
+            })
+            expect(wrapper.findAll('[data-testid="meta"] a')).toHaveLength(2)
         })
     })
 
@@ -331,45 +349,11 @@ describe('SearchResultCard', () => {
         })
     })
 
-    describe('rank change indicator', () => {
-        it('renders ArrowUp for positive rank change', () => {
-            const wrapper = mountCard({ rank_change: 3 })
-            expect(wrapper.find('[data-testid="arrow-up-icon"]').exists()).toBe(true)
-        })
-
-        it('renders ArrowDown for negative rank change', () => {
-            const wrapper = mountCard({ rank_change: -2 })
-            expect(wrapper.find('[data-testid="arrow-down-icon"]').exists()).toBe(true)
-        })
-
-        it('renders Minus for zero rank change', () => {
-            const wrapper = mountCard({ rank_change: 0 })
-            expect(wrapper.find('[data-testid="minus-icon"]').exists()).toBe(true)
-        })
-
-        it('does not render rank change when null', () => {
-            const wrapper = mountCard({ rank_change: null })
-            expect(wrapper.find('[data-testid="arrow-up-icon"]').exists()).toBe(false)
-            expect(wrapper.find('[data-testid="arrow-down-icon"]').exists()).toBe(false)
-            expect(wrapper.find('[data-testid="minus-icon"]').exists()).toBe(false)
-        })
-
-        it('sets correct title for positive change', () => {
-            const wrapper = mountCard({ rank_change: 5 })
-            const indicator = wrapper.find('[data-testid="arrow-up-icon"]').element.parentElement!
-            expect(indicator.getAttribute('title')).toBe('Up 5 spots')
-        })
-
-        it('sets correct title for negative change', () => {
-            const wrapper = mountCard({ rank_change: -3 })
-            const indicator = wrapper.find('[data-testid="arrow-down-icon"]').element.parentElement!
-            expect(indicator.getAttribute('title')).toBe('Down 3 spots')
-        })
-
-        it('sets Steady title for zero change', () => {
-            const wrapper = mountCard({ rank_change: 0 })
-            const indicator = wrapper.find('[data-testid="minus-icon"]').element.parentElement!
-            expect(indicator.getAttribute('title')).toBe('Steady')
+    describe('rank change', () => {
+        it('leaves out the nationwide rank change, which means nothing in one city', () => {
+            const wrapper = mountCard({ rank_change: 2082 })
+            expect(wrapper.text()).not.toContain('2082')
+            expect(wrapper.find('[data-testid="rank-change"]').exists()).toBe(false)
         })
     })
 
@@ -414,7 +398,7 @@ describe('SearchResultCard', () => {
             const wrapper = mountCard({ name: 'Overlay Test' })
             const overlayLink = wrapper.find('a.after\\:absolute')
             expect(overlayLink.exists()).toBe(true)
-            expect(overlayLink.text()).toBe('Overlay Test')
+            expect(overlayLink.text()).toContain('Overlay Test')
         })
     })
 })

@@ -73,7 +73,7 @@ function addMarkers() {
     const bounds: number[][] = [];
     const icon = leaflet.divIcon({
         className: '',
-        html: '<div style="width:24px;height:24px;background:#10b981;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>',
+        html: '<div style="width:22px;height:22px;background:#c2401c;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>',
         iconSize: [24, 24],
         iconAnchor: [12, 12],
         popupAnchor: [0, -16],
@@ -84,12 +84,14 @@ function addMarkers() {
 
         const marker = leaflet.marker([r.lat, r.lng], { icon })
             .addTo(map)
+            // Names and slugs come from outside sources (OSM, BizData, SerpApi):
+            // escape them, since Leaflet sets popup HTML with innerHTML.
             .bindPopup(`
-                <div style="font-family:system-ui,sans-serif;min-width:160px">
-                    <strong style="font-size:13px">${r.name}</strong>
-                    ${r.yelp_rating || r.google_rating ? `<br><span style="font-size:12px;color:#666">⭐ ${r.yelp_rating || r.google_rating}</span>` : ''}
-                    ${r.price_range ? `<span style="font-size:12px;color:#6b6663;font-weight:600;margin-left:8px">${r.price_range}</span>` : ''}
-                    <br><a href="/restaurants/${r.slug}" style="font-size:12px;color:#2563eb;text-decoration:none">View details →</a>
+                <div style="font-family:inherit;min-width:160px">
+                    <strong style="font-size:13px">${escapeHtml(r.name)}</strong>
+                    ${r.yelp_rating || r.google_rating ? `<br><span style="font-size:12px;color:#6b6663"><span style="color:#e0661a">★</span> ${escapeHtml(String(r.yelp_rating || r.google_rating))}</span>` : ''}
+                    ${r.price_range ? `<span style="font-size:12px;color:#6b6663;font-weight:600;margin-left:8px">${escapeHtml(r.price_range)}</span>` : ''}
+                    <br><a href="/restaurants/${encodeURIComponent(r.slug)}" style="font-size:12px;color:#c2401c;text-decoration:none">See the restaurant</a>
                 </div>
             `, { closeButton: true, maxWidth: 260 });
 
@@ -100,6 +102,10 @@ function addMarkers() {
     if (bounds.length > 0 && map) {
         map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
     }
+}
+
+function escapeHtml(value: string | null | undefined): string {
+    return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 }
 </script>
 

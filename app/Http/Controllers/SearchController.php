@@ -20,6 +20,9 @@ use Inertia\Response;
 
 class SearchController extends Controller
 {
+    /** The price levels a search can filter on, cheapest first. */
+    private const PRICE_LEVELS = ['$', '$$', '$$$', '$$$$'];
+
     use SortsRestaurantQueries;
 
     public function __construct(
@@ -31,7 +34,7 @@ class SearchController extends Controller
     {
         $validated = $request->validate([
             'sort' => 'nullable|in:best_match,nearest,rating,reviews,price,social_presence,website_traffic',
-            'price_range' => 'nullable|string|max:4',
+            'price_range' => 'nullable',
             'distance' => 'nullable|integer|min:1|max:100',
             'page' => 'nullable|integer|min:1',
             'cuisine' => 'nullable|string|exists:cuisines,slug',
@@ -43,7 +46,7 @@ class SearchController extends Controller
         $sort = $validated['sort'] ?? 'best_match';
         $cuisineSlug = $validated['cuisine'] ?? null;
         $categorySlug = $validated['category'] ?? null;
-        $priceRange = $validated['price_range'] ?? null;
+        $priceRanges = $this->priceLevels($request->input('price_range'));
         $distanceMiles = (int) ($validated['distance'] ?? 25);
         $distanceKm = $distanceMiles * 1.60934;
         $cuisineName = null;
@@ -78,24 +81,29 @@ class SearchController extends Controller
 
         if ($coords !== null) {
             [$restaurants, $union] = $this->mergedSearch(
-                $request, $coords, $cuisineSlug, $categorySlug, $sort, $distanceKm, $priceRange
+                $request, $coords, $cuisineSlug, $categorySlug, $sort, $distanceKm, $priceRanges
             );
             $categoryCounts = $this->categoryCountsForUnion($union);
         } else {
-            [$restaurants, $query] = $this->dbOnlySearch($request, $cuisineSlug, $categorySlug, $priceRange, $sort);
+            [$restaurants, $query] = $this->dbOnlySearch($request, $cuisineSlug, $categorySlug, $priceRanges, $sort);
             $categoryCounts = $this->categoryCountsForQuery($query);
         }
 
         $filterOptions = [
             'categories' => $categoryCounts,
             'cuisines' => Cuisine::select('id', 'name', 'slug', 'category_id')->get()->toArray(),
-            'priceOptions' => ['$', '$$', '$$$', '$$$$'],
+            'priceOptions' => self::PRICE_LEVELS,
             'distanceOptions' => [1, 5, 10, 25, 50],
         ];
 
+        $filters = $request->only(['cuisine', 'category', 'lat', 'lng', 'sort', 'distance']);
+        if ($priceRanges !== null) {
+            $filters['price_range'] = $priceRanges;
+        }
+
         return Inertia::render('Search', [
             'restaurants' => $restaurants,
-            'filters' => $request->only(['cuisine', 'category', 'lat', 'lng', 'sort', 'price_range', 'distance']),
+            'filters' => $filters,
             'cuisineName' => $cuisineName,
             'categorySlug' => $categorySlug,
             'filterOptions' => $filterOptions,
@@ -111,6 +119,7 @@ class SearchController extends Controller
      * snapshot (no re-search, deterministic pagination).
      *
      * @param  array{lat: float, lng: float}  $coords
+     * @param  list<string>|null  $priceRanges
      * @return array{0: array<string, mixed>, 1: array<int, array<string, mixed>>}
      */
     private function mergedSearch(
@@ -120,7 +129,7 @@ class SearchController extends Controller
         ?string $categorySlug,
         string $sort,
         float $distanceKm,
-        ?string $priceRange,
+        ?array $priceRanges,
     ): array {
         $paginate = filter_var(config('restaurant-finder.live_search.paginate', true), FILTER_VALIDATE_BOOL);
         $page = max(1, (int) $request->query('page', '1'));
@@ -137,11 +146,11 @@ class SearchController extends Controller
                 $categorySlug,
                 $sort,
                 (float) $distanceKm,
-                $priceRange,
+                $priceRanges,
             );
         }
 
-        return $this->paginateUnion($request, $union, $coords, $cuisineSlug, $categorySlug, $sort, $priceRange);
+        return $this->paginateUnion($request, $union, $coords, $cuisineSlug, $categorySlug, $sort, $priceRanges);
     }
 
     /**
@@ -153,6 +162,7 @@ class SearchController extends Controller
      *
      * @param  array<int, array<string, mixed>>  $union  (empty on pages 2+ — sliced from the snapshot)
      * @param  array{lat: float, lng: float}  $coords
+     * @param  list<string>|null  $priceRanges
      * @return array{0: array<string, mixed>, 1: array<int, array<string, mixed>>}
      */
     private function paginateUnion(
@@ -162,7 +172,7 @@ class SearchController extends Controller
         ?string $cuisineSlug,
         ?string $categorySlug,
         string $sort,
-        ?string $priceRange,
+        ?array $priceRanges,
     ): array {
         $paginate = filter_var(config('restaurant-finder.live_search.paginate', true), FILTER_VALIDATE_BOOL);
         $perPage = (int) config('restaurant-finder.live_search.page_size', 20);
@@ -174,7 +184,7 @@ class SearchController extends Controller
             'cuisine' => $cuisineSlug,
             'category' => $categorySlug,
             'sort' => $sort,
-            'price_range' => $priceRange,
+            'price_range' => $priceRanges,
         ]));
 
         if ($paginate && $page > 1) {
@@ -219,13 +229,14 @@ class SearchController extends Controller
      * DB-only search (no geolocation available): the persisted-db path. Serves
      * RestaurantResource over an Eloquent paginator (parity with index()).
      *
+     * @param  list<string>|null  $priceRanges
      * @return array{0: LengthAwarePaginator<int, mixed>, 1: Builder<Restaurant>}
      */
     private function dbOnlySearch(
         Request $request,
         ?string $cuisineSlug,
         ?string $categorySlug,
-        ?string $priceRange,
+        ?array $priceRanges,
         string $sort,
     ): array {
         $query = Restaurant::query()
@@ -247,8 +258,8 @@ class SearchController extends Controller
                 )
             )
             ->when(
-                $priceRange,
-                fn ($q) => $q->where('price_range', $priceRange)
+                $priceRanges,
+                fn ($q) => $q->whereIn('price_range', $priceRanges)
             )
             ->active();
 
@@ -346,5 +357,21 @@ class SearchController extends Controller
         }
 
         return $this->applyRestaurantSort($query, $sort, $hasCoords);
+    }
+
+    /**
+     * The requested price levels: one (`price_range=$$`, the old links) or
+     * several (`price_range[]=$&price_range[]=$$`). Unknown values are dropped;
+     * the list comes back in PRICE_LEVELS order so equal filters share a cache
+     * key. Null when nothing usable was asked for.
+     *
+     * @return list<string>|null
+     */
+    private function priceLevels(mixed $value): ?array
+    {
+        $asked = is_array($value) ? $value : [$value];
+        $levels = array_values(array_filter(self::PRICE_LEVELS, fn (string $level): bool => in_array($level, $asked, true)));
+
+        return $levels === [] ? null : $levels;
     }
 }

@@ -40,41 +40,68 @@ describe('SearchFilters', () => {
         expect(wrapper.find('h2').text()).toBe('Filters')
     })
 
-    it('renders all price option buttons', () => {
+    function priceButtons(wrapper: ReturnType<typeof mountSearchFilters>) {
+        return wrapper.findAll('[data-testid="price-filter"] button')
+    }
+
+    function priceButton(wrapper: ReturnType<typeof mountSearchFilters>, price: string) {
+        return priceButtons(wrapper).find(b => b.find('span').text() === price)!
+    }
+
+    it('renders the four price levels as one joined control, each named in words', () => {
         const wrapper = mountSearchFilters()
-        const priceSection = wrapper.findAll('h3').filter(n => n.text() === 'Price')
-        expect(priceSection.length).toBe(1)
-        const buttons = wrapper.findAll('.flex.gap-1 button')
+        expect(wrapper.findAll('h3').filter(n => n.text() === 'Price')).toHaveLength(1)
+        const buttons = priceButtons(wrapper)
         expect(buttons).toHaveLength(4)
-        expect(buttons[0].text()).toBe('$')
-        expect(buttons[3].text()).toBe('$$$$')
+        expect(buttons[0]!.text()).toContain('Inexpensive')
+        expect(buttons[3]!.text()).toContain('High-end')
+        expect(buttons[1]!.attributes('aria-label')).toBe('$$, moderate')
+        expect(wrapper.get('[data-testid="price-filter"]').attributes('role')).toBe('group')
     })
 
-    it('applies active class to the selected price button', () => {
-        const wrapper = mountSearchFilters({ filters: { price_range: '$$' } })
-        const priceSection = wrapper.findAll('h3').filter(n => n.text() === 'Price')
-        const buttons = wrapper.findAll('.flex.gap-1 button')
-        const activeButton = buttons.find(b => b.text() === '$$')
-        expect(activeButton?.classes()).toContain('bg-primary')
-        const inactiveButton = buttons.find(b => b.text() === '$')
-        expect(inactiveButton?.classes()).not.toContain('bg-primary')
+    it('gives each level a comfortable tap target', () => {
+        const wrapper = mountSearchFilters()
+        for (const button of priceButtons(wrapper)) {
+            expect(button.classes()).toContain('min-h-12')
+        }
     })
 
-    it('emits update with the selected price when clicking an inactive price', () => {
-        const wrapper = mountSearchFilters({ filters: { price_range: '$$' } })
-        const buttons = wrapper.findAll('.flex.gap-1 button')
-        const dollarButton = buttons.find(b => b.text() === '$')
-        dollarButton!.trigger('click')
-        expect(wrapper.emitted('update')).toBeTruthy()
-        expect(wrapper.emitted('update')![0]).toEqual([{ price_range: '$' }])
+    it('marks the selected levels pressed and in the brand color', () => {
+        const wrapper = mountSearchFilters({ filters: { price_range: ['$', '$$'] } })
+        expect(priceButton(wrapper, '$').attributes('aria-pressed')).toBe('true')
+        expect(priceButton(wrapper, '$$').classes()).toContain('bg-primary')
+        expect(priceButton(wrapper, '$$$').attributes('aria-pressed')).toBe('false')
+        expect(priceButton(wrapper, '$$$').classes()).not.toContain('bg-primary')
     })
 
-    it('emits update with price_range undefined when clicking the active price (toggle off)', () => {
+    it('reads an old single-price link as one selected level', () => {
         const wrapper = mountSearchFilters({ filters: { price_range: '$$' } })
-        const buttons = wrapper.findAll('.flex.gap-1 button')
-        const activeButton = buttons.find(b => b.text() === '$$')
-        activeButton!.trigger('click')
+        expect(priceButton(wrapper, '$$').attributes('aria-pressed')).toBe('true')
+    })
+
+    it('adds a level to the selection, cheapest first', async () => {
+        const wrapper = mountSearchFilters({ filters: { price_range: ['$$'] } })
+        await priceButton(wrapper, '$').trigger('click')
+        expect(wrapper.emitted('update')![0]).toEqual([{ price_range: ['$', '$$'] }])
+    })
+
+    it('removes a level, and clears the filter when none is left', async () => {
+        const wrapper = mountSearchFilters({ filters: { price_range: ['$$'] } })
+        await priceButton(wrapper, '$$').trigger('click')
         expect(wrapper.emitted('update')![0]).toEqual([{ price_range: undefined }])
+    })
+
+    it('builds on a level tapped a moment ago, before the search returns', async () => {
+        const wrapper = mountSearchFilters({ filters: {} })
+        await priceButton(wrapper, '$').trigger('click')
+        await priceButton(wrapper, '$$').trigger('click')
+        expect(wrapper.emitted('update')![1]).toEqual([{ price_range: ['$', '$$'] }])
+        expect(priceButton(wrapper, '$').attributes('aria-pressed')).toBe('true')
+    })
+
+    it('says only restaurants with a listed price are shown while a price is on', () => {
+        expect(mountSearchFilters({ filters: { price_range: ['$'] } }).find('[data-testid="price-hint"]').exists()).toBe(true)
+        expect(mountSearchFilters().find('[data-testid="price-hint"]').exists()).toBe(false)
     })
 
     it('renders category links with names and restaurant counts', () => {

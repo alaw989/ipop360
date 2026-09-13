@@ -3,8 +3,8 @@ import { ref, computed, watch } from 'vue'
 import { ChevronDown } from '@lucide/vue'
 import StarRating from '@/Components/StarRating.vue'
 import PriceLevel from '@/Components/PriceLevel.vue'
-import ScoreChip from '@/Components/ScoreChip.vue'
 import { cuisineGradient } from '@/lib/cuisine'
+import { photoBadge } from '@/lib/scoreTier'
 interface PopularRestaurant {
     id: number
     name: string
@@ -69,13 +69,6 @@ function gradient(r: PopularRestaurant): string {
     const slug = r.cuisines?.[0]?.slug
     return slug ? cuisineGradient(slug) : 'from-muted to-muted-foreground/20'
 }
-
-function rankBadge(rank: number) {
-    if (rank === 1) return { bg: 'from-amber-400 to-yellow-500', text: 'text-white', icon: '🔥' }
-    if (rank === 2) return { bg: 'from-slate-300 to-slate-400', text: 'text-slate-900', icon: '#2' }
-    if (rank === 3) return { bg: 'from-orange-400 to-amber-600', text: 'text-white', icon: '#3' }
-    return null
-}
 </script>
 
 <template>
@@ -116,34 +109,21 @@ function rankBadge(rank: number) {
                                 <span class="text-xs font-medium text-white/60">Image coming soon</span>
                             </div>
 
-                            <!-- Rank badge (top 3) -->
-                            <div
-                                v-if="rankBadge(index + 1)"
-                                class="absolute left-2 top-2"
-                            >
-                                <div
-                                    class="flex h-7 min-w-[28px] items-center justify-center rounded-full bg-gradient-to-r px-2 text-[11px] font-bold shadow-lg ring-2 ring-white/50"
-                                    :class="[rankBadge(index + 1)!.bg, rankBadge(index + 1)!.text]"
-                                >
-                                    {{ rankBadge(index + 1)!.icon }}
-                                </div>
-                            </div>
-
-                            <!-- Score chip -->
-                            <div v-if="r.popularity_score > 0" class="absolute right-2 top-2">
-                                <ScoreChip :total="r.popularity_score" :breakdown="r.score_breakdown ?? null" />
-                            </div>
+                            <!-- At most one badge, solid and readable -->
+                            <span
+                                v-if="photoBadge(r)"
+                                data-testid="photo-badge"
+                                class="absolute left-2 top-2 rounded-md bg-primary px-2 py-1 text-xs font-semibold leading-none text-primary-foreground shadow-sm"
+                            >{{ photoBadge(r) }}</span>
                         </div>
 
                         <!-- Details -->
                         <div class="flex flex-1 flex-col gap-1 p-3">
                             <div class="flex items-center gap-1.5">
                                 <h3 class="text-sm font-semibold leading-tight text-foreground line-clamp-2">
+                                    <span class="tabular-nums" data-testid="rank">{{ index + 1 }}.</span>
                                     {{ r.name }}
                                 </h3>
-                                <span v-if="r.has_award" class="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">
-                                    ⭐
-                                </span>
                             </div>
 
                             <div class="flex items-center gap-1 text-xs text-muted-foreground">

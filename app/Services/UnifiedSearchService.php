@@ -40,6 +40,7 @@ class UnifiedSearchService
     ) {}
 
     /**
+     * @param  list<string>|null  $priceRanges  price levels to keep ("$".."$$$$"), any of them
      * @return array<int, array<string, mixed>>
      */
     public function search(
@@ -49,7 +50,7 @@ class UnifiedSearchService
         ?string $categorySlug = null,
         string $sort = 'best_match',
         ?float $distanceKm = null,
-        ?string $priceRange = null,
+        ?array $priceRanges = null,
     ): array {
         $scope = $this->cuisineMatcher->resolveScope($cuisineSlug, $categorySlug);
 
@@ -66,16 +67,16 @@ class UnifiedSearchService
 
         $merged = $this->merge($dbRows, $liveRows, $this->fetchClosedRows($lat, $lng, $distanceKm));
 
-        // Price-range filter (parity with SearchController's `where('price_range',
-        // ...)`). Runs BEFORE scoring so the aggregates (credible quality mean,
+        // Price-level filter (parity with SearchController's `whereIn('price_range',
+        // ...)`): one level or several. Runs BEFORE scoring so the aggregates (credible quality mean,
         // min/max) are computed over the filtered set — mirroring the DB-first
         // path, which filtered price in SQL before scoring. A price-dropped
         // unmatched live row is never persisted (its `_persist` tag is filtered
         // out with the row).
-        if ($priceRange !== null) {
+        if ($priceRanges !== null) {
             $merged = array_values(array_filter(
                 $merged,
-                fn (array $row) => ($row['price_range'] ?? null) === $priceRange
+                fn (array $row) => in_array($row['price_range'] ?? null, $priceRanges, true)
             ));
         }
 

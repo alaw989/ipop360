@@ -134,63 +134,25 @@ describe('RestaurantCard', () => {
         })
     })
 
-    describe('rank badge', () => {
-        it('renders fire emoji for rank 1', () => {
-            const wrapper = mountCard({}, { rank: 1 })
-            expect(wrapper.text()).toContain('🔥')
-            expect(wrapper.text()).not.toContain('#1')
-        })
-
-        it('renders #2 for rank 2', () => {
+    describe('rank and photo badge', () => {
+        it('puts the rank in the name instead of a pill on the photo', () => {
             const wrapper = mountCard({}, { rank: 2 })
-            expect(wrapper.text()).toContain('#2')
+            expect(wrapper.get('[data-testid="rank"]').text()).toBe('2.')
+            expect(wrapper.text()).not.toContain('#2')
+            expect(wrapper.text()).not.toContain('🔥')
         })
 
-        it('renders #N for rank > 1', () => {
-            const wrapper = mountCard({}, { rank: 5 })
-            expect(wrapper.text()).toContain('#5')
+        it('shows one solid badge for a top tier, none otherwise', () => {
+            expect(mountCard({ popularity_score: 0.92 }).get('[data-testid="photo-badge"]').text()).toBe('Elite')
+            expect(mountCard({ popularity_score: 0.5 }).find('[data-testid="photo-badge"]').exists()).toBe(false)
         })
     })
 
-    describe('rank change indicator', () => {
-        it('renders ArrowUp for positive rank change', () => {
-            const wrapper = mountCard({ rank_change: 3 })
-            expect(wrapper.find('[data-testid="arrow-up-icon"]').exists()).toBe(true)
-        })
-
-        it('renders ArrowDown for negative rank change', () => {
-            const wrapper = mountCard({ rank_change: -2 })
-            expect(wrapper.find('[data-testid="arrow-down-icon"]').exists()).toBe(true)
-        })
-
-        it('renders Minus for zero rank change', () => {
-            const wrapper = mountCard({ rank_change: 0 })
-            expect(wrapper.find('[data-testid="minus-icon"]').exists()).toBe(true)
-        })
-
-        it('does not render rank change when null', () => {
-            const wrapper = mountCard({ rank_change: null })
-            expect(wrapper.find('[data-testid="arrow-up-icon"]').exists()).toBe(false)
-            expect(wrapper.find('[data-testid="arrow-down-icon"]').exists()).toBe(false)
-            expect(wrapper.find('[data-testid="minus-icon"]').exists()).toBe(false)
-        })
-
-        it('sets correct title for positive change', () => {
-            const wrapper = mountCard({ rank_change: 5 })
-            const indicator = wrapper.find('[data-testid="arrow-up-icon"]').element.parentElement!
-            expect(indicator.getAttribute('title')).toBe('Up 5 spots')
-        })
-
-        it('sets correct title for negative change', () => {
-            const wrapper = mountCard({ rank_change: -3 })
-            const indicator = wrapper.find('[data-testid="arrow-down-icon"]').element.parentElement!
-            expect(indicator.getAttribute('title')).toBe('Down 3 spots')
-        })
-
-        it('sets Steady title for zero change', () => {
-            const wrapper = mountCard({ rank_change: 0 })
-            const indicator = wrapper.find('[data-testid="minus-icon"]').element.parentElement!
-            expect(indicator.getAttribute('title')).toBe('Steady')
+    describe('rank change', () => {
+        it('leaves out the nationwide rank change, which means nothing in one city', () => {
+            const wrapper = mountCard({ rank_change: 2082 })
+            expect(wrapper.text()).not.toContain('2082')
+            expect(wrapper.find('[data-testid="rank-change"]').exists()).toBe(false)
         })
     })
 
@@ -420,7 +382,7 @@ describe('RestaurantCard', () => {
             const wrapper = mountCard({ name: 'Overlay Test' })
             const overlayLink = wrapper.find('a.after\\:absolute')
             expect(overlayLink.exists()).toBe(true)
-            expect(overlayLink.text()).toBe('Overlay Test')
+            expect(overlayLink.text()).toContain('Overlay Test')
         })
 
         it('uses internal link when restaurant id > 0', () => {

@@ -2,12 +2,6 @@ import type { Restaurant } from '@/types/restaurant';
 import { cuisineGradient, FOOD_FALLBACK_GRADIENT } from '@/lib/cuisine';
 import { mapsUrl } from '@/lib/restaurant';
 
-export interface RankStyle {
-    bg: string;
-    text: string;
-    ring?: string;
-}
-
 export interface DisplayRating {
     rating: number;
     count: number;
@@ -22,17 +16,6 @@ export function getDetailUrl(restaurant: Restaurant): string {
         return `/restaurants/preview/${restaurant.slug}`;
     }
     return mapsUrl(restaurant.name, restaurant.city);
-}
-
-export function getRankStyle(rank: number): RankStyle {
-    if (rank === 1) return { bg: 'from-amber-400 to-yellow-500', text: 'text-white', ring: 'shadow-amber-500/30' };
-    if (rank === 2) return { bg: 'from-slate-300 to-slate-400', text: 'text-slate-900', ring: 'shadow-slate-400/30' };
-    if (rank === 3) return { bg: 'from-orange-400 to-amber-600', text: 'text-white', ring: 'shadow-orange-500/30' };
-    return { bg: 'from-gray-800 to-gray-900', text: 'text-white', ring: 'shadow-gray-900/30' };
-}
-
-export function isTopRank(rank: number): boolean {
-    return rank >= 1 && rank <= 3;
 }
 
 export function getDisplayRating(restaurant: Restaurant): DisplayRating | null {

@@ -178,6 +178,15 @@ describe('SearchMap', () => {
         expect(popupHtml).toContain('Taco World')
     })
 
+    it('escapes names from outside sources in the popup', async () => {
+        const restaurants = [makeRestaurant({ id: 1, lat: 30, lng: -97, name: '<img src=x onerror=alert(1)>', slug: 'a"b' })]
+        await mountComponent({ restaurants })
+        const popupHtml = mockMarker.bindPopup.mock.calls[0][0] as string
+        expect(popupHtml).not.toContain('<img')
+        expect(popupHtml).toContain('&lt;img src=x onerror=alert(1)&gt;')
+        expect(popupHtml).toContain('/restaurants/a%22b')
+    })
+
     it('calls fitBounds after adding markers', async () => {
         const restaurants = [
             makeRestaurant({ id: 1, lat: 30, lng: -97 }),
