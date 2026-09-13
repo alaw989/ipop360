@@ -39,6 +39,8 @@ class WikimediaPhotoAuditCommandTest extends TestCase
     {
         $queue = $verdicts;
         $auditor = Mockery::mock(WikimediaPhotoAuditor::class);
+        $auditor->shouldReceive('fileNameFromUrl')->andReturn('Example.jpg');
+        $auditor->shouldReceive('preloadCommons')->andReturn(['requested' => 0, 'cached' => 0, 'fetched' => 0, 'failed' => 0]);
         $auditor->shouldReceive('audit')->andReturnUsing(function () use (&$queue): array {
             return ['verdict' => array_shift($queue) ?? WikimediaPhotoAuditor::VERDICT_UNVERIFIED, 'distance_m' => null, 'title' => null];
         });

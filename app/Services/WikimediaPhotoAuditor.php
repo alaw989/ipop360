@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Restaurant;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -38,7 +39,74 @@ class WikimediaPhotoAuditor
     /** Wikidata proximity box (±degrees), matching WikidataService. */
     private const BOX_PADDING = 0.01;
 
+    /** Commons accepts up to 50 titles per query. */
+    private const BATCH_SIZE = 50;
+
+    /** Commons file coordinate lookups are stable; cache them for 30 days. */
+    private const CACHE_TTL_DAYS = 30;
+
+    /**
+     * filename => lookup, for the current run. Populated by preloadCommons()
+     * (batched + cached) and consulted by commonsLookup().
+     *
+     * @var array<string, array{status: string, lat?: float, lng?: float}>
+     */
+    private array $commonsCache = [];
+
     public function __construct(private WikidataService $wikidata) {}
+
+    /**
+     * Resolve many file coordinate lookups at once: reuse the 30-day cache,
+     * then fetch the rest in batches of 50 titles. On a 429 (Wikimedia's rate
+     * limit) it stops issuing further requests and marks the remaining titles
+     * failed — never "none", so an --apply run cannot quarantine on a throttle.
+     *
+     * @param  array<int, string>  $filenames
+     * @return array{requested: int, cached: int, fetched: int, failed: int}
+     */
+    public function preloadCommons(array $filenames): array
+    {
+        $filenames = array_values(array_unique(array_filter($filenames, fn (string $name): bool => $name !== '')));
+        $stats = ['requested' => count($filenames), 'cached' => 0, 'fetched' => 0, 'failed' => 0];
+        $missing = [];
+
+        foreach ($filenames as $filename) {
+            $cached = Cache::get(self::cacheKey($filename));
+            if (is_array($cached) && isset($cached['status']) && is_string($cached['status'])) {
+                $lookup = ['status' => $cached['status']];
+                if (isset($cached['lat'], $cached['lng']) && is_numeric($cached['lat']) && is_numeric($cached['lng'])) {
+                    $lookup['lat'] = (float) $cached['lat'];
+                    $lookup['lng'] = (float) $cached['lng'];
+                }
+                $this->commonsCache[$filename] = $lookup;
+                $stats['cached']++;
+            } else {
+                $missing[] = $filename;
+            }
+        }
+
+        foreach (array_chunk($missing, self::BATCH_SIZE) as $chunk) {
+            $fetched = $this->fetchCommonsBatch($chunk);
+
+            if ($fetched === null) {
+                foreach ($chunk as $filename) {
+                    $this->commonsCache[$filename] = ['status' => 'failed'];
+                    $stats['failed']++;
+                }
+
+                break; // rate limited / API down: stop instead of hammering
+            }
+
+            foreach ($chunk as $filename) {
+                $lookup = $fetched[self::normalizeTitle($filename)] ?? ['status' => 'none'];
+                $this->commonsCache[$filename] = $lookup;
+                Cache::put(self::cacheKey($filename), $lookup, now()->addDays(self::CACHE_TTL_DAYS));
+                $stats['fetched']++;
+            }
+        }
+
+        return $stats;
+    }
 
     /**
      * @return array{verdict: string, distance_m: int|null, title: string|null}
@@ -95,10 +163,14 @@ class WikimediaPhotoAuditor
      * from "checked, no coords" from "couldn't check" — the last must not be
      * read as unverified.
      *
-     * @return array{status: 'coords'|'none'|'failed', lat?: float, lng?: float}
+     * @return array{status: string, lat?: float, lng?: float}
      */
     public function commonsLookup(string $filename): array
     {
+        if (array_key_exists($filename, $this->commonsCache)) {
+            return $this->commonsCache[$filename];
+        }
+
         try {
             $response = Http::timeout(8)
                 ->withUserAgent(self::USER_AGENT)
@@ -131,6 +203,72 @@ class WikimediaPhotoAuditor
 
             return ['status' => 'failed'];
         }
+    }
+
+    /**
+     * One batched Commons query for up to BATCH_SIZE file titles. Returns
+     * normalized-title => lookup, or null when the request failed / was
+     * rate-limited (the caller marks those titles failed, never "none").
+     *
+     * @param  list<string>  $filenames
+     * @return array<string, array{status: string, lat?: float, lng?: float}>|null
+     */
+    private function fetchCommonsBatch(array $filenames): ?array
+    {
+        $titles = implode('|', array_map(fn (string $name): string => 'File:'.$name, $filenames));
+
+        try {
+            $response = Http::timeout(15)
+                ->withUserAgent(self::USER_AGENT)
+                ->get(self::COMMONS_ENDPOINT, [
+                    'action' => 'query',
+                    'titles' => $titles,
+                    'prop' => 'coordinates',
+                    'format' => 'json',
+                    'origin' => '*',
+                ]);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $pages = $response->json()['query']['pages'] ?? [];
+            $lookups = [];
+            foreach (is_array($pages) ? $pages : [] as $page) {
+                if (! is_array($page)) {
+                    continue;
+                }
+                $title = (string) ($page['title'] ?? '');
+                if ($title === '') {
+                    continue;
+                }
+                $coords = $page['coordinates'][0] ?? null;
+                $lookups[self::normalizeTitle($title)] = is_array($coords) && isset($coords['lat'], $coords['lon'])
+                    ? ['status' => 'coords', 'lat' => (float) $coords['lat'], 'lng' => (float) $coords['lon']]
+                    : ['status' => 'none'];
+            }
+
+            return $lookups;
+        } catch (\Throwable $e) {
+            Log::debug('Commons batch coordinates lookup failed', [
+                'count' => count($filenames),
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private static function normalizeTitle(string $title): string
+    {
+        $title = preg_replace('/^file:/i', '', trim($title)) ?? $title;
+
+        return mb_strtolower(str_replace('_', ' ', $title));
+    }
+
+    private static function cacheKey(string $filename): string
+    {
+        return 'commons-coords:'.sha1(self::normalizeTitle($filename));
     }
 
     /**

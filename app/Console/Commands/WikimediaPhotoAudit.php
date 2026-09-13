@@ -72,7 +72,17 @@ class WikimediaPhotoAudit extends Command
         $thumbsCleared = 0;
         $examples = [];
 
-        $rows = $limit > 0 ? $query->limit($limit)->get() : $query->lazy();
+        $rows = $limit > 0 ? $query->limit($limit)->get() : $query->get();
+
+        // One batched, 30-day-cached Commons call per 50 files instead of one
+        // request per photo; a 429 stops the batch and reads as uncheckable.
+        $filenames = $rows
+            ->map(fn (Restaurant $restaurant): ?string => $auditor->fileNameFromUrl((string) $restaurant->photo_url))
+            ->filter()
+            ->values()
+            ->all();
+        $preload = $auditor->preloadCommons($filenames);
+        $this->line("Commons lookups: {$preload['fetched']} fetched, {$preload['cached']} cached, {$preload['failed']} rate-limited/failed");
 
         foreach ($rows as $restaurant) {
             $result = $auditor->audit($restaurant);
