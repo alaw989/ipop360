@@ -190,4 +190,26 @@ class WikimediaPhotoAuditorTest extends TestCase
         $this->assertSame('failed', $auditor->commonsLookup('A.jpg')['status']);
         Http::assertSentCount(1);
     }
+
+    public function test_preload_commons_marks_titles_after_the_rate_limited_batch_failed(): void
+    {
+        // 51 names = one good batch of 50, then a second batch that gets a 429.
+        $names = array_map(fn (int $i): string => "Photo {$i}.jpg", range(1, 51));
+
+        Http::fakeSequence()
+            ->push(['query' => ['pages' => []]], 200)
+            ->push('slow down', 429);
+
+        $auditor = $this->auditor();
+        $stats = $auditor->preloadCommons($names);
+
+        $this->assertSame(50, $stats['fetched']);
+        $this->assertSame(1, $stats['failed']);
+        Http::assertSentCount(2);
+
+        // The title in the throttled batch is failed, and no later lookup falls
+        // back to a single request (which is what made a full run take 22 min).
+        $this->assertSame('failed', $auditor->commonsLookup('Photo 51.jpg')['status']);
+        Http::assertSentCount(2);
+    }
 }
