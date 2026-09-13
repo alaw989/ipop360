@@ -33,6 +33,13 @@ const detailOrMapsUrl = computed(() => getDetailUrl(props.restaurant));
 
 const displayRating = computed(() => getDisplayRating(props.restaurant));
 
+// Prefer the stored card thumbnail; fall back to the original, whose host may
+// resize on request (Google/Wikimedia) — in that case keep its srcset.
+const cardPhoto = computed(() => props.restaurant.photo_thumb_url ?? props.restaurant.photo_url);
+const cardSrcset = computed(() =>
+    props.restaurant.photo_thumb_url ? null : photoSrcset(props.restaurant.photo_url),
+);
+
 const mapCoords = computed(() => getMapCoords(props.restaurant));
 
 const saved = computed(() => isFavorited(props.restaurant));
@@ -62,9 +69,9 @@ const actionClass = 'relative z-10 inline-flex min-h-12 flex-1 flex-col items-ce
         <!-- Photo -->
         <div class="relative h-24 w-24 overflow-hidden rounded-lg sm:row-span-2 sm:h-full sm:min-h-44 sm:w-44 sm:rounded-none">
             <img
-                v-if="restaurant.photo_url && !photoBroken"
-                :src="restaurant.photo_url"
-                :srcset="photoSrcset(restaurant.photo_url) ?? undefined"
+                v-if="cardPhoto && !photoBroken"
+                :src="cardPhoto"
+                :srcset="cardSrcset ?? undefined"
                 sizes="(min-width: 640px) 176px, 96px"
                 :alt="restaurant.name"
                 width="176"

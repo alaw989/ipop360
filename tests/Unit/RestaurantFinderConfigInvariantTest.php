@@ -48,6 +48,9 @@ class RestaurantFinderConfigInvariantTest extends TestCase
         'data_integrity.address_zip_unmatched_far_km' => [10, 1000],
         'data_integrity.city_place_far_km' => [1, 100],
         'data_integrity.city_unmatched_far_km' => [10, 1000],
+        'photo_thumbs.width' => [16, 4096],
+        'photo_thumbs.per_run' => [1, 100000],
+        'photo_thumbs.quality' => [1, 100],
     ];
 
     /** Operational sections (i.e. the config minus the data catalogs). */
@@ -62,6 +65,7 @@ class RestaurantFinderConfigInvariantTest extends TestCase
         'dedup',
         'filters',
         'website_scraper',
+        'photo_thumbs',
         'require_verified_social_links',
         'trending',
         'homepage',

@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Restaurant;
+use App\Services\PhotoThumbnailService;
 use App\Services\PopularityScoreService;
 use App\Support\OpeningHoursDisplay;
 use Illuminate\Http\Request;
@@ -76,6 +77,14 @@ class RestaurantResource extends JsonResource
             'lat' => $this->resource->latitude,
             'lng' => $this->resource->longitude,
             'photo_url' => $this->resource->photo_url,
+            // Card-sized WebP, only while it still matches the current
+            // photo_url (see PhotoThumbnailService). Omitted otherwise so the
+            // card falls back to the original + its host srcset.
+            'photo_thumb_url' => $this->when(
+                $this->resource instanceof Restaurant
+                    && app(PhotoThumbnailService::class)->matches($this->resource),
+                fn () => '/thumbs/'.$this->resource->photo_thumb,
+            ),
             'photos' => $this->resource->photos ?? [],
             'price_range' => $this->resource->price_range,
             'phone' => $this->resource->phone,

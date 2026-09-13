@@ -113,6 +113,24 @@ describe('getRestaurantPhotos', () => {
     ]);
   });
 
+  it('prefers the thumbnail for the first (card) slot', () => {
+    const r = makeRestaurant({
+      photo_url: 'https://img.example.com/big.jpg',
+      photo_thumb_url: '/thumbs/42-abcdef0123.webp',
+      photos: ['https://img.example.com/big.jpg', 'https://img.example.com/2.jpg'],
+    });
+    expect(getRestaurantPhotos(r)).toEqual([
+      '/thumbs/42-abcdef0123.webp',
+      'https://img.example.com/big.jpg',
+      'https://img.example.com/2.jpg',
+    ]);
+  });
+
+  it('ignores a null thumbnail', () => {
+    const r = makeRestaurant({ photo_url: 'https://img.example.com/big.jpg', photo_thumb_url: null });
+    expect(getRestaurantPhotos(r)).toEqual(['https://img.example.com/big.jpg']);
+  });
+
   it('caps at 6 photos', () => {
     const photos = Array.from({ length: 10 }, (_, i) => `https://img.example.com/${i}.jpg`);
     const r = makeRestaurant({ photo_url: null, photos });

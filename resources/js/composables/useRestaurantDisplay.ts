@@ -30,8 +30,11 @@ export function getRestaurantGradient(restaurant: Restaurant): string {
 }
 
 export function getRestaurantPhotos(restaurant: Restaurant): string[] {
+    // The card-sized thumbnail leads the gallery when present; the full-size
+    // original stays as a later slide (and for lightweight hosts, as the only
+    // entry — photo_thumb_url is omitted when it isn't present).
     return Array.from(
-        new Set([restaurant.photo_url, ...(restaurant.photos ?? [])].filter(Boolean))
+        new Set([restaurant.photo_thumb_url ?? restaurant.photo_url, ...(restaurant.photos ?? [])].filter(Boolean))
     ).slice(0, 6) as string[];
 }
 

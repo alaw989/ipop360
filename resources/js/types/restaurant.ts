@@ -54,6 +54,8 @@ export interface Restaurant {
     lat: number | null;
     lng: number | null;
     photo_url: string | null;
+    /** Card-sized WebP thumbnail, present only while it matches photo_url. */
+    photo_thumb_url?: string | null;
     photos?: string[];
     price_range: string | null;
     phone: string | null;

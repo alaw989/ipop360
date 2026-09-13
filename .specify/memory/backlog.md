@@ -642,6 +642,29 @@ Prod has PHP GD with WebP and JPEG, 32 GB free disk, and 2 cores. There are
 
 The goal is under ~1.5 MB of images on that page on a phone.
 
+**Built (2026-09-13, opencode, branch `feat/photo-thumbnails`).** Deviations
+from the suggested design, both deliberate:
+- **Stored under the private disk, served by a route, not `storage:link`.** The
+  deploy rsyncs with `--delete` and never runs `storage:link`, and
+  `public/storage` was absent on prod. So thumbs live at
+  `storage/app/private/thumbs/{id}-{sha1(photo_url):10}.webp` and are served by
+  `GET /thumbs/{file}`, which re-validates the embedded id+hash against the
+  row's current `photo_url` (404 on stale/missing) with immutable caching.
+  `deploy.yml` excludes `storage/app/private/thumbs/` so `--delete` can't wipe
+  them.
+- **SSRF guard extracted to `App\Support\SsrfGuard`** (the scraper delegates),
+  so the fetcher reuses the spec-075 guard instead of copying it.
+- The fake `/thumbs` host is skipped when Google/Wikimedia already resize.
+- GD is absent on this box, so the resize test is skipped locally and runs in
+  CI/prod; every selection/SSRF/size/hash test runs everywhere.
+
+Command: `restaurants:photo-thumbnails` (dry-run default, `--apply`,
+`--limit`, `--refresh` for changed photos), daily at 14:15 UTC after the 13:45
+photo backfill. Card consumers (`SearchResultCard`, `getRestaurantPhotos`) use
+the thumb once present. **Pending:** merge + deploy, then run a bounded
+`--apply` on prod and confirm `/search?city=Austin&state=TX` is under ~1.5 MB
+on a phone (`scripts/ui-checks/imgweight.mjs`).
+
 ### 18. Junk photos: Instagram's logo as the restaurant photo
 3,823 active restaurants have `photo_url =
 https://static.cdninstagram.com/rsrc.php/v4/yD/r/R0fBIMurK8v.png`. That's

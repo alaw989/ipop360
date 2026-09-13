@@ -154,6 +154,7 @@ jobs:
             --exclude 'storage/logs/*' \
             --exclude 'storage/app/tools/' \
             --exclude 'storage/app/overture/' \
+            --exclude 'storage/app/private/thumbs/' \
             --exclude 'database/database.sqlite' \
             --exclude 'public/hot' \
             --exclude 'public/sitemap.xml' \

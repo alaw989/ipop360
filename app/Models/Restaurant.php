@@ -46,6 +46,7 @@ class Restaurant extends Model
         'photo_url',
         'photo_source',
         'photo_verified_at',
+        'photo_thumb',
         'photos',
         'google_place_id',
         'overture_id',

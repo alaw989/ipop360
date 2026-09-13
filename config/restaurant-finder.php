@@ -787,6 +787,36 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Card-sized photo thumbnails
+    |--------------------------------------------------------------------------
+    | Google and Wikimedia photos are resized on request by URL (see
+    | resources/js/lib/responsiveImage.ts), but every other host serves its
+    | original — one result is a 16 MB JPEG rendered at 96–176 px, so a single
+    | search page shipped 17.6 MB of images. `restaurants:photo-thumbnails`
+    | downloads those originals once and stores a width-capped WebP under
+    | storage/app/private/thumbs, served by the /thumbs/{file} route. Bounded
+    | on both ends: a 25 MB download cap and a 50 MP decode cap.
+    */
+    'photo_thumbs' => [
+        // Output width in CSS pixels. Cards render at 96 px (phone) / 176 px
+        // (sm+); 640 covers a 3x phone with headroom.
+        'width' => (int) env('PHOTO_THUMBS_WIDTH', 640),
+        // Refuse to read a download larger than this (bytes).
+        'max_download_bytes' => (int) env('PHOTO_THUMBS_MAX_DOWNLOAD_BYTES', 25 * 1024 * 1024),
+        // Refuse to decode an image with more pixels than this (decompression
+        // bomb guard). 50 MP is a generous DSLR-sized ceiling.
+        'max_pixels' => (int) env('PHOTO_THUMBS_MAX_PIXELS', 50_000_000),
+        // Default per-run cap for the scheduled command.
+        'per_run' => (int) env('PHOTO_THUMBS_PER_RUN', 150),
+        'timeout' => (float) env('PHOTO_THUMBS_TIMEOUT', 12.0),
+        'quality' => (int) env('PHOTO_THUMBS_QUALITY', 78),
+        // Reuse the same SSRF kill-switch semantics as the website scraper, but
+        // separate so tests can disable it without touching scraping.
+        'ssrf_guard' => filter_var(env('PHOTO_THUMBS_SSRF_GUARD', true), FILTER_VALIDATE_BOOL),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Social link verification (spec-109)
     |--------------------------------------------------------------------------
     | social_links_count previously counted any platform URL regex-extracted
