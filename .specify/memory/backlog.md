@@ -722,20 +722,31 @@ coordinates near the pin. That's how the Moose's Tooth photo was verified.
 Report counts and samples to the user, and **don't remove photos in bulk
 without their OK**.
 
-**Report built + first results (2026-09-13).** `restaurants:wikimedia-photo-audit`
-merged as **PR #203** (`947724f`), report-only. Pass rules: Commons file
-geotagged within ~150 m (`prop=coordinates`) **or** a Wikidata item within
-~150 m carrying the same file as its P18. Bounded prod run (top 1,000 by
-popularity): **996 unverified (99.6%), 4 Wikidata-verified, 0 Commons-verified,
-0 uncheckable**. Samples: Chickpeas (Mobile) → a heart-healthy-recipes PDF,
-Turkish Flame (Indian Rocks Beach) → a 19th-century book about Turkey,
-Zaky Zak's (Tampa) → a JWST briefing photo, Ela (Atlanta) → `MJ-Ela-Bhatt` (a
-person), L&L Hawaiian Barbecue → its own logo SVG, Nori (Austin) → `Nori.jpg`.
-**Caveat:** a transient Commons API failure is treated as "no coordinates" and
-biases toward *unverified*, and an unbounded sweep is slow (Wikidata SPARQL per
-proximity box, 30 s timeout); a full pass can be left running / warmed cache.
-**Pending operator decision:** ~4.7k-5.2k photos are name-only junk — remove in
-bulk (quarantine), or start with the highest-popularity offenders?
+**Report built + quarantine follow-ups (2026-09-13).** `restaurants:wikimedia-photo-audit`
+merged as **PR #203** (`947724f`), report-only; `--apply` added in **#205**
+(`5fbd949`), then batched/30-day-cached Commons lookups in **#206** (`808aedc`)
+with the all-remaining-failed fix in **#207** (`8541f04`) after the first full
+run took 22 min falling back to per-row requests on a 429.
+
+Pass rules: Commons file geotagged within ~150 m (`prop=coordinates`) **or** a
+Wikidata item within ~150 m carrying the same file as its P18.
+
+- Bounded (top 1,000) report, before rate limiting: **996 unverified (99.6%),
+  4 Wikidata-verified, 0 Commons-verified**.
+- Bounded `--apply --limit=500`: 19 quarantined, 17 galleries stripped; 480
+  `uncheckable` because Commons returned 429 — the safety gate kept all 480
+  untouched.
+- Full corpus report after batching: **5,205 audited → 2,948 unverified, 19
+  Commons-verified, 4 Wikidata-verified, 2,234 uncheckable** (remaining
+  lookups blocked by the 429). ~2,610 distinct files; 800 fetched before the
+  limit.
+- Samples are clear junk: recipes/history-book PDFs, a JWST briefing photo, a
+  person (`MJ-Ela-Bhatt` for "Ela"), a logo SVG, `Nori.jpg`.
+- **Nuance:** "unverified" means *location unconfirmed*, not *provably wrong* —
+  a correct restaurant photo with no Commons geodata lands there. Quarantine is
+  fully reversible (`restaurants:integrity --restore=wikimedia_name_only_match`).
+- **Pending operator decision:** run the full `--apply` to quarantine the 2,948
+  unverified (reversible), or hold.
 
 ### 20. Check PR 1's first daily run (after 2026-09-13 11:45 UTC)
 `restaurants:backfill-websites` should have:
