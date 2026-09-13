@@ -55,9 +55,15 @@ class WikimediaPhotoAuditor
         $lat = (float) $restaurant->latitude;
         $lng = (float) $restaurant->longitude;
 
-        $coords = $this->commonsCoordinates($filename);
-        if ($coords !== null) {
-            $km = $this->haversineKm($lat, $lng, $coords['lat'], $coords['lng']);
+        $lookup = $this->commonsLookup($filename);
+        if ($lookup['status'] === 'failed') {
+            // Couldn't check, so the photo is neither verified nor provably
+            // wrong — never "unverified". An --apply run would otherwise
+            // quarantine a genuinely good photo on a transient API failure.
+            return $this->result(self::VERDICT_UNCHECKABLE, null, $filename);
+        }
+        if ($lookup['status'] === 'coords' && isset($lookup['lat'], $lookup['lng'])) {
+            $km = $this->haversineKm($lat, $lng, $lookup['lat'], $lookup['lng']);
             if ($km <= self::MAX_DISTANCE_KM) {
                 return $this->result(self::VERDICT_COMMONS, $this->meters($km), $filename);
             }
@@ -85,11 +91,13 @@ class WikimediaPhotoAuditor
     }
 
     /**
-     * The Commons file coordinates, or null when the file has none / is missing.
+     * The Commons file's geotag lookup. `status` distinguishes "has coords"
+     * from "checked, no coords" from "couldn't check" — the last must not be
+     * read as unverified.
      *
-     * @return array{lat: float, lng: float}|null
+     * @return array{status: 'coords'|'none'|'failed', lat?: float, lng?: float}
      */
-    public function commonsCoordinates(string $filename): ?array
+    public function commonsLookup(string $filename): array
     {
         try {
             $response = Http::timeout(8)
@@ -103,24 +111,26 @@ class WikimediaPhotoAuditor
                 ]);
 
             if (! $response->successful()) {
-                return null;
+                return ['status' => 'failed'];
             }
 
             $pages = $response->json()['query']['pages'] ?? [];
             foreach (is_array($pages) ? $pages : [] as $page) {
                 $coords = is_array($page) ? ($page['coordinates'][0] ?? null) : null;
                 if (is_array($coords) && isset($coords['lat'], $coords['lon'])) {
-                    return ['lat' => (float) $coords['lat'], 'lng' => (float) $coords['lon']];
+                    return ['status' => 'coords', 'lat' => (float) $coords['lat'], 'lng' => (float) $coords['lon']];
                 }
             }
+
+            return ['status' => 'none'];
         } catch (\Throwable $e) {
             Log::debug('Commons file coordinates lookup failed', [
                 'title' => 'File:'.$filename,
                 'message' => $e->getMessage(),
             ]);
-        }
 
-        return null;
+            return ['status' => 'failed'];
+        }
     }
 
     /**
