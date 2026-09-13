@@ -27,4 +27,15 @@ class HomeController extends Controller
 
         return response()->json($data);
     }
+
+    /**
+     * Every cuisine category with its cuisines, for the header search on
+     * pages that don't already carry the list (the home page does). Public
+     * and the same for everyone, so browsers may cache it for an hour.
+     */
+    public function categories(): JsonResponse
+    {
+        return response()->json($this->homeService->allCategories())
+            ->header('Cache-Control', 'public, max-age=3600');
+    }
 }

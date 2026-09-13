@@ -1,24 +1,41 @@
 import { describe, it, expect } from 'vitest';
-import { slides } from '@/lib/slideshow';
+import { slides, slideSources } from '@/lib/slideshow';
 
 describe('slideshow config', () => {
     it('exports exactly 5 slides', () => {
         expect(slides).toHaveLength(5);
     });
 
-    it('each slide has an image URL and attribution', () => {
+    it('each slide has an Unsplash photo id and attribution', () => {
         for (const slide of slides) {
-            expect(slide.image).toBeTruthy();
-            expect(slide.image).toContain('unsplash.com');
-            expect(slide.attribution).toBeTruthy();
+            expect(slide.id).toMatch(/^photo-/);
             expect(slide.attribution).toMatch(/^Photo by .+ on Unsplash$/);
         }
     });
 
-    it('all image URLs use w=1600 and q=80 params', () => {
+    it('serves phones portrait crops no wider than 900px', () => {
+        const { phone } = slideSources(slides[0]!);
+        expect(phone).toContain('w=600&h=900 600w');
+        expect(phone).toContain('w=900&h=1350 900w');
+        expect(phone).not.toContain('w=1600');
+    });
+
+    it('serves wider screens landscape crops up to 2200px', () => {
+        const { wide, fallback } = slideSources(slides[0]!);
+        expect(wide).toContain('960w');
+        expect(wide).toContain('1600w');
+        expect(wide).toContain('2200w');
+        expect(fallback).toContain('w=1600&h=900');
+    });
+
+    it('lets Unsplash pick a modern format and crop to the requested size', () => {
         for (const slide of slides) {
-            expect(slide.image).toContain('w=1600');
-            expect(slide.image).toContain('q=80');
+            const { phone, wide, fallback } = slideSources(slide);
+            for (const url of [phone, wide, fallback]) {
+                expect(url).toContain(`images.unsplash.com/${slide.id}`);
+                expect(url).toContain('auto=format');
+                expect(url).toContain('fit=crop');
+            }
         }
     });
 });

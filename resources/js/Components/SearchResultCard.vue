@@ -183,7 +183,7 @@ const rankChangeTitle = computed(() => {
             </div>
 
             <!-- Action pills -->
-            <div class="flex items-center gap-2 pt-2">
+            <div class="flex flex-wrap items-center gap-2 pt-2">
                 <a
                     v-if="mapCoords"
                     :href="`https://www.google.com/maps/dir/?api=1&destination=${mapCoords.lat},${mapCoords.lng}`"

@@ -197,9 +197,9 @@ describe('Welcome', () => {
     })
 
     describe('hero', () => {
-        it('renders accessible h1 heading', () => {
+        it('leaves the page heading to the hero (one h1, visible)', () => {
             const wrapper = mountWelcome()
-            expect(wrapper.find('h1').text()).toBe('Find Popular Restaurants Near You')
+            expect(wrapper.find('h1').exists()).toBe(false)
         })
 
         it('renders HeroBanner', () => {

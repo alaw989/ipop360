@@ -237,9 +237,6 @@ function dismissGeolocationError() {
         <!-- Structured data — Inertia <Head> drops <script> tags, so inject via JsonLd -->
         <JsonLd :data="structuredData" />
 
-        <!-- Visually-hidden page title for accessibility -->
-        <h1 class="sr-only">Find Popular Restaurants Near You</h1>
-
         <!-- Geolocation error banner -->
         <Transition name="fade">
             <Card v-if="geolocationError" class="absolute left-4 right-4 top-16 z-10 mx-auto max-w-2xl border-destructive bg-destructive/10">

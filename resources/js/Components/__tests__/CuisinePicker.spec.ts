@@ -230,4 +230,31 @@ describe('CuisinePicker', () => {
         expect(wrapper.emitted('select')).toBeUndefined()
         expect(wrapper.text()).toContain('any cuisine')
     })
+
+    describe('as a search bar field', () => {
+        it('shows a What label over "Any cuisine" until one is picked', () => {
+            const wrapper = createWrapper({ variant: 'field' })
+            const trigger = wrapper.get('[data-testid="cuisine-trigger"]')
+            expect(trigger.text()).toContain('What')
+            expect(trigger.text()).toContain('Any cuisine')
+        })
+
+        it('shows just the cuisine name, not the category path', () => {
+            const wrapper = createWrapper({ variant: 'field', initialLabel: 'Asian ▸ Japanese' })
+            const trigger = wrapper.get('[data-testid="cuisine-trigger"]')
+            expect(trigger.text()).toContain('Japanese')
+            expect(trigger.text()).not.toContain('▸')
+        })
+
+        it('says the list is loading instead of "No categories found"', () => {
+            const wrapper = createWrapper({ variant: 'field', categories: [], loading: true })
+            expect(wrapper.text()).toContain('Loading cuisines…')
+            expect(wrapper.text()).not.toContain('No categories found.')
+        })
+
+        it('is a full-height, 44px-or-taller target', () => {
+            const wrapper = createWrapper({ variant: 'field' })
+            expect(wrapper.get('[data-testid="cuisine-trigger"]').classes()).toContain('min-h-11')
+        })
+    })
 })

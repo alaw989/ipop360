@@ -38,6 +38,7 @@ const stubs = {
     },
     SheetTitle: { template: '<h2 data-testid="sheet-title"><slot /></h2>' },
     SheetDescription: { template: '<p data-testid="sheet-description"><slot /></p>' },
+    SiteSearch: { props: { stacked: Boolean }, template: '<div data-testid="site-search-stub" :data-stacked="stacked ? \'true\' : \'false\'" />' },
 }
 
 function mountNav(role: 'admin' | 'editor' | 'user' | null, sticky = true, transparent = false) {
@@ -57,6 +58,19 @@ describe('TopNav', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         mockUsePage.mockReturnValue({ props: { auth: { user: null } } })
+    })
+
+    it('puts the search in the header on regular pages: inline on desktop, a pill on phones', () => {
+        const wrapper = mountNav(null)
+        expect(wrapper.find('[data-testid="header-search"] [data-testid="site-search-stub"]').exists()).toBe(true)
+        expect(wrapper.find('[data-testid="header-search-pill"]').text()).toContain('Search restaurants')
+        expect(wrapper.find('[data-testid="site-search-stub"][data-stacked="true"]').exists()).toBe(true)
+    })
+
+    it('leaves the header search out on the home page, whose hero has it', () => {
+        const wrapper = mountNav(null, false, true)
+        expect(wrapper.find('[data-testid="header-search"]').exists()).toBe(false)
+        expect(wrapper.find('[data-testid="header-search-pill"]').exists()).toBe(false)
     })
 
     it('shows Manage Blog link for admin users', () => {
@@ -144,7 +158,9 @@ describe('TopNav', () => {
 
     it('renders the mobile menu as a right-side drawer', () => {
         const wrapper = mountNav(null)
-        expect(wrapper.find('[data-testid="mobile-menu-sheet"]').attributes('data-side')).toBe('right')
+        const menuSheet = wrapper.findAll('[data-testid="mobile-menu-sheet"]')
+            .find((sheet) => sheet.find('[data-testid="mobile-menu"]').exists())
+        expect(menuSheet?.attributes('data-side')).toBe('right')
     })
 
     it('renders public links inside the mobile drawer', () => {
@@ -176,7 +192,7 @@ describe('TopNav', () => {
 
     it('renders an accessible title in the mobile drawer', () => {
         const wrapper = mountNav(null)
-        expect(wrapper.find('[data-testid="sheet-title"]').text()).toBe('Menu')
+        expect(wrapper.findAll('[data-testid="sheet-title"]').map((title) => title.text())).toContain('Menu')
     })
 
     it('renders an accessible description in the mobile drawer', () => {

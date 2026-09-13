@@ -31,6 +31,7 @@ const stubs = {
     BrandLogo: { template: '<svg data-testid="logo" />' },
     AppFooter: { template: '<footer />' },
     Badge: { template: '<span><slot /></span>' },
+    SiteSearch: { template: '<div data-testid="site-search-stub" />' },
 }
 
 function mountLayout(role: 'admin' | 'editor' | 'user' | null) {

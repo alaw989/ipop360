@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
-import { Menu, X } from '@lucide/vue'
+import { Menu, Search, X } from '@lucide/vue'
 import BrandLogo from '@/Components/BrandLogo.vue'
+import SiteSearch from '@/Components/SiteSearch.vue'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
@@ -23,6 +24,10 @@ const mobileMenuOpen = ref(false)
 function closeMobileMenu() {
     mobileMenuOpen.value = false
 }
+
+// Search on every page, as on Yelp. The home page (transparent header over
+// the hero) leaves it out: the hero has the same search, larger.
+const mobileSearchOpen = ref(false)
 </script>
 
 <template>
@@ -37,21 +42,59 @@ function closeMobileMenu() {
     >
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="flex h-16 items-center justify-between">
-                <Link href="/" class="flex items-center gap-2" aria-label="iPop360 home">
+                <Link href="/" class="flex shrink-0 items-center gap-2" aria-label="iPop360 home">
                     <BrandLogo
                         class="text-[2.25rem]"
                         :class="props.transparent ? 'text-white' : undefined"
                     />
                     <Badge
                         variant="outline"
-                        class="text-xs"
+                        class="hidden text-xs sm:inline-flex"
                         aria-hidden="true"
                         :class="props.transparent ? 'border-white/50 text-white' : undefined"
                     >Beta</Badge>
                 </Link>
 
+                <template v-if="!props.transparent">
+                    <!-- Desktop: the two-part search inline -->
+                    <div class="hidden min-w-0 flex-1 px-6 lg:block" data-testid="header-search">
+                        <SiteSearch class="max-w-2xl" />
+                    </div>
+
+                    <!-- Phone and tablet: a pill that opens a full-screen search -->
+                    <Sheet v-model:open="mobileSearchOpen">
+                        <SheetTrigger as-child>
+                            <button
+                                type="button"
+                                class="mx-3 flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-border bg-background px-4 text-left text-[15px] text-muted-foreground shadow-sm transition-colors hover:bg-accent/60 lg:hidden"
+                                data-testid="header-search-pill"
+                            >
+                                <Search class="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                                <span class="truncate">Search restaurants</span>
+                            </button>
+                        </SheetTrigger>
+                        <SheetContent side="top" class="p-0 pt-[env(safe-area-inset-top)]" :show-close-button="false">
+                            <div class="flex items-center justify-between px-4 pt-3">
+                                <SheetTitle class="font-heading text-base">Search restaurants</SheetTitle>
+                                <button
+                                    type="button"
+                                    class="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                    aria-label="Close search"
+                                    @click="mobileSearchOpen = false"
+                                >
+                                    <X class="h-5 w-5" />
+                                </button>
+                            </div>
+                            <SheetDescription class="sr-only">Pick a cuisine and a place, then search</SheetDescription>
+                            <div class="px-4 pb-5 pt-2">
+                                <SiteSearch stacked @searched="mobileSearchOpen = false" />
+                            </div>
+                        </SheetContent>
+                    </Sheet>
+                </template>
+
                 <!-- Desktop links -->
-                <div class="hidden items-center gap-4 md:flex">
+                <div class="hidden shrink-0 items-center gap-4 md:flex">
                     <Link
                         href="/restaurants"
                         class="text-sm transition-colors"

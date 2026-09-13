@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Link } from '@inertiajs/vue3'
-import { Button } from '@/components/ui/button'
 import CuisinePicker from '@/Components/CuisinePicker.vue'
 import LocationPicker from '@/Components/LocationPicker.vue'
-import BrandLogo from '@/Components/BrandLogo.vue'
-import { Badge } from '@/components/ui/badge'
-import { slides } from '@/lib/slideshow'
+import SearchBarShell from '@/Components/SearchBarShell.vue'
+import { slides, slideSources } from '@/lib/slideshow'
 
 interface Category {
     id: number
@@ -38,16 +35,39 @@ interface Emits {
 defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+const sources = slides.map(slideSources)
 const currentSlide = ref(0)
 const isPaused = ref(false)
 const loadedSlides = ref(slides.map(() => true))
+const hero = ref<HTMLElement | null>(null)
 let timer: ReturnType<typeof setInterval> | null = null
+
+// Only the first photo loads with the page. Each later photo is added one
+// slide ahead of when it's shown, so a visitor who never watches the
+// slideshow downloads two photos, not five. Slides 0..renderedUpTo exist.
+const renderedUpTo = ref(0)
+let nextTimer: ReturnType<typeof setTimeout> | null = null
+
+function renderThrough(index: number) {
+    renderedUpTo.value = Math.min(slides.length - 1, Math.max(renderedUpTo.value, index))
+    if (nextTimer) {
+        clearTimeout(nextTimer)
+        nextTimer = null
+    }
+}
+
+function onFirstLoaded() {
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback
+    if (idle) idle(() => renderThrough(1), { timeout: 3000 })
+    else setTimeout(() => renderThrough(1), 1500)
+}
 
 function onSlideError(index: number) {
     loadedSlides.value[index] = false
 }
 
 function goToSlide(index: number) {
+    renderThrough(index + 1)
     currentSlide.value = index
     resetTimer()
 }
@@ -62,8 +82,12 @@ function togglePause() {
 }
 
 function startTimer() {
+    stopTimer()
     timer = setInterval(() => {
-        currentSlide.value = (currentSlide.value + 1) % slides.length
+        const next = (currentSlide.value + 1) % slides.length
+        if (next > renderedUpTo.value) return
+        currentSlide.value = next
+        renderThrough(next + 1)
     }, 6000)
 }
 
@@ -75,16 +99,26 @@ function stopTimer() {
 }
 
 function resetTimer() {
-    stopTimer()
-    startTimer()
+    if (!isPaused.value) startTimer()
 }
 
 onMounted(() => {
+    // Server-rendered, the first photo can finish loading before the page is
+    // interactive, when its load event has already fired.
+    const first = hero.value?.querySelector('img')
+    if (first?.complete) onFirstLoaded()
+    nextTimer = setTimeout(() => renderThrough(1), 4000)
+
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+        isPaused.value = true
+        return
+    }
     startTimer()
 })
 
 onUnmounted(() => {
     stopTimer()
+    if (nextTimer) clearTimeout(nextTimer)
 })
 
 function onCuisineSelect(payload: { category: string; cuisine?: string; label: string }) {
@@ -105,75 +139,69 @@ function onDetect() {
 </script>
 
 <template>
-    <section class="relative flex min-h-[80vh] flex-col overflow-hidden">
+    <section ref="hero" class="relative flex min-h-[560px] flex-col overflow-hidden lg:min-h-[600px]">
         <!-- Background slideshow -->
-        <div class="absolute inset-0">
-            <div
-                v-for="(slide, i) in slides"
-                :key="i"
-                class="absolute inset-0 transition-opacity duration-1000 ease-in-out"
-                :class="i === currentSlide ? 'opacity-100' : 'opacity-0'"
-            >
-                <img
-                    v-show="loadedSlides[i]"
-                    :src="slide.image"
-                    class="h-full w-full object-cover"
-                    alt=""
-                    aria-hidden="true"
-                    @error="onSlideError(i)"
-                />
-            </div>
+        <div class="absolute inset-0" aria-hidden="true">
+            <template v-for="(slide, i) in slides" :key="slide.id">
+                <picture
+                    v-if="i <= renderedUpTo"
+                    class="absolute inset-0 transition-opacity duration-1000 ease-in-out"
+                    :class="i === currentSlide ? 'opacity-100' : 'opacity-0'"
+                >
+                    <source media="(max-width: 767px)" :srcset="sources[i]!.phone" sizes="100vw" />
+                    <source :srcset="sources[i]!.wide" sizes="100vw" />
+                    <img
+                        v-show="loadedSlides[i]"
+                        :src="sources[i]!.fallback"
+                        class="h-full w-full object-cover"
+                        alt=""
+                        decoding="async"
+                        :loading="i === 0 ? 'eager' : 'lazy'"
+                        :fetchpriority="i === 0 ? 'high' : 'low'"
+                        @load="i === 0 && onFirstLoaded()"
+                        @error="onSlideError(i)"
+                    />
+                </picture>
+            </template>
         </div>
 
-        <!-- Gradient overlay -->
-        <div class="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/85" />
+        <!-- Darkening so white text and the search bar read on any photo -->
+        <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/45 to-black/70" />
 
         <!-- Content layer -->
         <div class="relative z-10 flex flex-1 flex-col">
-            <!-- Centered hero content -->
-            <div class="flex flex-1 flex-col items-center justify-center px-4 pb-20">
-                <div class="w-full max-w-4xl text-center">
-                    <!-- Logo (home link — the AppLayout TopNav owns the in-hero links now) -->
-                    <Link href="/" class="mb-6 inline-flex items-center gap-2" aria-label="iPop360 home">
-                        <BrandLogo class="text-[6rem] text-white sm:text-[8rem]" />
-                        <Badge variant="outline" class="text-xs text-white border-white/50" aria-hidden="true">Beta</Badge>
-                    </Link>
+            <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center px-4 pb-10 pt-24 sm:px-6">
+                <h1 class="font-heading text-[2rem] font-bold leading-[1.1] text-white text-balance sm:text-5xl">
+                    Find the most popular restaurants near you
+                </h1>
 
-                    <!-- Dynamic sentence -->
-                    <h2 class="flex flex-wrap items-center justify-center gap-x-2 text-2xl font-medium leading-relaxed text-white sm:text-3xl">
-                        <span>Find the most Popular</span>
+                <SearchBarShell
+                    size="lg"
+                    layout="responsive"
+                    :busy="detectingLocation"
+                    class="mt-6 shadow-lg sm:mt-8"
+                    @submit="$emit('search')"
+                >
+                    <template #what>
                         <CuisinePicker
-                            inverted
+                            variant="field"
+                            size="lg"
                             :categories="categories"
                             @select="onCuisineSelect"
                         />
-                        <span>Restaurants in</span>
+                    </template>
+                    <template #where>
                         <LocationPicker
-                            inverted
+                            variant="field"
+                            size="lg"
                             :location="location"
                             :detecting="detectingLocation"
                             @update="onLocationUpdate"
                             @coords="onCoords"
                             @detect="onDetect"
                         />
-                    </h2>
-
-                    <!-- Search button -->
-                    <div class="mt-6">
-                        <Button
-                            size="lg"
-                            :disabled="detectingLocation"
-                            @click="$emit('search')"
-                            class="relative px-8 transition-all hover:scale-105 active:scale-95"
-                        >
-                            <span v-if="detectingLocation" class="inline-flex items-center gap-2">
-                                <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                Detecting location...
-                            </span>
-                            <span v-else>Search</span>
-                        </Button>
-                    </div>
-                </div>
+                    </template>
+                </SearchBarShell>
             </div>
 
             <!-- Slide controls -->
@@ -181,6 +209,7 @@ function onDetect() {
                 <button
                     v-for="(_, i) in slides"
                     :key="'dot-' + i"
+                    type="button"
                     class="relative flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300"
                     :aria-label="`Go to slide ${i + 1}`"
                     @click="goToSlide(i)"
@@ -193,6 +222,7 @@ function onDetect() {
                     />
                 </button>
                 <button
+                    type="button"
                     class="ml-3 flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                     :aria-label="isPaused ? 'Resume slideshow' : 'Pause slideshow'"
                     @click="togglePause"
@@ -204,7 +234,7 @@ function onDetect() {
         </div>
 
         <!-- Photo attribution -->
-        <div class="absolute bottom-2 right-3 z-10 text-[10px] text-white/40">
+        <div class="absolute bottom-2 right-3 z-10 text-[10px] text-white/50">
             {{ slides[currentSlide]?.attribution ?? '' }}
         </div>
     </section>

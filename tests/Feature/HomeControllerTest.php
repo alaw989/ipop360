@@ -60,6 +60,24 @@ class HomeControllerTest extends TestCase
         );
     }
 
+    public function test_cuisine_categories_endpoint_lists_every_category_for_the_header_search(): void
+    {
+        $asian = CuisineCategory::factory()->create(['name' => 'Asian', 'slug' => 'asian', 'sort_order' => 2]);
+        CuisineCategory::factory()->create(['name' => 'American', 'slug' => 'american', 'sort_order' => 1]);
+        Cuisine::factory()->count(2)->create(['category_id' => $asian->id]);
+
+        $response = $this->getJson('/api/cuisine-categories');
+
+        $response->assertOk()
+            ->assertJsonCount(2)
+            ->assertJsonPath('0.slug', 'american')
+            ->assertJsonPath('1.slug', 'asian')
+            ->assertJsonCount(2, '1.cuisines')
+            ->assertJsonStructure(['*' => ['id', 'name', 'slug', 'icon', 'cuisines']])
+            ->assertJsonStructure(['1' => ['cuisines' => ['*' => ['id', 'name', 'slug', 'icon']]]]);
+        $this->assertStringContainsString('max-age=3600', (string) $response->headers->get('Cache-Control'));
+    }
+
     public function test_categories_are_ordered_by_sort_order(): void
     {
         CuisineCategory::factory()->create(['name' => 'Zebra', 'slug' => 'zebra', 'sort_order' => 2]);
