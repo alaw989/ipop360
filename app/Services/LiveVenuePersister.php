@@ -7,6 +7,7 @@ use App\Jobs\EnrichRestaurantWithAi;
 use App\Models\Cuisine;
 use App\Models\Restaurant;
 use App\Support\AddressParts;
+use App\Support\PhotoUrl;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -41,6 +42,19 @@ class LiveVenuePersister
         $city = $venue['city'] ?? AddressParts::city($venue['address'] ?? null) ?? ($defaultLocation['city'] ?? null);
         $state = $venue['state'] ?? AddressParts::state($venue['address'] ?? null) ?? ($defaultLocation['state'] ?? null);
 
+        // A platform's own logo sprite (Instagram/Facebook rsrc.php) is never a
+        // venue photo — drop it here so the live-search path can't store one.
+        $photoUrl = $venue['photo_url'] ?? null;
+        $photoSource = $venue['photo_source'] ?? null;
+        if (is_string($photoUrl) && PhotoUrl::isPlatformAsset($photoUrl)) {
+            $photoUrl = null;
+            $photoSource = null;
+        }
+        $photoGallery = array_values(array_filter(
+            is_array($venue['photos'] ?? null) ? $venue['photos'] : [],
+            fn ($photo): bool => ! is_string($photo) || ! PhotoUrl::isPlatformAsset($photo),
+        ));
+
         $attributes = [
             'name' => $venue['name'] ?? 'Unknown',
             'slug' => $venue['slug'] ?? null,
@@ -55,9 +69,9 @@ class LiveVenuePersister
             'website_url' => $venue['website_url'] ?? null,
             'price_range' => $venue['price_range'] ?? null,
             'opening_hours' => $this->normalizeOpeningHours($venue['opening_hours'] ?? null),
-            'photo_url' => $venue['photo_url'] ?? null,
-            'photo_source' => $venue['photo_source'] ?? null,
-            'photos' => $venue['photos'] ?? [],
+            'photo_url' => $photoUrl,
+            'photo_source' => $photoSource,
+            'photos' => $photoGallery,
             'google_place_id' => $venue['google_place_id'] ?? null,
             'google_rating' => $venue['google_rating'] ?? null,
             'google_review_count' => (int) ($venue['google_review_count'] ?? 0),

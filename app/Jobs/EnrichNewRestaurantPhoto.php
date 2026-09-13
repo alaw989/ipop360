@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Restaurant;
 use App\Services\RestaurantWebsiteScraperService;
+use App\Support\PhotoUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -70,8 +71,8 @@ class EnrichNewRestaurantPhoto implements ShouldQueue
 
             $photoUrl = $result['url'];
 
-            if ($this->isGpsCsSPhoto($photoUrl)) {
-                Log::channel('enrichment')->debug('Photo hunt skipped transient gps-cs-s result', [
+            if ($this->isGpsCsSPhoto($photoUrl) || PhotoUrl::isPlatformAsset($photoUrl)) {
+                Log::channel('enrichment')->debug('Photo hunt skipped a non-photo result', [
                     'restaurant_id' => $restaurant->id,
                     'restaurant_name' => $restaurant->name,
                     'photo_url' => $photoUrl,

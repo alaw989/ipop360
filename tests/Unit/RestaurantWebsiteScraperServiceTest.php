@@ -251,6 +251,53 @@ class RestaurantWebsiteScraperServiceTest extends TestCase
         $this->assertLessThanOrEqual(6, count($photos));
     }
 
+    public function test_scrape_ignores_a_platform_logo_in_og_image_and_uses_the_next_meta(): void
+    {
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><head>'
+                .'<meta property="og:image" content="https://static.cdninstagram.com/rsrc.php/v4/yD/r/R0fBIMurK8v.png">'
+                .'<meta name="twitter:image" content="https://cdn.example.com/tw.jpg">'
+                .'</head><body>'
+                .'<img src="https://cdn.example.com/photo1.jpg">'
+                .'</body></html>',
+                200
+            ),
+        ]);
+
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertIsArray($result);
+        $this->assertSame('https://cdn.example.com/tw.jpg', $result['photo_url']);
+        $this->assertNotContains(
+            'https://static.cdninstagram.com/rsrc.php/v4/yD/r/R0fBIMurK8v.png',
+            $result['photos']
+        );
+        $this->assertContains('https://cdn.example.com/photo1.jpg', $result['photos']);
+    }
+
+    public function test_scrape_has_no_photo_when_the_only_og_image_is_a_platform_logo(): void
+    {
+        Http::fake([
+            'https://example.com/robots.txt' => Http::response('', 404),
+            'https://example.com/' => Http::response(
+                '<html><head>'
+                .'<meta property="og:image" content="https://www.facebook.com/rsrc.php/v4/yD/r/abc.png">'
+                .'</head><body>'
+                .'<img src="https://cdn.example.com/photo1.jpg">'
+                .'</body></html>',
+                200
+            ),
+        ]);
+
+        $result = $this->service->scrape('https://example.com/');
+
+        $this->assertIsArray($result);
+        $this->assertNull($result['photo_url'], 'a platform logo must never be stored as the photo');
+        $this->assertContains('https://cdn.example.com/photo1.jpg', $result['photos']);
+    }
+
     public function test_scrape_returns_null_when_no_useful_data_found(): void
     {
         Http::fake([

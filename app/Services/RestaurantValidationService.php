@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\PhotoUrl;
 use App\Support\StateAbbreviations;
 
 class RestaurantValidationService
@@ -24,6 +25,20 @@ class RestaurantValidationService
 
         if (! empty($attributes['photo_url'])) {
             $attributes['photo_url'] = $this->normalizeUrl($attributes['photo_url']);
+        }
+
+        // A platform's own logo sprite is never a venue photo.
+        if (isset($attributes['photo_url']) && PhotoUrl::isPlatformAsset(
+            is_string($attributes['photo_url']) ? $attributes['photo_url'] : null
+        )) {
+            $attributes['photo_url'] = null;
+        }
+
+        if (isset($attributes['photos']) && is_array($attributes['photos'])) {
+            $attributes['photos'] = array_values(array_filter(
+                $attributes['photos'],
+                fn ($photo): bool => ! (is_string($photo) && PhotoUrl::isPlatformAsset($photo)),
+            ));
         }
 
         if (! empty($attributes['menu_url'])) {
