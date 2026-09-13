@@ -570,7 +570,7 @@ scheduled commands**; CI + deploy green.
 > clone: `APP_ENV=prodclone php artisan serve --port=8090` after `npm run build`.
 
 ### 16. Finish redesign PR 7: phone polish, speed, accessibility (branch `feat/native-feel`)
-Built and committed on `feat/native-feel` (draft PR). All gates were green
+Built and committed on `feat/native-feel` (draft PR #196). All gates were green
 at commit time (Pint, vitest 1117, build; no PHP changes). Contents:
 - `manifest.json` and icons;
 - in-app Inertia links with prefetch (`RestaurantLink.vue`);

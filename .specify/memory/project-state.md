@@ -274,7 +274,7 @@ the rest to opencode.
 - **Prod data (done):** blog post "Moose's Tooth: The Anchorage Pizza Pub With
   12,000 Reviews" (id 6) and the first featured pick (Moose's Tooth, id 8629,
   credited Commons photo). It's data, not code: change it from `/admin`.
-- **PR 7 is on branch `feat/native-feel`, not merged** (draft PR). Two bugs
+- **PR 7 is on branch `feat/native-feel`, not merged** (draft PR #196). Two bugs
   from the last browser check to fix first. See backlog goal 16.
 - **Next:** backlog goals 16–20 (`.specify/memory/backlog.md`):
   1. finish PR 7;
