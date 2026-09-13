@@ -722,6 +722,21 @@ coordinates near the pin. That's how the Moose's Tooth photo was verified.
 Report counts and samples to the user, and **don't remove photos in bulk
 without their OK**.
 
+**Report built + first results (2026-09-13).** `restaurants:wikimedia-photo-audit`
+merged as **PR #203** (`947724f`), report-only. Pass rules: Commons file
+geotagged within ~150 m (`prop=coordinates`) **or** a Wikidata item within
+~150 m carrying the same file as its P18. Bounded prod run (top 1,000 by
+popularity): **996 unverified (99.6%), 4 Wikidata-verified, 0 Commons-verified,
+0 uncheckable**. Samples: Chickpeas (Mobile) → a heart-healthy-recipes PDF,
+Turkish Flame (Indian Rocks Beach) → a 19th-century book about Turkey,
+Zaky Zak's (Tampa) → a JWST briefing photo, Ela (Atlanta) → `MJ-Ela-Bhatt` (a
+person), L&L Hawaiian Barbecue → its own logo SVG, Nori (Austin) → `Nori.jpg`.
+**Caveat:** a transient Commons API failure is treated as "no coordinates" and
+biases toward *unverified*, and an unbounded sweep is slow (Wikidata SPARQL per
+proximity box, 30 s timeout); a full pass can be left running / warmed cache.
+**Pending operator decision:** ~4.7k-5.2k photos are name-only junk — remove in
+bulk (quarantine), or start with the highest-popularity offenders?
+
 ### 20. Check PR 1's first daily run (after 2026-09-13 11:45 UTC)
 `restaurants:backfill-websites` should have:
 - set `website_scraped_at` on about 2,000 rows;
