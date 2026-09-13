@@ -89,12 +89,17 @@ class WikimediaPhotoAuditor
             $fetched = $this->fetchCommonsBatch($chunk);
 
             if ($fetched === null) {
-                foreach ($chunk as $filename) {
-                    $this->commonsCache[$filename] = ['status' => 'failed'];
-                    $stats['failed']++;
+                // Rate limited / API down. Mark every title not yet resolved as
+                // failed so audit() never falls back to one request per row
+                // (which hammered Commons for 22 minutes on the first full run).
+                foreach ($missing as $filename) {
+                    if (! array_key_exists($filename, $this->commonsCache)) {
+                        $this->commonsCache[$filename] = ['status' => 'failed'];
+                        $stats['failed']++;
+                    }
                 }
 
-                break; // rate limited / API down: stop instead of hammering
+                break;
             }
 
             foreach ($chunk as $filename) {
