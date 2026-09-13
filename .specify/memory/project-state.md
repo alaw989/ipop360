@@ -281,18 +281,22 @@ the rest to opencode.
   reflowed the outgoing page and Chrome's scroll anchoring moved the saved
   position 900 → 1886). Skeleton now shows only for visits that stay on
   `/search`. Both live-verified.
-- **In flight — backlog goal 17 (redesign 8), branch `feat/photo-thumbnails`:**
-  card-sized WebP thumbnails for photos from hosts that don't resize
-  (`restaurants:photo-thumbnails` + `/thumbs/{file}` route + `photo_thumb`
-  column), so the results grid stops shipping multi-MB originals into 96–176 px
-  slots. Implemented directly (the `opencode-loop` harness is no longer on this
-  machine); see backlog goal 17 for the storage/deploy deviations. Local gates
-  green (PHPUnit 1385 +1 skipped-GD, vitest 1129, PHPStan, pint, build).
-  Awaiting PR + operator review, then a prod `--apply` run + imgweight check.
+- **Shipped — backlog goal 17 (redesign 8), PR #198 (`23e430e`), merged +
+  deployed + live-verified:** card-sized WebP thumbnails for photos from hosts
+  that don't resize. `restaurants:photo-thumbnails` + `/thumbs/{file}` route +
+  `photo_thumb` column; `deploy.yml` excludes `storage/app/private/thumbs/`.
+  Prod `--apply --limit=200` generated 200; `imgweight.mjs` on
+  `/search?city=Austin&state=TX` dropped from **17.6 MB to 325 KB (390px) /
+  366 KB (1440px)**, under the ~1.5 MB goal. See backlog goal 17 for the
+  storage/deploy deviations and the skipped-vs-failed counting follow-up.
 - **Next:** backlog goals 18–20 (`.specify/memory/backlog.md`):
   1. the Instagram-logo junk photos;
   2. the Wikimedia name-match photos;
   3. check PR 1's first daily run.
+
+  Hand-built with TDD (the `opencode-loop` harness is no longer on this
+  machine), each on its own branch, full gate after each, no push until the
+  operator says so.
 
   Browser checks for all of these: `scripts/ui-checks/`.
 

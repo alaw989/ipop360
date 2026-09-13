@@ -661,9 +661,23 @@ from the suggested design, both deliberate:
 Command: `restaurants:photo-thumbnails` (dry-run default, `--apply`,
 `--limit`, `--refresh` for changed photos), daily at 14:15 UTC after the 13:45
 photo backfill. Card consumers (`SearchResultCard`, `getRestaurantPhotos`) use
-the thumb once present. **Pending:** merge + deploy, then run a bounded
-`--apply` on prod and confirm `/search?city=Austin&state=TX` is under ~1.5 MB
-on a phone (`scripts/ui-checks/imgweight.mjs`).
+the thumb once present.
+
+**✅ Done (2026-09-13).** Shipped as **PR #198** (`23e430e`), CI green, merged,
+deployed. Live verification on ipop360.com: migration `2026_09_13_000003` ran
+(`photo_thumb` present), `GET /thumbs/{file}` registered, PHP GD + WebP live.
+Ran `restaurants:photo-thumbnails --apply --limit=200` on prod (200 generated,
+1m33s); `scripts/ui-checks/imgweight.mjs` on `/search?city=Austin&state=TX`
+now reports **image 325 KB (390px) / 366 KB (1440px)** — down from 17.6 MB and
+well under the ~1.5 MB goal. (`pcov` absent on the dev box, so PHPUnit coverage
+ran in CI only.)
+
+**Follow-up found during live verify (not shipped):** the command counts
+Google/Wikimedia rows as `Failed` because `generate()` returns `null` for both
+"host resizes on request (skip)" and a genuine failure; it also re-scans those
+~7.8k rows every run. The real apply run reported `Failed: 457` on 657
+processed. Worth a small follow-up PR to distinguish skip from failure (expose
+a `shouldGenerate()`/typed result) so the nightly log is honest.
 
 ### 18. Junk photos: Instagram's logo as the restaurant photo
 3,823 active restaurants have `photo_url =
