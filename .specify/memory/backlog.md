@@ -697,6 +697,18 @@ Galleries (`photos`) carry it too. They're stored JSON-escaped, so match
    - strips the sprite from `photos` with `replaceFields`.
 3. Take a prod backup before `--apply`.
 
+**✅ Done (2026-09-13).** Shipped as **PR #201** (`d00226a`), CI green, merged,
+deployed. New `App\Support\PhotoUrl::isPlatformAsset()` (Meta `rsrc.php` hosts);
+guards at every write path — scraper `extractPhotoUrl()`/`extractPhotos()`,
+`LiveVenuePersister`, `RestaurantValidationService::normalize()`,
+`EnrichNewRestaurantPhoto`. New `restaurants:photo-junk` (report-only default;
+`--apply/--limit/--sample`). Prod verify: DB backed up first
+(`/root/backups/ipop360-pre-photo-junk-20260913T193244Z.sql.gz`, 15 MB gz);
+report flagged **3,850 rows** (3,825 `photo_url`, 81 galleries); `--apply` ran
+in 46 s — **3,906 quarantine entries** (`photo_platform_asset`), 11
+`photo_thumb` cleared, 0 remaining sprites, site + `/api/restaurants` 200.
+Undo: `restaurants:integrity --restore=photo_platform_asset`.
+
 ### 19. Wikimedia photos matched by name only (report first)
 Most `photo_source='wikimedia'` photos (about 4.7k `upload.wikimedia.org`
 and 476 `thumb.wikimedia.org`) show something else with the same name. For
@@ -718,6 +730,15 @@ without their OK**.
   source.
 
 It is read-only on prod.
+
+**✅ Done (2026-09-13).** First daily run of the new code fired at 11:45:06 UTC
+and completed (runtime 5,235 s). Checks: `website_scraped_at` set on **2,000
+rows**; 1,917 distinct `website_url`s — the 83 duplicate domains were served
+from the scraper's cache (no site fetched twice); `field_sources.price_range`
+has **0 website-sourced rows** (1 row total, source `serpapi`). **Follow-up
+noted:** the run took 87 min while `routes/console.php` sets
+`withoutOverlapping(240)`, so overlap protection expires long before the run
+ends (pre-existing; not fixed here).
 
 
 ### ✅ Done (2026-08-19) — hero stats, AI fallback, sheet a11y, component coverage
