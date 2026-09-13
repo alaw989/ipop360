@@ -218,13 +218,70 @@ class SearchControllerTest extends TestCase
         $this->bindCoordsAndReverseGeocode();
         $this->mock(UnifiedSearchService::class, function ($mock) {
             $mock->shouldReceive('search')
-                ->with(30.0, -88.0, null, null, 'nearest', 16.0934, '$$')
+                ->with(30.0, -88.0, null, null, 'nearest', 16.0934, ['$$'])
                 ->andReturn([]);
         });
 
         $response = $this->get('/search?distance=10&sort=nearest&price_range=$$');
 
         $response->assertStatus(200);
+    }
+
+    public function test_coords_path_forwards_several_price_levels_in_order(): void
+    {
+        $this->bindCoordsAndReverseGeocode();
+        $this->mock(UnifiedSearchService::class, function ($mock) {
+            $mock->shouldReceive('search')
+                ->with(30.0, -88.0, null, null, 'best_match', 40.2335, ['$', '$$'])
+                ->andReturn([]);
+        });
+
+        $response = $this->get('/search?price_range[]=$$&price_range[]=$');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->where('filters.price_range', ['$', '$$']));
+    }
+
+    public function test_db_path_keeps_any_of_several_price_levels(): void
+    {
+        foreach (['$' => 'Cheap Eats', '$$' => 'Middle Diner', '$$$' => 'Pricey Place', '$$$$' => 'Splurge Hall'] as $price => $name) {
+            Restaurant::factory()->create(['name' => $name, 'price_range' => $price, 'is_active' => true]);
+        }
+        Restaurant::factory()->create(['name' => 'No Price Listed', 'price_range' => null, 'is_active' => true]);
+
+        $response = $this->get('/search?price_range[]=$&price_range[]=$$');
+
+        $response->assertInertia(function ($page) {
+            $names = collect($page->toArray()['props']['restaurants']['data'])->pluck('name')->sort()->values()->all();
+            $this->assertSame(['Cheap Eats', 'Middle Diner'], $names);
+        });
+    }
+
+    public function test_single_price_links_keep_working(): void
+    {
+        Restaurant::factory()->create(['name' => 'Cheap Eats', 'price_range' => '$', 'is_active' => true]);
+        Restaurant::factory()->create(['name' => 'Middle Diner', 'price_range' => '$$', 'is_active' => true]);
+
+        $response = $this->get('/search?price_range=$$');
+
+        $response->assertInertia(fn ($page) => $page
+            ->has('restaurants.data', 1)
+            ->where('restaurants.data.0.name', 'Middle Diner')
+            ->where('filters.price_range', ['$$'])
+        );
+    }
+
+    public function test_unknown_price_values_are_ignored(): void
+    {
+        Restaurant::factory()->count(2)->create(['is_active' => true]);
+
+        $response = $this->get('/search?price_range[]=cheap&price_range[]=$$$$$');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->has('restaurants.data', 2)
+            ->missing('filters.price_range')
+        );
     }
 
     public function test_coords_path_page2_uses_snapshot_not_search(): void

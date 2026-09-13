@@ -7,10 +7,11 @@ import PriceLevel from '@/Components/PriceLevel.vue';
 import { computed } from 'vue';
 import type { Restaurant } from '@/types/restaurant';
 import { callPhone, openWebsite, trackDirections } from '@/lib/restaurant';
-import { Phone, Globe, Navigation, Heart, ArrowUp, ArrowDown, Minus } from '@lucide/vue';
+import { Phone, Globe, Navigation, Heart } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
 import { useCompare } from '@/composables/useCompare';
-import { getDetailUrl, getRankStyle, getRestaurantPhotos, getRestaurantGradient, getDisplayRating, getMapCoords } from '@/composables/useRestaurantDisplay';
+import { getDetailUrl, getRestaurantPhotos, getRestaurantGradient, getDisplayRating, getMapCoords } from '@/composables/useRestaurantDisplay';
+import { photoBadge } from '@/lib/scoreTier';
 
 const props = defineProps<{
     restaurant: Restaurant;
@@ -25,7 +26,7 @@ const { isFavorited, toggle } = useFavorites();
 
 const detailOrMapsUrl = computed(() => getDetailUrl(props.restaurant));
 
-const rankStyle = computed(() => getRankStyle(props.rank));
+const badge = computed(() => photoBadge(props.restaurant));
 
 const photos = computed(() => getRestaurantPhotos(props.restaurant));
 
@@ -42,21 +43,7 @@ const inCompare = computed(() => isInCompare(props.restaurant));
 
 const ariaLabel = computed(() => (saved.value ? 'Saved' : 'Save restaurant'));
 
-const rankChangeColor = computed(() => {
-    const c = props.restaurant.rank_change;
-    if (c == null) return '';
-    if (c > 0) return 'text-green-600 dark:text-green-400';
-    if (c < 0) return 'text-red-600 dark:text-red-400';
-    return 'text-muted-foreground';
-});
 
-const rankChangeTitle = computed(() => {
-    const c = props.restaurant.rank_change;
-    if (c == null) return '';
-    if (c > 0) return `Up ${c} spots`;
-    if (c < 0) return `Down ${Math.abs(c)} spots`;
-    return 'Steady';
-});
 </script>
 
 <template>
@@ -72,31 +59,12 @@ const rankChangeTitle = computed(() => {
             aspect="4/3"
         >
             <template #overlays>
-                <!-- Rank badge (top-left) -->
-                <div class="absolute left-3 top-3 flex items-start gap-1">
-                    <div
-                        class="flex h-9 min-w-[36px] items-center justify-center rounded-full bg-gradient-to-r px-3 text-sm font-bold shadow-lg ring-2 ring-white/50 transition-transform duration-200 group-hover:scale-110"
-                        :class="[rankStyle.bg, rankStyle.text]"
-                    >
-                        <span v-if="rank === 1">🔥</span>
-                        <span v-else class="tabular-nums">#{{ rank }}</span>
-                    </div>
-                    <div
-                        v-if="restaurant.rank_change != null"
-                        class="mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-background/80 text-[10px] font-bold shadow-sm ring-1 ring-border backdrop-blur-sm"
-                        :class="rankChangeColor"
-                        :title="rankChangeTitle"
-                    >
-                        <ArrowUp v-if="restaurant.rank_change > 0" class="h-3 w-3" />
-                        <ArrowDown v-else-if="restaurant.rank_change < 0" class="h-3 w-3" />
-                        <Minus v-else class="h-3 w-3" />
-                    </div>
-                </div>
-
-                <!-- ScoreChip (bottom-right) -->
-                <div v-if="restaurant.popularity_score != null" class="absolute bottom-3 right-3">
-                    <ScoreChip :total="restaurant.popularity_score" :breakdown="restaurant.score_breakdown ?? null" />
-                </div>
+                <!-- At most one badge, solid and readable -->
+                <span
+                    v-if="badge"
+                    data-testid="photo-badge"
+                    class="absolute left-3 top-3 rounded-md bg-primary px-2 py-1 text-[13px] font-semibold leading-none text-primary-foreground shadow-sm"
+                >{{ badge }}</span>
 
                 <!-- Compare button (bottom-left) -->
                 <div class="relative z-10 absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -133,6 +101,7 @@ const rankChangeTitle = computed(() => {
                 <div class="flex items-center gap-2">
                     <h2 class="text-base font-semibold text-foreground transition-colors group-hover:text-primary truncate">
                         <a :href="detailOrMapsUrl" :target="restaurant.id > 0 ? undefined : '_blank'" :rel="restaurant.id > 0 ? undefined : 'noopener'" class="after:absolute after:inset-0 after:z-0">
+                            <span class="tabular-nums" data-testid="rank">{{ rank }}.</span>
                             {{ restaurant.name }}
                         </a>
                     </h2>
@@ -167,6 +136,12 @@ const rankChangeTitle = computed(() => {
                     {{ Number(restaurant.distance).toFixed(1) }} mi
                 </span>
             </div>
+
+            <ScoreChip
+                v-if="restaurant.popularity_score != null"
+                :total="restaurant.popularity_score"
+                :breakdown="restaurant.score_breakdown ?? null"
+            />
 
             <!-- Description -->
             <p v-if="restaurant.description" class="line-clamp-1 sm:line-clamp-2 text-xs leading-relaxed text-muted-foreground">

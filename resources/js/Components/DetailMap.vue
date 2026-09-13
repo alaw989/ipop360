@@ -57,14 +57,15 @@ async function initMap() {
 
   const icon = L.divIcon({
     className: 'custom-pin',
-    html: `<div style="background:#ef4444;border:3px solid white;border-radius:50%;width:18px;height:18px;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>`,
+    html: `<div style="background:#c2401c;border:3px solid white;border-radius:50%;width:18px;height:18px;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>`,
     iconSize: [18, 18],
     iconAnchor: [9, 9],
   })
 
   L.marker([props.lat, props.lng], { icon })
     .addTo(mapInstance)
-    .bindPopup(`<b>${props.name}</b>`)
+    // A DOM node, not an HTML string: the name comes from outside sources.
+    .bindPopup(Object.assign(document.createElement('b'), { textContent: props.name }))
 
   // Fit bounds to show a small area around the marker
   mapInstance.fitBounds([

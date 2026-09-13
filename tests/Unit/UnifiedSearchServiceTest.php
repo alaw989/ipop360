@@ -405,11 +405,31 @@ class UnifiedSearchServiceTest extends TestCase
 
         $service = $this->makeService(); // live returns nothing
 
-        $results = $service->search(30.6199783, -88.1967496, null, null, 'best_match', 25.0, '$');
+        $results = $service->search(30.6199783, -88.1967496, null, null, 'best_match', 25.0, ['$']);
 
         $this->assertCount(1, $results, 'Price filter must narrow the union to matching rows');
         $this->assertSame('Cheap Eats', $results[0]['name']);
         $this->assertSame('$', $results[0]['price_range']);
+    }
+
+    public function test_price_filter_keeps_any_of_several_levels(): void
+    {
+        foreach (['$' => 'Cheap Eats', '$$' => 'Middle Diner', '$$$$' => 'Fine Dining'] as $price => $name) {
+            Restaurant::factory()->create([
+                'name' => $name,
+                'slug' => str($name)->slug()->toString(),
+                'google_place_id' => 'g-'.str($name)->slug(),
+                'latitude' => 30.66,
+                'longitude' => -88.21,
+                'price_range' => $price,
+            ]);
+        }
+
+        $results = $this->makeService()->search(30.6199783, -88.1967496, null, null, 'best_match', 25.0, ['$', '$$']);
+
+        $names = array_column($results, 'name');
+        sort($names);
+        $this->assertSame(['Cheap Eats', 'Middle Diner'], $names);
     }
 
     public function test_price_range_filter_applies_to_live_rows_without_persisting_them(): void
@@ -424,7 +444,7 @@ class UnifiedSearchServiceTest extends TestCase
             'place_types' => ['restaurant'],
         ]);
 
-        $results = $service->search(30.6199783, -88.1967496, null, null, 'best_match', 25.0, '$');
+        $results = $service->search(30.6199783, -88.1967496, null, null, 'best_match', 25.0, ['$']);
 
         $this->assertCount(0, $results, 'Live rows priced outside the filter must be dropped');
         $this->assertSame(0, Restaurant::count(), 'A price-dropped live row must not be persisted');

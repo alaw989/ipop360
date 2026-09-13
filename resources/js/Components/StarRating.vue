@@ -7,6 +7,9 @@ const props = defineProps<{
     size?: 'sm' | 'md' | 'lg';
     source?: 'Yelp' | 'Google' | null;
     reviewCount?: number | null;
+    // Below 640px show just "(210)", keeping the full "210 Google reviews" for
+    // wider screens (and in the title).
+    compactOnPhone?: boolean;
 }>();
 
 const parsedRating = computed(() => Number(props.rating));
@@ -73,6 +76,16 @@ const starPath = 'M10 1l2.5 5.1L18 6.8l-4 3.9.9 5.5L10 13.3l-5 3.4L6 10.7l-4-3.9
             </svg>
         </span>
         <span class="font-semibold text-foreground tabular-nums">{{ parsedRating.toFixed(1) }}<span class="sr-only"> out of {{ max ?? 5 }}</span></span>
-        <span v-if="countLabel" class="text-[0.9em] text-muted-foreground tabular-nums">{{ countLabel }}</span>
+        <template v-if="countLabel">
+            <span
+                v-if="compactOnPhone && reviewCount != null"
+                class="text-[0.9em] text-muted-foreground tabular-nums sm:hidden"
+                :title="countLabel"
+            >({{ reviewCount.toLocaleString() }})</span>
+            <span
+                class="text-[0.9em] text-muted-foreground tabular-nums"
+                :class="{ 'hidden sm:inline': compactOnPhone && reviewCount != null }"
+            >{{ countLabel }}</span>
+        </template>
     </span>
 </template>

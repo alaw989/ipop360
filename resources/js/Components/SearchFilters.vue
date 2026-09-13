@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 
@@ -13,25 +13,41 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-    update: [changes: Record<string, string | undefined>];
+    update: [changes: Record<string, string | string[] | undefined>];
     clear: [];
 }>();
 
-const currentPrice = computed(() => props.filters["price_range"] as string || '');
+const PRICE_WORDS: Record<string, string> = { '$': 'Inexpensive', '$$': 'Moderate', '$$$': 'Pricey', '$$$$': 'High-end' };
+
+// One level (old links) or several; always a list here.
+function priceList(value: string | string[] | undefined): string[] {
+    if (Array.isArray(value)) return value;
+    return typeof value === 'string' && value !== '' ? [value] : [];
+}
+
+// Updated the moment a level is tapped, not when the search returns: a second
+// tap during a slow search must build on the first, or Inertia cancels the
+// first visit and that level is lost.
+const currentPrices = ref<string[]>(priceList(props.filters["price_range"]));
+watch(() => props.filters["price_range"], (value) => {
+    currentPrices.value = priceList(value);
+});
 const currentDistance = computed(() => props.filters["distance"] as string || '25');
 const currentCuisine = computed(() => props.filters["cuisine"] as string || '');
 const currentCategory = computed(() => props.filters["category"] as string || '');
 
 const hasActiveFilters = computed(() => {
-    return !!(currentPrice.value || currentDistance.value !== '25' || currentCuisine.value || currentCategory.value);
+    return !!(currentPrices.value.length || currentDistance.value !== '25' || currentCuisine.value || currentCategory.value);
 });
 
+// Several levels can be on at once ($ and $$), as on Yelp.
 function togglePrice(price: string) {
-    if (currentPrice.value === price) {
-        emit('update', { price_range: undefined });
-    } else {
-        emit('update', { price_range: price });
-    }
+    const on = currentPrices.value.includes(price)
+        ? currentPrices.value.filter((p) => p !== price)
+        : [...currentPrices.value, price];
+    const ordered = props.filterOptions.priceOptions.filter((p) => on.includes(p));
+    currentPrices.value = ordered;
+    emit('update', { price_range: ordered.length ? ordered : undefined });
 }
 
 function setDistance(mi: number) {
@@ -54,22 +70,42 @@ function setDistance(mi: number) {
             </Button>
         </div>
 
-        <!-- Price range -->
+        <!-- Price: one joined control, several levels at once -->
         <div>
-            <h3 class="mb-2 text-sm font-medium">Price</h3>
-            <div class="flex gap-1">
+            <h3 id="price-filter-label" class="mb-2 text-sm font-medium">Price</h3>
+            <div
+                role="group"
+                aria-labelledby="price-filter-label"
+                class="grid overflow-hidden rounded-lg border border-input"
+                :style="{ gridTemplateColumns: `repeat(${filterOptions.priceOptions.length}, minmax(0, 1fr))` }"
+                data-testid="price-filter"
+            >
                 <button
-                    v-for="price in filterOptions.priceOptions"
+                    v-for="(price, i) in filterOptions.priceOptions"
                     :key="price"
-                    class="flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-semibold transition-colors"
-                    :class="currentPrice === price
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-input bg-background text-muted-foreground hover:border-muted-foreground'"
+                    type="button"
+                    :aria-pressed="currentPrices.includes(price)"
+                    :aria-label="`${price}, ${(PRICE_WORDS[price] ?? price).toLowerCase()}`"
+                    class="flex min-h-12 flex-col items-center justify-center px-1 py-1.5 transition-colors focus-visible:relative focus-visible:z-10"
+                    :class="[
+                        i > 0 ? 'border-l border-input' : '',
+                        currentPrices.includes(price)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-background text-foreground hover:bg-accent',
+                    ]"
                     @click="togglePrice(price)"
                 >
-                    {{ price }}
+                    <span class="text-sm font-semibold">{{ price }}</span>
+                    <span
+                        v-if="PRICE_WORDS[price]"
+                        class="text-[11px] leading-tight"
+                        :class="currentPrices.includes(price) ? 'text-primary-foreground/90' : 'text-muted-foreground'"
+                    >{{ PRICE_WORDS[price] }}</span>
                 </button>
             </div>
+            <p v-if="currentPrices.length" class="mt-2 text-xs text-muted-foreground" data-testid="price-hint">
+                Only restaurants with a listed price are shown.
+            </p>
         </div>
 
         <!-- Categories -->

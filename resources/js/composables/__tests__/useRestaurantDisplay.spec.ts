@@ -2,8 +2,6 @@ import { describe, it, expect } from 'vitest';
 import type { Restaurant } from '@/types/restaurant';
 import {
   getDetailUrl,
-  getRankStyle,
-  isTopRank,
   getDisplayRating,
   getRestaurantGradient,
   getRestaurantPhotos,
@@ -56,41 +54,6 @@ describe('getDetailUrl', () => {
     expect(url).toContain('Taco%20Spot');
     expect(url).toContain('Dallas');
   });
-});
-
-describe('getRankStyle', () => {
-  it('returns gold style for rank 1', () => {
-    expect(getRankStyle(1).bg).toContain('amber');
-    expect(getRankStyle(1).text).toBe('text-white');
-  });
-
-  it('returns silver style for rank 2', () => {
-    expect(getRankStyle(2).bg).toContain('slate');
-    expect(getRankStyle(2).text).toBe('text-slate-900');
-  });
-
-  it('returns bronze style for rank 3', () => {
-    expect(getRankStyle(3).bg).toContain('orange');
-    expect(getRankStyle(3).text).toBe('text-white');
-  });
-
-  it('returns default style for rank 4+', () => {
-    expect(getRankStyle(4).bg).toContain('gray');
-    expect(getRankStyle(4).text).toBe('text-white');
-  });
-
-  it('returns default style for rank 0', () => {
-    expect(getRankStyle(0).bg).toContain('gray');
-    expect(getRankStyle(0).text).toBe('text-white');
-  });
-});
-
-describe('isTopRank', () => {
-  it('returns true for rank 1', () => expect(isTopRank(1)).toBe(true));
-  it('returns true for rank 2', () => expect(isTopRank(2)).toBe(true));
-  it('returns true for rank 3', () => expect(isTopRank(3)).toBe(true));
-  it('returns false for rank 4', () => expect(isTopRank(4)).toBe(false));
-  it('returns false for rank 0', () => expect(isTopRank(0)).toBe(false));
 });
 
 describe('getDisplayRating', () => {

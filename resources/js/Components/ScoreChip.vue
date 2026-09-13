@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Star, BadgeCheck, Flame, TrendingUp } from '@lucide/vue';
+import { Star, BadgeCheck, Flame, TrendingUp, Info } from '@lucide/vue';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { scoreTier } from '@/lib/scoreTier';
 
-const props = defineProps<{
+// The popularity tier ("Popular") that opens the score breakdown. 'chip' is a
+// solid, readable pill for lists (it never sits on a photo); 'link' is a quiet
+// "Why it ranks here" for result cards, whose photo badge already names the
+// top tiers. No percentage: the score is internal; the breakdown explains it.
+const props = withDefaults(defineProps<{
     total: number | string;
+    variant?: 'chip' | 'link';
     breakdown?: {
         signals: Array<{
             label: string;
@@ -15,18 +21,19 @@ const props = defineProps<{
         }>;
         total: number;
     } | null;
-}>();
+}>(), {
+    variant: 'chip',
+});
 
-const score = computed(() => Number(props.total ?? 0));
-const pct = computed(() => Math.round(score.value * 100));
+const tier = computed(() => scoreTier(props.total));
 
-const tier = computed(() => {
-    const t = score.value;
-    if (t >= 0.9) return { label: 'Elite', classes: 'bg-amber-500/40 text-amber-600 dark:text-amber-400' };
-    if (t >= 0.8) return { label: 'Top Rated', classes: 'bg-emerald-500/40 text-emerald-600 dark:text-emerald-400' };
-    if (t >= 0.6) return { label: 'Popular', classes: 'bg-sky-500/40 text-sky-600 dark:text-sky-400' };
-    if (t >= 0.4) return { label: 'Rising', classes: 'bg-teal-500/40 text-teal-600 dark:text-teal-400' };
-    return null;
+const tierIcon = computed(() => {
+    switch (tier.value?.key) {
+        case 'elite': return Star;
+        case 'top': return BadgeCheck;
+        case 'popular': return Flame;
+        default: return TrendingUp;
+    }
 });
 
 const topSignals = computed(() => {
@@ -59,25 +66,23 @@ function signalColor(label: string): string {
     <Popover>
         <PopoverTrigger as-child>
             <button
-                v-if="tier"
+                v-if="variant === 'link'"
+                v-show="topSignals.length > 0"
                 type="button"
-                class="inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums shadow-sm ring-1 ring-white/30 backdrop-blur-sm transition-colors hover:opacity-80"
-                :class="tier.classes"
+                class="relative z-10 inline-flex min-h-8 items-center gap-1 text-[13px] text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+                data-testid="score-why"
             >
-                <template v-if="score >= 0.9">
-                    <Star class="h-3 w-3 fill-current" />
-                </template>
-                <template v-else-if="score >= 0.8">
-                    <BadgeCheck class="h-3 w-3" />
-                </template>
-                <template v-else-if="score >= 0.6">
-                    <Flame class="h-3 w-3" />
-                </template>
-                <template v-else>
-                    <TrendingUp class="h-3 w-3" />
-                </template>
+                <Info class="h-3.5 w-3.5" aria-hidden="true" />
+                Why it ranks here
+            </button>
+            <button
+                v-else-if="tier"
+                type="button"
+                class="relative z-10 inline-flex cursor-pointer items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-foreground ring-1 ring-border transition-colors hover:bg-accent"
+                data-testid="score-chip"
+            >
+                <component :is="tierIcon" class="h-3 w-3 text-muted-foreground" :class="{ 'fill-current': tier.key === 'elite' }" aria-hidden="true" />
                 {{ tier.label }}
-                <span class="opacity-60">&bull; {{ pct }}%</span>
             </button>
         </PopoverTrigger>
         <PopoverContent
@@ -86,10 +91,7 @@ function signalColor(label: string): string {
             align="center"
             class="w-56 rounded-xl border bg-card p-3 shadow-xl"
         >
-            <div class="mb-2 flex items-center justify-between">
-                <span class="text-xs font-semibold text-foreground">Score Breakdown</span>
-                <span class="text-xs font-bold tabular-nums text-primary">{{ pct }}%</span>
-            </div>
+            <p class="mb-2 text-xs font-semibold text-foreground">Why it ranks here</p>
             <div class="mb-2 flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div
                     v-for="(s, i) in topSignals"

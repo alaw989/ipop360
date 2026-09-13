@@ -132,59 +132,26 @@ describe('PopularRestaurants', () => {
         expect(wrapper.text()).toContain('🍽')
     })
 
-    it('renders rank badge with fire emoji for rank 1', () => {
-        const restaurants = makeRestaurants(5)
-        const wrapper = mountComponent({ restaurants })
-        const badge = wrapper.find('.bg-gradient-to-r.from-amber-400.to-yellow-500')
-        expect(badge.exists()).toBe(true)
-        expect(badge.text()).toBe('🔥')
+    it('puts the rank in the name, with no emoji or gradient pills', () => {
+        const wrapper = mountComponent({ restaurants: makeRestaurants(5) })
+        const ranks = wrapper.findAll('[data-testid="rank"]').map((r) => r.text())
+        expect(ranks.slice(0, 3)).toEqual(['1.', '2.', '3.'])
+        expect(wrapper.text()).not.toContain('🔥')
+        expect(wrapper.findAll('.bg-gradient-to-r')).toHaveLength(0)
     })
 
-    it('renders rank badge with #2 text for rank 2', () => {
-        const restaurants = makeRestaurants(5)
-        const wrapper = mountComponent({ restaurants })
-        const yellowBadge = wrapper.find('.bg-gradient-to-r.from-slate-300.to-slate-400')
-        expect(yellowBadge.exists()).toBe(true)
-        expect(yellowBadge.text()).toBe('#2')
+    it('shows one solid photo badge for an award or a top tier, none otherwise', () => {
+        const award = mountComponent({ restaurants: [makeRestaurant({ has_award: true, popularity_score: 0.5 })] })
+        expect(award.get('[data-testid="photo-badge"]').text()).toBe('Award winner')
+        const top = mountComponent({ restaurants: [makeRestaurant({ has_award: false, popularity_score: 0.85 })] })
+        expect(top.get('[data-testid="photo-badge"]').text()).toBe('Top rated')
+        const plain = mountComponent({ restaurants: [makeRestaurant({ has_award: false, popularity_score: 0.5 })] })
+        expect(plain.find('[data-testid="photo-badge"]').exists()).toBe(false)
     })
 
-    it('renders rank badge with #3 text for rank 3', () => {
-        const restaurants = makeRestaurants(5)
-        const wrapper = mountComponent({ restaurants })
-        const orangeBadge = wrapper.find('.bg-gradient-to-r.from-orange-400.to-amber-600')
-        expect(orangeBadge.exists()).toBe(true)
-        expect(orangeBadge.text()).toBe('#3')
-    })
-
-    it('does not render rank badge for rank 4+', () => {
-        const wrapper = mountComponent()
-        const badges = wrapper.findAll('.bg-gradient-to-r')
-        expect(badges).toHaveLength(3)
-    })
-
-    it('renders ScoreChip when popularity_score > 0', () => {
-        const restaurants = [makeRestaurant({ popularity_score: 0.85, score_breakdown: null })]
-        const wrapper = mountComponent({ restaurants })
-        const chip = wrapper.find('.score-chip-stub')
-        expect(chip.exists()).toBe(true)
-        expect(chip.text()).toBe('0.85')
-    })
-
-    it('does not render ScoreChip when popularity_score is 0', () => {
-        const restaurants = [makeRestaurant({ popularity_score: 0 })]
-        const wrapper = mountComponent({ restaurants })
+    it('keeps the score chip off the photo', () => {
+        const wrapper = mountComponent({ restaurants: [makeRestaurant({ popularity_score: 0.85 })] })
         expect(wrapper.find('.score-chip-stub').exists()).toBe(false)
-    })
-
-    it('renders award star when has_award is true', () => {
-        const restaurants = [makeRestaurant({ has_award: true })]
-        const wrapper = mountComponent({ restaurants })
-        expect(wrapper.text()).toContain('⭐')
-    })
-
-    it('does not render award star when has_award is false', () => {
-        const wrapper = mountComponent()
-        expect(wrapper.text()).not.toContain('⭐')
     })
 
     it('renders StarRating when restaurant has yelp rating', () => {
