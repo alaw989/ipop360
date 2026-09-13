@@ -251,10 +251,12 @@ class SearchControllerTest extends TestCase
 
         $response = $this->get('/search?price_range[]=$&price_range[]=$$');
 
-        $response->assertInertia(function ($page) {
-            $names = collect($page->toArray()['props']['restaurants']['data'])->pluck('name')->sort()->values()->all();
-            $this->assertSame(['Cheap Eats', 'Middle Diner'], $names);
-        });
+        $response->assertInertia(fn ($page) => $page->has('restaurants.data', 2));
+        /** @var list<array{name: string}> $rows */
+        $rows = $response->viewData('page')['props']['restaurants']['data'];
+        $names = array_map(fn (array $row): string => $row['name'], $rows);
+        sort($names);
+        $this->assertSame(['Cheap Eats', 'Middle Diner'], $names);
     }
 
     public function test_single_price_links_keep_working(): void
