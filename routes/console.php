@@ -121,6 +121,22 @@ Schedule::command('restaurants:backfill-photos --apply --limit=200 --min-photos=
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 
+// Card thumbnails (runs at 2:15 PM UTC daily, after the 13:45 photo backfill
+// so the same day's new photos get one). Google/Wikimedia are skipped (they
+// resize by URL); everything else is downloaded once into a width-capped WebP,
+// so the results grid stops shipping multi-MB originals into 96–176 px slots.
+// Bounded by --limit and ordered by popularity, so the rows most likely to
+// appear on /search get theirs first; withoutOverlapping guards a slow run.
+Schedule::command('restaurants:photo-thumbnails --apply --limit=200')
+    ->dailyAt('14:15')
+    ->withoutOverlapping(180)
+    ->onOneServer()
+    ->description('Generate card-sized WebP thumbnails for photos from hosts that cannot resize')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:photo-thumbnails --apply --limit=200']);
+    })
+    ->tap(fn ($event) => SchedulerTelemetry::attach($event));
+
 // Weekly photo-URL verification sweep (Wednesdays at 12:30 UTC, after the
 // 04:00–~10:00 throttled-enrichment window so it never contends for the
 // SQLite write lock during the long free-source sweep).

@@ -30,6 +30,7 @@ class SchedulerManifestTest extends TestCase
         'seo:sitemap' => '15 10 * * *',
         'restaurants:backfill-websites --limit=400' => '45 11 * * *',
         'restaurants:backfill-photos --apply --limit=200 --min-photos=2' => '45 13 * * *',
+        'restaurants:photo-thumbnails --apply --limit=200' => '15 14 * * *',
         'restaurants:backfill-photos --verify --apply --limit=200' => '30 12 * * 3',
         'restaurants:scrape-social --limit=400' => '45 10 * * *',
         'restaurants:scrape-social --force --limit=1500' => '0 12 * * 6',
@@ -62,7 +63,7 @@ class SchedulerManifestTest extends TestCase
         $this->assertSame(
             $expected,
             $scheduled,
-            'the scheduler manifest must contain exactly these 19 commands — add/remove a '
+            'the scheduler manifest must contain exactly these commands — add/remove a '
             .'route in routes/console.php AND update this map together'
         );
     }

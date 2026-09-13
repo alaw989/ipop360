@@ -274,20 +274,25 @@ the rest to opencode.
 - **Prod data (done):** blog post "Moose's Tooth: The Anchorage Pizza Pub With
   12,000 Reviews" (id 6) and the first featured pick (Moose's Tooth, id 8629,
   credited Commons photo). It's data, not code: change it from `/admin`.
-- **PR 7 (`feat/native-feel`) is merged + deployed** (#196, `1ea54e2`): the
+- **PR 7 (redesign 7/7) is merged + deployed** — #196 (`1ea54e2`) fixed the
   Leaflet `_leaflet_pos` unmount crash and the map-pin WCAG 2.2 `target-size`
-  regression are fixed. A follow-up branch `fix/search-back-scroll` fixes the
-  scroll-restore bug live-verify found: `Search.vue` showed its loading
-  skeleton on every visit, so leaving for a restaurant reflowed the outgoing
-  page and Chrome's scroll anchoring moved the saved position (900 → 1886),
-  making "Back to results" land wrong. The skeleton now shows only for visits
-  that stay on `/search`. See backlog goal 16.
-- **Next:** backlog goals 16–20 (`.specify/memory/backlog.md`):
-  1. finish PR 7;
-  2. photo thumbnails;
-  3. the Instagram-logo junk photos;
-  4. the Wikimedia name-match photos;
-  5. check PR 1's first daily run.
+  regression; #197 (`632084b`) fixed the scroll-restore bug live-verify found
+  (`Search.vue` showed its skeleton on every visit, so leaving for a restaurant
+  reflowed the outgoing page and Chrome's scroll anchoring moved the saved
+  position 900 → 1886). Skeleton now shows only for visits that stay on
+  `/search`. Both live-verified.
+- **In flight — backlog goal 17 (redesign 8), branch `feat/photo-thumbnails`:**
+  card-sized WebP thumbnails for photos from hosts that don't resize
+  (`restaurants:photo-thumbnails` + `/thumbs/{file}` route + `photo_thumb`
+  column), so the results grid stops shipping multi-MB originals into 96–176 px
+  slots. Implemented directly (the `opencode-loop` harness is no longer on this
+  machine); see backlog goal 17 for the storage/deploy deviations. Local gates
+  green (PHPUnit 1385 +1 skipped-GD, vitest 1129, PHPStan, pint, build).
+  Awaiting PR + operator review, then a prod `--apply` run + imgweight check.
+- **Next:** backlog goals 18–20 (`.specify/memory/backlog.md`):
+  1. the Instagram-logo junk photos;
+  2. the Wikimedia name-match photos;
+  3. check PR 1's first daily run.
 
   Browser checks for all of these: `scripts/ui-checks/`.
 

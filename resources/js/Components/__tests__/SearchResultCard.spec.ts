@@ -161,6 +161,26 @@ describe('SearchResultCard', () => {
             expect(wrapper.find('img').exists()).toBe(false)
             expect(wrapper.text()).toContain('🍽')
         })
+
+        it('uses the thumbnail and drops the srcset when one is present', () => {
+            const wrapper = mountCard({
+                photo_url: 'https://example.com/photo.jpg',
+                photo_thumb_url: '/thumbs/42-abcdef0123.webp',
+            })
+            const img = wrapper.find('img')
+            expect(img.attributes('src')).toBe('/thumbs/42-abcdef0123.webp')
+            expect(img.attributes('srcset')).toBeUndefined()
+        })
+
+        it('falls back to photo_url and its host srcset without a thumbnail', () => {
+            const wrapper = mountCard({
+                photo_url: 'https://lh3.googleusercontent.com/abc=w1000-h1000-c-n',
+                photo_thumb_url: null,
+            })
+            const img = wrapper.find('img')
+            expect(img.attributes('src')).toBe('https://lh3.googleusercontent.com/abc=w1000-h1000-c-n')
+            expect(img.attributes('srcset')).toBeTruthy()
+        })
     })
 
     describe('award badge', () => {

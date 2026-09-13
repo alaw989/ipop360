@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Restaurant;
 use App\Models\RestaurantSocialLink;
 use App\Support\SocialProfileUrl;
+use App\Support\SsrfGuard;
 use DOMDocument;
 use DOMXPath;
 use Illuminate\Http\Client\ConnectionException;
@@ -586,16 +587,7 @@ class RestaurantWebsiteScraperService
             return ['max' => 3];
         }
 
-        return [
-            'max' => 3,
-            'strict' => true,
-            'protocols' => ['https', 'http'],
-            'on_redirect' => function ($request, $response, $uri): void {
-                if (! $this->isSafeUrl((string) $uri)) {
-                    throw new \RuntimeException('SSRF guard blocked unsafe redirect target: '.$uri);
-                }
-            },
-        ];
+        return SsrfGuard::redirectOptions();
     }
 
     /**
@@ -609,41 +601,7 @@ class RestaurantWebsiteScraperService
      */
     private function isSafeUrl(string $url): bool
     {
-        $parts = parse_url($url);
-        if ($parts === false) {
-            return false;
-        }
-
-        $scheme = strtolower($parts['scheme'] ?? '');
-        if ($scheme !== 'http' && $scheme !== 'https') {
-            return false; // rejects file://, gopher://, ftp://, etc.
-        }
-
-        $host = $parts['host'] ?? '';
-        if ($host === '') {
-            return false;
-        }
-
-        // Host may already be an IP literal (e.g. http://127.0.0.1 or an IPv6
-        // [::1]); otherwise resolve it. gethostbynamel is IPv4-only, so IPv6-only
-        // hostnames fail closed — but bracketed IPv6 literals are validated here.
-        $hostLiteral = str_starts_with($host, '[') ? trim($host, '[]') : $host;
-        $ips = filter_var($hostLiteral, FILTER_VALIDATE_IP) !== false
-            ? [$hostLiteral]
-            : gethostbynamel($host);
-
-        if ($ips === false || $ips === []) {
-            return false; // DNS failure → fail closed
-        }
-
-        foreach ($ips as $ip) {
-            $flags = FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE;
-            if (filter_var($ip, FILTER_VALIDATE_IP, $flags) === false) {
-                return false; // private / reserved / loopback / link-local
-            }
-        }
-
-        return true;
+        return SsrfGuard::isSafe($url);
     }
 
     /**

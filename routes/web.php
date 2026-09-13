@@ -13,11 +13,18 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RestaurantController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\ThumbnailController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', HomeController::class);
 Route::get('/search', SearchController::class);
+
+// Generated card thumbnails (restaurants:photo-thumbnails). The file name
+// embeds the restaurant id + photo hash; the controller re-validates both.
+Route::get('/thumbs/{file}', ThumbnailController::class)
+    ->where('file', '[0-9]+-[0-9a-f]{10}\.webp')
+    ->name('thumbnails.show');
 
 Route::middleware(['throttle:60,1', 'log.api'])->group(function () {
     Route::get('/api/restaurants', [RestaurantController::class, 'apiIndex']);
