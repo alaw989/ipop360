@@ -148,8 +148,8 @@ const structuredData = computed(() => {
             <!-- Center: results -->
             <main class="min-w-0 flex-1">
                 <!-- Sort bar -->
-                <div class="mb-4 flex items-center justify-between">
-                    <div class="flex items-baseline gap-2">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                    <div class="flex min-w-0 flex-wrap items-baseline gap-x-2">
                         <h1 class="text-lg font-semibold text-foreground">
                             {{ cuisineName || 'All Restaurants' }}
                         </h1>
@@ -160,7 +160,7 @@ const structuredData = computed(() => {
                             <span v-else>0 results</span>
                         </p>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex min-w-0 flex-wrap items-center gap-2">
                         <Button
                             variant="outline"
                             size="sm"
@@ -213,7 +213,7 @@ const structuredData = computed(() => {
                             id="search-sort"
                             :value="currentSort"
                             @change="updateSort(($event.target as HTMLSelectElement).value)"
-                            class="rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                            class="min-w-0 max-w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                         >
                             <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">
                                 {{ opt.label }}

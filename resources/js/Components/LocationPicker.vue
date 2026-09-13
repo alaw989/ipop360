@@ -24,6 +24,12 @@ const props = defineProps<{
     location: Location | null
     detecting?: boolean
     inverted?: boolean
+    // 'field' renders the trigger as one half of the two-part search bar
+    // (SearchBarShell): a small "Where" label over the current value.
+    variant?: 'inline' | 'field'
+    fieldLabel?: string
+    size?: 'md' | 'lg'
+    placeholder?: string
 }>()
 
 const emit = defineEmits<{
@@ -42,13 +48,16 @@ const searching = ref(false)
 const selectedIndex = ref(-1)
 const searchInput = ref<HTMLInputElement | null>(null)
 
+const isField = computed(() => props.variant === 'field')
+const hasLocation = computed(() => !!props.location?.city)
+
 const displayText = computed(() => {
-    if (props.detecting) return 'Detecting...'
+    if (props.detecting) return isField.value ? 'Finding you…' : 'Detecting...'
     if (props.location?.city && props.location?.state) {
         return `${props.location.city}, ${props.location.state}`
     }
     if (props.location?.city) return props.location.city
-    return 'your city'
+    return isField.value ? (props.placeholder ?? 'City, or use my location') : 'your city'
 })
 
 function useMyLocation() {
@@ -115,28 +124,42 @@ function onKeydown(e: KeyboardEvent) {
     }
 }
 
-const triggerClasses = computed(() => [
-    'inline-flex items-center gap-1 border-b-2 px-1 font-semibold transition-all focus:outline-none',
-    props.inverted
-        ? 'border-white/30 text-white/80 hover:border-white hover:text-white'
-        : 'border-foreground/30 text-foreground hover:border-foreground',
-    props.detecting ? 'animate-pulse' : '',
-])
+const triggerClasses = computed(() => isField.value
+    ? [
+        'flex h-full w-full flex-col items-start justify-center text-left transition-colors hover:bg-accent/60 focus:outline-none focus-visible:bg-accent/60',
+        props.size === 'lg' ? 'min-h-[3.75rem] px-5' : 'min-h-11 px-4',
+    ]
+    : [
+        'inline-flex items-center gap-1 border-b-2 px-1 font-semibold transition-all focus:outline-none',
+        props.inverted
+            ? 'border-white/30 text-white/80 hover:border-white hover:text-white'
+            : 'border-foreground/30 text-foreground hover:border-foreground',
+        props.detecting ? 'animate-pulse' : '',
+    ])
 </script>
 
 <template>
     <!-- Mobile: bottom sheet -->
     <Sheet v-if="isMobile" v-model:open="open">
         <SheetTrigger as-child>
-            <button :class="triggerClasses">
-                <svg v-if="detecting" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 animate-spin text-primary" viewBox="0 0 24 24" fill="none">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-                {{ displayText }}
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                </svg>
+            <button type="button" :class="triggerClasses" data-testid="location-trigger">
+                <template v-if="isField">
+                    <span class="text-xs font-semibold text-foreground">{{ fieldLabel ?? 'Where' }}</span>
+                    <span
+                        class="w-full truncate"
+                        :class="[size === 'lg' ? 'text-base' : 'text-[15px]', hasLocation ? 'text-foreground' : 'text-muted-foreground', detecting ? 'animate-pulse' : '']"
+                    >{{ displayText }}</span>
+                </template>
+                <template v-else>
+                    <svg v-if="detecting" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 animate-spin text-primary" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    {{ displayText }}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                    </svg>
+                </template>
             </button>
         </SheetTrigger>
         <SheetContent side="bottom" class="max-h-[85vh] p-0" :show-close-button="false" :style="{ maxHeight: `calc(85vh - ${keyboardHeight}px)`, paddingBottom: `calc(${keyboardHeight}px + env(safe-area-inset-bottom))` }">
@@ -213,18 +236,27 @@ const triggerClasses = computed(() => [
     <!-- Desktop: floating popover -->
     <Popover v-else v-model:open="open">
         <PopoverTrigger as-child>
-            <button :class="triggerClasses">
-                <svg v-if="detecting" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 animate-spin text-primary" viewBox="0 0 24 24" fill="none">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-                {{ displayText }}
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                </svg>
+            <button type="button" :class="triggerClasses" data-testid="location-trigger">
+                <template v-if="isField">
+                    <span class="text-xs font-semibold text-foreground">{{ fieldLabel ?? 'Where' }}</span>
+                    <span
+                        class="w-full truncate"
+                        :class="[size === 'lg' ? 'text-base' : 'text-[15px]', hasLocation ? 'text-foreground' : 'text-muted-foreground', detecting ? 'animate-pulse' : '']"
+                    >{{ displayText }}</span>
+                </template>
+                <template v-else>
+                    <svg v-if="detecting" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 animate-spin text-primary" viewBox="0 0 24 24" fill="none">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    {{ displayText }}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                    </svg>
+                </template>
             </button>
         </PopoverTrigger>
-        <PopoverContent class="w-80 p-0 max-md:w-[calc(100vw-1rem)]" align="center">
+        <PopoverContent class="w-80 p-0 max-md:w-[calc(100vw-1rem)]" :align="isField ? 'start' : 'center'">
             <div class="flex flex-col">
                 <div class="relative border-b border-border">
                     <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

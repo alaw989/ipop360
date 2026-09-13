@@ -30,6 +30,13 @@ interface Category {
 const props = defineProps<{
     categories: Category[]
     inverted?: boolean
+    // 'field' renders the trigger as one half of the two-part search bar
+    // (SearchBarShell): a small "What" label over the current value.
+    variant?: 'inline' | 'field'
+    fieldLabel?: string
+    size?: 'md' | 'lg'
+    initialLabel?: string | null
+    loading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -40,9 +47,17 @@ const { isMobile } = useIsMobile()
 
 const open = ref(false)
 const drillCategory = ref<Category | null>(null)
-const selectedLabel = ref<string | null>(null)
+const selectedLabel = ref<string | null>(props.initialLabel ?? null)
 
-const displayText = computed(() => selectedLabel.value ?? 'any cuisine')
+const isField = computed(() => props.variant === 'field')
+
+// The field shows just the cuisine ("Japanese"), not "Asian ▸ Japanese".
+const displayText = computed(() => {
+    if (!isField.value) return selectedLabel.value ?? 'any cuisine'
+    return selectedLabel.value?.split(' ▸ ').pop() ?? 'Any cuisine'
+})
+
+const emptyText = computed(() => (props.loading ? 'Loading cuisines…' : 'No categories found.'))
 
 function selectCategory(cat: Category) {
     drillCategory.value = cat
@@ -84,13 +99,18 @@ function clearSelection() {
     emit('select', { category: '', label: 'any cuisine' })
 }
 
-const triggerClasses = computed(() => [
-    'inline-flex items-center gap-1 border-b-2 px-1 font-semibold transition-colors focus:outline-none',
-    props.inverted
-        ? 'border-white/30 text-white/70 hover:border-white hover:text-white'
-        : 'border-foreground/30 text-foreground hover:border-foreground',
-    { 'opacity-60': !selectedLabel.value },
-])
+const triggerClasses = computed(() => isField.value
+    ? [
+        'flex h-full w-full flex-col items-start justify-center text-left transition-colors hover:bg-accent/60 focus:outline-none focus-visible:bg-accent/60',
+        props.size === 'lg' ? 'min-h-[3.75rem] px-5' : 'min-h-11 px-4',
+    ]
+    : [
+        'inline-flex items-center gap-1 border-b-2 px-1 font-semibold transition-colors focus:outline-none',
+        props.inverted
+            ? 'border-white/30 text-white/70 hover:border-white hover:text-white'
+            : 'border-foreground/30 text-foreground hover:border-foreground',
+        { 'opacity-60': !selectedLabel.value },
+    ])
 
 defineExpose({ selectCuisine, confirmCategory })
 </script>
@@ -99,11 +119,20 @@ defineExpose({ selectCuisine, confirmCategory })
     <!-- Mobile: bottom sheet -->
     <Sheet v-if="isMobile" v-model:open="open">
         <SheetTrigger as-child>
-            <button :class="triggerClasses">
-                {{ displayText }}
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                </svg>
+            <button type="button" :class="triggerClasses" data-testid="cuisine-trigger">
+                <template v-if="isField">
+                    <span class="text-xs font-semibold text-foreground">{{ fieldLabel ?? 'What' }}</span>
+                    <span
+                        class="w-full truncate"
+                        :class="[size === 'lg' ? 'text-base' : 'text-[15px]', selectedLabel ? 'text-foreground' : 'text-muted-foreground']"
+                    >{{ displayText }}</span>
+                </template>
+                <template v-else>
+                    {{ displayText }}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                    </svg>
+                </template>
             </button>
         </SheetTrigger>
         <SheetContent side="bottom" class="h-[85vh] p-0 pb-[env(safe-area-inset-bottom)]" :show-close-button="false" @open-auto-focus.prevent>
@@ -124,7 +153,7 @@ defineExpose({ selectCuisine, confirmCategory })
             <Command v-if="!drillCategory" class="flex flex-1 flex-col">
                 <CommandInput placeholder="Search cuisines..." :autoFocus="false" />
                 <CommandList>
-                    <CommandEmpty>No categories found.</CommandEmpty>
+                    <CommandEmpty>{{ emptyText }}</CommandEmpty>
                     <CommandGroup heading="Categories">
                         <CommandItem
                             v-for="cat in categories"
@@ -177,18 +206,27 @@ defineExpose({ selectCuisine, confirmCategory })
     <!-- Desktop: floating popover -->
     <Popover v-else v-model:open="open">
         <PopoverTrigger as-child>
-            <button :class="triggerClasses">
-                {{ displayText }}
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-                </svg>
+            <button type="button" :class="triggerClasses" data-testid="cuisine-trigger">
+                <template v-if="isField">
+                    <span class="text-xs font-semibold text-foreground">{{ fieldLabel ?? 'What' }}</span>
+                    <span
+                        class="w-full truncate"
+                        :class="[size === 'lg' ? 'text-base' : 'text-[15px]', selectedLabel ? 'text-foreground' : 'text-muted-foreground']"
+                    >{{ displayText }}</span>
+                </template>
+                <template v-else>
+                    {{ displayText }}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 opacity-50" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                    </svg>
+                </template>
             </button>
         </PopoverTrigger>
-        <PopoverContent class="w-72 p-0 max-md:w-[calc(100vw-1rem)]" align="center">
+        <PopoverContent class="w-72 p-0 max-md:w-[calc(100vw-1rem)]" :align="isField ? 'start' : 'center'">
             <Command v-if="!drillCategory">
                 <CommandInput placeholder="Search cuisines..." :autoFocus="false" />
                 <CommandList>
-                    <CommandEmpty>No categories found.</CommandEmpty>
+                    <CommandEmpty>{{ emptyText }}</CommandEmpty>
                     <CommandGroup heading="Categories">
                         <CommandItem
                             v-for="cat in categories"

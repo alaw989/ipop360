@@ -174,6 +174,17 @@ class HomeService
     }
 
     /**
+     * The unscoped category list (every category and cuisine), cached for an
+     * hour: the header search loads it on every page.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function allCategories(): array
+    {
+        return Cache::remember('search:all-categories', now()->addHour(), fn (): array => $this->getScopedCategories(null, null));
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     private function getScopedCategories(?string $city, ?string $state): array

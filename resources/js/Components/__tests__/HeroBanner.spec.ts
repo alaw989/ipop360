@@ -4,9 +4,14 @@ import HeroBanner from '@/Components/HeroBanner.vue'
 
 vi.mock('@/lib/slideshow', () => ({
     slides: [
-        { image: '/img/slide1.jpg', attribution: 'Photo by Tester 1' },
-        { image: '/img/slide2.jpg', attribution: 'Photo by Tester 2' },
+        { id: 'photo-a', attribution: 'Photo by Tester 1' },
+        { id: 'photo-b', attribution: 'Photo by Tester 2' },
     ],
+    slideSources: (slide: { id: string }) => ({
+        phone: `/img/${slide.id}-600.jpg 600w`,
+        wide: `/img/${slide.id}-1600.jpg 1600w`,
+        fallback: `/img/${slide.id}.jpg`,
+    }),
 }))
 
 vi.mock('@inertiajs/vue3', async () => {
@@ -85,9 +90,37 @@ describe('HeroBanner', () => {
         expect(wrapper.find('a[href="/dashboard"]').exists()).toBe(false)
     })
 
-    it('renders the BrandLogo component', () => {
+    it('does not repeat the logo (the header already shows it)', () => {
         const wrapper = mountComponent()
-        expect(wrapper.find('.brand-logo-stub').exists()).toBe(true)
+        expect(wrapper.find('.brand-logo-stub').exists()).toBe(false)
+        expect(wrapper.find('a[aria-label="iPop360 home"]').exists()).toBe(false)
+    })
+
+    it('leads with a plain headline', () => {
+        const wrapper = mountComponent()
+        expect(wrapper.get('h1').text()).toBe('Find the most popular restaurants near you')
+    })
+
+    it('shows the two-part search with the cuisine and place pickers as fields', () => {
+        const wrapper = mountComponent()
+        expect(wrapper.find('form[role="search"]').exists()).toBe(true)
+        expect(wrapper.find('[data-testid="search-what"] [data-testid="cuisine-picker"]').exists()).toBe(true)
+        expect(wrapper.find('[data-testid="search-where"] [data-testid="location-picker"]').exists()).toBe(true)
+    })
+
+    it('loads only the first photo with the page, and the rest later', async () => {
+        const wrapper = mountComponent()
+        expect(wrapper.findAll('picture')).toHaveLength(1)
+        expect(wrapper.find('img').attributes('fetchpriority')).toBe('high')
+        vi.advanceTimersByTime(4000)
+        await wrapper.vm.$nextTick()
+        expect(wrapper.findAll('picture')).toHaveLength(2)
+    })
+
+    it('serves phones their own crop of the photo', () => {
+        const wrapper = mountComponent()
+        const phone = wrapper.find('source[media="(max-width: 767px)"]')
+        expect(phone.attributes('srcset')).toContain('photo-a-600.jpg')
     })
 
     it('renders the CuisinePicker stub', () => {
@@ -102,41 +135,20 @@ describe('HeroBanner', () => {
         expect(picker.exists()).toBe(true)
     })
 
-    it('shows "Search" text on button when not detecting location', () => {
+    it('shows a Search button', () => {
         const wrapper = mountComponent({ detectingLocation: false })
-        expect(wrapper.text()).toContain('Search')
-        expect(wrapper.text()).not.toContain('Detecting location')
+        expect(wrapper.get('[data-testid="search-submit"]').text()).toContain('Search')
     })
 
-    it('shows detecting spinner and text when detectingLocation is true', () => {
+    it('disables the search button while finding the location', () => {
         const wrapper = mountComponent({ detectingLocation: true })
-        expect(wrapper.text()).toContain('Detecting location...')
-        expect(wrapper.find('.animate-spin').exists()).toBe(true)
+        expect(wrapper.get('[data-testid="search-submit"]').attributes('disabled')).toBeDefined()
     })
 
-    it('disables the search button when detectingLocation is true', () => {
-        const wrapper = mountComponent({ detectingLocation: true })
-        const button = wrapper.find('button')
-        expect(button.attributes('disabled')).toBeDefined()
-    })
-
-    it('emits search when search button is clicked', async () => {
+    it('emits search when the search form is submitted', async () => {
         const wrapper = mountComponent()
-        const buttons = wrapper.findAll('button')
-        const searchButton = buttons.find((b) => b.text() === 'Search')
-        expect(searchButton).toBeDefined()
-        await searchButton!.trigger('click')
-        expect(wrapper.emitted('search')).toBeTruthy()
+        await wrapper.get('form').trigger('submit')
         expect(wrapper.emitted('search')).toHaveLength(1)
-    })
-
-    it('does not emit search when detectingLocation is true and button is clicked', async () => {
-        const wrapper = mountComponent({ detectingLocation: true })
-        const buttons = wrapper.findAll('button')
-        const detectingButton = buttons.find((b) => b.text().includes('Detecting location'))
-        expect(detectingButton).toBeDefined()
-        await detectingButton!.trigger('click')
-        expect(wrapper.emitted('search')).toBeFalsy()
     })
 
     it('renders dot indicators for each slide', () => {
@@ -185,12 +197,5 @@ describe('HeroBanner', () => {
         await pauseButton.trigger('click')
         const resumeButton = wrapper.find('button[aria-label="Resume slideshow"]')
         expect(resumeButton.exists()).toBe(true)
-    })
-
-    it('renders the logo link as an anchor with aria-label iPop360 home', () => {
-        const wrapper = mountComponent()
-        const logoLink = wrapper.find('a[aria-label="iPop360 home"]')
-        expect(logoLink.exists()).toBe(true)
-        expect(logoLink.attributes('href')).toBe('/')
     })
 })

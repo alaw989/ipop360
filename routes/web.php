@@ -24,6 +24,7 @@ Route::middleware(['throttle:60,1', 'log.api'])->group(function () {
     Route::get('/api/geocode/forward', [GeocodeController::class, 'forward']);
     Route::get('/api/geocode/search', [GeocodeController::class, 'search']);
     Route::get('/api/homepage-data', [HomeController::class, 'apiData']);
+    Route::get('/api/cuisine-categories', [HomeController::class, 'categories']);
     Route::post('/api/engage', [EngagementController::class, 'store'])->middleware('throttle:30,1');
 });
 

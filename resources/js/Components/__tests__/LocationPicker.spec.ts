@@ -254,4 +254,23 @@ describe('LocationPicker', () => {
 
         isMobile.value = false
     })
+
+    describe('as a search bar field', () => {
+        it('shows a Where label over the placeholder until a place is picked', () => {
+            const wrapper = createWrapper({ variant: 'field', placeholder: 'This area' })
+            const trigger = wrapper.get('[data-testid="location-trigger"]')
+            expect(trigger.text()).toContain('Where')
+            expect(trigger.text()).toContain('This area')
+        })
+
+        it('shows the picked city and state', () => {
+            const wrapper = createWrapper({ variant: 'field', location: { city: 'Austin', state: 'TX' } })
+            expect(wrapper.get('[data-testid="location-trigger"]').text()).toContain('Austin, TX')
+        })
+
+        it('says it is finding you while detecting', () => {
+            const wrapper = createWrapper({ variant: 'field', detecting: true })
+            expect(wrapper.get('[data-testid="location-trigger"]').text()).toContain('Finding you…')
+        })
+    })
 })
