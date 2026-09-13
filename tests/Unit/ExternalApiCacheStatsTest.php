@@ -219,6 +219,12 @@ class ExternalApiCacheStatsTest extends TestCase
 
     public function test_stats_counts_serpapi_calls_within_30_days_only(): void
     {
+        // Freeze time: the row is written at now()->subDays(30) and stats()
+        // recomputes now() for the cutoff. Without a frozen clock the two
+        // calls can straddle a second boundary, nudging the cutoff past the
+        // row and making this exactly-30-days case flaky.
+        $this->travelTo(Carbon::parse('2026-03-15 10:00:00'));
+
         // Exactly on the boundary (30 days ago) should count
         ExternalApiCache::create([
             'source' => 'serpapi',
