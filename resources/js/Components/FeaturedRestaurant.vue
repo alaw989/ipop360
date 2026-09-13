@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { Link } from '@inertiajs/vue3'
 import StarRating from '@/Components/StarRating.vue'
 import PriceLevel from '@/Components/PriceLevel.vue'
-import { commonsSrcset } from '@/lib/responsiveImage'
+import { photoSrcset } from '@/lib/responsiveImage'
 
 export interface Spotlight {
     id: number
@@ -35,7 +35,7 @@ const photoBroken = ref(false)
 const heading = computed(() => (props.spotlight.picked ? 'Featured restaurant' : 'Top-ranked near you'))
 const place = computed(() => [props.spotlight.city, props.spotlight.state].filter(Boolean).join(', '))
 const cuisineNames = computed(() => props.spotlight.cuisines.slice(0, 2).map((c) => c.name).join(', '))
-const srcset = computed(() => commonsSrcset(props.spotlight.image))
+const srcset = computed(() => photoSrcset(props.spotlight.image))
 const rating = computed(() => Number(props.spotlight.google_rating ?? 0))
 const restaurantUrl = computed(() => `/restaurants/${props.spotlight.slug}`)
 </script>
@@ -65,7 +65,7 @@ const restaurantUrl = computed(() => `/restaurants/${props.spotlight.slug}`)
 
                 <div class="flex flex-col justify-center gap-3 p-6 sm:p-8">
                     <h3 class="font-heading text-2xl font-bold leading-tight text-foreground sm:text-3xl">
-                        <a :href="restaurantUrl" class="after:absolute after:inset-0 hover:text-primary">{{ spotlight.name }}</a>
+                        <Link :href="restaurantUrl" prefetch class="after:absolute after:inset-0 hover:text-primary">{{ spotlight.name }}</Link>
                     </h3>
 
                     <StarRating
@@ -92,10 +92,11 @@ const restaurantUrl = computed(() => `/restaurants/${props.spotlight.slug}`)
                     >{{ spotlight.quote }}</blockquote>
 
                     <div class="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3">
-                        <a
+                        <Link
                             :href="restaurantUrl"
+                            prefetch
                             class="relative z-10 inline-flex min-h-11 items-center rounded-full bg-primary px-6 font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-                        >See the restaurant</a>
+                        >See the restaurant</Link>
                         <Link
                             v-if="spotlight.story"
                             :href="`/blog/${spotlight.story.slug}`"

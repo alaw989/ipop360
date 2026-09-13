@@ -562,6 +562,122 @@ scheduled commands**; CI + deploy green.
 
 ## Next goals (in priority order)
 
+> **Redesign handoff (2026-09-13).** Claude built the Yelp-like redesign
+> directly (PRs #190–#195, merged, deployed, verified live). The user asked
+> for opencode to continue from here. Goals 16–20 are what's left. Context:
+> `docs/design-audit-2026-09.md`, `history.md` (entries dated 2026-09-13),
+> project-state "In flight". Browser checks: `scripts/ui-checks/`. Local prod
+> clone: `APP_ENV=prodclone php artisan serve --port=8090` after `npm run build`.
+
+### 16. Finish redesign PR 7: phone polish, speed, accessibility (branch `feat/native-feel`)
+Built and committed on `feat/native-feel` (draft PR #196). All gates were green
+at commit time (Pint, vitest 1117, build; no PHP changes). Contents:
+- `manifest.json` and icons;
+- in-app Inertia links with prefetch (`RestaurantLink.vue`);
+- a real "Back" (`lib/inAppHistory.ts`);
+- Google/Commons `photoSrcset`;
+- the 11 KB WebP logo;
+- tap and overscroll CSS;
+- axe fixes: the pages checked are clean.
+
+**Bug 1 fixed (2026-09-13, opencode):** the `_leaflet_pos` crash was a race —
+`fitBounds` starts a zoom animation whose deferred `_onZoomTransitionEnd`
+handler fires after Inertia unmounts the map, when `Map.remove()` has already
+`delete`d `_mapPane`, so `getPosition(undefined)` throws. Also surfaced as
+`Map container not found.` while the async leaflet import resolved after
+unmount. `SearchMap.vue` + `DetailMap.vue` now: fit bounds with
+`animate: false`; on unmount `stop()`, clear `_animatingZoom`, then
+`remove()`; guard the async continuation with a `disposed` flag. Regression
+specs added (unmount mid-fit, stop-before-remove, late-import). Reproduced
+6/6 before, 0/6 after.
+
+**Bug 2 (desktop scroll restore) did NOT reproduce** on a fresh build of
+HEAD. `navflow.mjs` and a scripted sweep (scroll 500/1200/1936/2963/4063,
+click a card already in view, back) restored to the exact saved offset at
+both 390 and 1440 px, 3/3 runs. The one 1886 offset seen on phone was a
+Playwright auto-scroll-to-click artifact (the click scrolled the card into
+view), not the app. Inertia's window-scroll save/restore is sound here; no
+`scroll-region` was added — a fix would have been for a bug that isn't there.
+
+**A11y:** the `title` this PR added to map pins made dozens of overlapping
+pins focusable targets, failing WCAG 2.2 `target-size` on desktop `/search`.
+Fixed with `keyboard: false` on `SearchMap` pins (the results list is the
+keyboard path); `/` and `/search` are axe-clean at 390 and 1440 px again.
+
+Then:
+- run the gates: pint, full PHPStan, PHPUnit (empty `.env.testing`), vitest, build;
+- mark the PR ready, wait for CI, merge, and watch the deploy;
+- on ipop360.com at 390 and 1440 px, run `navflow.mjs` and `a11y.mjs`;
+- check `/manifest.json` returns `application/json`.
+
+### 17. Photo thumbnails for hosts that can't resize (redesign PR 8)
+`/search?city=Austin&state=TX` downloads **17.6 MB of images**. One result's
+`photo_url` is a 16 MB JPEG (`www.thewowshi.com/assets/beef-closeup2.jpg`),
+shown at 96–176 px. Google and Commons photos are resized by URL already
+(`resources/js/lib/responsiveImage.ts`); every other host is served as it is.
+
+Prod has PHP GD with WebP and JPEG, 32 GB free disk, and 2 cores. There are
+25,945 active rows with a photo.
+
+**Suggested design:**
+- a scheduled command generates one 640px-wide WebP per photo, in popularity
+  order and capped per run, saved at
+  `storage/app/public/thumbs/{id}-{sha1(photo_url):10}.webp`, with a
+  `photo_thumb` column;
+- `RestaurantResource` sends a `photo_thumb_url` only when the hash matches
+  the current `photo_url`;
+- cards prefer the thumbnail.
+
+**Guards:**
+- fetch public IPs only (SSRF);
+- 25 MB download cap, 50 MP pixel cap, timeouts;
+- skip non-images;
+- never block a page render;
+- check `storage:link` on prod.
+
+The goal is under ~1.5 MB of images on that page on a phone.
+
+### 18. Junk photos: Instagram's logo as the restaurant photo
+3,823 active restaurants have `photo_url =
+https://static.cdninstagram.com/rsrc.php/v4/yD/r/R0fBIMurK8v.png`. That's
+Instagram's 760 KB logo sprite. 3,760 of them have `photo_source='unknown'`.
+Galleries (`photos`) carry it too. They're stored JSON-escaped, so match
+`cdninstagram.com\/rsrc.php`.
+
+**Fix:**
+1. Add `PhotoUrl::isPlatformAsset()` (Instagram/Facebook `rsrc.php` static
+   assets) and use it in
+   `RestaurantWebsiteScraperService::extractPhotoUrl()`/`extractPhotos()` and
+   every other photo write path.
+2. Write a report-first command (`--apply` to write) that:
+   - quarantines `photo_url` through `FieldQuarantineService` (reversible,
+     the data-integrity pattern);
+   - strips the sprite from `photos` with `replaceFields`.
+3. Take a prod backup before `--apply`.
+
+### 19. Wikimedia photos matched by name only (report first)
+Most `photo_source='wikimedia'` photos (about 4.7k `upload.wikimedia.org`
+and 476 `thumb.wikimedia.org`) show something else with the same name. For
+example, Lost & Found in Houston shows a lost-and-found bin, and Ela in
+Atlanta shows a person named Ela.
+
+Build a report-only check. A photo passes when it comes from a Wikidata item
+with a P18 image and coordinates within ~150 m, or when its Commons file has
+coordinates near the pin. That's how the Moose's Tooth photo was verified.
+
+Report counts and samples to the user, and **don't remove photos in bulk
+without their OK**.
+
+### 20. Check PR 1's first daily run (after 2026-09-13 11:45 UTC)
+`restaurants:backfill-websites` should have:
+- set `website_scraped_at` on about 2,000 rows;
+- read no site twice in the run;
+- filled no website prices: `field_sources.price_range` is never a website
+  source.
+
+It is read-only on prod.
+
+
 ### ✅ Done (2026-08-19) — hero stats, AI fallback, sheet a11y, component coverage
 Ran as **one PR each, in sequence, via opencode-loop on independent branches off master** (no merge between goals; each stopped after opening its PR). All `opencode-go/deepseek-v4-flash`, fresh-session token-economy mode (avg ~30-40k tokens/iteration, ALL_DONE early).
 

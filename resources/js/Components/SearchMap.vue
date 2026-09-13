@@ -14,6 +14,7 @@ const isExpanded = ref(false);
 let map: any = null;
 let markers: any[] = [];
 let leaflet: any = null;
+let disposed = false;
 
 const center = computed(() => {
     if (props.lat && props.lng) {
@@ -30,7 +31,7 @@ onMounted(async () => {
     await import('leaflet/dist/leaflet.css');
     leaflet = await import('leaflet');
 
-    if (!mapContainer.value) return;
+    if (disposed || !mapContainer.value) return;
 
     map = leaflet.map(mapContainer.value, {
         zoomControl: true,
@@ -49,14 +50,22 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+    disposed = true;
     if (map) {
+        // A zoom animation schedules a deferred transition-end handler that
+        // touches the map pane. remove() deletes that pane, so if the handler
+        // runs afterwards Leaflet throws on undefined._leaflet_pos. Stop the
+        // animation and clear the animating flag so the handler is a no-op.
+        map.stop();
+        map._animatingZoom = false;
+        clearMarkers();
         map.remove();
         map = null;
     }
 });
 
 watch(() => props.restaurants, () => {
-    if (map) {
+    if (!disposed && map) {
         clearMarkers();
         addMarkers();
     }
@@ -82,7 +91,11 @@ function addMarkers() {
     props.restaurants.forEach(r => {
         if (r.lat == null || r.lng == null) return;
 
-        const marker = leaflet.marker([r.lat, r.lng], { icon })
+        // title names the pin for screen readers (set as a property, not HTML).
+        // keyboard: false keeps dozens of overlapping pins out of the tab order
+        // — as focusable targets they fail WCAG 2.2 target-size; the results
+        // list beside the map is the keyboard-accessible path.
+        const marker = leaflet.marker([r.lat, r.lng], { icon, title: r.name, keyboard: false })
             .addTo(map)
             // Names and slugs come from outside sources (OSM, BizData, SerpApi):
             // escape them, since Leaflet sets popup HTML with innerHTML.
@@ -100,7 +113,9 @@ function addMarkers() {
     });
 
     if (bounds.length > 0 && map) {
-        map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+        // No animation: an in-flight zoom transition can outlive the map and
+        // throw once Inertia unmounts it (see onUnmounted).
+        map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15, animate: false });
     }
 }
 

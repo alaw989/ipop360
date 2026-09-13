@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import RestaurantsShow from '@/Pages/Restaurants/Show.vue'
+import { trackInAppHistory, resetInAppHistory } from '@/lib/inAppHistory'
 
 const {
   mockCallPhone,
@@ -230,23 +231,66 @@ describe('Restaurants/Show', () => {
   })
 
   describe('back link', () => {
-    it('links to cuisine-filtered results when categorySlug is set', () => {
-      const wrapper = mountComponent({
-        categorySlug: 'italian-cuisine',
-        restaurant: makeRestaurant({
-          cuisines: [{ id: 1, name: 'Italian', slug: 'italian' }],
-        }),
-      })
-      const backLink = wrapper.findAll('a').find(el => el.text().includes('Back to results'))
-      expect(backLink).toBeTruthy()
-      expect(backLink!.attributes('href')).toBe('/restaurants?cuisine=italian')
+    function navigate(url: string) {
+      document.dispatchEvent(new CustomEvent('inertia:navigate', { detail: { page: { url } } }))
+    }
+
+    beforeEach(() => {
+      trackInAppHistory()
+      resetInAppHistory()
     })
 
-    it('links to /restaurants when no categorySlug', () => {
-      const wrapper = mountComponent({ categorySlug: null })
-      const backLink = wrapper.findAll('a').find(el => el.text().includes('Back to results'))
-      expect(backLink).toBeTruthy()
-      expect(backLink!.attributes('href')).toBe('/restaurants')
+    it('opened from another site, searches for more of its cuisine', () => {
+      navigate('/restaurants/test-restaurant')
+      const wrapper = mountComponent({
+        restaurant: makeRestaurant({ cuisines: [{ id: 1, name: 'Italian', slug: 'italian' }] }),
+      })
+      const back = wrapper.get('[data-testid="back-link"]')
+      expect(back.text()).toBe('Back to results')
+      expect(back.attributes('href')).toBe('/search?cuisine=italian')
+    })
+
+    it('with no cuisine, goes to search', () => {
+      const wrapper = mountComponent({ restaurant: makeRestaurant({ cuisines: [] }) })
+      expect(wrapper.get('[data-testid="back-link"]').attributes('href')).toBe('/search')
+    })
+
+    it('opened from the results, goes back to them the way the back button does', async () => {
+      navigate('/search?city=Austin&state=TX')
+      const wrapper = mountComponent()
+      navigate('/restaurants/test-restaurant')
+      await wrapper.vm.$nextTick()
+
+      const back = wrapper.get('[data-testid="back-link"]')
+      expect(back.text()).toBe('Back to results')
+      expect(back.attributes('href')).toBe('/search?city=Austin&state=TX')
+
+      const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => {})
+      await back.trigger('click', { button: 0 })
+      expect(historyBack).toHaveBeenCalledOnce()
+      historyBack.mockRestore()
+    })
+
+    it('opened from another restaurant, just says Back', async () => {
+      navigate('/restaurants/another-place')
+      const wrapper = mountComponent()
+      navigate('/restaurants/test-restaurant')
+      await wrapper.vm.$nextTick()
+      expect(wrapper.get('[data-testid="back-link"]').text()).toBe('Back')
+    })
+
+    it('reached with the browser back button, does not go back again', async () => {
+      navigate('/search?city=Austin&state=TX')
+      navigate('/restaurants/elsewhere')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      const wrapper = mountComponent()
+      navigate('/restaurants/test-restaurant')
+      await wrapper.vm.$nextTick()
+
+      const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => {})
+      await wrapper.get('[data-testid="back-link"]').trigger('click', { button: 0 })
+      expect(historyBack).not.toHaveBeenCalled()
+      historyBack.mockRestore()
     })
   })
 

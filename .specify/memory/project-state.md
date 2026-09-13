@@ -254,15 +254,40 @@ isn't free, so never a default). Remaining time-gated items: revisit
 monthly run on the 25th (no deploys during it).
 
 
-**In flight (2026-09-12): Yelp-like redesign.** The client wants the site to
-"look very similar to yelp.com". Audit, decisions and the seven-PR plan:
-`docs/design-audit-2026-09.md`. Decided: Poppins 600/700 + Source Sans 3,
-primary = the logo's red-orange (#C2401C, not Yelp's red), featured restaurant
-picked by an admin with a top-ranked fallback, multi-select price filter,
-price shown as four signs with the level dark. Built directly by Claude with
-the user's blanket approval for this job (merge after green CI, deploy,
-verify live). PR 1 (#190) fixed the stuck website scrape and stopped taking
-prices from websites (they matched Google's level only 45% of the time).
+**In flight (2026-09-13): Yelp-like redesign, handed to opencode.** The client
+wants the site to "look very similar to yelp.com". Audit, decisions and the
+seven-PR plan: `docs/design-audit-2026-09.md`. Decided: Poppins 600/700 +
+Source Sans 3, primary = the logo's red-orange (#C2401C, not Yelp's red),
+featured restaurant picked by an admin with a top-ranked fallback,
+multi-select price filter, price shown as four signs with the level dark.
+Built directly by Claude with the user's blanket approval for this job (merge
+after green CI, deploy, verify live); on 2026-09-13 the user asked to hand
+the rest to opencode.
+
+- **Shipped and verified live:** #190 (website scrape reaches every site, no
+  website prices), #191 (fonts, colors, `PriceLevel`), #192 (search on every
+  page, faster hero), #193 (search results, multi-price), #194 (featured
+  restaurant + admin picker), #195 (restaurant page; hours for every stored
+  format via `App\Support\OpeningHoursDisplay`; the page had never received
+  hours/menu/social/ZIP because `RestaurantResource` keyed them on a route
+  name the route doesn't have). Prod `restaurants:score` rerun after #195.
+- **Prod data (done):** blog post "Moose's Tooth: The Anchorage Pizza Pub With
+  12,000 Reviews" (id 6) and the first featured pick (Moose's Tooth, id 8629,
+  credited Commons photo). It's data, not code: change it from `/admin`.
+- **PR 7 is on branch `feat/native-feel`, not merged** (draft PR #196). The
+  Leaflet `_leaflet_pos` crash is fixed (no-animation fits + unmount guards)
+  and the pins' WCAG 2.2 `target-size` regression is fixed; the desktop
+  scroll-restore bug did not reproduce on a fresh HEAD build (see backlog goal
+  16). Gates green: pint, PHPUnit 1368, vitest 1123, PHPStan, build; local
+  navflow/a11y clean at 390/1440. Awaiting operator review before merge.
+- **Next:** backlog goals 16–20 (`.specify/memory/backlog.md`):
+  1. finish PR 7;
+  2. photo thumbnails;
+  3. the Instagram-logo junk photos;
+  4. the Wikimedia name-match photos;
+  5. check PR 1's first daily run.
+
+  Browser checks for all of these: `scripts/ui-checks/`.
 
 ## Binding process rules (opencode-loop workflow)
 

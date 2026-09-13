@@ -12,7 +12,8 @@ import { getRestaurantGradient } from '@/composables/useRestaurantDisplay';
 import { callPhone, openWebsite, trackDirections, trackPageview, trackMenuClick, directionsUrl, formatFullAddress, formatPhone } from '@/lib/restaurant';
 import { Heart, ArrowLeft, MapPin, Navigation, Phone, Globe, UtensilsCrossed, Share2 } from '@lucide/vue';
 import { getDisplayRating } from '@/composables/useRestaurantDisplay';
-import { commonsSrcset } from '@/lib/responsiveImage';
+import { photoSrcset } from '@/lib/responsiveImage';
+import { inAppHistory, isResultsUrl } from '@/lib/inAppHistory';
 import { photoBadge } from '@/lib/scoreTier';
 import { useFavorites } from '@/composables/useFavorites';
 import { useSeo, generateRestaurantJsonLd } from '@/composables/useSeo';
@@ -97,14 +98,30 @@ onMounted(() => {
 
 // The photo band leads with the restaurant's first photo.
 const heroPhoto = computed(() => photos.value[0] ?? null);
-const heroSrcset = computed(() => commonsSrcset(heroPhoto.value));
+const heroSrcset = computed(() => photoSrcset(heroPhoto.value));
 const photoBroken = ref(false);
 
 const displayRating = computed(() => getDisplayRating(props.restaurant));
 const badge = computed(() => photoBadge(props.restaurant));
 const bandCuisines = computed(() => props.restaurant.cuisines.slice(0, 3).map((c) => c.name).join(', '));
 const place = computed(() => [props.restaurant.city, props.restaurant.state].filter(Boolean).join(', '));
-const backHref = computed(() => (props.categorySlug ? `/restaurants?cuisine=${props.restaurant.cuisines[0]?.slug ?? ''}` : '/restaurants'));
+// Back: opened from a page on this site, go back to it the way the browser's
+// back button does (results keep their filters and scroll). Opened from
+// elsewhere, search for more of its cuisine.
+const cuisineSlug = computed(() => props.restaurant.cuisines[0]?.slug ?? null);
+const backHref = computed(() =>
+    inAppHistory.openedByLink && inAppHistory.previousUrl
+        ? inAppHistory.previousUrl
+        : cuisineSlug.value ? `/search?cuisine=${cuisineSlug.value}` : '/search',
+);
+const backLabel = computed(() =>
+    !inAppHistory.openedByLink || isResultsUrl(inAppHistory.previousUrl) ? 'Back to results' : 'Back',
+);
+function goBack(event: MouseEvent): void {
+    if (!inAppHistory.openedByLink || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    window.history.back();
+}
 
 // Share: the phone's own share sheet where there is one, otherwise copy the link.
 const shareLabel = ref('Share');
@@ -171,10 +188,12 @@ function handleMenuClick(): void {
                 <div class="mx-auto max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
                     <a
                         :href="backHref"
-                        class="mb-3 inline-flex min-h-11 items-center gap-1 text-sm text-white/85 transition-colors hover:text-white"
+                        class="mb-3 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-black/40 px-4 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-black/55"
+                        data-testid="back-link"
+                        @click="goBack"
                     >
                         <ArrowLeft :size="16" />
-                        Back to results
+                        {{ backLabel }}
                     </a>
                     <span
                         v-if="badge"

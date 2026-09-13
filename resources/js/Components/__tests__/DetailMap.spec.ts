@@ -4,6 +4,7 @@ import DetailMap from '@/Components/DetailMap.vue'
 
 const mockMapInstance = {
     remove: vi.fn(),
+    stop: vi.fn().mockReturnThis(),
     fitBounds: vi.fn(),
 }
 
@@ -144,10 +145,13 @@ describe('DetailMap', () => {
     it('calls fitBounds after adding marker', async () => {
         await mountComponent({ lat: 40, lng: -74 })
         expect(mockMapInstance.fitBounds).toHaveBeenCalledTimes(1)
-        expect(mockMapInstance.fitBounds).toHaveBeenCalledWith([
-            [40 - 0.005, -74 - 0.005],
-            [40 + 0.005, -74 + 0.005],
-        ])
+        expect(mockMapInstance.fitBounds).toHaveBeenCalledWith(
+            [
+                [40 - 0.005, -74 - 0.005],
+                [40 + 0.005, -74 + 0.005],
+            ],
+            expect.objectContaining({ animate: false }),
+        )
     })
 
     it('creates a divIcon in the brand color', async () => {
@@ -169,22 +173,48 @@ describe('DetailMap', () => {
         expect(mockMapInstance.remove).toHaveBeenCalledTimes(1)
     })
 
-    it('renders "Get Directions" button when lat and lng are provided', async () => {
+    it('stops the map before removing it, so no animation is left running', async () => {
+        const order: string[] = []
+        mockMapInstance.stop.mockImplementationOnce(() => { order.push('stop'); return mockMapInstance })
+        mockMapInstance.remove.mockImplementationOnce(() => { order.push('remove') })
+
         const wrapper = await mountComponent({ lat: 30, lng: -97 })
-        expect(wrapper.text()).toContain('Get Directions')
+        wrapper.unmount()
+
+        expect(order).toEqual(['stop', 'remove'])
     })
 
-    it('does not render "Get Directions" button when lat is null', async () => {
+    it('does not touch a container that is gone when leaflet finishes loading', async () => {
+        // The map init awaits the leaflet import; if the page is left in the
+        // meantime, Leaflet would throw "Map container not found.".
+        leafletMap.mockClear()
+        const wrapper = mount(DetailMap, {
+            props: { name: 'Test Place', lat: 30, lng: -97 },
+            attachTo: document.body,
+        })
+        vi.advanceTimersByTime(200)
+        wrapper.unmount()
+        await flushPromises()
+        await wrapper.vm.$nextTick()
+        expect(leafletMap).not.toHaveBeenCalled()
+    })
+
+    it('renders "Get directions" button when lat and lng are provided', async () => {
+        const wrapper = await mountComponent({ lat: 30, lng: -97 })
+        expect(wrapper.text()).toContain('Get directions')
+    })
+
+    it('does not render "Get directions" button when lat is null', async () => {
         const wrapper = await mountComponent({ lat: null, lng: -97 })
-        expect(wrapper.text()).not.toContain('Get Directions')
+        expect(wrapper.text()).not.toContain('Get directions')
     })
 
-    it('does not render "Get Directions" button when lng is null', async () => {
+    it('does not render "Get directions" button when lng is null', async () => {
         const wrapper = await mountComponent({ lat: 30, lng: null })
-        expect(wrapper.text()).not.toContain('Get Directions')
+        expect(wrapper.text()).not.toContain('Get directions')
     })
 
-    it('clicking "Get Directions" opens Google Maps in a new tab', async () => {
+    it('clicking "Get directions" opens Google Maps in a new tab', async () => {
         const windowOpen = vi.fn()
         vi.stubGlobal('open', windowOpen)
         const wrapper = await mountComponent({ lat: 30.27, lng: -97.74 })

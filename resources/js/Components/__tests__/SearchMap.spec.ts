@@ -6,6 +6,7 @@ import type { Restaurant } from '@/types/restaurant'
 const mockMapInstance = {
     setView: vi.fn().mockReturnThis(),
     remove: vi.fn(),
+    stop: vi.fn().mockReturnThis(),
     fitBounds: vi.fn(),
     addLayer: vi.fn().mockReturnThis(),
     removeLayer: vi.fn(),
@@ -170,6 +171,16 @@ describe('SearchMap', () => {
         expect(secondCall[0]).toEqual([40, -74])
     })
 
+    it('keeps overlapping pins out of the tab order', async () => {
+        // Focusable map pins fail WCAG 2.2 target-size once they overlap; the
+        // results list is the keyboard path.
+        await mountComponent({ restaurants: [makeRestaurant({ lat: 30, lng: -97, name: 'Spot A' })] })
+        expect(leafletMarker).toHaveBeenCalledWith(
+            [30, -97],
+            expect.objectContaining({ keyboard: false, title: 'Spot A' }),
+        )
+    })
+
     it('binds a popup to each marker with restaurant name', async () => {
         const restaurants = [makeRestaurant({ id: 1, lat: 30, lng: -97, name: 'Taco World' })]
         await mountComponent({ restaurants })
@@ -199,10 +210,45 @@ describe('SearchMap', () => {
         )
     })
 
+    it('fits bounds without animation', async () => {
+        // A zoom animation schedules a deferred transition-end handler that
+        // touches the map pane. If the page is left mid-animation, that handler
+        // runs after Map.remove() deleted the pane and throws
+        // "Cannot read properties of undefined (reading '_leaflet_pos')".
+        const restaurants = [makeRestaurant({ id: 1, lat: 30, lng: -97 })]
+        await mountComponent({ restaurants })
+        expect(mockMapInstance.fitBounds).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({ animate: false }),
+        )
+    })
+
     it('calls map.remove on unmount', async () => {
         const wrapper = await mountComponent()
         wrapper.unmount()
         expect(mockMapInstance.remove).toHaveBeenCalledTimes(1)
+    })
+
+    it('stops the map before removing it, so no animation is left running', async () => {
+        const order: string[] = []
+        mockMapInstance.stop.mockImplementationOnce(() => { order.push('stop'); return mockMapInstance })
+        mockMapInstance.remove.mockImplementationOnce(() => { order.push('remove') })
+
+        const wrapper = await mountComponent({ restaurants: [makeRestaurant({ lat: 30, lng: -97 })] })
+        wrapper.unmount()
+
+        expect(order).toEqual(['stop', 'remove'])
+    })
+
+    it('does not initialize the map when unmounted before the async leaflet import resolves', async () => {
+        // Leaving the results page quickly must not touch a container that is
+        // already gone: Leaflet throws "Map container not found." for that.
+        leafletMap.mockClear()
+        const wrapper = mount(SearchMap, { props: { restaurants: [] } })
+        wrapper.unmount()
+        await flushPromises()
+        await wrapper.vm.$nextTick()
+        expect(leafletMap).not.toHaveBeenCalled()
     })
 
     it('re-adds markers when restaurants prop changes', async () => {

@@ -63,3 +63,22 @@ One PR each, merged and checked live on desktop and phone before the next.
 5. **Featured restaurant:** `featured_restaurants` table, an admin picker, a spotlight with photo, rating, price, place and an optional story.
 6. **Restaurant page:** photo band, action row, contact card, hours near the top, the score in plain words.
 7. **Phone polish, speed, compatibility, accessibility:** Add to Home Screen, prefetch, photo sizes, a lighter tooltip, a contrast and tap-target pass.
+
+## Browser support
+
+The floor is Tailwind v4's: **Safari and iOS 16.4+, Chrome and Edge 111+,
+Firefox 128+**. Older browsers still load the pages, but the layout and colors
+break, because Tailwind's output relies on cascade layers, `@property` and
+`color-mix()`. Within that floor the site uses:
+
+- WebP images (the logo; Google photos are requested as WebP) and `srcset`, so
+  a phone downloads a photo sized for its screen;
+- the phone's share sheet (`navigator.share`), with "copy link" where there
+  isn't one;
+- safe-area padding (`env(safe-area-inset-*)`) for notches and home bars,
+  `overscroll-behavior` on scrolling panels, `touch-action: manipulation` on
+  controls;
+- a web app manifest. Added to the home screen (Android Chrome, iOS Safari),
+  the site opens full screen with its own icon. On iOS that also means no
+  browser back button, so pages keep their own back links ("Back to results"
+  on a restaurant page, "Back to blog" on a post).

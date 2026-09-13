@@ -17,6 +17,11 @@
         <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
         <link rel="apple-touch-icon" href="/img/apple-touch-icon.png" />
 
+        <!-- Added to a phone's home screen, the site opens full screen with
+             its own icon, like an app. -->
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-title" content="iPop360" />
+
         <!-- Theme color for mobile browser chrome. The site always renders its
              light theme (nothing sets .dark), so the chrome matches it on a
              dark-mode phone too. -->

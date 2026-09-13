@@ -5,6 +5,8 @@ import StarRating from '@/Components/StarRating.vue'
 import PriceLevel from '@/Components/PriceLevel.vue'
 import { cuisineGradient } from '@/lib/cuisine'
 import { photoBadge } from '@/lib/scoreTier'
+import { photoSrcset } from '@/lib/responsiveImage'
+import { Link } from '@inertiajs/vue3'
 interface PopularRestaurant {
     id: number
     name: string
@@ -84,20 +86,26 @@ function gradient(r: PopularRestaurant): string {
 
             <Transition name="restaurant-fade" mode="out-in">
                 <div :key="city ?? 'global'" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                    <a
+                    <Link
                         v-for="(r, index) in visibleRestaurants"
                         :key="r.id"
                         :href="`/restaurants/${r.slug}`"
-                        class="group relative flex flex-col overflow-hidden rounded-xl border bg-card transition-all hover:-translate-y-1 hover:shadow-lg"
+                        prefetch
+                        class="group relative flex flex-col overflow-hidden rounded-xl border bg-card transition-all hover:-translate-y-1 hover:shadow-lg active:scale-[0.98]"
                     >
                         <!-- Photo -->
                         <div class="relative aspect-[4/3] overflow-hidden">
                             <img
                                 v-if="r.photo_url && !brokenPhotoIds.has(r.id)"
                                 :src="r.photo_url"
+                                :srcset="photoSrcset(r.photo_url) ?? undefined"
+                                sizes="(min-width: 1024px) 300px, (min-width: 640px) 33vw, 50vw"
                                 :alt="r.name"
+                                width="400"
+                                height="300"
                                 class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                                 loading="lazy"
+                                decoding="async"
                                 @error="markPhotoBroken(r.id)"
                             />
                             <div
@@ -142,7 +150,7 @@ function gradient(r: PopularRestaurant): string {
                                 <span v-if="primaryCuisine(r)">{{ primaryCuisine(r)!.name }}</span>
                             </div>
                         </div>
-                    </a>
+                    </Link>
                 </div>
             </Transition>
 

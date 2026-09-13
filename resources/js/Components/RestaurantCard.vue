@@ -4,13 +4,14 @@ import StarRating from '@/Components/StarRating.vue';
 import CardGallery from '@/Components/CardGallery.vue';
 import ScoreChip from '@/Components/ScoreChip.vue';
 import PriceLevel from '@/Components/PriceLevel.vue';
+import RestaurantLink from '@/Components/RestaurantLink.vue';
 import { computed } from 'vue';
 import type { Restaurant } from '@/types/restaurant';
 import { callPhone, openWebsite, trackDirections } from '@/lib/restaurant';
 import { Phone, Globe, Navigation, Heart } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
 import { useCompare } from '@/composables/useCompare';
-import { getDetailUrl, getRestaurantPhotos, getRestaurantGradient, getDisplayRating, getMapCoords } from '@/composables/useRestaurantDisplay';
+import { getRestaurantPhotos, getRestaurantGradient, getDisplayRating, getMapCoords } from '@/composables/useRestaurantDisplay';
 import { photoBadge } from '@/lib/scoreTier';
 
 const props = defineProps<{
@@ -24,7 +25,6 @@ const props = defineProps<{
 
 const { isFavorited, toggle } = useFavorites();
 
-const detailOrMapsUrl = computed(() => getDetailUrl(props.restaurant));
 
 const badge = computed(() => photoBadge(props.restaurant));
 
@@ -50,7 +50,7 @@ const ariaLabel = computed(() => (saved.value ? 'Saved' : 'Save restaurant'));
     <article
         :class="[stagger && rank <= 12 ? 'card-enter' : '', 'cv-card']"
         :style="{ '--rank': rank }"
-        class="group relative overflow-hidden rounded-2xl transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl bg-card border"
+        class="group relative overflow-hidden rounded-2xl transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl active:scale-[0.98] bg-card border"
     >
         <CardGallery
             :photos="photos"
@@ -100,10 +100,10 @@ const ariaLabel = computed(() => (saved.value ? 'Saved' : 'Save restaurant'));
             <div class="min-w-0">
                 <div class="flex items-center gap-2">
                     <h2 class="text-base font-semibold text-foreground transition-colors group-hover:text-primary truncate">
-                        <a :href="detailOrMapsUrl" :target="restaurant.id > 0 ? undefined : '_blank'" :rel="restaurant.id > 0 ? undefined : 'noopener'" class="after:absolute after:inset-0 after:z-0">
+                        <RestaurantLink :restaurant="restaurant" class="after:absolute after:inset-0 after:z-0">
                             <span class="tabular-nums" data-testid="rank">{{ rank }}.</span>
                             {{ restaurant.name }}
-                        </a>
+                        </RestaurantLink>
                     </h2>
                     <span v-if="restaurant.has_award" class="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">
                         ⭐ Award

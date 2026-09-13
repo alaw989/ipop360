@@ -17,12 +17,16 @@ import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { router } from '@inertiajs/vue3';
 import { useSearchLoadingOverlay } from './composables/useSearchLoadingOverlay';
 import { mergeFavoritesOnLogin } from './lib/mergeFavoritesOnLogin';
+import { trackInAppHistory } from './lib/inAppHistory';
 
 // Lazy: only fetched once a search is actually triggered, so it isn't part
 // of every page's entry chunk (bundle diet, matches spec-061's precedent).
 const SearchLoadingOverlay = defineAsyncComponent(() => import('./Components/SearchLoadingOverlay.vue'));
 
 const appName = import.meta.env["VITE_APP_NAME"] || 'Laravel';
+
+// Before the app starts, so the first page's navigation is counted.
+trackInAppHistory();
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
@@ -53,7 +57,7 @@ createInertiaApp({
             .mount(el);
     },
     progress: {
-        color: '#f59e0b',
+        color: '#c2401c',
         includeCSS: true,
         showSpinner: false,
     },

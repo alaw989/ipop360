@@ -32,6 +32,7 @@ const mobileSearchOpen = ref(false)
 
 <template>
     <nav
+        aria-label="Main"
         class="z-50"
         :class="[
             props.transparent
@@ -195,7 +196,7 @@ const mobileSearchOpen = ref(false)
                             </button>
                         </div>
                         <SheetDescription class="sr-only">Site navigation</SheetDescription>
-                        <nav class="flex flex-col gap-1 px-3 py-3" data-testid="mobile-menu">
+                        <nav aria-label="Menu" class="flex flex-col gap-1 px-3 py-3" data-testid="mobile-menu">
                             <Link
                                 href="/restaurants"
                                 class="rounded-md px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:text-primary"
