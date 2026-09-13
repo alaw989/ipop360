@@ -88,7 +88,7 @@ function addMarkers() {
                 <div style="font-family:system-ui,sans-serif;min-width:160px">
                     <strong style="font-size:13px">${r.name}</strong>
                     ${r.yelp_rating || r.google_rating ? `<br><span style="font-size:12px;color:#666">⭐ ${r.yelp_rating || r.google_rating}</span>` : ''}
-                    ${r.price_range ? `<span style="font-size:12px;color:#10b981;font-weight:600;margin-left:8px">${r.price_range}</span>` : ''}
+                    ${r.price_range ? `<span style="font-size:12px;color:#6b6663;font-weight:600;margin-left:8px">${r.price_range}</span>` : ''}
                     <br><a href="/restaurants/${r.slug}" style="font-size:12px;color:#2563eb;text-decoration:none">View details →</a>
                 </div>
             `, { closeButton: true, maxWidth: 260 });

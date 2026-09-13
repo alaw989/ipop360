@@ -35,12 +35,12 @@ function onImgError() {
         />
         <span
             v-if="wordmark && imgLoaded"
-            class="mt-[0.1em] font-semibold tracking-tight"
+            class="mt-[0.1em] font-heading font-semibold tracking-tight"
             style="font-size: 0.38em"
         >iPop360</span>
         <span
             v-if="!imgLoaded"
-            class="mt-[0.1em] font-semibold tracking-tight"
+            class="mt-[0.1em] font-heading font-semibold tracking-tight"
         >iPop360</span>
     </span>
 </template>

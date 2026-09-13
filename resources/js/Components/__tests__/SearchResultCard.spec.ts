@@ -402,10 +402,10 @@ describe('SearchResultCard', () => {
     })
 
     describe('favorited state (saved class)', () => {
-        it('does not have text-red-500 class when not favorited', () => {
+        it('does not have the brand color when not favorited', () => {
             const wrapper = mountCard()
             const heartBtn = wrapper.find('[data-testid="heart-icon"]').element.closest('button')!
-            expect(heartBtn.classList.contains('text-red-500')).toBe(false)
+            expect(heartBtn.classList.contains('text-primary')).toBe(false)
         })
     })
 

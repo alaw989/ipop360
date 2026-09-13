@@ -17,9 +17,10 @@
         <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
         <link rel="apple-touch-icon" href="/img/apple-touch-icon.png" />
 
-        <!-- Theme color for mobile browser chrome -->
-        <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-        <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+        <!-- Theme color for mobile browser chrome. The site always renders its
+             light theme (nothing sets .dark), so the chrome matches it on a
+             dark-mode phone too. -->
+        <meta name="theme-color" content="#ffffff" />
 
         <!-- Scripts -->
         @routes

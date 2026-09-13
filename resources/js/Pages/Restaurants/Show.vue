@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import StarRating from '@/Components/StarRating.vue';
+import PriceLevel from '@/Components/PriceLevel.vue';
 import ScoreBreakdown from '@/Components/ScoreBreakdown.vue';
 import DetailMap from '@/Components/DetailMap.vue';
 import CardGallery from '@/Components/CardGallery.vue';
@@ -160,7 +161,7 @@ function handleMenuClick(): void {
                         </div>
                         <button
                             class="ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-muted/50 text-foreground shadow-md ring-2 ring-white/50 transition-all hover:bg-muted hover:scale-110"
-                            :class="{ 'text-red-500 fill-red-500': saved }"
+                            :class="{ 'text-primary fill-primary': saved }"
                             :aria-label="ariaLabel"
                             @click="() => toggle(restaurant)"
                         >
@@ -172,12 +173,10 @@ function handleMenuClick(): void {
                     </div>
 
                     <div class="mt-3 flex flex-wrap items-center gap-2">
-                        <Badge v-for="cuisine in restaurant.cuisines" :key="cuisine.id" variant="secondary" class="bg-primary/5 text-primary/70">
+                        <Badge v-for="cuisine in restaurant.cuisines" :key="cuisine.id" variant="secondary" class="bg-muted text-muted-foreground">
                             {{ cuisine.name }}
                         </Badge>
-                        <span v-if="restaurant.price_range" class="text-sm font-semibold text-emerald-500 dark:text-emerald-400">
-                            {{ restaurant.price_range }}
-                        </span>
+                        <PriceLevel v-if="restaurant.price_range" :price="restaurant.price_range" class="text-sm" />
                     </div>
 
                     <p v-if="restaurant.description" class="mt-4 leading-relaxed text-muted-foreground">

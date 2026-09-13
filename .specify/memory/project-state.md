@@ -254,6 +254,16 @@ isn't free, so never a default). Remaining time-gated items: revisit
 monthly run on the 25th (no deploys during it).
 
 
+**In flight (2026-09-12): Yelp-like redesign.** The client wants the site to
+"look very similar to yelp.com". Audit, decisions and the seven-PR plan:
+`docs/design-audit-2026-09.md`. Decided: Poppins 600/700 + Source Sans 3,
+primary = the logo's red-orange (#C2401C, not Yelp's red), featured restaurant
+picked by an admin with a top-ranked fallback, multi-select price filter,
+price shown as four signs with the level dark. Built directly by Claude with
+the user's blanket approval for this job (merge after green CI, deploy,
+verify live). PR 1 (#190) fixed the stuck website scrape and stopped taking
+prices from websites (they matched Google's level only 45% of the time).
+
 ## Binding process rules (opencode-loop workflow)
 
 - **Backlog goals are ALWAYS executed via `opencode-loop`, never implemented

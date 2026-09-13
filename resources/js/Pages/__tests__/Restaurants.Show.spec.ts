@@ -509,7 +509,7 @@ describe('Restaurants/Show', () => {
       const buttons = wrapper.findAll('button')
       const heartBtn = buttons.find(b => b.attributes('aria-label') === 'Saved')
       expect(heartBtn).toBeTruthy()
-      expect(heartBtn!.classes()).toContain('text-red-500')
+      expect(heartBtn!.classes()).toContain('text-primary')
     })
 
     it('calls toggle on heart click', async () => {

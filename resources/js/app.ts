@@ -1,6 +1,14 @@
 import '../css/app.css';
 import './bootstrap';
-import '@fontsource/poppins';
+// Poppins 600/700 for headings and restaurant names, Source Sans 3 (variable,
+// every weight in one file) for everything else. Each file declares all its
+// subsets behind unicode-range, so a page downloads only the ones its text
+// uses (Latin, unless a name like "Phở" needs more). Only Poppins 400 used to
+// load, so every bold on the site was faked by the browser.
+import '@fontsource/poppins/600.css';
+import '@fontsource/poppins/700.css';
+import '@fontsource-variable/source-sans-3/wght.css';
+import '@fontsource-variable/source-sans-3/wght-italic.css';
 
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
