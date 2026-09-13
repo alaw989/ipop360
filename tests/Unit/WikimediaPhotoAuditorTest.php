@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\Restaurant;
 use App\Services\WikidataService;
 use App\Services\WikimediaPhotoAuditor;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Mockery;
 use Tests\TestCase;
@@ -20,6 +21,12 @@ class WikimediaPhotoAuditorTest extends TestCase
     private const PHOTO = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Test_Eatery.jpg/800px-Test_Eatery.jpg';
 
     private const PHOTO_PLAIN = 'https://upload.wikimedia.org/wikipedia/commons/a/a3/Test_Eatery.jpg';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Cache::flush();
+    }
 
     /**
      * @param  array<int, array{name: string, lat: float, lng: float, image: string|null}>  $venues
@@ -144,5 +151,43 @@ class WikimediaPhotoAuditorTest extends TestCase
         $result = (new WikimediaPhotoAuditor($wikidata))->audit($this->restaurant(self::PHOTO));
 
         $this->assertSame(WikimediaPhotoAuditor::VERDICT_UNCHECKABLE, $result['verdict']);
+    }
+
+    public function test_preload_commons_batches_titles_and_caches_the_results(): void
+    {
+        Http::fake([
+            'commons.wikimedia.org/*' => Http::response([
+                'query' => [
+                    'pages' => [
+                        '1' => ['pageid' => 1, 'title' => 'File:A.jpg', 'coordinates' => [['lat' => 30.0, 'lon' => -97.0]]],
+                        '2' => ['pageid' => 2, 'title' => 'File:B.jpg'],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $auditor = $this->auditor();
+        $stats = $auditor->preloadCommons(['A.jpg', 'B.jpg']);
+
+        $this->assertSame(2, $stats['fetched']);
+        Http::assertSentCount(1);
+
+        $this->assertSame('coords', $auditor->commonsLookup('A.jpg')['status']);
+        $this->assertSame('none', $auditor->commonsLookup('B.jpg')['status']);
+        Http::assertSentCount(1);
+    }
+
+    public function test_preload_commons_stops_on_rate_limit(): void
+    {
+        Http::fake([
+            'commons.wikimedia.org/*' => Http::response('slow down', 429),
+        ]);
+
+        $auditor = $this->auditor();
+        $stats = $auditor->preloadCommons(['A.jpg', 'B.jpg']);
+
+        $this->assertSame(2, $stats['failed']);
+        $this->assertSame('failed', $auditor->commonsLookup('A.jpg')['status']);
+        Http::assertSentCount(1);
     }
 }
