@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import RestaurantsShow from '@/Pages/Restaurants/Show.vue'
 
 const {
@@ -62,8 +62,9 @@ vi.mock('@/composables/useFavorites', () => ({
   }),
 }))
 
-vi.mock('@/composables/useRestaurantDisplay', () => ({
-  getRestaurantGradient: vi.fn(() => 'linear-gradient(to bottom, #1a1a2e, #16213e)'),
+vi.mock('@/composables/useRestaurantDisplay', async (importOriginal) => ({
+  getRestaurantGradient: vi.fn(() => 'bg-gradient-to-br from-stone-700 to-stone-900'),
+  getDisplayRating: (await importOriginal<typeof import('@/composables/useRestaurantDisplay')>()).getDisplayRating,
 }))
 
 vi.mock('@/lib/restaurant', async (importOriginal) => ({
@@ -117,7 +118,7 @@ const stubs = {
   AppLayout: { template: '<div><slot /></div>' },
   SeoMeta: { template: '<div />' },
   JsonLd: { template: '<div />' },
-  StarRating: { template: '<div class="star-rating-stub" />', props: ['rating', 'source', 'reviewCount', 'size'] },
+  StarRating: { template: '<div class="star-rating-stub">{{ source }} {{ rating }}</div>', props: ['rating', 'source', 'reviewCount', 'size', 'tone'] },
   ScoreBreakdown: { template: '<div class="score-breakdown-stub" />', props: ['breakdown'] },
   DetailMap: { template: '<div class="detail-map-stub" />', props: ['lat', 'lng', 'name', 'address'] },
   CardGallery: { template: '<div class="card-gallery-stub" />', props: ['photos', 'gradient', 'alt', 'aspect', 'multi', 'eager', 'roundedClass'] },
@@ -167,12 +168,20 @@ describe('Restaurants/Show', () => {
 
     it('shows the award badge when has_award is true', () => {
       const wrapper = mountComponent({ restaurant: makeRestaurant({ has_award: true }) })
-      expect(wrapper.text()).toContain('⭐')
+      expect(wrapper.get('[data-testid="photo-badge"]').text()).toBe('Award winner')
     })
 
     it('hides the award badge when has_award is false', () => {
-      const wrapper = mountComponent({ restaurant: makeRestaurant({ has_award: false }) })
-      expect(wrapper.text()).not.toContain('⭐')
+      const wrapper = mountComponent({ restaurant: makeRestaurant({ has_award: false, popularity_score: 0.5 }) })
+      expect(wrapper.find('[data-testid="photo-badge"]').exists()).toBe(false)
+    })
+
+    it('puts the name, rating and essentials on the photo band', () => {
+      const wrapper = mountComponent({ restaurant: makeRestaurant({ google_rating: 4.7, google_review_count: 12072, city: 'Anchorage', state: 'AK' }) })
+      const band = wrapper.get('[data-testid="photo-band"]')
+      expect(band.find('h1').text()).toBe('Test Restaurant')
+      expect(band.text()).toContain('Google 4.7')
+      expect(band.text()).toContain('Anchorage, AK')
     })
   })
 
@@ -202,10 +211,7 @@ describe('Restaurants/Show', () => {
           ],
         }),
       })
-      const badges = wrapper.findAll('.badge-stub')
-      expect(badges.length).toBe(2)
-      expect(badges[0].text()).toBe('Italian')
-      expect(badges[1].text()).toBe('Pizza')
+      expect(wrapper.get('[data-testid="photo-band"]').text()).toContain('Italian, Pizza')
     })
   })
 
@@ -349,7 +355,7 @@ describe('Restaurants/Show', () => {
       const wrapper = mountComponent({
         restaurant: makeRestaurant({ menu_url: 'https://menu.example.com' }),
       })
-      expect(wrapper.text()).toContain('View Menu')
+      expect(wrapper.get('[data-testid="actions"]').text()).toContain('Menu')
     })
 
     it('tracks menu click on click', async () => {
@@ -357,14 +363,14 @@ describe('Restaurants/Show', () => {
         restaurant: makeRestaurant({ menu_url: 'https://menu.example.com', id: 99 }),
       })
       const buttons = wrapper.findAll('button')
-      const menuBtn = buttons.find(b => b.text() === 'View Menu')
+      const menuBtn = buttons.find(b => b.text() === 'Menu')
       await menuBtn!.trigger('click')
       expect(mockTrackMenuClick).toHaveBeenCalledWith(99)
     })
 
     it('does not render menu button without menu_url', () => {
       const wrapper = mountComponent({ restaurant: makeRestaurant({ menu_url: null }) })
-      expect(wrapper.text()).not.toContain('View Menu')
+      expect(wrapper.get('[data-testid="actions"]').text()).not.toContain('Menu')
     })
   })
 
@@ -453,13 +459,14 @@ describe('Restaurants/Show', () => {
         }),
       })
       expect(wrapper.find('.score-breakdown-stub').exists()).toBe(true)
-      expect(wrapper.text()).toContain('Popularity Score')
+      expect(wrapper.text()).toContain('Why it ranks here')
+      expect(wrapper.text()).not.toContain('POPULARITY SCORE')
     })
 
     it('does not render ScoreBreakdown when absent', () => {
       const wrapper = mountComponent({ restaurant: makeRestaurant({ score_breakdown: null }) })
       expect(wrapper.find('.score-breakdown-stub').exists()).toBe(false)
-      expect(wrapper.text()).not.toContain('Popularity Score')
+      expect(wrapper.text()).not.toContain('Why it ranks here')
     })
   })
 
@@ -480,11 +487,52 @@ describe('Restaurants/Show', () => {
   })
 
   describe('gallery', () => {
-    it('renders CardGallery with photos', () => {
+    it('leads with the first photo across the full width', () => {
       const wrapper = mountComponent({
         restaurant: makeRestaurant({ photo_url: 'https://img.com/hero.jpg' }),
       })
-      expect(wrapper.find('.card-gallery-stub').exists()).toBe(true)
+      expect(wrapper.get('[data-testid="photo-band"] img').attributes('src')).toBe('https://img.com/hero.jpg')
+    })
+
+    it('falls back to the cuisine gradient without a photo', () => {
+      const wrapper = mountComponent({ restaurant: makeRestaurant({ photo_url: null }) })
+      expect(wrapper.find('[data-testid="photo-band"] img').exists()).toBe(false)
+      expect(wrapper.get('[data-testid="photo-band"]').classes()).toContain('bg-gradient-to-br')
+    })
+  })
+
+  describe('share', () => {
+    it("uses the phone's share sheet when there is one", async () => {
+      const shareMock = vi.fn(() => Promise.resolve())
+      Object.defineProperty(navigator, 'share', { value: shareMock, configurable: true })
+      const wrapper = mountComponent({ canonicalUrl: 'https://ipop360.com/restaurants/test-restaurant' })
+      await wrapper.get('[data-testid="share"]').trigger('click')
+      expect(shareMock).toHaveBeenCalledWith({ title: 'Test Restaurant', url: 'https://ipop360.com/restaurants/test-restaurant' })
+      Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+    })
+
+    it('copies the link otherwise, and says so', async () => {
+      const writeText = vi.fn(() => Promise.resolve())
+      Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+      const wrapper = mountComponent({ canonicalUrl: 'https://ipop360.com/restaurants/test-restaurant' })
+      await wrapper.get('[data-testid="share"]').trigger('click')
+      await flushPromises()
+      expect(writeText).toHaveBeenCalledWith('https://ipop360.com/restaurants/test-restaurant')
+      expect(wrapper.get('[data-testid="share"]').text()).toContain('Link copied')
+    })
+  })
+
+  describe('contact card', () => {
+    it('keeps website, phone and directions together on desktop', () => {
+      const wrapper = mountComponent({
+        restaurant: makeRestaurant({ website_url: 'https://moosestooth.net/', phone: '9072582537', lat: 61.19, lng: -149.87, address: '3300 Old Seward Highway' }),
+      })
+      const card = wrapper.get('[data-testid="contact-card"]')
+      expect(card.classes()).toContain('lg:block')
+      expect(card.text()).toContain('moosestooth.net')
+      expect(card.text()).toContain('(907) 258-2537')
+      expect(card.text()).toContain('Get directions')
     })
   })
 

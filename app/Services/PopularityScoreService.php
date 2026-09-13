@@ -367,42 +367,48 @@ class PopularityScoreService
 
     private function signalDetail(string $signal, mixed $raw): string
     {
+        $count = (int) (is_numeric($raw) ? $raw : 0);
+
         return match ($signal) {
             'quality' => $this->qualityDetail($raw),
             'evidence' => $this->evidenceDetail($raw),
-            'proximity' => sprintf('%.1f mi from your search location.', (float) $raw * 0.621371),
-            'data_completeness' => 'Profile completeness reflects how much information is available for this restaurant.',
-            'has_award' => 'Award-winning restaurant. This recognition is a strong quality signal.',
-            'cuisine_match' => 'Matches your search cuisine preference.',
-            'social_links_count' => sprintf('Found on %d platform(s). Social media presence indicates an active, engaged restaurant.', (int) $raw),
-            'website_clicks_count' => sprintf('%d click(s) from search results this month. Higher click-through rates show strong interest.', (int) $raw),
-            'pageviews_count' => sprintf('%d detail page view(s). Shows strong discovery interest.', (int) $raw),
-            'social_link_clicks_count' => sprintf('%d social link click(s). Indicates active social engagement.', (int) $raw),
-            'menu_click_count' => sprintf('%d menu click(s). Menu interest signals purchase intent.', (int) $raw),
+            'proximity' => sprintf('%.1f mi from where you searched.', (float) $raw * 0.621371),
+            'data_completeness' => 'How complete its listing is: address, phone, hours, website and photos.',
+            'has_award' => 'It has won a major award, such as a Michelin star.',
+            'cuisine_match' => 'It serves the cuisine you searched for.',
+            'social_links_count' => sprintf('Active on %s.', $this->plural($count, 'social platform')),
+            'website_clicks_count' => sprintf('%s to its website from iPop360 this month.', ucfirst($this->plural($count, 'visit'))),
+            'pageviews_count' => sprintf('%s of this page.', ucfirst($this->plural($count, 'view'))),
+            'social_link_clicks_count' => sprintf('%s to its social profiles.', ucfirst($this->plural($count, 'click'))),
+            'menu_click_count' => sprintf('%s at its menu.', ucfirst($this->plural($count, 'look'))),
+            'directions_clicks_count' => sprintf('%s for directions.', ucfirst($this->plural($count, 'request'))),
+            'call_clicks_count' => sprintf('%s from this page.', ucfirst($this->plural($count, 'call'))),
             'yelp_rating', 'google_rating' => sprintf('Rated %.1f stars.', (float) ($raw ?? 0)),
-            'yelp_review_count', 'google_review_count' => sprintf('%d review(s).', (int) ($raw ?? 0)),
-            'popular_times_avg_busyness' => 'Popular times data is available for this restaurant.',
+            'yelp_review_count', 'google_review_count' => sprintf('%s.', ucfirst($this->plural($count, 'review'))),
+            'popular_times_avg_busyness' => 'Google shows when it is busiest.',
             default => '',
         };
+    }
+
+    /** "1 visit", "12 visits", "1,204 reviews". */
+    private function plural(int $count, string $noun): string
+    {
+        return number_format($count).' '.$noun.($count === 1 ? '' : 's');
     }
 
     private function qualityDetail(mixed $raw): string
     {
         $rating = (float) ($raw['rating'] ?? 0);
         $reviews = (int) ($raw['reviews'] ?? 0);
-        $parts = [];
 
+        if ($rating > 0 && $reviews > 0) {
+            return sprintf('%.1f stars from %s. A rating from only a few reviews counts for less.', $rating, $this->plural($reviews, 'review'));
+        }
         if ($rating > 0) {
-            $parts[] = sprintf('%.1f stars', $rating);
-        }
-        if ($reviews > 0) {
-            $parts[] = sprintf('%d review(s)', $reviews);
-        }
-        if (! empty($parts)) {
-            return implode(' from ', $parts).'. Bayesian rating shrinks low-review outliers toward the credible average.';
+            return sprintf('%.1f stars. A rating from only a few reviews counts for less.', $rating);
         }
 
-        return 'Rating data is available.';
+        return 'Rated on Google.';
     }
 
     private function rawValue(Restaurant $restaurant, string $signal): mixed
@@ -532,7 +538,7 @@ class PopularityScoreService
 
         $parts = [];
         if (($raw['sources'] ?? 0) > 0) {
-            $parts[] = sprintf('confirmed by %d independent data source(s)', (int) $raw['sources']);
+            $parts[] = 'confirmed by '.$this->plural((int) $raw['sources'], 'independent data source');
         }
         if (($raw['website'] ?? 'none') === 'verified') {
             $parts[] = 'verified own website';
@@ -540,7 +546,7 @@ class PopularityScoreService
             $parts[] = 'brand website';
         }
         if (($raw['socials'] ?? 0) > 0) {
-            $parts[] = sprintf('%d verified social profile(s)', (int) $raw['socials']);
+            $parts[] = $this->plural((int) $raw['socials'], 'verified social profile');
         }
 
         return 'Not yet rated — ranked on verified public data'.($parts === [] ? ' (little found so far).' : ': '.implode(', ', $parts).'.');

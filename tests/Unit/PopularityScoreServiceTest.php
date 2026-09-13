@@ -279,6 +279,23 @@ class PopularityScoreServiceTest extends TestCase
         return array_values(array_map(fn (array $s) => (string) $s['label'], $breakdown['signals']));
     }
 
+    public function test_the_breakdown_explains_itself_in_plain_words(): void
+    {
+        $rated = $this->makeRestaurant(array_merge($this->fullFreeFields(), ['google_rating' => 4.6, 'google_review_count' => 1204]));
+        $all = new Collection([$rated]);
+
+        $details = [];
+        foreach ($this->service->calculateBreakdown($rated, $all)['signals'] as $signal) {
+            $details[$signal['label']] = $signal['detail'];
+        }
+
+        $this->assertSame('4.6 stars from 1,204 reviews. A rating from only a few reviews counts for less.', $details['Quality']);
+        foreach ($details as $detail) {
+            $this->assertStringNotContainsString('Bayesian', $detail);
+            $this->assertStringNotContainsString('(s)', $detail);
+        }
+    }
+
     public function test_evidence_stands_in_for_quality_only_on_unrated_venues(): void
     {
         $rated = $this->makeRestaurant(array_merge($this->fullFreeFields(), $this->strongEvidence(), ['google_rating' => 4.6, 'google_review_count' => 800]));
@@ -338,7 +355,7 @@ class PopularityScoreServiceTest extends TestCase
         $this->assertSame(0.85, $strongSignal['normalized']);
         $this->assertSame(0.0, $evidence($closed)['normalized']);
         $this->assertStringContainsString('Not yet rated', (string) $strongSignal['detail']);
-        $this->assertStringContainsString('confirmed by 3 independent data source(s)', (string) $strongSignal['detail']);
+        $this->assertStringContainsString('confirmed by 3 independent data sources', (string) $strongSignal['detail']);
     }
 
     public function test_log_normalization_contains_outlier(): void

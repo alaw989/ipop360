@@ -1,62 +1,44 @@
 <script setup lang="ts">
-import { Clock } from '@lucide/vue';
 import type { OpeningHours } from '@/types/restaurant';
-import { computed } from 'vue';
+import { onMounted, ref } from 'vue';
 
-const props = defineProps<{
+// The week's hours, with today's row marked. The server sends the days in
+// order with their hours written out. "Today" is the visitor's day, set after
+// the page loads (the server's day may differ). There's no "Open now": the
+// hours carry no time zone, so the claim could be wrong.
+defineProps<{
     hours: OpeningHours;
 }>();
 
-const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-const sortedHours = computed(() => {
-    if (!props.hours || !props.hours.structured) {
-        return null;
-    }
-    const entries = [...props.hours.hours];
-    entries.sort((a, b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
-    return entries;
-});
-
-const rawText = computed(() => {
-    if (!props.hours) {
-        return null;
-    }
-    if (!props.hours.structured) {
-        return props.hours.raw_text;
-    }
-    return null;
+const today = ref<string | null>(null);
+onMounted(() => {
+    today.value = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 });
 </script>
 
 <template>
-    <div v-if="hours" class="space-y-3">
-        <div class="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-            <Clock class="h-4 w-4" />
-            <span>Hours</span>
-        </div>
-
-        <!-- Structured format: day-by-day table -->
-        <table v-if="sortedHours" class="w-full text-sm">
+    <div v-if="hours">
+        <table v-if="hours.structured" class="w-full max-w-md text-sm">
             <tbody>
                 <tr
-                    v-for="entry in sortedHours"
+                    v-for="entry in hours.week"
                     :key="entry.day"
-                    class="border-b border-neutral-100 last:border-0 dark:border-neutral-800"
+                    class="border-b border-border last:border-0"
+                    :class="{ 'font-semibold': entry.day === today }"
+                    :data-today="entry.day === today ? 'true' : undefined"
                 >
-                    <td class="py-1.5 pr-4 font-medium text-neutral-700 dark:text-neutral-300">
-                        {{ entry.day }}
-                    </td>
-                    <td class="py-1.5 text-neutral-600 dark:text-neutral-400">
-                        {{ entry.open }} – {{ entry.close }}
+                    <th scope="row" class="py-2 pr-6 text-left align-top text-foreground [font-weight:inherit]">
+                        {{ entry.day }}<span v-if="entry.day === today" class="ml-2 text-xs font-medium text-primary">Today</span>
+                    </th>
+                    <td class="py-2 text-muted-foreground" :class="{ 'text-foreground': entry.day === today }">
+                        {{ entry.hours }}
                     </td>
                 </tr>
             </tbody>
         </table>
 
-        <!-- Raw text format -->
-        <p v-else-if="rawText" class="text-sm text-neutral-600 dark:text-neutral-400 whitespace-pre-line">
-            {{ rawText }}
+        <p v-else class="whitespace-pre-line text-sm text-muted-foreground">
+            {{ hours.raw_text }}
         </p>
     </div>
 </template>

@@ -27,9 +27,12 @@ export interface SocialLink {
     followers: number | null;
 }
 
-export interface OpeningHoursStructured {
+// Hours as the server presents them (App\Support\OpeningHoursDisplay): the
+// week, Monday first, each day's hours already written out ("11 AM – 9 PM",
+// "Closed"), or text that couldn't be read as a week.
+export interface OpeningHoursWeek {
     structured: true;
-    hours: { day: string; open: string; close: string }[];
+    week: { day: string; hours: string }[];
 }
 
 export interface OpeningHoursRaw {
@@ -37,7 +40,7 @@ export interface OpeningHoursRaw {
     raw_text: string;
 }
 
-export type OpeningHours = OpeningHoursStructured | OpeningHoursRaw | null;
+export type OpeningHours = OpeningHoursWeek | OpeningHoursRaw | null;
 
 export interface Restaurant {
     id: number;

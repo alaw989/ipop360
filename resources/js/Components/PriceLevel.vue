@@ -3,6 +3,8 @@ import { computed } from 'vue';
 
 const props = defineProps<{
     price: string | null | undefined;
+    // 'inverse' for white text over a darkened photo.
+    tone?: 'default' | 'inverse';
 }>();
 
 const LEVEL_WORDS = ['Inexpensive', 'Moderate', 'Pricey', 'High-end'] as const;
@@ -32,8 +34,8 @@ const level = computed(() => {
         :title="level.word"
         data-testid="price-level"
     >
-        <span class="text-foreground" aria-hidden="true">{{ level.symbol.repeat(level.count) }}</span>
-        <span class="text-muted-foreground/40" aria-hidden="true">{{ level.symbol.repeat(4 - level.count) }}</span>
+        <span :class="tone === 'inverse' ? 'text-white' : 'text-foreground'" aria-hidden="true">{{ level.symbol.repeat(level.count) }}</span>
+        <span :class="tone === 'inverse' ? 'text-white/40' : 'text-muted-foreground/40'" aria-hidden="true">{{ level.symbol.repeat(4 - level.count) }}</span>
     </span>
     <span v-else-if="price" class="text-muted-foreground">{{ price }}</span>
 </template>

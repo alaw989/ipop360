@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { Star, BadgeCheck, Flame, TrendingUp, Info } from '@lucide/vue';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { scoreTier } from '@/lib/scoreTier';
+import { signalName } from '@/lib/signalLabels';
 
 // The popularity tier ("Popular") that opens the score breakdown. 'chip' is a
 // solid, readable pill for lists (it never sits on a photo); 'link' is a quiet
@@ -108,7 +109,7 @@ function signalColor(label: string): string {
                     class="flex items-center gap-2 text-[11px]"
                 >
                     <span class="inline-block h-1.5 w-1.5 shrink-0 rounded-full" :class="signalColor(s.label)" />
-                    <span class="flex-1 truncate text-muted-foreground">{{ s.label }}</span>
+                    <span class="flex-1 truncate text-muted-foreground">{{ signalName(s.label) }}</span>
                     <span class="font-medium tabular-nums text-foreground">{{ Math.round(s.contribution * 100) }}%</span>
                 </div>
             </div>

@@ -2,65 +2,54 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import OpeningHours from '@/Components/OpeningHours.vue'
 
-const stubs = { Clock: true }
+const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+function week(hours = '11 AM – 10 PM') {
+    return { structured: true as const, week: days.map((day) => ({ day, hours })) }
+}
 
 describe('OpeningHours', () => {
     it('renders nothing when hours is null', () => {
-        const wrapper = mount(OpeningHours, {
-            props: { hours: null },
-            global: { stubs },
-        })
+        const wrapper = mount(OpeningHours, { props: { hours: null } })
         expect(wrapper.find('div').exists()).toBe(false)
     })
 
-    it('renders structured hours in a table', () => {
+    it('shows the week in the order the server sends it, one row a day', () => {
         const hours = {
-            structured: true,
-            hours: [
-                { day: 'Monday', open: '09:00', close: '17:00' },
-                { day: 'Tuesday', open: '09:00', close: '17:00' },
+            structured: true as const,
+            week: [
+                { day: 'Monday', hours: 'Closed' },
+                { day: 'Tuesday', hours: '11:30 AM – 2:30 PM, 5 PM – 10:30 PM' },
             ],
         }
-        const wrapper = mount(OpeningHours, {
-            props: { hours },
-            global: { stubs },
-        })
-        expect(wrapper.text()).toContain('Hours')
-        expect(wrapper.text()).toContain('Monday')
-        expect(wrapper.text()).toContain('09:00')
-        expect(wrapper.text()).toContain('17:00')
-        expect(wrapper.text()).toContain('Tuesday')
-    })
-
-    it('sorts structured hours by day order', () => {
-        const hours = {
-            structured: true,
-            hours: [
-                { day: 'Sunday', open: '10:00', close: '18:00' },
-                { day: 'Monday', open: '09:00', close: '17:00' },
-            ],
-        }
-        const wrapper = mount(OpeningHours, {
-            props: { hours },
-            global: { stubs },
-        })
-        // Monday should appear before Sunday
+        const wrapper = mount(OpeningHours, { props: { hours } })
         const rows = wrapper.findAll('tr')
-        expect(rows[0].text()).toContain('Monday')
-        expect(rows[1].text()).toContain('Sunday')
+        expect(rows).toHaveLength(2)
+        expect(rows[0]!.text()).toContain('Monday')
+        expect(rows[0]!.text()).toContain('Closed')
+        expect(rows[1]!.text()).toContain('11:30 AM – 2:30 PM, 5 PM – 10:30 PM')
     })
 
-    it('renders raw text hours', () => {
-        const hours = {
-            structured: false,
-            raw_text: 'Mon-Fri 9am-5pm\nSat 10am-4pm',
-        }
-        const wrapper = mount(OpeningHours, {
-            props: { hours },
-            global: { stubs },
-        })
-        expect(wrapper.text()).toContain('Hours')
+    it('shows text that could not be read as a week', () => {
+        const hours = { structured: false as const, raw_text: 'Mon-Fri 9am-5pm\nSat 10am-4pm' }
+        const wrapper = mount(OpeningHours, { props: { hours } })
+        expect(wrapper.find('table').exists()).toBe(false)
         expect(wrapper.text()).toContain('Mon-Fri 9am-5pm')
         expect(wrapper.text()).toContain('Sat 10am-4pm')
+    })
+
+    it("marks today's row once the page has loaded", async () => {
+        const today = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+        const wrapper = mount(OpeningHours, { props: { hours: week() } })
+        await wrapper.vm.$nextTick()
+        const marked = wrapper.findAll('tr[data-today="true"]')
+        expect(marked).toHaveLength(1)
+        expect(marked[0]!.text()).toContain(today)
+        expect(marked[0]!.text()).toContain('Today')
+    })
+
+    it('makes no "open now" claim (the hours carry no time zone)', () => {
+        const wrapper = mount(OpeningHours, { props: { hours: week() } })
+        expect(wrapper.text()).not.toMatch(/open now|closed now/i)
     })
 })
