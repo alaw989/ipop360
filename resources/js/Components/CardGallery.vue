@@ -2,6 +2,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { ChevronLeft, ChevronRight } from '@lucide/vue';
 import { useCardGallery } from '@/composables/useCardGallery';
+import { photoSrcset } from '@/lib/responsiveImage';
 
 const props = withDefaults(
     defineProps<{
@@ -111,6 +112,7 @@ onUnmounted(() => {
         <img
             v-if="photos[0]"
             :src="photos[0]"
+            :srcset="photoSrcset(photos[0]) ?? undefined"
             :alt="alt"
             :width="imageWidth"
             :height="imageHeight"
@@ -128,6 +130,7 @@ onUnmounted(() => {
             v-for="(src, i) in (expanded ? photos.slice(1) : [])"
             :key="src + '-' + (i + 1)"
             :src="src"
+            :srcset="photoSrcset(src) ?? undefined"
             :alt="`${alt} photo ${i + 2}`"
             :width="imageWidth"
             :height="imageHeight"

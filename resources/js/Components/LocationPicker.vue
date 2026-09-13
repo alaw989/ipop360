@@ -196,7 +196,7 @@ const triggerClasses = computed(() => isField.value
                         <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent"/>
                     </span>
                 </div>
-                <div class="max-h-[60vh] overflow-y-auto" :style="{ paddingBottom: `${keyboardHeight}px` }">
+                <div class="max-h-[60vh] overflow-y-auto overscroll-contain" :style="{ paddingBottom: `${keyboardHeight}px` }">
                     <div v-if="query.length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
                         <p class="text-xs text-muted-foreground">Type to search cities</p>
                         <button @click="useMyLocation" class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
@@ -275,7 +275,7 @@ const triggerClasses = computed(() => isField.value
                         <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent"/>
                     </span>
                 </div>
-                <div class="max-h-64 overflow-y-auto">
+                <div class="max-h-64 overflow-y-auto overscroll-contain">
                     <div v-if="query.length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
                         <p class="text-xs text-muted-foreground">Type to search cities</p>
                         <button @click="useMyLocation" class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">

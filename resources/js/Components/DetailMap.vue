@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { Navigation } from '@lucide/vue'
 
 // Lazy-load Leaflet only when the component mounts
 let L: any = null
@@ -62,7 +63,8 @@ async function initMap() {
     iconAnchor: [9, 9],
   })
 
-  L.marker([props.lat, props.lng], { icon })
+  // title names the pin for screen readers (set as a property, not HTML).
+  L.marker([props.lat, props.lng], { icon, title: props.name })
     .addTo(mapInstance)
     // A DOM node, not an HTML string: the name comes from outside sources.
     .bindPopup(Object.assign(document.createElement('b'), { textContent: props.name }))
@@ -114,11 +116,12 @@ watch(
     <div ref="mapContainer" class="h-56 w-full sm:h-64" />
     <div v-if="lat && lng" class="border-t border-border px-4 py-2">
       <button
-        class="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+        type="button"
+        class="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
         @click="openDirections"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18 3 12l6-6"/><path d="M15 6l6 6-6 6"/></svg>
-        Get Directions
+        <Navigation :size="16" aria-hidden="true" />
+        Get directions
       </button>
     </div>
   </div>

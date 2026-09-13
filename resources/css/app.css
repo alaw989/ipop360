@@ -103,6 +103,12 @@
     font-family: var(--font-heading);
     }
   button:not(:disabled), [role="button"], summary { cursor: pointer; }
+
+  /* On a phone, act like an app: a tap on a control acts at once (no wait to
+     see whether it's a double-tap zoom), and there's no grey flash over what
+     was tapped (buttons and cards show their own pressed state). */
+  html { -webkit-tap-highlight-color: transparent; }
+  a, button, [role="button"], input, select, textarea, label, summary { touch-action: manipulation; }
 }
 
 /* Global reduced-motion: Tailwind's .animate-spin/.animate-pulse (LocationPicker,

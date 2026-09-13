@@ -183,3 +183,23 @@
 - **"Why it ranks here":** the signals that counted, biggest first, in words a diner reads (`lib/signalLabels.ts`: Quality → Ratings, Verified Presence → Verified details, and so on). Each has a bar sized against the biggest signal (no percentages) and the scorer's sentence. `PopularityScoreService` writes those sentences in plain words now ("4.7 stars from 1,204 reviews. A rating from only a few reviews counts for less."); run `restaurants:score` after deploy so stored breakdowns pick them up.
 - **The page never got its hours, menu link, social links or ZIP.** `RestaurantResource` added them only when the route's name ended in ".show", and `/restaurants/{slug}` has no name. The page now asks for them (`withDetails()`).
 - **Hours for every format we store** (`App\Support\OpeningHoursDisplay`): OpenStreetMap text (16.7k rows, "Mo-Fr 10:30-24:00; Sa,Su 11:00-24:00"), Google's day map (3.0k), schema.org lists (0.8k) and scraped text (4.1k). The page gets the seven days in 12-hour time ("10:30 AM – 12 AM", "Closed"), or cleaned text when it isn't a plain week (months, "open end", notes). On the prod clone, 19,914 active restaurants get a week and 2,248 get text. Days that OSM text or a schema.org list leave out are closed, by those formats' rules. A ";" rule whose hours don't overlap the earlier ones adds a service instead of replacing the day, because many OSM entries list lunch and dinner that way. Today's row is marked; there's no "Open now", since the hours carry no time zone.
+2026-09-13 — Redesign PR 7: phone polish, speed, accessibility (branch `feat/native-feel`; not merged at the opencode handoff, two bugs left, see backlog goal 16).
+- **Add to Home Screen:** `public/manifest.json` (standalone, white, icons 192/512 and a maskable 512 rendered from the logo mark), linked from `app.blade.php`. `manifest.json` rather than `.webmanifest`: nginx 1.24 on the droplet has no MIME type for the latter.
+- **In-app navigation:** restaurant links on the home grid, the spotlight and both result cards are Inertia links (`RestaurantLink.vue`; live results still open their preview or Google Maps in a new tab). The page no longer reloads, and it's fetched while the pointer rests on the link.
+- **"Back" on a restaurant page** (`lib/inAppHistory.ts`): opened by a link inside the site, it returns the way the browser's back button does, so results keep their filters and scroll. Otherwise it searches the restaurant's cuisine. First loads and back/forward don't count as opened by a link, since the entry before them may be another site. This matters full screen on iOS, where there's no back button. The link is now a solid pill, readable on any photo.
+- **Taps:** `touch-action: manipulation` on controls, no tap flash, pressed states on cards, `overscroll-behavior: contain` on scrolling panels and the chip row.
+- **Photos:**
+  - `photoSrcset()` gives Google photos WebP sizes of 200–1600px (the 387 KB card photo becomes 38 KB), and Commons photos its standard steps from 250px up;
+  - it applies to cards, the home grid, the spotlight and the restaurant page;
+  - card images get width and height.
+  - The logo mark is a 216px WebP: 11 KB, down from the 149 KB PNG.
+  - Found: photos on other hosts come as they are. One Austin result is a 16 MB JPEG, and 3,823 restaurants show Instagram's 760 KB logo sprite. Both are next (thumbnails and junk-photo cleanup).
+- **Accessibility (axe-core, home, search and a restaurant page at 390 and 1440 px):** fixed:
+  - names for map pins and for the navigation landmarks;
+  - one `<main>` on the search page;
+  - result names as h2;
+  - the logo's alt text no longer repeats its wordmark;
+  - a 24px tap target on the footer credit.
+
+  The one flag left is map pins overlapping in dense areas. There were no contrast failures.
+- **Also:** the page-load progress bar is the brand red-orange (it was amber); "Get directions" on the map has a real icon; `docs/design-audit-2026-09.md` records the browser floor (Safari/iOS 16.4+, Chrome/Edge 111+, Firefox 128+). A lighter tooltip for ScoreChip was dropped: the header's search pickers already load the same Popover, so it would save nothing.

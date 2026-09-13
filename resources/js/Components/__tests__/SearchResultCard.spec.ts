@@ -121,7 +121,7 @@ describe('SearchResultCard', () => {
         it('puts the rank in the name, as on Yelp', () => {
             const wrapper = mountCard({ name: 'Austhentico' }, { rank: 1 })
             expect(wrapper.get('[data-testid="rank"]').text()).toBe('1.')
-            expect(wrapper.get('h3').text()).toContain('1. Austhentico')
+            expect(wrapper.get('h2').text()).toContain('1. Austhentico')
         })
 
         it('uses a plain number for every rank, never an emoji or a pill', () => {

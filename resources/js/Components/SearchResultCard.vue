@@ -4,10 +4,12 @@ import { Link } from '@inertiajs/vue3';
 import StarRating from '@/Components/StarRating.vue';
 import ScoreChip from '@/Components/ScoreChip.vue';
 import PriceLevel from '@/Components/PriceLevel.vue';
+import RestaurantLink from '@/Components/RestaurantLink.vue';
 import { Heart, Navigation, Phone, Globe } from '@lucide/vue';
 import { useFavorites } from '@/composables/useFavorites';
 import { callPhone, openWebsite, trackDirections } from '@/lib/restaurant';
 import { photoBadge } from '@/lib/scoreTier';
+import { photoSrcset } from '@/lib/responsiveImage';
 import type { Restaurant } from '@/types/restaurant';
 import { getDetailUrl, getDisplayRating, getMapCoords, getRestaurantGradient } from '@/composables/useRestaurantDisplay';
 
@@ -55,13 +57,15 @@ const actionClass = 'relative z-10 inline-flex min-h-12 flex-1 flex-col items-ce
 
 <template>
     <article
-        class="group relative grid grid-cols-[6rem_minmax(0,1fr)] gap-3 rounded-xl border bg-card p-3 transition-shadow hover:shadow-md sm:grid-cols-[11rem_minmax(0,1fr)] sm:grid-rows-[1fr_auto] sm:gap-0 sm:overflow-hidden sm:p-0"
+        class="group relative grid grid-cols-[6rem_minmax(0,1fr)] gap-3 rounded-xl border bg-card p-3 transition-[box-shadow,background-color] hover:shadow-md active:bg-muted/60 sm:grid-cols-[11rem_minmax(0,1fr)] sm:grid-rows-[1fr_auto] sm:gap-0 sm:overflow-hidden sm:p-0"
     >
         <!-- Photo -->
         <div class="relative h-24 w-24 overflow-hidden rounded-lg sm:row-span-2 sm:h-full sm:min-h-44 sm:w-44 sm:rounded-none">
             <img
                 v-if="restaurant.photo_url && !photoBroken"
                 :src="restaurant.photo_url"
+                :srcset="photoSrcset(restaurant.photo_url) ?? undefined"
+                sizes="(min-width: 640px) 176px, 96px"
                 :alt="restaurant.name"
                 width="176"
                 height="176"
@@ -85,17 +89,15 @@ const actionClass = 'relative z-10 inline-flex min-h-12 flex-1 flex-col items-ce
 
         <!-- Details -->
         <div class="min-w-0 space-y-1 sm:px-4 sm:pt-4">
-            <h3 class="text-base font-semibold leading-snug text-foreground sm:pr-10 sm:text-[17px]">
-                <a
-                    :href="detailOrMapsUrl"
-                    :target="restaurant.id > 0 ? undefined : '_blank'"
-                    :rel="restaurant.id > 0 ? undefined : 'noopener'"
+            <h2 class="text-base font-semibold leading-snug text-foreground sm:pr-10 sm:text-[17px]">
+                <RestaurantLink
+                    :restaurant="restaurant"
                     class="line-clamp-2 transition-colors after:absolute after:inset-0 after:z-0 group-hover:text-primary"
                 >
                     <span class="tabular-nums" data-testid="rank">{{ rank }}.</span>
                     {{ restaurant.name }}
-                </a>
-            </h3>
+                </RestaurantLink>
+            </h2>
 
             <StarRating
                 v-if="displayRating"

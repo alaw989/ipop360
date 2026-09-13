@@ -82,7 +82,8 @@ function addMarkers() {
     props.restaurants.forEach(r => {
         if (r.lat == null || r.lng == null) return;
 
-        const marker = leaflet.marker([r.lat, r.lng], { icon })
+        // title names the pin for screen readers (set as a property, not HTML).
+        const marker = leaflet.marker([r.lat, r.lng], { icon, title: r.name })
             .addTo(map)
             // Names and slugs come from outside sources (OSM, BizData, SerpApi):
             // escape them, since Leaflet sets popup HTML with innerHTML.

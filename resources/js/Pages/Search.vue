@@ -164,7 +164,7 @@ const structuredData = computed(() => {
 
         <div class="mx-auto flex max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:px-8">
             <!-- Left sidebar: filters -->
-            <aside class="hidden w-64 shrink-0 lg:block">
+            <aside aria-label="Filters" class="hidden w-64 shrink-0 lg:block">
                 <div class="sticky top-24">
                     <SearchFilters
                         :filters="filters"
@@ -175,8 +175,8 @@ const structuredData = computed(() => {
                 </div>
             </aside>
 
-            <!-- Center: results -->
-            <main class="min-w-0 flex-1">
+            <!-- Center: results (the layout already has the page's <main>) -->
+            <div class="min-w-0 flex-1">
                 <!-- Title, result count and sort -->
                 <div class="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
                     <div class="min-w-0">
@@ -202,7 +202,7 @@ const structuredData = computed(() => {
 
                 <!-- Phone and tablet: a row of filter chips that scrolls sideways -->
                 <div
-                    class="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 xl:hidden [&::-webkit-scrollbar]:hidden"
+                    class="-mx-4 mb-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 xl:hidden [&::-webkit-scrollbar]:hidden"
                     data-testid="filter-chips"
                 >
                     <button
@@ -256,7 +256,7 @@ const structuredData = computed(() => {
                                 <X :size="18" />
                             </button>
                         </div>
-                        <div class="overflow-y-auto px-4 py-4">
+                        <div class="overflow-y-auto overscroll-contain px-4 py-4">
                             <SearchFilters
                                 :filters="filters"
                                 :filterOptions="filterOptions"
@@ -344,10 +344,10 @@ const structuredData = computed(() => {
                     </div>
                 </div>
                 </template>
-            </main>
+            </div>
 
             <!-- Right column: map -->
-            <aside class="hidden w-96 shrink-0 xl:block">
+            <aside aria-label="Map" class="hidden w-96 shrink-0 xl:block">
                 <div class="sticky top-24">
                     <SearchMap
                         :restaurants="restaurants.data"

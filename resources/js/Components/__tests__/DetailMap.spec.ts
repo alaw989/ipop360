@@ -169,22 +169,22 @@ describe('DetailMap', () => {
         expect(mockMapInstance.remove).toHaveBeenCalledTimes(1)
     })
 
-    it('renders "Get Directions" button when lat and lng are provided', async () => {
+    it('renders "Get directions" button when lat and lng are provided', async () => {
         const wrapper = await mountComponent({ lat: 30, lng: -97 })
-        expect(wrapper.text()).toContain('Get Directions')
+        expect(wrapper.text()).toContain('Get directions')
     })
 
-    it('does not render "Get Directions" button when lat is null', async () => {
+    it('does not render "Get directions" button when lat is null', async () => {
         const wrapper = await mountComponent({ lat: null, lng: -97 })
-        expect(wrapper.text()).not.toContain('Get Directions')
+        expect(wrapper.text()).not.toContain('Get directions')
     })
 
-    it('does not render "Get Directions" button when lng is null', async () => {
+    it('does not render "Get directions" button when lng is null', async () => {
         const wrapper = await mountComponent({ lat: 30, lng: null })
-        expect(wrapper.text()).not.toContain('Get Directions')
+        expect(wrapper.text()).not.toContain('Get directions')
     })
 
-    it('clicking "Get Directions" opens Google Maps in a new tab', async () => {
+    it('clicking "Get directions" opens Google Maps in a new tab', async () => {
         const windowOpen = vi.fn()
         vi.stubGlobal('open', windowOpen)
         const wrapper = await mountComponent({ lat: 30.27, lng: -97.74 })

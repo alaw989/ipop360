@@ -10,7 +10,7 @@ import { Link } from '@inertiajs/vue3';
                     <h3 class="text-lg font-semibold text-foreground">iPop360</h3>
                     <p class="text-sm text-muted-foreground">Discover great restaurants near you.</p>
                 </div>
-                <nav class="flex flex-wrap items-center justify-center gap-4 text-sm sm:justify-end">
+                <nav aria-label="Footer" class="flex flex-wrap items-center justify-center gap-4 text-sm sm:justify-end">
                     <Link href="/" class="text-muted-foreground hover:text-foreground transition-colors">
                         Home
                     </Link>
@@ -72,7 +72,7 @@ import { Link } from '@inertiajs/vue3';
                         href="https://lp.similarweb.com/competitive-analysis-youtube/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="hover:text-foreground transition-colors"
+                        class="inline-block py-1 hover:text-foreground transition-colors"
                     >
                         Competitive analysis by Similarweb
                     </a>

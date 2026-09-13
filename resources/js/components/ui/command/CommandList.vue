@@ -17,7 +17,7 @@ const forwarded = useForwardProps(delegatedProps)
     data-slot="command-list"
     v-bind="forwarded"
     :as="as!"
-    :class="cn('no-scrollbar max-h-72 scroll-py-1 outline-none overflow-x-hidden overflow-y-auto', props.class)"
+    :class="cn('no-scrollbar max-h-72 scroll-py-1 outline-none overflow-x-hidden overflow-y-auto overscroll-contain', props.class)"
   >
     <div role="presentation">
       <slot />

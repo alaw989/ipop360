@@ -5,8 +5,9 @@ import { ref } from 'vue'
  * The iPop360 logo: the brand orbit-ring (from the original artwork) over an
  * "ipop360" wordmark.
  *
- * The ring is the real raster mark; the wordmark is rendered text so it stays
- * prominent at every size. `:wordmark="false"` renders the mark alone.
+ * The ring is the real raster mark, a 216px-tall WebP (sharp at the hero's
+ * 72px on a 3x screen, 11 KB against the 149 KB original PNG); the wordmark
+ * is rendered text so it stays prominent at every size. `:wordmark="false"` renders the mark alone.
  *
  * Scales as a unit via the inherited font-size: the ring's height tracks 1em and
  * the wordmark ~0.38em, so set a font-size on the element (e.g. class="text-2xl")
@@ -27,8 +28,8 @@ function onImgError() {
     <span class="inline-flex flex-col items-center leading-none">
         <img
             v-show="imgLoaded"
-            src="/img/ipop360-mark.png"
-            alt="iPop360"
+            src="/img/ipop360-mark-216.webp"
+            :alt="wordmark ? '' : 'iPop360'"
             class="h-[1em] w-auto select-none"
             draggable="false"
             @error="onImgError"
