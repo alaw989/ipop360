@@ -50,7 +50,14 @@ function dismissLocationBanner() {
     }
 }
 
-router.on('start', () => { isLoading.value = true; });
+// Skeleton only while this page re-fetches its own results (filter, sort,
+// pagination). On a navigation away the results must stay put: swapping them
+// for skeletons reflows the outgoing page, and Chrome's scroll anchoring then
+// moves the scroll position Inertia saved, so "Back to results" lands
+// somewhere else.
+router.on('start', (event) => {
+    isLoading.value = event.detail.visit.url.pathname === '/search';
+});
 router.on('finish', () => { isLoading.value = false; });
 
 const serpapiExhausted = computed(() => usePage().props.serpapi_exhausted);

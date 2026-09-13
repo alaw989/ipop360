@@ -591,13 +591,18 @@ unmount. `SearchMap.vue` + `DetailMap.vue` now: fit bounds with
 specs added (unmount mid-fit, stop-before-remove, late-import). Reproduced
 6/6 before, 0/6 after.
 
-**Bug 2 (desktop scroll restore) did NOT reproduce** on a fresh build of
-HEAD. `navflow.mjs` and a scripted sweep (scroll 500/1200/1936/2963/4063,
-click a card already in view, back) restored to the exact saved offset at
-both 390 and 1440 px, 3/3 runs. The one 1886 offset seen on phone was a
-Playwright auto-scroll-to-click artifact (the click scrolled the card into
-view), not the app. Inertia's window-scroll save/restore is sound here; no
-`scroll-region` was added — a fix would have been for a bug that isn't there.
+**Bug 2 (scroll restore) — real, fixed in follow-up PR
+`fix/search-back-scroll` (2026-09-13).** It did not reproduce as the
+original "desktop lands at 0": Inertia's window-scroll save/restore is
+sound. The real mechanism is on the *outgoing* search page —
+`Search.vue`'s `router.on('start')` set `isLoading = true` for **every**
+visit, so leaving for a restaurant swapped the 20 results for 5 skeleton
+loaders. That reflow let Chrome's scroll anchoring move the page (900 →
+1886) before Inertia saved it; "Back to results" then restored the wrong
+offset (flaky: sometimes 900, sometimes 1668/1886, both viewports).
+`isLoading` is now set only when the visit stays on `/search`
+(filter/sort/pagination). Verified 6/6 runs before=900/during=0/after=900 at
+390 + 1440. Regression specs in `Pages/__tests__/Search.spec.ts`.
 
 **A11y:** the `title` this PR added to map pins made dozens of overlapping
 pins focusable targets, failing WCAG 2.2 `target-size` on desktop `/search`.

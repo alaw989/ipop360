@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import Search from '@/Pages/Search.vue'
 import { router } from '@inertiajs/vue3'
@@ -188,6 +189,34 @@ describe('Search rating sort relabel', () => {
         const wrapper = mountSearch()
         const rating = wrapper.findAll('#search-sort option').find((o) => o.attributes('value') === 'rating')
         expect(rating!.text()).toBe('Ratings temporarily unavailable')
+    })
+})
+
+describe('Search loading skeleton', () => {
+    beforeEach(() => {
+        vi.mocked(router.on).mockClear()
+    })
+
+    function startHandler() {
+        const calls = vi.mocked(router.on).mock.calls.filter(([event]) => event === 'start')
+        return calls.at(-1)![1] as (event: { detail: { visit: { url: URL } } }) => void
+    }
+
+    it('shows the skeleton while the search page re-fetches its own results', async () => {
+        const wrapper = mountSearch()
+        startHandler()({ detail: { visit: { url: new URL('http://localhost/search?cuisine=pizza') } } })
+        await nextTick()
+        expect(wrapper.find('.animate-pulse').exists()).toBe(true)
+    })
+
+    it('does not swap the results for skeletons when navigating away', async () => {
+        // Swapping the outgoing page for skeletons reflows it, and Chrome's
+        // scroll anchoring then moves the position Inertia saved — so "Back to
+        // results" returns to the wrong place. Only re-fetch the same page.
+        const wrapper = mountSearch()
+        startHandler()({ detail: { visit: { url: new URL('http://localhost/restaurants/moose-s-tooth') } } })
+        await nextTick()
+        expect(wrapper.find('.animate-pulse').exists()).toBe(false)
     })
 })
 
