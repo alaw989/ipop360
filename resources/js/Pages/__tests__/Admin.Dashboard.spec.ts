@@ -41,6 +41,7 @@ const stubs = {
     CardHeader: { template: '<div><slot /></div>' },
     CardTitle: { template: '<div><slot /></div>' },
     Badge: { template: '<span :class="variant"><slot /></span>', props: ['variant'] },
+    FeaturedRestaurantPicker: { template: '<div data-testid="featured-picker-stub" />', props: ['featured'] },
 }
 
 interface SerpApiQuota {
@@ -140,6 +141,7 @@ function makeDataQuality(overrides: Partial<DataQuality> = {}): DataQuality {
 function mountComponent(propsOverrides: Record<string, any> = {}) {
     return mount(AdminDashboard, {
         props: {
+            featured: { current: null, stories: [] },
             entityCounts: makeEntityCounts(),
             serpapiQuota: makeQuota(),
             scrapeHealth: makeScrapeHealth(),
@@ -158,6 +160,11 @@ function mountComponent(propsOverrides: Record<string, any> = {}) {
 }
 
 describe('Admin Dashboard page', () => {
+    it('offers the featured restaurant picker', () => {
+        const wrapper = mountComponent()
+        expect(wrapper.find('[data-testid="featured-picker-stub"]').exists()).toBe(true)
+    })
+
     beforeEach(() => {
         vi.clearAllMocks()
     })

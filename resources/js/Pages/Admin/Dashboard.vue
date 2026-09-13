@@ -4,9 +4,11 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import FeaturedRestaurantPicker, { type FeaturedAdminData } from '@/Components/Admin/FeaturedRestaurantPicker.vue';
 import { AlertCircle, CheckCircle2, ChefHat, Clock, Globe, Image, Loader2, Newspaper, Share2, Users, Utensils } from '@lucide/vue';
 
 defineProps<{
+    featured: FeaturedAdminData;
     entityCounts: {
         restaurants: number;
         cuisines: number;
@@ -168,6 +170,11 @@ function gapBadgeVariant(gap: string): 'default' | 'secondary' | 'destructive' |
                             </CardContent>
                         </Card>
                     </div>
+                </div>
+
+                <!-- Home page spotlight -->
+                <div class="mb-8">
+                    <FeaturedRestaurantPicker :featured="featured" />
                 </div>
 
                 <!-- SerpApi Quota -->

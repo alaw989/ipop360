@@ -13,6 +13,7 @@ import ScrollReveal from '@/Components/ScrollReveal.vue'
 import PopularCities from '@/Components/PopularCities.vue'
 import PopularRestaurants from '@/Components/PopularRestaurants.vue'
 import BlogPreview from '@/Components/BlogPreview.vue'
+import FeaturedRestaurant, { type Spotlight } from '@/Components/FeaturedRestaurant.vue'
 
 import { useSeo, generateWebSiteJsonLd, generateOrganizationJsonLd } from '@/composables/useSeo'
 import { useSearchLoadingOverlay } from '@/composables/useSearchLoadingOverlay'
@@ -74,6 +75,7 @@ interface BlogPost {
 
 interface HomepageData {
     popularRestaurants: Restaurant[]
+    featuredRestaurant: Spotlight | null
     location: Location | null
 }
 
@@ -85,6 +87,7 @@ const props = defineProps<{
         state: string
     }>
     popularRestaurants: Restaurant[]
+    featuredRestaurant: Spotlight | null
     latestPosts: BlogPost[]
 }>()
 
@@ -145,6 +148,13 @@ const structuredData = computed(() => {
 // refetched when the user picks a city via LocationPicker or GPS.
 const bannerCategories = ref<Category[]>(props.categories)
 const popularRestaurants = ref<HomepageData['popularRestaurants']>(props.popularRestaurants)
+// An admin's pick stays put; the top-ranked fallback follows the picked city.
+const featuredRestaurant = ref<Spotlight | null>(props.featuredRestaurant)
+
+// The blog list leaves out the story the spotlight already links.
+const otherPosts = computed(() =>
+    props.latestPosts.filter((post) => post.slug !== featuredRestaurant.value?.story?.slug),
+)
 
 // Tracks the actual location scope of the data shown (may differ from the
 // selected city when no restaurants exist for it and fallback kicks in).
@@ -170,6 +180,7 @@ function fetchHomepageData(city: string | null, state: string | null) {
         .then((data: HomepageData | null) => {
             if (!data) return
             popularRestaurants.value = data.popularRestaurants
+            featuredRestaurant.value = data.featuredRestaurant ?? featuredRestaurant.value
             effectiveLocation.value = data.location
         })
         .catch(err => {
@@ -268,7 +279,7 @@ function dismissGeolocationError() {
                  (80ms step) so above-the-fold sections cascade in instead of
                  snapping into view simultaneously. -->
             <ScrollReveal :delay="0">
-                <BlogPreview :posts="props.latestPosts" />
+                <FeaturedRestaurant v-if="featuredRestaurant" :spotlight="featuredRestaurant" />
             </ScrollReveal>
 
             <ScrollReveal :delay="80">
@@ -284,6 +295,10 @@ function dismissGeolocationError() {
                     :restaurants="popularRestaurants"
                     :city="effectiveLocation?.city ?? null"
                 />
+            </ScrollReveal>
+
+            <ScrollReveal :delay="240">
+                <BlogPreview :posts="otherPosts" />
             </ScrollReveal>
         </main>
 

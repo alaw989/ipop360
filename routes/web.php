@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\BlogPostController as AdminBlogPostController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\FeaturedRestaurantController as AdminFeaturedRestaurantController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\CuisineController;
@@ -54,6 +55,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     Route::middleware('role:admin')->group(function () {
         Route::resource('users', AdminUserController::class)->only(['index', 'update']);
+        Route::get('featured-restaurant/search', [AdminFeaturedRestaurantController::class, 'search'])->name('featured.search');
+        Route::post('featured-restaurant', [AdminFeaturedRestaurantController::class, 'store'])->name('featured.store');
+        Route::delete('featured-restaurant', [AdminFeaturedRestaurantController::class, 'destroy'])->name('featured.destroy');
     });
 });
 

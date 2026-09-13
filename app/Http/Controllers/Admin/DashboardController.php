@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BlogPost;
 use App\Models\Cuisine;
+use App\Models\FeaturedRestaurant;
 use App\Models\Restaurant;
 use App\Models\SerpApiCallLog;
 use App\Models\User;
@@ -107,7 +108,22 @@ class DashboardController extends Controller
             'missing_data' => $missingData,
         ];
 
+        // The home page spotlight: the current pick and the stories it can link.
+        $pick = FeaturedRestaurant::current()->with(['restaurant:id,name,city,state,slug', 'blogPost:id,title,slug'])->first();
+        $featured = [
+            'current' => $pick === null ? null : [
+                'restaurant' => $pick->restaurant->only(['id', 'name', 'city', 'state', 'slug']),
+                'story' => $pick->blogPost?->only(['id', 'title', 'slug']),
+                'image_url' => $pick->image_url,
+                'image_credit' => $pick->image_credit,
+                'starts_at' => $pick->starts_at->toIso8601String(),
+                'ends_at' => $pick->ends_at?->toIso8601String(),
+            ],
+            'stories' => BlogPost::published()->latest('published_at')->limit(50)->get(['id', 'title'])->toArray(),
+        ];
+
         return Inertia::render('Admin/Dashboard', [
+            'featured' => $featured,
             'entityCounts' => $entityCounts,
             'serpapiQuota' => $serpapiQuota,
             'scrapeHealth' => $scrapeHealth,
