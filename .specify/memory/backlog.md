@@ -580,20 +580,29 @@ at commit time (Pint, vitest 1117, build; no PHP changes). Contents:
 - tap and overscroll CSS;
 - axe fixes: the pages checked are clean.
 
-**Two bugs to fix before merging** (both found by `scripts/ui-checks/navflow.mjs`):
-1. **Phone:** going from `/search` to a restaurant throws `TypeError: Cannot
-   read properties of undefined (reading '_leaflet_pos')`. Before this PR,
-   every link was a full page load; now Inertia unmounts the search page
-   while Leaflet may still be animating. Fix it in `SearchMap.vue` (and check
-   `DetailMap.vue`): stop animations and remove listeners before
-   `map.remove()` on unmount, or fit bounds without animation. Add a spec that
-   unmounts mid-`fitBounds`.
-2. **Desktop (1440 px):** "Back to results" (`history.back()`) lands at
-   scroll 0 instead of where the visitor was. The phone restores correctly.
-   Find out why Inertia's scroll restore misses on the desktop layout; the
-   suspects are the sticky filter/map asides and results that render after
-   the restore. Then fix it, for example with a `scroll-region` or a
-   restore once results render.
+**Bug 1 fixed (2026-09-13, opencode):** the `_leaflet_pos` crash was a race —
+`fitBounds` starts a zoom animation whose deferred `_onZoomTransitionEnd`
+handler fires after Inertia unmounts the map, when `Map.remove()` has already
+`delete`d `_mapPane`, so `getPosition(undefined)` throws. Also surfaced as
+`Map container not found.` while the async leaflet import resolved after
+unmount. `SearchMap.vue` + `DetailMap.vue` now: fit bounds with
+`animate: false`; on unmount `stop()`, clear `_animatingZoom`, then
+`remove()`; guard the async continuation with a `disposed` flag. Regression
+specs added (unmount mid-fit, stop-before-remove, late-import). Reproduced
+6/6 before, 0/6 after.
+
+**Bug 2 (desktop scroll restore) did NOT reproduce** on a fresh build of
+HEAD. `navflow.mjs` and a scripted sweep (scroll 500/1200/1936/2963/4063,
+click a card already in view, back) restored to the exact saved offset at
+both 390 and 1440 px, 3/3 runs. The one 1886 offset seen on phone was a
+Playwright auto-scroll-to-click artifact (the click scrolled the card into
+view), not the app. Inertia's window-scroll save/restore is sound here; no
+`scroll-region` was added — a fix would have been for a bug that isn't there.
+
+**A11y:** the `title` this PR added to map pins made dozens of overlapping
+pins focusable targets, failing WCAG 2.2 `target-size` on desktop `/search`.
+Fixed with `keyboard: false` on `SearchMap` pins (the results list is the
+keyboard path); `/` and `/search` are axe-clean at 390 and 1440 px again.
 
 Then:
 - run the gates: pint, full PHPStan, PHPUnit (empty `.env.testing`), vitest, build;

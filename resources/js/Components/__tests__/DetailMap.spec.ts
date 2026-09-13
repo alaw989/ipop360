@@ -4,6 +4,7 @@ import DetailMap from '@/Components/DetailMap.vue'
 
 const mockMapInstance = {
     remove: vi.fn(),
+    stop: vi.fn().mockReturnThis(),
     fitBounds: vi.fn(),
 }
 
@@ -144,10 +145,13 @@ describe('DetailMap', () => {
     it('calls fitBounds after adding marker', async () => {
         await mountComponent({ lat: 40, lng: -74 })
         expect(mockMapInstance.fitBounds).toHaveBeenCalledTimes(1)
-        expect(mockMapInstance.fitBounds).toHaveBeenCalledWith([
-            [40 - 0.005, -74 - 0.005],
-            [40 + 0.005, -74 + 0.005],
-        ])
+        expect(mockMapInstance.fitBounds).toHaveBeenCalledWith(
+            [
+                [40 - 0.005, -74 - 0.005],
+                [40 + 0.005, -74 + 0.005],
+            ],
+            expect.objectContaining({ animate: false }),
+        )
     })
 
     it('creates a divIcon in the brand color', async () => {
@@ -167,6 +171,32 @@ describe('DetailMap', () => {
         const wrapper = await mountComponent({ lat: 30, lng: -97 })
         wrapper.unmount()
         expect(mockMapInstance.remove).toHaveBeenCalledTimes(1)
+    })
+
+    it('stops the map before removing it, so no animation is left running', async () => {
+        const order: string[] = []
+        mockMapInstance.stop.mockImplementationOnce(() => { order.push('stop'); return mockMapInstance })
+        mockMapInstance.remove.mockImplementationOnce(() => { order.push('remove') })
+
+        const wrapper = await mountComponent({ lat: 30, lng: -97 })
+        wrapper.unmount()
+
+        expect(order).toEqual(['stop', 'remove'])
+    })
+
+    it('does not touch a container that is gone when leaflet finishes loading', async () => {
+        // The map init awaits the leaflet import; if the page is left in the
+        // meantime, Leaflet would throw "Map container not found.".
+        leafletMap.mockClear()
+        const wrapper = mount(DetailMap, {
+            props: { name: 'Test Place', lat: 30, lng: -97 },
+            attachTo: document.body,
+        })
+        vi.advanceTimersByTime(200)
+        wrapper.unmount()
+        await flushPromises()
+        await wrapper.vm.$nextTick()
+        expect(leafletMap).not.toHaveBeenCalled()
     })
 
     it('renders "Get directions" button when lat and lng are provided', async () => {

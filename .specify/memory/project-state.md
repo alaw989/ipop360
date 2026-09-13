@@ -274,8 +274,12 @@ the rest to opencode.
 - **Prod data (done):** blog post "Moose's Tooth: The Anchorage Pizza Pub With
   12,000 Reviews" (id 6) and the first featured pick (Moose's Tooth, id 8629,
   credited Commons photo). It's data, not code: change it from `/admin`.
-- **PR 7 is on branch `feat/native-feel`, not merged** (draft PR #196). Two bugs
-  from the last browser check to fix first. See backlog goal 16.
+- **PR 7 is on branch `feat/native-feel`, not merged** (draft PR #196). The
+  Leaflet `_leaflet_pos` crash is fixed (no-animation fits + unmount guards)
+  and the pins' WCAG 2.2 `target-size` regression is fixed; the desktop
+  scroll-restore bug did not reproduce on a fresh HEAD build (see backlog goal
+  16). Gates green: pint, PHPUnit 1368, vitest 1123, PHPStan, build; local
+  navflow/a11y clean at 390/1440. Awaiting operator review before merge.
 - **Next:** backlog goals 16–20 (`.specify/memory/backlog.md`):
   1. finish PR 7;
   2. photo thumbnails;

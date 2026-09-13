@@ -35,11 +35,16 @@ const props = defineProps<{
 const mapContainer = ref<HTMLElement | null>(null)
 let mapInstance: any = null
 let initTimer: ReturnType<typeof setTimeout> | null = null
+let disposed = false
 
 async function initMap() {
-  if (!mapContainer.value || !document.contains(mapContainer.value) || props.lat == null || props.lng == null) return
+  if (disposed || !mapContainer.value || !document.contains(mapContainer.value) || props.lat == null || props.lng == null) return
 
   const L = await loadLeaflet()
+
+  // The import may have taken a moment; the page could be gone by now, and
+  // Leaflet throws "Map container not found." for a missing container.
+  if (disposed || !mapContainer.value) return
 
   mapInstance = L.map(mapContainer.value, {
     center: [props.lat, props.lng],
@@ -69,15 +74,20 @@ async function initMap() {
     // A DOM node, not an HTML string: the name comes from outside sources.
     .bindPopup(Object.assign(document.createElement('b'), { textContent: props.name }))
 
-  // Fit bounds to show a small area around the marker
+  // Fit bounds to show a small area around the marker. No animation: an
+  // in-flight zoom transition can outlive the map and throw on unmount.
   mapInstance.fitBounds([
     [props.lat - 0.005, props.lng - 0.005],
     [props.lat + 0.005, props.lng + 0.005],
-  ])
+  ], { animate: false })
 }
 
 function destroyMap() {
   if (mapInstance) {
+    // Stop any animation and clear the flag before remove() deletes the pane,
+    // so Leaflet's deferred zoom-transition handler becomes a no-op.
+    mapInstance.stop()
+    mapInstance._animatingZoom = false
     mapInstance.remove()
     mapInstance = null
   }
@@ -95,6 +105,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  disposed = true
   if (initTimer) clearTimeout(initTimer)
   destroyMap()
 })
