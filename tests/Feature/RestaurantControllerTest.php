@@ -193,6 +193,48 @@ class RestaurantControllerTest extends TestCase
         );
     }
 
+    public function test_restaurant_show_sends_the_page_only_fields_and_lists_do_not(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'slug' => 'menu-spot',
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'menu_url' => 'https://menu-spot.example/menu',
+            'postal_code' => '99503',
+            'opening_hours' => 'Mo-Su 11:00-22:00',
+        ]);
+
+        $this->get("/restaurants/{$restaurant->slug}")->assertInertia(fn ($page) => $page
+            ->where('restaurant.menu_url', 'https://menu-spot.example/menu')
+            ->where('restaurant.postal_code', '99503')
+            ->has('restaurant.social_links')
+            ->has('restaurant.opening_hours.week', 7)
+        );
+
+        $this->get('/restaurants')->assertInertia(fn ($page) => $page
+            ->missing('restaurants.data.0.menu_url')
+            ->missing('restaurants.data.0.opening_hours')
+        );
+    }
+
+    public function test_restaurant_show_writes_out_openstreetmap_hours_as_a_week(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'slug' => 'pizza-pub',
+            'is_active' => true,
+            'opening_hours' => 'Mo-Fr 10:30-24:00, Sa,Su 11:00-24:00',
+        ]);
+
+        $response = $this->get("/restaurants/{$restaurant->slug}");
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('restaurant.opening_hours.structured', true)
+            ->has('restaurant.opening_hours.week', 7)
+            ->where('restaurant.opening_hours.week.0', ['day' => 'Monday', 'hours' => '10:30 AM – 12 AM'])
+            ->where('restaurant.opening_hours.week.6', ['day' => 'Sunday', 'hours' => '11 AM – 12 AM'])
+        );
+    }
+
     public function test_restaurant_show_includes_cuisines_with_category(): void
     {
         $category = CuisineCategory::factory()->create(['slug' => 'asian']);

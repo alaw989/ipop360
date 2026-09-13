@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Models\Restaurant;
 use App\Services\PopularityScoreService;
+use App\Support\OpeningHoursDisplay;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Collection;
@@ -39,6 +40,21 @@ class RestaurantResource extends JsonResource
      */
     private ?array $aggregates = null;
 
+    /** Whether to add the restaurant page's fields (hours, menu, social links, ZIP). */
+    private bool $details = false;
+
+    /**
+     * Add the fields only the restaurant page shows. They used to switch on
+     * when the route's name ended in ".show", but the page's route has no
+     * name, so the page went without them.
+     */
+    public function withDetails(): static
+    {
+        $this->details = true;
+
+        return $this;
+    }
+
     /**
      * Transform a single Restaurant model into the API response shape.
      *
@@ -46,8 +62,7 @@ class RestaurantResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $route = $request->route();
-        $isShowRoute = $route && str_ends_with($route->getName() ?? '', '.show');
+        $isShowRoute = $this->details;
 
         return [
             'id' => $this->resource->id,
@@ -87,8 +102,7 @@ class RestaurantResource extends JsonResource
                     ])
                     : []
             ),
-            'opening_hours' => $this->when($isShowRoute, fn () => $this->resource->opening_hours
-            ),
+            'opening_hours' => $this->when($isShowRoute, fn () => OpeningHoursDisplay::present($this->resource->opening_hours)),
         ];
     }
 

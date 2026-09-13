@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import StarRating from '@/Components/StarRating.vue';
 import PriceLevel from '@/Components/PriceLevel.vue';
 import ScoreBreakdown from '@/Components/ScoreBreakdown.vue';
 import DetailMap from '@/Components/DetailMap.vue';
-import CardGallery from '@/Components/CardGallery.vue';
 import SocialLinks from '@/Components/SocialLinks.vue';
 import OpeningHours from '@/Components/OpeningHours.vue';
 import RestaurantActionBar from '@/Components/RestaurantActionBar.vue';
 import { getRestaurantGradient } from '@/composables/useRestaurantDisplay';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { callPhone, openWebsite, trackDirections, trackPageview, trackMenuClick, directionsUrl, formatFullAddress, formatPhone } from '@/lib/restaurant';
-import { Heart, ArrowLeft, MapPin, Navigation, Phone, Globe, UtensilsCrossed } from '@lucide/vue';
+import { Heart, ArrowLeft, MapPin, Navigation, Phone, Globe, UtensilsCrossed, Share2 } from '@lucide/vue';
+import { getDisplayRating } from '@/composables/useRestaurantDisplay';
+import { commonsSrcset } from '@/lib/responsiveImage';
+import { photoBadge } from '@/lib/scoreTier';
 import { useFavorites } from '@/composables/useFavorites';
 import { useSeo, generateRestaurantJsonLd } from '@/composables/useSeo';
 import { useBaseUrl } from '@/composables/useBaseUrl';
@@ -95,6 +95,42 @@ onMounted(() => {
     trackPageview(props.restaurant.id);
 })
 
+// The photo band leads with the restaurant's first photo.
+const heroPhoto = computed(() => photos.value[0] ?? null);
+const heroSrcset = computed(() => commonsSrcset(heroPhoto.value));
+const photoBroken = ref(false);
+
+const displayRating = computed(() => getDisplayRating(props.restaurant));
+const badge = computed(() => photoBadge(props.restaurant));
+const bandCuisines = computed(() => props.restaurant.cuisines.slice(0, 3).map((c) => c.name).join(', '));
+const place = computed(() => [props.restaurant.city, props.restaurant.state].filter(Boolean).join(', '));
+const backHref = computed(() => (props.categorySlug ? `/restaurants?cuisine=${props.restaurant.cuisines[0]?.slug ?? ''}` : '/restaurants'));
+
+// Share: the phone's own share sheet where there is one, otherwise copy the link.
+const shareLabel = ref('Share');
+async function share(): Promise<void> {
+    const url = props.canonicalUrl ?? window.location.href;
+    if (typeof navigator.share === 'function') {
+        try {
+            await navigator.share({ title: props.restaurant.name, url });
+        } catch {
+            // Dismissed.
+        }
+        return;
+    }
+    try {
+        await navigator.clipboard.writeText(url);
+        shareLabel.value = 'Link copied';
+        setTimeout(() => { shareLabel.value = 'Share'; }, 2000);
+    } catch {
+        shareLabel.value = 'Share';
+    }
+}
+
+// Display is set per button: Directions, Call and Website live in the bottom
+// bar on phones, so in this row they show from 768px up only.
+const actionClass = 'min-h-11 items-center gap-2 rounded-full border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent';
+
 function handleMenuClick(): void {
     if (props.restaurant.menu_url) {
         trackMenuClick(props.restaurant.id);
@@ -107,174 +143,192 @@ function handleMenuClick(): void {
     <AppLayout>
         <SeoMeta :seoData="seoData" />
         <link
-            v-if="photos.length > 0"
+            v-if="heroPhoto"
             rel="preload"
             as="image"
-            :href="photos[0]"
+            :href="heroPhoto"
             fetchpriority="high"
         />
 
         <!-- Structured data — Inertia <Head> drops <script> tags, so inject via JsonLd -->
         <JsonLd :data="structuredData" />
 
-        <div class="mx-auto max-w-7xl px-4 pt-8 pb-24 sm:px-6 md:pb-8 lg:px-8">
-            <!-- Back link -->
-            <a
-                v-if="categorySlug"
-                :href="`/restaurants?cuisine=${restaurant.cuisines[0]?.slug ?? ''}`"
-                class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-                <ArrowLeft :size="14" />
-                Back to results
-            </a>
-            <a
-                v-else
-                href="/restaurants"
-                class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-                <ArrowLeft :size="14" />
-                Back to results
-            </a>
+        <!-- Photo band: the name, rating and essentials over the restaurant's photo -->
+        <section class="relative h-[300px] w-full overflow-hidden sm:h-[360px] lg:h-[420px]" :class="gradient" data-testid="photo-band">
+            <img
+                v-if="heroPhoto && !photoBroken"
+                :src="heroPhoto"
+                :srcset="heroSrcset ?? undefined"
+                sizes="100vw"
+                :alt="restaurant.name"
+                class="absolute inset-0 h-full w-full object-cover"
+                fetchpriority="high"
+                decoding="async"
+                @error="photoBroken = true"
+            />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10" />
+            <div class="absolute inset-x-0 bottom-0">
+                <div class="mx-auto max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
+                    <a
+                        :href="backHref"
+                        class="mb-3 inline-flex min-h-11 items-center gap-1 text-sm text-white/85 transition-colors hover:text-white"
+                    >
+                        <ArrowLeft :size="16" />
+                        Back to results
+                    </a>
+                    <span
+                        v-if="badge"
+                        class="mb-2 block w-fit rounded-md bg-primary px-2 py-1 text-[13px] font-semibold leading-none text-primary-foreground"
+                        data-testid="photo-badge"
+                    >{{ badge }}</span>
+                    <h1 class="font-heading text-3xl font-bold leading-tight text-white text-balance sm:text-4xl lg:text-5xl">{{ restaurant.name }}</h1>
+                    <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-white/90">
+                        <StarRating
+                            v-if="displayRating"
+                            :rating="displayRating.rating"
+                            :source="displayRating.source"
+                            :review-count="displayRating.count"
+                            tone="inverse"
+                        />
+                        <span
+                            v-else
+                            class="rounded-full border border-white/40 px-2 py-0.5 text-xs font-medium text-white/90"
+                        >Not yet rated</span>
+                        <PriceLevel v-if="restaurant.price_range" :price="restaurant.price_range" tone="inverse" />
+                        <span v-if="bandCuisines">{{ bandCuisines }}</span>
+                        <span v-if="place" class="text-white/80">{{ place }}</span>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-            <!-- Hero -->
-            <div class="mt-4 grid gap-8 lg:grid-cols-5">
-                <div class="lg:col-span-3">
-                    <CardGallery
-                        :photos="photos"
-                        :gradient="gradient"
-                        :alt="restaurant.name"
-                        aspect="3/2"
-                        :multi="false"
-                        :eager="true"
-                        rounded-class="rounded-xl"
-                    />
+        <div class="mx-auto max-w-7xl px-4 pb-28 sm:px-6 md:pb-12 lg:px-8">
+            <!-- Actions -->
+            <div class="flex flex-wrap gap-2 border-b border-border py-4" data-testid="actions">
+                <button
+                    type="button"
+                    :class="[actionClass, 'inline-flex', saved ? 'border-primary text-primary' : '']"
+                    :aria-label="ariaLabel"
+                    @click="() => toggle(restaurant)"
+                >
+                    <Heart class="h-4 w-4" :class="saved ? 'fill-current' : 'fill-none stroke-current'" />
+                    {{ saved ? 'Saved' : 'Save' }}
+                </button>
+                <button type="button" :class="[actionClass, 'inline-flex']" data-testid="share" @click="share">
+                    <Share2 class="h-4 w-4" />
+                    {{ shareLabel }}
+                </button>
+                <a
+                    v-if="restaurant.lat && restaurant.lng"
+                    :href="directionsUrl(restaurant.lat, restaurant.lng)"
+                    target="_blank"
+                    rel="noopener"
+                    :class="[actionClass, 'hidden md:inline-flex']"
+                    @click="trackDirections(restaurant.id)"
+                >
+                    <Navigation class="h-4 w-4" />
+                    Directions
+                </a>
+                <button
+                    v-if="restaurant.phone"
+                    type="button"
+                    :class="[actionClass, 'hidden md:inline-flex']"
+                    @click="() => callPhone(restaurant.phone!, restaurant.id)"
+                >
+                    <Phone class="h-4 w-4" />
+                    Call
+                </button>
+                <button
+                    v-if="restaurant.website_url"
+                    type="button"
+                    :class="[actionClass, 'hidden md:inline-flex']"
+                    @click="() => openWebsite(restaurant.website_url!, restaurant.id)"
+                >
+                    <Globe class="h-4 w-4" />
+                    Website
+                </button>
+                <button v-if="restaurant.menu_url" type="button" :class="[actionClass, 'inline-flex']" @click="handleMenuClick">
+                    <UtensilsCrossed class="h-4 w-4" />
+                    Menu
+                </button>
+            </div>
+
+            <div class="grid gap-10 py-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+                <div class="min-w-0 space-y-10">
+                    <section v-if="restaurant.description" aria-labelledby="about-heading">
+                        <h2 id="about-heading" class="mb-3 text-xl font-semibold text-foreground">About</h2>
+                        <p class="max-w-prose leading-relaxed text-muted-foreground">{{ restaurant.description }}</p>
+                    </section>
+
+                    <section v-if="restaurant.opening_hours" aria-labelledby="hours-heading">
+                        <h2 id="hours-heading" class="mb-3 text-xl font-semibold text-foreground">Hours</h2>
+                        <OpeningHours :hours="restaurant.opening_hours" />
+                    </section>
+
+                    <section v-if="restaurant.address || (restaurant.lat && restaurant.lng)" aria-labelledby="location-heading">
+                        <h2 id="location-heading" class="mb-3 text-xl font-semibold text-foreground">Location</h2>
+                        <p v-if="restaurant.address" class="mb-3 flex items-start gap-2 text-sm text-muted-foreground">
+                            <MapPin :size="16" class="mt-0.5 shrink-0" />
+                            {{ formatFullAddress(restaurant) }}
+                        </p>
+                        <DetailMap
+                            v-if="restaurant.lat && restaurant.lng"
+                            :lat="restaurant.lat"
+                            :lng="restaurant.lng"
+                            :name="restaurant.name"
+                            :address="restaurant.address"
+                        />
+                    </section>
+
+                    <section v-if="restaurant.score_breakdown" aria-labelledby="rank-heading">
+                        <h2 id="rank-heading" class="mb-1 text-xl font-semibold text-foreground">Why it ranks here</h2>
+                        <p class="mb-4 text-sm text-muted-foreground">What counted most toward this restaurant's place in the rankings.</p>
+                        <ScoreBreakdown :breakdown="restaurant.score_breakdown" />
+                    </section>
+
+                    <section v-if="restaurant.social_links && restaurant.social_links.length > 0" aria-labelledby="social-heading">
+                        <h2 id="social-heading" class="mb-3 text-xl font-semibold text-foreground">Find it online</h2>
+                        <SocialLinks :links="restaurant.social_links" :restaurant-id="restaurant.id" />
+                    </section>
                 </div>
 
-                <!-- Info sidebar -->
-                <div class="lg:col-span-2 lg:pt-0">
-                    <div class="flex items-start gap-3">
-                        <h1 class="text-2xl font-bold text-foreground sm:text-3xl">{{ restaurant.name }}</h1>
-                        <div v-if="restaurant.has_award" class="shrink-0">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400/20">
-                                <span class="text-lg" title="Award-winning">⭐</span>
-                            </div>
-                        </div>
+                <!-- Contact card: stays in view on desktop -->
+                <aside class="hidden lg:block" data-testid="contact-card">
+                    <div class="sticky top-24 space-y-4 rounded-xl border border-border bg-card p-5">
                         <button
-                            class="ml-auto flex h-10 w-10 items-center justify-center rounded-full bg-muted/50 text-foreground shadow-md ring-2 ring-white/50 transition-all hover:bg-muted hover:scale-110"
-                            :class="{ 'text-primary fill-primary': saved }"
-                            :aria-label="ariaLabel"
-                            @click="() => toggle(restaurant)"
+                            v-if="restaurant.website_url"
+                            type="button"
+                            class="flex w-full items-center justify-between gap-3 text-left text-sm text-foreground hover:text-primary"
+                            @click="() => openWebsite(restaurant.website_url!, restaurant.id)"
                         >
-                            <Heart
-                                class="h-5 w-5"
-                                :class="saved ? 'fill-current' : 'fill-none stroke-current'"
-                            />
+                            <span class="truncate">{{ restaurant.website_url.replace(/^https?:\/\//, '').replace(/\/$/, '') }}</span>
+                            <Globe :size="18" class="shrink-0 text-muted-foreground" />
                         </button>
-                    </div>
-
-                    <div class="mt-3 flex flex-wrap items-center gap-2">
-                        <Badge v-for="cuisine in restaurant.cuisines" :key="cuisine.id" variant="secondary" class="bg-muted text-muted-foreground">
-                            {{ cuisine.name }}
-                        </Badge>
-                        <PriceLevel v-if="restaurant.price_range" :price="restaurant.price_range" class="text-sm" />
-                    </div>
-
-                    <p v-if="restaurant.description" class="mt-4 leading-relaxed text-muted-foreground">
-                        {{ restaurant.description }}
-                    </p>
-
-                    <!-- Ratings -->
-                    <div class="mt-5 space-y-3">
-                        <Card v-if="restaurant.yelp_rating || restaurant.google_rating">
-                            <CardContent class="p-4">
-                                <div class="space-y-2">
-                                    <div v-if="restaurant.yelp_rating" class="flex items-center justify-between">
-                                        <StarRating :rating="restaurant.yelp_rating" source="Yelp" :review-count="restaurant.yelp_review_count" size="sm" />
-                                    </div>
-                                    <div v-if="restaurant.google_rating" class="flex items-center justify-between">
-                                        <StarRating :rating="restaurant.google_rating" source="Google" :review-count="restaurant.google_review_count" size="sm" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    <!-- Details -->
-                    <div class="mt-5 space-y-2.5">
-                        <div v-if="restaurant.address" class="flex items-start gap-2.5 text-sm">
-                            <MapPin :size="16" class="mt-0.5 shrink-0 text-muted-foreground" />
-                            <span class="text-muted-foreground">
-                                {{ formatFullAddress(restaurant) }}
-                            </span>
-                        </div>
-
+                        <button
+                            v-if="restaurant.phone"
+                            type="button"
+                            class="flex w-full items-center justify-between gap-3 border-t border-border pt-4 text-left text-sm text-foreground hover:text-primary"
+                            @click="() => callPhone(restaurant.phone!, restaurant.id)"
+                        >
+                            <span>{{ formatPhone(restaurant.phone) }}</span>
+                            <Phone :size="18" class="shrink-0 text-muted-foreground" />
+                        </button>
                         <a
                             v-if="restaurant.lat && restaurant.lng"
                             :href="directionsUrl(restaurant.lat, restaurant.lng)"
                             target="_blank"
                             rel="noopener"
-                            class="flex items-center gap-2.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+                            class="flex w-full items-start justify-between gap-3 border-t border-border pt-4 text-sm text-foreground hover:text-primary"
                             @click="trackDirections(restaurant.id)"
                         >
-                            <Navigation :size="16" class="shrink-0" />
-                            Get directions
+                            <span>
+                                <span class="block font-medium text-primary">Get directions</span>
+                                <span v-if="restaurant.address" class="text-muted-foreground">{{ formatFullAddress(restaurant) }}</span>
+                            </span>
+                            <Navigation :size="18" class="mt-0.5 shrink-0 text-muted-foreground" />
                         </a>
-
-                        <button
-                            v-if="restaurant.phone"
-                            class="flex w-full items-center gap-2.5 text-sm text-muted-foreground hover:text-primary transition-colors"
-                            @click="() => callPhone(restaurant.phone!, restaurant.id)"
-                        >
-                            <Phone :size="16" class="shrink-0" />
-                            {{ formatPhone(restaurant.phone) }}
-                        </button>
-
-                        <button
-                            v-if="restaurant.website_url"
-                            class="flex w-full items-center gap-2.5 text-sm text-muted-foreground hover:text-primary transition-colors"
-                            @click="() => openWebsite(restaurant.website_url!, restaurant.id)"
-                        >
-                            <Globe :size="16" class="shrink-0" />
-                            {{ restaurant.website_url.replace(/^https?:\/\//, '') }}
-                        </button>
-
-                        <button
-                            v-if="restaurant.menu_url"
-                            class="flex w-full items-center gap-2.5 text-sm text-muted-foreground hover:text-primary transition-colors"
-                            @click="handleMenuClick"
-                        >
-                            <UtensilsCrossed :size="16" class="shrink-0" />
-                            View Menu
-                        </button>
                     </div>
-
-                    <!-- Social links -->
-                    <div v-if="restaurant.social_links && restaurant.social_links.length > 0" class="mt-5">
-                        <SocialLinks :links="restaurant.social_links" :restaurant-id="restaurant.id" />
-                    </div>
-
-                    <!-- Opening hours -->
-                    <div v-if="restaurant.opening_hours" class="mt-5">
-                        <OpeningHours :hours="restaurant.opening_hours" />
-                    </div>
-
-                    <!-- Score -->
-                    <div v-if="restaurant.score_breakdown" class="mt-5">
-                        <h2 class="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Popularity Score</h2>
-                        <ScoreBreakdown :breakdown="restaurant.score_breakdown" />
-                    </div>
-                </div>
-            </div>
-
-            <!-- Map section -->
-            <div v-if="restaurant.lat && restaurant.lng" class="mt-8">
-                <h2 class="mb-3 text-lg font-semibold text-foreground">Location</h2>
-                <DetailMap
-                    :lat="restaurant.lat"
-                    :lng="restaurant.lng"
-                    :name="restaurant.name"
-                    :address="restaurant.address"
-                />
+                </aside>
             </div>
         </div>
 

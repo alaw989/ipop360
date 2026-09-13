@@ -111,7 +111,7 @@ watch(
 
 <template>
   <div class="overflow-hidden rounded-xl border border-border bg-card">
-    <div ref="mapContainer" class="h-72 w-full sm:h-96" />
+    <div ref="mapContainer" class="h-56 w-full sm:h-64" />
     <div v-if="lat && lng" class="border-t border-border px-4 py-2">
       <button
         class="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"

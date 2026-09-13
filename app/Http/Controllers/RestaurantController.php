@@ -312,7 +312,8 @@ class RestaurantController extends Controller
 
         // Format using RestaurantResource (single item)
         $resource = (new RestaurantResource($restaurant))
-            ->withAllRestaurants($collection);
+            ->withAllRestaurants($collection)
+            ->withDetails();
 
         $categorySlug = $restaurant->cuisines->first()?->category?->slug;
 

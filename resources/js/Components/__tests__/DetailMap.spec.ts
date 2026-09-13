@@ -62,7 +62,7 @@ describe('DetailMap', () => {
 
     it('renders the map container div', async () => {
         const wrapper = await mountComponent({ lat: 30, lng: -97 })
-        expect(wrapper.find('.h-72').exists()).toBe(true)
+        expect(wrapper.find('.h-56').exists()).toBe(true)
     })
 
     it('renders the outer container with expected classes', async () => {
@@ -230,9 +230,9 @@ describe('DetailMap', () => {
 
     it('initializes map container with correct height classes', async () => {
         const wrapper = await mountComponent({ lat: 30, lng: -97 })
-        const container = wrapper.find('.h-72')
-        expect(container.classes()).toContain('h-72')
-        expect(container.classes()).toContain('sm:h-96')
+        const container = wrapper.find('.h-56')
+        expect(container.classes()).toContain('h-56')
+        expect(container.classes()).toContain('sm:h-64')
         expect(container.classes()).toContain('w-full')
     })
 
@@ -252,7 +252,7 @@ describe('DetailMap', () => {
             props: { name: 'Test Place', lat: 30, lng: -97 },
             attachTo: document.body,
         })
-        wrapper.find('.h-72').element.remove()
+        wrapper.find('.h-56').element.remove()
         vi.advanceTimersByTime(200)
         await flushPromises()
         expect(leafletMap).not.toHaveBeenCalled()
