@@ -794,8 +794,8 @@ return [
     | original — one result is a 16 MB JPEG rendered at 96–176 px, so a single
     | search page shipped 17.6 MB of images. `restaurants:photo-thumbnails`
     | downloads those originals once and stores a width-capped WebP under
-    | storage/app/thumbs, served by the /thumbs/{file} route. Bounded on both
-    | ends: a 25 MB download cap and a 50 MP decode cap.
+    | storage/app/private/thumbs, served by the /thumbs/{file} route. Bounded
+    | on both ends: a 25 MB download cap and a 50 MP decode cap.
     */
     'photo_thumbs' => [
         // Output width in CSS pixels. Cards render at 96 px (phone) / 176 px
