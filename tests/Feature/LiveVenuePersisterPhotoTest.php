@@ -185,4 +185,36 @@ class LiveVenuePersisterPhotoTest extends TestCase
 
         Queue::assertNotPushed(EnrichNewRestaurantPhoto::class);
     }
+
+    public function test_platform_logo_is_dropped_on_create(): void
+    {
+        $sprite = 'https://static.cdninstagram.com/rsrc.php/v4/yD/r/R0fBIMurK8v.png';
+
+        $result = $this->persister->persist($this->venue('place_logo', 'Logo Bar', [
+            'photo_url' => $sprite,
+            'photo_source' => 'website',
+            'photos' => [$sprite, 'https://cdn.example.com/real.jpg'],
+        ]));
+
+        $this->assertTrue($result['created']);
+        $this->assertNull($result['restaurant']->photo_url);
+        $this->assertNull($result['restaurant']->photo_source);
+        $this->assertSame(['https://cdn.example.com/real.jpg'], $result['restaurant']->photos);
+    }
+
+    public function test_platform_logo_does_not_overwrite_an_existing_photo(): void
+    {
+        $restaurant = Restaurant::factory()->create([
+            'google_place_id' => 'place_logo_update',
+            'photo_url' => 'https://upload.wikimedia.org/stable.jpg',
+        ]);
+
+        $this->persister->persist($this->venue('place_logo_update', $restaurant->name, [
+            'photo_url' => 'https://static.cdninstagram.com/rsrc.php/v4/yD/r/R0fBIMurK8v.png',
+        ]));
+
+        $fresh = $restaurant->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame('https://upload.wikimedia.org/stable.jpg', $fresh->photo_url);
+    }
 }

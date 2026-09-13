@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Restaurant;
 use App\Models\RestaurantSocialLink;
+use App\Support\PhotoUrl;
 use App\Support\SocialProfileUrl;
 use App\Support\SsrfGuard;
 use DOMDocument;
@@ -1315,14 +1316,17 @@ class RestaurantWebsiteScraperService
                 }
                 $content = $firstNode->getAttribute('content');
                 if (! empty($content)) {
-                    if (str_starts_with($content, 'http://') || str_starts_with($content, 'https://')) {
-                        return $content;
-                    }
-                    if (str_starts_with($content, '//')) {
-                        return 'https:'.$content;
+                    $url = str_starts_with($content, 'http://') || str_starts_with($content, 'https://')
+                        ? $content
+                        : (str_starts_with($content, '//') ? 'https:'.$content : $this->resolveUrl($content, $baseUrl));
+
+                    // A platform logo or a signed, expiring CDN image is not a
+                    // venue photo: keep looking at the next meta tag.
+                    if (PhotoUrl::isPlatformAsset($url) || $this->isEphemeralImageUrl($url)) {
+                        continue;
                     }
 
-                    return $this->resolveUrl($content, $baseUrl);
+                    return $url;
                 }
             }
         }
@@ -1360,7 +1364,7 @@ class RestaurantWebsiteScraperService
                     continue;
                 }
                 $url = $this->normalizePhotoUrl($content, $baseUrl);
-                if ($this->isEphemeralImageUrl($url)) {
+                if ($this->isEphemeralImageUrl($url) || PhotoUrl::isPlatformAsset($url)) {
                     continue;
                 }
                 if (! in_array($url, $photos, true)) {
@@ -1382,7 +1386,7 @@ class RestaurantWebsiteScraperService
                     continue;
                 }
                 $url = $this->normalizePhotoUrl($src, $baseUrl);
-                if (in_array($url, $photos, true) || $this->isEphemeralImageUrl($url)) {
+                if (in_array($url, $photos, true) || $this->isEphemeralImageUrl($url) || PhotoUrl::isPlatformAsset($url)) {
                     continue;
                 }
                 // Skip tracking/icon/sprite images (tiny or clearly non-photo).

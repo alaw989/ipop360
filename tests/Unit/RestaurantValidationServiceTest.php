@@ -129,4 +129,17 @@ class RestaurantValidationServiceTest extends TestCase
         $this->assertSame('', $result['website_url']);
         $this->assertSame('', $result['photo_url']);
     }
+
+    public function test_normalize_drops_platform_logo_photos(): void
+    {
+        $sprite = 'https://static.cdninstagram.com/rsrc.php/v4/yD/r/R0fBIMurK8v.png';
+
+        $result = $this->service->normalize([
+            'photo_url' => $sprite,
+            'photos' => [$sprite, 'https://cdn.example.com/real.jpg'],
+        ]);
+
+        $this->assertNull($result['photo_url']);
+        $this->assertSame(['https://cdn.example.com/real.jpg'], $result['photos']);
+    }
 }
