@@ -301,11 +301,13 @@ the rest to opencode.
   twice (duplicate domains cache-served), and 0 website-sourced prices. See
   backlog goal 20; note the 87-min runtime vs `withoutOverlapping(240)`.
 - **Report delivered — backlog goal 19:** `restaurants:wikimedia-photo-audit`
-  (report-only, PR #203 `947724f`) classifies Wikimedia photos as
-  Commons-geotag / Wikidata-P18 verified or name-only. Bounded prod run (top
-  1,000): **996 unverified**, 4 Wikidata-verified, 0 Commons-verified. Samples
-  are clear junk (a recipes PDF, a history book, a person named Ela, a logo
-  SVG). Bulk removal awaits the operator's OK.
+  (report-only; `--apply` at #205; batched/30-day-cached lookups at #206/#207)
+  classifies Wikimedia photos as Commons-geotag / Wikidata-P18 verified or
+  name-only. Full prod report: **5,205 audited → 2,948 unverified**, 19
+  Commons-verified, 4 Wikidata-verified, 2,234 uncheckable (Commons 429).
+  Samples are clear junk (recipes/history PDFs, a person named Ela, a logo
+  SVG). Bounded `--apply` quarantined 19 reversibly. Full bulk `--apply`
+  awaits the operator's OK.
 
   Hand-built with TDD (the `opencode-loop` harness is no longer on this
   machine), each on its own branch, full gate after each, no push until the
