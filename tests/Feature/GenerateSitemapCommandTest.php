@@ -51,9 +51,31 @@ class GenerateSitemapCommandTest extends TestCase
         $this->assertStringContainsString('<loc>http://example.com/restaurants</loc>', $content);
         $this->assertStringContainsString('<loc>http://example.com/login</loc>', $content);
         $this->assertStringContainsString('<loc>http://example.com/register</loc>', $content);
-        $this->assertStringContainsString('<loc>http://example.com/favorites</loc>', $content);
         $this->assertStringContainsString('<loc>http://example.com/blog</loc>', $content);
-        $this->assertStringContainsString('<loc>http://example.com</loc>', $content);
+
+        // spec-110: /favorites is auth-gated (crawlers get a login redirect), so
+        // it must not be advertised. See the dedicated test below.
+        $this->assertStringNotContainsString('/favorites', $content);
+
+        // The homepage <loc> must match its canonical with a trailing slash.
+        $this->assertStringContainsString('<loc>http://example.com/</loc>', $content);
+    }
+
+    public function test_excludes_auth_gated_pages_from_the_sitemap(): void
+    {
+        /** @var PendingCommand $command */
+        $command = $this->artisan('seo:sitemap');
+        $command->assertSuccessful();
+        $command->run();
+
+        $content = file_get_contents(public_path('sitemap.xml'));
+        $this->assertIsString($content);
+
+        // spec-110: /favorites requires auth (routes/web.php:71,77); /dashboard,
+        // /profile and /admin are auth/role-gated too and were never listed.
+        $this->assertStringNotContainsString('/favorites', $content);
+        $this->assertStringNotContainsString('/dashboard', $content);
+        $this->assertStringNotContainsString('/profile', $content);
     }
 
     public function test_includes_cuisine_pages_from_database(): void
@@ -143,8 +165,68 @@ class GenerateSitemapCommandTest extends TestCase
         );
 
         $this->assertDoesNotMatchRegularExpression(
-            '#<loc>http://example\.com</loc>(?:(?!</url>).)*?<lastmod>#s',
+            '#<loc>http://example\.com/</loc>(?:(?!</url>).)*?<lastmod>#s',
             $content,
         );
+    }
+
+    public function test_chunks_restaurants_into_a_sitemap_index_when_over_the_chunk_size(): void
+    {
+        // spec-110: the live corpus (41k) exceeds the single-file chunk size, so
+        // the command must emit a sitemap index plus chunked children instead of
+        // silently truncating at 5,000. Force a tiny chunk size to exercise the
+        // index path in the test.
+        Config::set('restaurant-finder.seo.sitemap_chunk_size', 2);
+
+        $slugs = ['chunk-one', 'chunk-two', 'chunk-three'];
+        foreach ($slugs as $slug) {
+            Restaurant::factory()->create(['slug' => $slug, 'is_active' => true]);
+        }
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('seo:sitemap');
+        $command->assertSuccessful();
+        $command->run();
+
+        $index = file_get_contents(public_path('sitemap.xml'));
+        $this->assertIsString($index);
+        $this->assertStringContainsString('<sitemapindex', $index);
+        $this->assertStringContainsString('<loc>http://example.com/sitemap-restaurants-1.xml</loc>', $index);
+        $this->assertStringContainsString('<loc>http://example.com/sitemap-restaurants-2.xml</loc>', $index);
+        $this->assertStringContainsString('<loc>http://example.com/sitemap-pages.xml</loc>', $index);
+        $this->assertStringContainsString('<loc>http://example.com/sitemap-blog.xml</loc>', $index);
+        $this->assertStringNotContainsString('<urlset', $index);
+
+        $chunkOne = file_get_contents(public_path('sitemap-restaurants-1.xml'));
+        $chunkTwo = file_get_contents(public_path('sitemap-restaurants-2.xml'));
+        $this->assertIsString($chunkOne);
+        $this->assertIsString($chunkTwo);
+
+        // Every active restaurant is represented across the chunks, split 2/1.
+        $combined = $chunkOne.$chunkTwo;
+        foreach ($slugs as $slug) {
+            $this->assertStringContainsString('<loc>http://example.com/restaurants/'.$slug.'</loc>', $combined);
+        }
+        $this->assertSame(2, substr_count($chunkOne, '<loc>'));
+        $this->assertSame(1, substr_count($chunkTwo, '<loc>'));
+    }
+
+    public function test_removes_stale_chunk_files_from_a_previous_run(): void
+    {
+        // spec-110: a chunk that no longer has content (corpus shrank, chunk
+        // count changed) must not linger as a stale, crawlable file.
+        file_put_contents(public_path('sitemap-restaurants-99.xml'), '<urlset></urlset>');
+
+        Restaurant::factory()->create(['slug' => 'lonely-bistro', 'is_active' => true]);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('seo:sitemap');
+        $command->assertSuccessful();
+        $command->run();
+
+        $content = file_get_contents(public_path('sitemap.xml'));
+        $this->assertIsString($content);
+        $this->assertStringContainsString('<urlset', $content);
+        $this->assertFileDoesNotExist(public_path('sitemap-restaurants-99.xml'));
     }
 }

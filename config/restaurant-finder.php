@@ -1004,4 +1004,18 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | SEO / sitemap
+    |--------------------------------------------------------------------------
+    |
+    | sitemap_chunk_size: when `seo:sitemap` has more URLs than this it writes a
+    | sitemap index plus per-kind chunks instead of one flat file, so the
+    | restaurant list is never silently truncated. Must stay under the
+    | sitemaps.org 50,000-URL / 50 MB per-file limit.
+    */
+    'seo' => [
+        'sitemap_chunk_size' => (int) env('SEO_SITEMAP_CHUNK_SIZE', 40000),
+    ],
+
 ];

@@ -158,6 +158,7 @@ jobs:
             --exclude 'database/database.sqlite' \
             --exclude 'public/hot' \
             --exclude 'public/sitemap.xml' \
+            --exclude 'public/sitemap-*.xml' \
             --exclude '.phpunit.result.cache' \
             -e "ssh -i ~/.ssh/deploy_key" \
             ./ \
