@@ -45,8 +45,14 @@ class WikimediaPhotoAuditor
     /** Attempts per batch before a transient failure fails just that chunk. */
     private const BATCH_ATTEMPTS = 3;
 
-    /** Backoff between batch attempts (0.5 s). */
+    /** Backoff between batch attempts on a transient error (0.5 s). */
     private const BATCH_RETRY_DELAY_MICROS = 500_000;
+
+    /** On a 429, wait and retry the same batch before giving up on the run. */
+    private const RATE_LIMIT_ATTEMPTS = 3;
+
+    /** Backoff between 429 retries (10 s — the observed Commons window). */
+    private const RATE_LIMIT_DELAY_MICROS = 10_000_000;
 
     /** Commons file coordinate lookups are stable; cache them for 30 days. */
     private const CACHE_TTL_DAYS = 30;
@@ -229,27 +235,42 @@ class WikimediaPhotoAuditor
     }
 
     /**
-     * Retry a batch a few times on a transient failure; a 429 is returned
-     * immediately (the caller stops the run).
+     * Retry a batch on a transient error (short backoff) or a 429 (longer
+     * backoff). The rate-limit status is returned only after the retries are
+     * exhausted, at which point the caller stops the run and marks the rest
+     * failed.
      *
      * @param  list<string>  $filenames
      * @return array{status: 'ok'|'rate_limited'|'error', lookups?: array<string, array{status: string, lat?: float, lng?: float}>}
      */
     private function fetchCommonsBatchWithRetry(array $filenames): array
     {
-        for ($attempt = 1; $attempt <= self::BATCH_ATTEMPTS; $attempt++) {
+        $errorAttempts = 0;
+        $rateAttempts = 0;
+
+        while (true) {
             $result = $this->fetchCommonsBatch($filenames);
 
-            if ($result['status'] !== 'error') {
+            if ($result['status'] === 'ok') {
                 return $result;
             }
 
-            if ($attempt < self::BATCH_ATTEMPTS) {
-                $this->batchRetryDelay();
-            }
-        }
+            if ($result['status'] === 'rate_limited') {
+                $rateAttempts++;
+                if ($rateAttempts >= self::RATE_LIMIT_ATTEMPTS) {
+                    return ['status' => 'rate_limited'];
+                }
+                $this->batchDelay(self::RATE_LIMIT_DELAY_MICROS);
 
-        return ['status' => 'error'];
+                continue;
+            }
+
+            $errorAttempts++;
+            if ($errorAttempts >= self::BATCH_ATTEMPTS) {
+                return ['status' => 'error'];
+            }
+            $this->batchDelay(self::BATCH_RETRY_DELAY_MICROS);
+        }
     }
 
     /**
@@ -308,11 +329,11 @@ class WikimediaPhotoAuditor
         }
     }
 
-    private function batchRetryDelay(): void
+    private function batchDelay(int $micros): void
     {
         // A real backoff in production; tests must not sleep.
         if (! app()->runningUnitTests()) {
-            usleep(self::BATCH_RETRY_DELAY_MICROS);
+            usleep($micros);
         }
     }
 
