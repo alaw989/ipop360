@@ -188,16 +188,20 @@ class WikimediaPhotoAuditorTest extends TestCase
 
         $this->assertSame(2, $stats['failed']);
         $this->assertSame('failed', $auditor->commonsLookup('A.jpg')['status']);
-        Http::assertSentCount(1);
+        // The batch is retried a few times before the run gives up.
+        Http::assertSentCount(3);
     }
 
     public function test_preload_commons_marks_titles_after_the_rate_limited_batch_failed(): void
     {
-        // 51 names = one good batch of 50, then a second batch that gets a 429.
+        // 51 names = one good batch of 50, then a second batch that is 429ed
+        // through every retry.
         $names = array_map(fn (int $i): string => "Photo {$i}.jpg", range(1, 51));
 
         Http::fakeSequence()
             ->push(['query' => ['pages' => []]], 200)
+            ->push('slow down', 429)
+            ->push('slow down', 429)
             ->push('slow down', 429);
 
         $auditor = $this->auditor();
@@ -205,12 +209,27 @@ class WikimediaPhotoAuditorTest extends TestCase
 
         $this->assertSame(50, $stats['fetched']);
         $this->assertSame(1, $stats['failed']);
-        Http::assertSentCount(2);
+        Http::assertSentCount(4);
 
         // The title in the throttled batch is failed, and no later lookup falls
         // back to a single request (which is what made a full run take 22 min).
         $this->assertSame('failed', $auditor->commonsLookup('Photo 51.jpg')['status']);
-        Http::assertSentCount(2);
+        Http::assertSentCount(4);
+    }
+
+    public function test_preload_commons_recovers_after_a_rate_limit(): void
+    {
+        $names = array_map(fn (int $i): string => "Photo {$i}.jpg", range(1, 51));
+
+        Http::fakeSequence()
+            ->push(['query' => ['pages' => []]], 200) // chunk 1
+            ->push('slow down', 429)                  // chunk 2, first attempt
+            ->push(['query' => ['pages' => []]], 200); // chunk 2, after the backoff
+
+        $stats = $this->auditor()->preloadCommons($names);
+
+        $this->assertSame(51, $stats['fetched']);
+        $this->assertSame(0, $stats['failed']);
     }
 
     public function test_preload_commons_retries_a_transient_error_and_continues(): void
