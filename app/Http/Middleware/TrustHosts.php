@@ -23,6 +23,12 @@ class TrustHosts
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // Local dev is frequently reached over a LAN/Tailscale IP that can't be
+        // enumerated in the allow-list; host-header injection is a prod concern.
+        if (app()->environment('local')) {
+            return $next($request);
+        }
+
         $trusted = config('app.trusted_hosts', []);
 
         if (is_array($trusted) && $trusted !== []) {

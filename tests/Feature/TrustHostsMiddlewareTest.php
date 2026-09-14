@@ -61,4 +61,14 @@ class TrustHostsMiddlewareTest extends TestCase
 
         $this->get('http://anything.test/up')->assertOk();
     }
+
+    public function test_local_environment_bypasses_the_check(): void
+    {
+        // Dev is often reached over a LAN/Tailscale IP, so the check is a
+        // prod concern and stands down in local.
+        $this->app->detectEnvironment(fn () => 'local');
+        config(['app.trusted_hosts' => ['example.com']]);
+
+        $this->get('http://evil.com/up')->assertOk();
+    }
 }
