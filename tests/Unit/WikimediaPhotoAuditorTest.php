@@ -212,4 +212,35 @@ class WikimediaPhotoAuditorTest extends TestCase
         $this->assertSame('failed', $auditor->commonsLookup('Photo 51.jpg')['status']);
         Http::assertSentCount(2);
     }
+
+    public function test_preload_commons_retries_a_transient_error_and_continues(): void
+    {
+        $names = array_map(fn (int $i): string => "Photo {$i}.jpg", range(1, 51));
+
+        Http::fakeSequence()
+            ->push(['query' => ['pages' => []]], 200)   // chunk 1
+            ->push('bad gateway', 503)                   // chunk 2, first attempt
+            ->push(['query' => ['pages' => []]], 200);   // chunk 2, retry
+
+        $stats = $this->auditor()->preloadCommons($names);
+
+        $this->assertSame(51, $stats['fetched']);
+        $this->assertSame(0, $stats['failed']);
+    }
+
+    public function test_preload_commons_fails_only_the_chunk_with_a_persistent_error(): void
+    {
+        $names = array_map(fn (int $i): string => "Photo {$i}.jpg", range(1, 51));
+
+        Http::fakeSequence()
+            ->push(['query' => ['pages' => []]], 200) // chunk 1
+            ->push('bad gateway', 503)                // chunk 2, attempt 1
+            ->push('bad gateway', 503)                // chunk 2, attempt 2
+            ->push('bad gateway', 503);               // chunk 2, attempt 3
+
+        $stats = $this->auditor()->preloadCommons($names);
+
+        $this->assertSame(50, $stats['fetched']);
+        $this->assertSame(1, $stats['failed']);
+    }
 }
