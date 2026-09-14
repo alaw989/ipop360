@@ -1167,14 +1167,30 @@ removed 159 right addresses for disagreeing with a wrong state.
 - The 45-odd rows whose address names no city get the ZIP's state and no
   city; a later Overture or reverse-geocode pass could name it.
 
-### Next up: specs 102–103 (PROPOSED, from the 2026-06-30 fresh-audit wave)
+### ✅ Done (2026-09-14) — specs 102–103 (2026-06-30 fresh-audit wave)
 
-1. **102 — Test-coverage backfill** (P2/P3, regression-guard gaps)
-2. **103 — Infra defense-in-depth** (P3, infra/security hardening grab-bag)
-
-Run these through `opencode-loop` per the binding process at the top of this
-file, one goal per PR, in this order (each already has full context in its
-`specs/0NN-*.md` file).
+1. **102 — Test-coverage backfill** — hand-built TDD (all 4 items): Quality×Cuisine
+   Match E2E, rated live-row response shape, `mergeFavoritesOnLogin()` extraction +
+   round-trip spec, and the name-denylist word-boundary fix (`'wax'` no longer
+   drops "Waxahachie"/"Waxy O'Connor's"). See `ITERATION_NOTES.md`.
+2. **103 — Infra defense-in-depth** — hand-built TDD (operator chose direct over
+   the loop), shipped as two PRs (one feature each):
+   - **#214 app-security** (items 1, 2, 6): global `TrustHosts` middleware +
+     `trustProxies` (forged `Host` → 400; allow-list from `TRUSTED_HOSTS`/APP_URL,
+     local bypass); `SsrfGuard::resolveSafe()` + `pinnedOptions()` pin the fetch
+     to the validated IP via `CURLOPT_RESOLVE` (closes DNS rebinding; fails closed;
+     RFC 6598 rejected); `LogApiRequest` reads a request attribute instead of
+     `json_decode`-ing every JSON body.
+   - **#215 infra** (items 3, 4, 5): `db:backup`/`db:restore` are driver-aware —
+     **the pre-migrate safety net was a silent no-op on MySQL prod** (SQLite-only
+     command); now `mysqldump --single-transaction` → gzip with a non-empty gate,
+     and `migrate` is gated on a real backup in `deploy.yml`; gitleaks now gates
+     PRs in `ci.yml`; new hard-fail deploy step asserts the cron daemon is
+     enabled + active.
+   - Gate: pint clean, PHPStan L8 zero errors, PHPUnit 1456, vitest 1129, build.
+     Deployed + live-verified: `/` & `/api` 200, forged `Host: evil.com` → 400,
+     `www` → 200, `next_page_url` on the trusted host, pre-migrate backup written
+     (15.7 MB gz), cron check green, `DEPLOY OK`.
 
 ### After 093–103 ship: full-feature spec-conformance audit
 

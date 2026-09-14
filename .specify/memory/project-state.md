@@ -161,8 +161,8 @@ PR each:
 - 3,663 addresses were rewritten by the AI.
 
 A local prod clone lives in MariaDB `ipop360_prodclone`; run commands against
-it with `php artisan --env=prodclone` (see AGENTS.md). Specs 102–103 stay
-queued behind this work (see `backlog.md`).
+it with `php artisan --env=prodclone` (see AGENTS.md). Specs 102–103 are now
+**done** (2026-09-14, see `backlog.md`).
 
 **Status (2026-09-10): phases 1–2 SHIPPED; phases 3–4 in progress.**
 
