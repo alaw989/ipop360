@@ -4,7 +4,8 @@
 
 **Created**: 2026-09-14
 
-**Status**: BUILT LOCALLY (2026-09-14) — awaiting operator go-ahead to ship
+**Status**: SHIPPED (2026-09-14) — PR #218 merged + deployed; permission regression
+fixed in PR #219
 
 **Series**: Surfaced by `docs/feature-audit-2026-09.md` (§9 SEO/Sitemap; cross-cutting finding #2).
 
@@ -79,3 +80,20 @@ defects on production:
 - Gate: Pint clean · PHPUnit **1459 passed**, 1 skipped · vitest 1129 passed ·
   PHPStan level 8 no errors · `npm run build` clean.
 - Not committed/pushed/deployed — local-first and operator-gated.
+
+## Ship log (2026-09-14)
+
+- **PR #218** merged + deployed. Live-verified: `/sitemap.xml` is a valid
+  `<sitemapindex>` with 4 children; `sitemap-restaurants-1.xml` 40,000 URLs +
+  `sitemap-restaurants-2.xml` 1,171 = **41,171 active restaurants** (was 5,000);
+  `/favorites` absent; homepage `<loc>` ends in `/`.
+- **Regression found on live-verify:** the chunked children were written into
+  `public/` directly, but `public/` is owned by the deploy user (755) while
+  `seo:sitemap` runs as `www-data` — creating the new files failed with
+  `file_put_contents(...): Permission denied`, and the deploy's pre-created
+  `public/sitemap.xml` had already been truncated. **Prod briefly served an
+  empty sitemap.**
+- **PR #219** fix: children now live in `public/sitemaps/` (pre-created
+  `www-data`-owned in `deploy.yml`, rsync-excluded, gitignored); the index
+  references `/sitemaps/…`; the command fails loud (FAILURE + error) if a chunk
+  or the index can't be written. Re-deployed + re-verified (see above).
