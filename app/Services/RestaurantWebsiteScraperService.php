@@ -329,7 +329,7 @@ class RestaurantWebsiteScraperService
             try {
                 $response = Http::timeout(self::REQUEST_TIMEOUT)
                     ->withUserAgent(self::USER_AGENT)
-                    ->withOptions(['allow_redirects' => $this->redirectOptions()])
+                    ->withOptions($this->fetchOptions($url))
                     ->get($url);
 
                 if (! $response->successful()) {
@@ -474,7 +474,7 @@ class RestaurantWebsiteScraperService
         try {
             $response = Http::timeout(self::VERIFY_TIMEOUT)
                 ->withUserAgent(self::USER_AGENT)
-                ->withOptions(['allow_redirects' => $this->redirectOptions()])
+                ->withOptions($this->fetchOptions($url))
                 ->head($url);
 
             if ($response->successful() || $response->redirect()) {
@@ -493,7 +493,7 @@ class RestaurantWebsiteScraperService
         try {
             $response = Http::timeout(self::VERIFY_TIMEOUT)
                 ->withUserAgent(self::USER_AGENT)
-                ->withOptions(['allow_redirects' => $this->redirectOptions()])
+                ->withOptions($this->fetchOptions($url))
                 ->withHeaders(['Range' => 'bytes=0-2047'])
                 ->get($url);
 
@@ -533,7 +533,7 @@ class RestaurantWebsiteScraperService
         try {
             $response = Http::timeout($timeout)
                 ->withUserAgent(self::USER_AGENT)
-                ->withOptions(['allow_redirects' => $this->redirectOptions()])
+                ->withOptions($this->fetchOptions($url))
                 ->get($url);
         } catch (\Throwable $e) {
             Log::debug('Identity-check fetch failed', ['url' => $url, 'error' => $e->getMessage()]);
@@ -573,22 +573,36 @@ class RestaurantWebsiteScraperService
     }
 
     /**
-     * spec-075: the guarded allow_redirects config — capped at 3, http(s)-only,
-     * and each hop re-validated by isSafeUrl so a public host can't redirect
-     * into a private/loopback/metadata endpoint. Honors the SSRF kill-switch
-     * (returns a plain cap when the guard is off). Shared by the robots.txt
-     * fetch and the main page fetch — BOTH must re-validate hops (the robots.txt
-     * fetch is otherwise an SSRF bypass, being the first outbound call).
+     * spec-075/spec-103: HTTP options for a guarded fetch of `$url` — the
+     * redirect policy (capped at 3, http(s)-only, each hop re-validated) plus
+     * the validated-IP pin (CURLOPT_RESOLVE) that stops a rebinding resolver
+     * from re-pointing the actual request at a private/metadata address.
+     *
+     * Honors the SSRF kill-switch: when off, only a plain redirect cap is
+     * returned (no pin, no hop revalidation).
      *
      * @return array<string,mixed>
      */
-    private function redirectOptions(): array
+    private function fetchOptions(string $url): array
     {
         if (! config('restaurant-finder.website_scraper.ssrf_guard', true)) {
-            return ['max' => 3];
+            return ['allow_redirects' => ['max' => 3]];
         }
 
-        return SsrfGuard::redirectOptions();
+        $pinned = SsrfGuard::pinnedOptions($url);
+
+        // pinnedOptions returns [] for an IP-literal host (already safe — nothing
+        // to re-resolve) AND for a host that no longer resolves to a public IP.
+        // The latter must FAIL CLOSED: fetching unpinned would let the transport
+        // re-resolve a rebinding host to a private/metadata address.
+        if ($pinned === [] && ! SsrfGuard::isIpLiteralHost($url)) {
+            throw new \RuntimeException('SSRF guard blocked fetch — host did not resolve to a public IP: '.$url);
+        }
+
+        return [
+            'allow_redirects' => SsrfGuard::redirectOptions(),
+            ...$pinned,
+        ];
     }
 
     /**
@@ -620,7 +634,7 @@ class RestaurantWebsiteScraperService
 
                 $response = Http::timeout(self::REQUEST_TIMEOUT)
                     ->withUserAgent(self::USER_AGENT)
-                    ->withOptions(['allow_redirects' => $this->redirectOptions()])
+                    ->withOptions($this->fetchOptions($robotsUrl))
                     ->get($robotsUrl);
 
                 if ($response->successful()) {
@@ -753,7 +767,7 @@ class RestaurantWebsiteScraperService
                 // endpoint. An unsafe hop throws → caught below → null (no retry).
                 $response = Http::timeout(self::REQUEST_TIMEOUT)
                     ->withUserAgent(self::USER_AGENT)
-                    ->withOptions(['allow_redirects' => $this->redirectOptions()])
+                    ->withOptions($this->fetchOptions($url))
                     ->get($url);
 
                 if (! $response->successful()) {
@@ -1878,7 +1892,7 @@ class RestaurantWebsiteScraperService
         try {
             $response = Http::timeout(self::REQUEST_TIMEOUT)
                 ->withUserAgent(self::USER_AGENT)
-                ->withOptions(['allow_redirects' => $this->redirectOptions()])
+                ->withOptions($this->fetchOptions($url))
                 ->get($url);
 
             if (! $response->successful()) {
@@ -1963,6 +1977,7 @@ class RestaurantWebsiteScraperService
         try {
             $response = Http::timeout(self::REQUEST_TIMEOUT)
                 ->withUserAgent(self::USER_AGENT)
+                ->withOptions($this->fetchOptions($url))
                 ->get($url);
 
             if (! $response->successful()) {
