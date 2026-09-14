@@ -759,6 +759,16 @@ Wikidata item within ~150 m carrying the same file as its P18.
   now **3,027 `photo_url` + 1,671 gallery entries**; **2,200 active Wikimedia
   photos remain** (Commons capped the run at 350 batch-fetched files again).
   Repeat after cooldowns to finish.
+- **Robustness (PRs #211/#212).** Probing showed Commons uses a short-window
+  rate limit (12 requests at 10 s spacing all 200), not a block: a single
+  transient 503 was aborting the whole preload, and a 429 aborted it too. Now
+  transient errors retry 3× (0.5 s) failing only their batch, and a 429 backs
+  off 10 s and retries the batch 3× before stopping.
+- **✅ Complete (2026-09-14).** Passes ran until no `uncheckable` remained:
+  final **5,232 `photo_url` + 3,222 gallery entries quarantined**, only **30
+  active Wikimedia photos left** (the Commons/Wikidata-verified ones). `/` and
+  `/search` 200. Essentially every name-only Wikimedia photo is gone;
+  reversible with `restaurants:integrity --restore=wikimedia_name_only_match`.
 
 ### 20. Check PR 1's first daily run (after 2026-09-13 11:45 UTC)
 `restaurants:backfill-websites` should have:

@@ -312,7 +312,10 @@ the rest to opencode.
   rate-limited `uncheckable` rows were left untouched.** Reversible via
   `restaurants:integrity --restore=wikimedia_name_only_match`. A second pass
   after the 429 cleared added **657 more (3,027 photo_url + 1,671 gallery
-  entries total)**; **2,200 active Wikimedia photos remain** for further passes.
+  entries total)**; further passes ran to completion — final **5,232
+  `photo_url` + 3,222 gallery entries quarantined, 30 verified photos left**.
+  Batched-lookup robustness: transient errors retry per-batch, 429 backs off
+  and retries (#211/#212).
 
   Hand-built with TDD (the `opencode-loop` harness is no longer on this
   machine), each on its own branch, full gate after each, no push until the
