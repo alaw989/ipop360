@@ -273,19 +273,22 @@ jobs:
              supervisorctl update"
 
       - name: Pre-migrate DB backup + maintenance window
-        # spec-077: snapshot the SQLite DB (VACUUM INTO, rotated) so a bad
-        # migration is recoverable (data loss here = a multi-month rebuild gated
-        # by the SerpApi quota), then enter maintenance so no request hits a
-        # half-migrated schema. Both are best-effort: if `down` can't write its
-        # file (perms), we still migrate (the prior behavior); `db:backup` is the
-        # safety net and never blocks. The matching `up` below unconditionally
-        # removes the down file, so a failed `down` can never wedge the site.
+        # spec-077/spec-103: enter maintenance so no request hits a half-migrated
+        # schema, then take a pre-migration snapshot. `db:backup` is now
+        # HARD-FAIL (spec-103): it self-verifies the snapshot is non-empty and
+        # `migrate` below is gated on a real backup existing — a silent no-op
+        # safety net (the pre-MySQL-8.0 behavior) must never reach the migration.
+        # `down` stays best-effort (a failed down can't wedge the site — the
+        # matching `up` below unconditionally removes the file).
         run: |
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
             "cd ${{ secrets.DEPLOY_PATH }} && \
              (php8.4 artisan down || echo 'artisan down failed (non-fatal — migrating live)') && \
-             (php8.4 artisan db:backup || echo 'db:backup failed (non-fatal)')"
+             php8.4 artisan db:backup && \
+             BACKUP=\$(ls -1t ${{ secrets.DEPLOY_PATH }}/storage/backups/pre-migrate-* 2>/dev/null | head -1) && \
+             if [ -z \"\$BACKUP\" ] || [ ! -s \"\$BACKUP\" ]; then echo 'NO PRE-MIGRATE BACKUP — aborting before migrate'; exit 1; fi && \
+             echo \"pre-migrate backup: \$BACKUP (\$(stat -c%s \"\$BACKUP\") bytes)\""
 
       - name: Migrate + build caches (caches non-fatal)
         # spec-087: migrate is hard-fail (a schema failure must surface, not be
@@ -383,6 +386,16 @@ jobs:
                | sudo tee /etc/logrotate.d/ipop360 > /dev/null && \
              sudo chmod 644 /etc/logrotate.d/ipop360 && \
              echo 'LOGROTATE INSTALLED:' && sudo cat /etc/logrotate.d/ipop360"
+
+      - name: Verify the cron daemon is enabled and running
+        # spec-103: cron is the SINGLE scheduler driver. If the daemon is masked
+        # or stopped, every scheduled job silently stops while the deploy reports
+        # green — fail loud instead. (The install step above is best-effort only
+        # for logrotate perms; THIS is the load-bearing check.)
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "sudo systemctl is-enabled cron && sudo systemctl is-active cron"
 
       - name: Bring site out of maintenance
         # spec-077: ALWAYS exit maintenance, even if migrate failed — a hard

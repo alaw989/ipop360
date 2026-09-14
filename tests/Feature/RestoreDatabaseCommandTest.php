@@ -2,22 +2,38 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Testing\PendingCommand;
 use PDO;
 use PDOStatement;
 use Tests\TestCase;
 
 /**
- * spec-087: the rollback restore command (pairs with spec-077's `db:backup`).
- * Restores a VACUUM INTO snapshot over the live SQLite file — the data side of
- * the opt-in `DEPLOY_AUTO_ROLLBACK` gate. Verifies a "bad migration" (a row
- * inserted after the snapshot) is undone, the --force guard is enforced, and the
- * in-memory / no-snapshot paths degrade gracefully.
+ * spec-087/spec-103: the rollback restore command (pairs with `db:backup`).
+ * Restores a VACUUM INTO snapshot over the live SQLite file (the data side of
+ * the opt-in `DEPLOY_AUTO_ROLLBACK` gate) and, on MySQL, pipes the newest
+ * gzipped dump into the mysql client. Verifies a "bad migration" (a row
+ * inserted after the snapshot) is undone, the --force guard is enforced, and
+ * the in-memory / no-snapshot paths degrade gracefully.
  */
 class RestoreDatabaseCommandTest extends TestCase
 {
     private string $fileDb;
+
+    private function useMysql(): void
+    {
+        Config::set('database.default', 'mysql');
+        Config::set('database.connections.mysql', [
+            'driver' => 'mysql',
+            'host' => '127.0.0.1',
+            'port' => '3306',
+            'database' => 'ipop360',
+            'username' => 'ipop360',
+            'password' => 'secret',
+        ]);
+    }
 
     private function makeFileDb(): string
     {
@@ -111,5 +127,52 @@ class RestoreDatabaseCommandTest extends TestCase
         $command->run();
 
         @unlink($this->fileDb);
+    }
+
+    public function test_mysql_restore_pipes_the_newest_gzip_into_mysql(): void
+    {
+        $this->useMysql();
+        $dir = sys_get_temp_dir().'/ip360-mysql-restore-'.uniqid();
+        @mkdir($dir, 0775, true);
+        file_put_contents($dir.'/pre-migrate-100.sql.gz', gzencode('CREATE TABLE t (id INT);'));
+        // An older sibling must not be chosen.
+        file_put_contents($dir.'/pre-migrate-200.sql.gz', gzencode('SELECT 1;'));
+
+        $captured = null;
+        Process::fake(function (PendingProcess $process) use (&$captured): int {
+            $captured = $process->command;
+
+            return 0;
+        });
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('db:restore', ['--backup-dir' => $dir, '--force' => true]);
+        $command->assertSuccessful();
+        $command->run();
+
+        $flat = is_array($captured) ? implode(' ', array_map('strval', $captured)) : (string) $captured;
+        $this->assertStringContainsString('pre-migrate-200.sql.gz', $flat, 'newest dump is restored');
+        $this->assertStringContainsString('gunzip', $flat);
+
+        array_map('unlink', glob($dir.'/pre-migrate-*') ?: []);
+        @rmdir($dir);
+    }
+
+    public function test_mysql_restore_fails_loudly_when_mysql_errors(): void
+    {
+        $this->useMysql();
+        $dir = sys_get_temp_dir().'/ip360-mysql-restore-fail-'.uniqid();
+        @mkdir($dir, 0775, true);
+        file_put_contents($dir.'/pre-migrate-100.sql.gz', gzencode('SELECT 1;'));
+
+        Process::fake(fn (): int => 1);
+
+        /** @var PendingCommand $command */
+        $command = $this->artisan('db:restore', ['--backup-dir' => $dir, '--force' => true]);
+        $command->assertFailed();
+        $command->run();
+
+        array_map('unlink', glob($dir.'/pre-migrate-*') ?: []);
+        @rmdir($dir);
     }
 }
