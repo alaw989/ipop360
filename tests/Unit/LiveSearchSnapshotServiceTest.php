@@ -17,6 +17,12 @@ class LiveSearchSnapshotServiceTest extends TestCase
     {
         parent::setUp();
 
+        // The TTL assertions compare the stored expiry to `now()->addX()`; if the
+        // two `now()` calls straddle a second boundary the timestamps differ by
+        // one and the test flakes (hit on the 2026-09-14 docs deploy). Freezing
+        // the clock makes the comparison exact.
+        $this->freezeTime();
+
         config([
             'restaurant-finder.live_search.page_snapshot_minutes' => 10,
             'restaurant-finder.cache.preview_snapshot_days' => 7,
