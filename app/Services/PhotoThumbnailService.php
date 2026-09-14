@@ -137,13 +137,21 @@ class PhotoThumbnailService
         }
 
         try {
+            $options = [
+                'allow_redirects' => config('restaurant-finder.photo_thumbs.ssrf_guard', true)
+                    ? SsrfGuard::redirectOptions()
+                    : ['max' => 3],
+                'sink' => $tmp,
+            ];
+
+            // spec-103: pin the fetch to the validated IP so a rebinding resolver
+            // can't re-point it at a private/metadata address after isSafe().
+            if (config('restaurant-finder.photo_thumbs.ssrf_guard', true)) {
+                $options = [...$options, ...SsrfGuard::pinnedOptions($url)];
+            }
+
             $response = Http::timeout($timeout)
-                ->withOptions([
-                    'allow_redirects' => config('restaurant-finder.photo_thumbs.ssrf_guard', true)
-                        ? SsrfGuard::redirectOptions()
-                        : ['max' => 3],
-                    'sink' => $tmp,
-                ])
+                ->withOptions($options)
                 ->get($url);
 
             if (! $response->successful()) {

@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\RestaurantWebsiteScraperService;
+use App\Support\SsrfGuard;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
@@ -28,6 +29,75 @@ class WebsiteScraperSsrfGuardTest extends TestCase
         $this->service = new RestaurantWebsiteScraperService;
         Cache::flush();
         // Guard ON (the default) — these tests verify it.
+    }
+
+    protected function tearDown(): void
+    {
+        SsrfGuard::resolveUsing(null);
+        parent::tearDown();
+    }
+
+    /**
+     * spec-103: the actual fetch must carry a CURLOPT_RESOLVE pin for the IP the
+     * guard validated, so the transport can't re-resolve (rebind) the host. The
+     * fake resolver keeps this DNS-independent.
+     */
+    public function test_fetch_pins_the_validated_ip_via_curl_resolve(): void
+    {
+        SsrfGuard::resolveUsing(fn () => ['93.184.216.34']);
+
+        $resolves = [];
+        Http::fake(function ($request, $options) use (&$resolves) {
+            $resolves[] = $options['curl'][CURLOPT_RESOLVE] ?? null;
+
+            return Http::response('<html><body><div itemprop="openingHours">Mo-Fr 09:00-17:00</div></body></html>', 200);
+        });
+
+        $result = $this->service->scrape('https://restaurant.test/');
+
+        $this->assertIsArray($result);
+        $this->assertNotEmpty($resolves, 'at least the page fetch happened');
+        foreach ($resolves as $resolve) {
+            $this->assertSame(['restaurant.test:443:93.184.216.34'], $resolve);
+        }
+    }
+
+    /**
+     * spec-103: if the host re-resolves to a private address on a LATER lookup
+     * (the rebinding flip), the fetch is blocked rather than sent unpinned.
+     */
+    public function test_rebinding_flip_to_private_blocks_the_fetch(): void
+    {
+        $calls = 0;
+        SsrfGuard::resolveUsing(function () use (&$calls): array {
+            $calls++;
+
+            return $calls === 1 ? ['93.184.216.34'] : ['127.0.0.1'];
+        });
+
+        Http::fake(['*' => Http::response('<html>ok</html>', 200)]);
+
+        $this->assertNull($this->service->scrape('https://rebind.test/'));
+    }
+
+    /** The kill-switch must disable pinning too (not just the pre-fetch check). */
+    public function test_kill_switch_disables_pinning(): void
+    {
+        Config::set('restaurant-finder.website_scraper.ssrf_guard', false);
+        SsrfGuard::resolveUsing(fn () => ['93.184.216.34']);
+
+        $sawCurlOption = false;
+        Http::fake(function ($request, $options) use (&$sawCurlOption) {
+            if (isset($options['curl'])) {
+                $sawCurlOption = true;
+            }
+
+            return Http::response('<html><body><div itemprop="openingHours">Mo-Fr 09:00-17:00</div></body></html>', 200);
+        });
+
+        $this->service->scrape('https://restaurant.test/');
+
+        $this->assertFalse($sawCurlOption, 'guard off → no CURLOPT_RESOLVE pin');
     }
 
     private function assertNoFetch(callable $scrape): void

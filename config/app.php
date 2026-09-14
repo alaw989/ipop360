@@ -56,6 +56,40 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Trusted Hosts
+    |--------------------------------------------------------------------------
+    |
+    | Host names the app will answer for. Any request whose effective Host
+    | header is not in this list is rejected by the TrustHosts middleware before
+    | a controller can reflect it into `next_page_url` or the Inertia/Ziggy
+    | `location` prop (spec-103 host-header injection). Set TRUSTED_HOSTS as a
+    | comma-separated list in prod; when unset the list is derived from APP_URL
+    | (apex + www) plus localhost for local/test. An empty list disables the
+    | check entirely.
+    |
+    */
+
+    'trusted_hosts' => (function (): array {
+        $env = array_filter(array_map('trim', explode(',', (string) env('TRUSTED_HOSTS', ''))));
+        if ($env !== []) {
+            return array_values(array_map('strtolower', $env));
+        }
+
+        $appHost = parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST) ?: 'localhost';
+        $appHost = strtolower($appHost);
+
+        $hosts = [$appHost];
+        if ($appHost !== 'localhost' && ! str_starts_with($appHost, 'www.') && filter_var($appHost, FILTER_VALIDATE_IP) === false) {
+            $hosts[] = 'www.'.$appHost;
+        }
+        $hosts[] = 'localhost';
+        $hosts[] = '127.0.0.1';
+
+        return array_values(array_unique($hosts));
+    })(),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

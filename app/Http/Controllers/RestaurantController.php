@@ -508,6 +508,10 @@ class RestaurantController extends Controller
 
         $hasNext = $paginate && $effectivePage < $lastPage;
 
+        // spec-103: tag the request so LogApiRequest reads this flag instead of
+        // json_decoding the (possibly multi-MB, cache-warm) response body.
+        $request->attributes->set('is_live', true);
+
         return response()->json([
             'data' => LiveRestaurantResource::collection($slice)->resolve(),
             'current_page' => $effectivePage,

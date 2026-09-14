@@ -21,15 +21,12 @@ class LogApiRequest
 
         // Only log JSON API responses
         if ($response->headers->get('content-type') === 'application/json') {
-            $content = json_decode($response->getContent(), true);
-            $isLive = $content['is_live'] ?? false;
-
             Log::info('API Request', [
                 'path' => $request->path(),
                 'method' => $request->method(),
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
-                'is_live' => $isLive,
+                'is_live' => $request->attributes->get('is_live', false),
                 'query_params' => $request->query->all(),
             ]);
         }
