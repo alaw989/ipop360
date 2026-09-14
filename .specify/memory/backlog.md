@@ -745,8 +745,14 @@ Wikidata item within ~150 m carrying the same file as its P18.
 - **Nuance:** "unverified" means *location unconfirmed*, not *provably wrong* —
   a correct restaurant photo with no Commons geodata lands there. Quarantine is
   fully reversible (`restaurants:integrity --restore=wikimedia_name_only_match`).
-- **Pending operator decision:** run the full `--apply` to quarantine the 2,948
-  unverified (reversible), or hold.
+- **✅ Bulk `--apply` run (2026-09-13, operator-approved).** Fresh backup first
+  (`/root/backups/ipop360-pre-wikimedia-apply-20260914T000338Z.sql.gz`), then a
+  full `--apply`: **2,351 unverified photos quarantined**, 1,278 galleries
+  stripped (2,370 photo_url + 1,295 gallery entries total with the earlier
+  bounded run). The remaining 2,838 rows were `uncheckable` (Commons 429 after
+  500 batch-fetched files) and were **left untouched** — no photo was removed
+  without a conclusive lookup. 2,854 active Wikimedia photos remain for a later
+  pass once the rate limit clears. / and `/search` 200.
 
 ### 20. Check PR 1's first daily run (after 2026-09-13 11:45 UTC)
 `restaurants:backfill-websites` should have:
