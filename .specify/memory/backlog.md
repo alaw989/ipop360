@@ -753,6 +753,12 @@ Wikidata item within ~150 m carrying the same file as its P18.
   500 batch-fetched files) and were **left untouched** — no photo was removed
   without a conclusive lookup. 2,854 active Wikimedia photos remain for a later
   pass once the rate limit clears. / and `/search` 200.
+- **Second pass (2026-09-13/14, after the 429 cleared).** The remaining 2,853
+  rows ran in 3m22s (rate-limited rows now fail fast instead of falling back to
+  per-row requests): **657 more quarantined**, 376 galleries stripped. Totals
+  now **3,027 `photo_url` + 1,671 gallery entries**; **2,200 active Wikimedia
+  photos remain** (Commons capped the run at 350 batch-fetched files again).
+  Repeat after cooldowns to finish.
 
 ### 20. Check PR 1's first daily run (after 2026-09-13 11:45 UTC)
 `restaurants:backfill-websites` should have:
