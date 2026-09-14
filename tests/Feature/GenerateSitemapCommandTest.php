@@ -191,14 +191,14 @@ class GenerateSitemapCommandTest extends TestCase
         $index = file_get_contents(public_path('sitemap.xml'));
         $this->assertIsString($index);
         $this->assertStringContainsString('<sitemapindex', $index);
-        $this->assertStringContainsString('<loc>http://example.com/sitemap-restaurants-1.xml</loc>', $index);
-        $this->assertStringContainsString('<loc>http://example.com/sitemap-restaurants-2.xml</loc>', $index);
-        $this->assertStringContainsString('<loc>http://example.com/sitemap-pages.xml</loc>', $index);
-        $this->assertStringContainsString('<loc>http://example.com/sitemap-blog.xml</loc>', $index);
+        $this->assertStringContainsString('<loc>http://example.com/sitemaps/sitemap-restaurants-1.xml</loc>', $index);
+        $this->assertStringContainsString('<loc>http://example.com/sitemaps/sitemap-restaurants-2.xml</loc>', $index);
+        $this->assertStringContainsString('<loc>http://example.com/sitemaps/sitemap-pages.xml</loc>', $index);
+        $this->assertStringContainsString('<loc>http://example.com/sitemaps/sitemap-blog.xml</loc>', $index);
         $this->assertStringNotContainsString('<urlset', $index);
 
-        $chunkOne = file_get_contents(public_path('sitemap-restaurants-1.xml'));
-        $chunkTwo = file_get_contents(public_path('sitemap-restaurants-2.xml'));
+        $chunkOne = file_get_contents(public_path('sitemaps/sitemap-restaurants-1.xml'));
+        $chunkTwo = file_get_contents(public_path('sitemaps/sitemap-restaurants-2.xml'));
         $this->assertIsString($chunkOne);
         $this->assertIsString($chunkTwo);
 
@@ -215,7 +215,8 @@ class GenerateSitemapCommandTest extends TestCase
     {
         // spec-110: a chunk that no longer has content (corpus shrank, chunk
         // count changed) must not linger as a stale, crawlable file.
-        file_put_contents(public_path('sitemap-restaurants-99.xml'), '<urlset></urlset>');
+        @mkdir(public_path('sitemaps'), 0777, true);
+        file_put_contents(public_path('sitemaps/sitemap-restaurants-99.xml'), '<urlset></urlset>');
 
         Restaurant::factory()->create(['slug' => 'lonely-bistro', 'is_active' => true]);
 
@@ -227,6 +228,6 @@ class GenerateSitemapCommandTest extends TestCase
         $content = file_get_contents(public_path('sitemap.xml'));
         $this->assertIsString($content);
         $this->assertStringContainsString('<urlset', $content);
-        $this->assertFileDoesNotExist(public_path('sitemap-restaurants-99.xml'));
+        $this->assertFileDoesNotExist(public_path('sitemaps/sitemap-restaurants-99.xml'));
     }
 }

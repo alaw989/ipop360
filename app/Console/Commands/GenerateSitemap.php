@@ -18,6 +18,14 @@ class GenerateSitemap extends Command
      */
     private const DEFAULT_CHUNK_SIZE = 40000;
 
+    /**
+     * Subdirectory of public/ where the per-kind chunk files live. It must be
+     * pre-created and owned by the runtime user (www-data) at deploy time,
+     * because public/ itself is owned by the deploy user and not writable by
+     * www-data — writing new files there fails (deploy.yml creates the dir).
+     */
+    private const CHILDREN_DIR = 'sitemaps';
+
     protected $signature = 'seo:sitemap';
 
     protected $description = 'Generate sitemap.xml for SEO';
@@ -25,20 +33,35 @@ class GenerateSitemap extends Command
     public function handle(): int
     {
         $sitemapPath = public_path('sitemap.xml');
+        $childrenDir = public_path(self::CHILDREN_DIR);
         $baseUrl = rtrim((string) config('app.url'), '/');
         $chunkSize = max(1, (int) config('restaurant-finder.seo.sitemap_chunk_size', self::DEFAULT_CHUNK_SIZE));
 
         [$indexXml, $children] = $this->build($baseUrl, $chunkSize);
+
+        // The chunk dir is normally pre-created (www-data-owned) at deploy time;
+        // create it here too for local/dev/test, where public/ is writable.
+        if (! is_dir($childrenDir)) {
+            @mkdir($childrenDir, 0775, true);
+        }
 
         // Remove stale children BEFORE writing the current set: a shrinking
         // corpus (fewer chunks) must not leave orphaned, crawlable files behind.
         $this->removeStaleChunkFiles(array_keys($children));
 
         foreach ($children as $name => $xml) {
-            file_put_contents(public_path($name), $xml);
+            if (file_put_contents($childrenDir.'/'.$name, $xml) === false) {
+                $this->error("Failed to write sitemap chunk: {$childrenDir}/{$name}");
+
+                return self::FAILURE;
+            }
         }
 
-        file_put_contents($sitemapPath, $indexXml);
+        if (file_put_contents($sitemapPath, $indexXml) === false) {
+            $this->error("Failed to write sitemap: {$sitemapPath}");
+
+            return self::FAILURE;
+        }
 
         $this->info("Sitemap generated at: {$sitemapPath}");
 
@@ -194,7 +217,7 @@ class GenerateSitemap extends Command
 
         foreach ($files as $file) {
             $xml .= '  <sitemap>'."\n";
-            $xml .= '    <loc>'.htmlspecialchars($baseUrl.'/'.$file).'</loc>'."\n";
+            $xml .= '    <loc>'.htmlspecialchars($baseUrl.'/'.self::CHILDREN_DIR.'/'.$file).'</loc>'."\n";
             $xml .= '    <lastmod>'.$lastmod.'</lastmod>'."\n";
             $xml .= '  </sitemap>'."\n";
         }
@@ -209,7 +232,7 @@ class GenerateSitemap extends Command
      */
     private function removeStaleChunkFiles(array $keep): void
     {
-        foreach (glob(public_path('sitemap-*.xml')) ?: [] as $path) {
+        foreach (glob(public_path(self::CHILDREN_DIR).'/sitemap-*.xml') ?: [] as $path) {
             if (! in_array(basename($path), $keep, true)) {
                 @unlink($path);
             }
