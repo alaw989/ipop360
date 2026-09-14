@@ -19,7 +19,19 @@ jobs:
 
     steps:
       - name: Checkout code
+        # Full history (fetch-depth: 0) so gitleaks can resolve the PR's
+        # base^..head range — a shallow clone makes base^ "unknown revision" and
+        # aborts the scan.
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks (secret scanning)
+        # spec-103: secret scanning must gate the PR, not only push-to-master —
+        # otherwise a leaked secret lands on master before anyone sees it.
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
