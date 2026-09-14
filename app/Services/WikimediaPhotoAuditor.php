@@ -42,6 +42,12 @@ class WikimediaPhotoAuditor
     /** Commons accepts up to 50 titles per query. */
     private const BATCH_SIZE = 50;
 
+    /** Attempts per batch before a transient failure fails just that chunk. */
+    private const BATCH_ATTEMPTS = 3;
+
+    /** Backoff between batch attempts (0.5 s). */
+    private const BATCH_RETRY_DELAY_MICROS = 500_000;
+
     /** Commons file coordinate lookups are stable; cache them for 30 days. */
     private const CACHE_TTL_DAYS = 30;
 
@@ -86,12 +92,12 @@ class WikimediaPhotoAuditor
         }
 
         foreach (array_chunk($missing, self::BATCH_SIZE) as $chunk) {
-            $fetched = $this->fetchCommonsBatch($chunk);
+            $result = $this->fetchCommonsBatchWithRetry($chunk);
 
-            if ($fetched === null) {
-                // Rate limited / API down. Mark every title not yet resolved as
-                // failed so audit() never falls back to one request per row
-                // (which hammered Commons for 22 minutes on the first full run).
+            if ($result['status'] === 'rate_limited') {
+                // 429: mark every title not yet resolved as failed so audit()
+                // never falls back to one request per row (which hammered
+                // Commons for 22 minutes on the first full run), then stop.
                 foreach ($missing as $filename) {
                     if (! array_key_exists($filename, $this->commonsCache)) {
                         $this->commonsCache[$filename] = ['status' => 'failed'];
@@ -102,8 +108,20 @@ class WikimediaPhotoAuditor
                 break;
             }
 
+            if ($result['status'] === 'error') {
+                // A persistent transient error fails only this chunk; later
+                // chunks still get their chance instead of the whole run dying.
+                foreach ($chunk as $filename) {
+                    $this->commonsCache[$filename] = ['status' => 'failed'];
+                    $stats['failed']++;
+                }
+
+                continue;
+            }
+
+            $lookups = $result['lookups'] ?? [];
             foreach ($chunk as $filename) {
-                $lookup = $fetched[self::normalizeTitle($filename)] ?? ['status' => 'none'];
+                $lookup = $lookups[self::normalizeTitle($filename)] ?? ['status' => 'none'];
                 $this->commonsCache[$filename] = $lookup;
                 Cache::put(self::cacheKey($filename), $lookup, now()->addDays(self::CACHE_TTL_DAYS));
                 $stats['fetched']++;
@@ -211,14 +229,36 @@ class WikimediaPhotoAuditor
     }
 
     /**
-     * One batched Commons query for up to BATCH_SIZE file titles. Returns
-     * normalized-title => lookup, or null when the request failed / was
-     * rate-limited (the caller marks those titles failed, never "none").
+     * Retry a batch a few times on a transient failure; a 429 is returned
+     * immediately (the caller stops the run).
      *
      * @param  list<string>  $filenames
-     * @return array<string, array{status: string, lat?: float, lng?: float}>|null
+     * @return array{status: 'ok'|'rate_limited'|'error', lookups?: array<string, array{status: string, lat?: float, lng?: float}>}
      */
-    private function fetchCommonsBatch(array $filenames): ?array
+    private function fetchCommonsBatchWithRetry(array $filenames): array
+    {
+        for ($attempt = 1; $attempt <= self::BATCH_ATTEMPTS; $attempt++) {
+            $result = $this->fetchCommonsBatch($filenames);
+
+            if ($result['status'] !== 'error') {
+                return $result;
+            }
+
+            if ($attempt < self::BATCH_ATTEMPTS) {
+                $this->batchRetryDelay();
+            }
+        }
+
+        return ['status' => 'error'];
+    }
+
+    /**
+     * One batched Commons query for up to BATCH_SIZE file titles.
+     *
+     * @param  list<string>  $filenames
+     * @return array{status: 'ok'|'rate_limited'|'error', lookups?: array<string, array{status: string, lat?: float, lng?: float}>}
+     */
+    private function fetchCommonsBatch(array $filenames): array
     {
         $titles = implode('|', array_map(fn (string $name): string => 'File:'.$name, $filenames));
 
@@ -233,8 +273,12 @@ class WikimediaPhotoAuditor
                     'origin' => '*',
                 ]);
 
+            if ($response->status() === 429) {
+                return ['status' => 'rate_limited'];
+            }
+
             if (! $response->successful()) {
-                return null;
+                return ['status' => 'error'];
             }
 
             $pages = $response->json()['query']['pages'] ?? [];
@@ -253,14 +297,22 @@ class WikimediaPhotoAuditor
                     : ['status' => 'none'];
             }
 
-            return $lookups;
+            return ['status' => 'ok', 'lookups' => $lookups];
         } catch (\Throwable $e) {
             Log::debug('Commons batch coordinates lookup failed', [
                 'count' => count($filenames),
                 'message' => $e->getMessage(),
             ]);
 
-            return null;
+            return ['status' => 'error'];
+        }
+    }
+
+    private function batchRetryDelay(): void
+    {
+        // A real backoff in production; tests must not sleep.
+        if (! app()->runningUnitTests()) {
+            usleep(self::BATCH_RETRY_DELAY_MICROS);
         }
     }
 
