@@ -310,8 +310,9 @@ the rest to opencode.
   (operator-approved): 2,351 unverified photos quarantined, 1,278 galleries
   stripped — 2,370 photo_url + 1,295 gallery entries total; the 2,838
   rate-limited `uncheckable` rows were left untouched.** Reversible via
-  `restaurants:integrity --restore=wikimedia_name_only_match`; 2,854 active
-  Wikimedia photos remain for a later pass.
+  `restaurants:integrity --restore=wikimedia_name_only_match`. A second pass
+  after the 429 cleared added **657 more (3,027 photo_url + 1,671 gallery
+  entries total)**; **2,200 active Wikimedia photos remain** for further passes.
 
   Hand-built with TDD (the `opencode-loop` harness is no longer on this
   machine), each on its own branch, full gate after each, no push until the
