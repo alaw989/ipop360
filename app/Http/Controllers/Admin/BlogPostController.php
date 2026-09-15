@@ -50,8 +50,7 @@ class BlogPostController extends Controller
         if (! $user) {
             return redirect()->route('login');
         }
-        assert($user->id >= 0);
-        $post->author_id = $user->id;
+        $post->author()->associate($user);
         $post->save();
 
         if (($data['status'] ?? null) === 'published') {
@@ -122,7 +121,7 @@ class BlogPostController extends Controller
             'excerpt' => ['required', 'string', 'max:500'],
             'category' => ['nullable', 'string', 'max:100'],
             'body' => ['required', 'string'],
-            'featured_image' => ['nullable', 'string', 'max:2048'],
+            'featured_image' => ['nullable', 'url:http,https', 'max:2048'],
             'is_featured' => ['boolean'],
             'status' => ['required', 'in:draft,published'],
         ]);

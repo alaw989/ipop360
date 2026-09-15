@@ -415,4 +415,126 @@ class BlogAdminTest extends TestCase
 
         $this->assertDatabaseMissing('blog_posts', ['id' => $post->id]);
     }
+
+    public function test_renaming_a_draft_regenerates_its_slug(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post('/admin/blog', [
+            'title' => 'Original Draft Title',
+            'excerpt' => 'A draft.',
+            'body' => '<p>Body</p>',
+            'status' => 'draft',
+        ])->assertRedirect(route('admin.blog.index'));
+
+        $post = BlogPost::where('title', 'Original Draft Title')->firstOrFail();
+        $this->assertSame('original-draft-title', $post->slug);
+
+        $this->actingAs($admin)->put("/admin/blog/{$post->id}", [
+            'title' => 'Renamed Draft Title',
+            'excerpt' => 'A draft.',
+            'body' => '<p>Body</p>',
+            'status' => 'draft',
+        ])->assertRedirect();
+
+        $post->refresh();
+        $this->assertSame('Renamed Draft Title', $post->title);
+        $this->assertSame('renamed-draft-title', $post->slug);
+    }
+
+    public function test_renaming_a_published_post_keeps_its_slug(): void
+    {
+        $admin = $this->admin();
+        $post = BlogPost::factory()->create([
+            'author_id' => $admin->id,
+            'status' => 'published',
+            'published_at' => now()->subDay(),
+            'slug' => 'stable-public-url',
+        ]);
+
+        $this->actingAs($admin)->put("/admin/blog/{$post->id}", [
+            'title' => 'Brand New Title',
+            'excerpt' => $post->excerpt,
+            'body' => $post->body,
+            'status' => 'published',
+        ])->assertRedirect();
+
+        $post->refresh();
+        $this->assertSame('Brand New Title', $post->title);
+        $this->assertSame('stable-public-url', $post->slug);
+    }
+
+    public function test_republishing_after_unpublishing_uses_a_fresh_publish_date(): void
+    {
+        $admin = $this->admin();
+        $post = BlogPost::factory()->create([
+            'author_id' => $admin->id,
+            'status' => 'published',
+            'published_at' => now()->subWeek(),
+        ]);
+
+        $this->actingAs($admin)->put("/admin/blog/{$post->id}", [
+            'title' => $post->title,
+            'excerpt' => $post->excerpt,
+            'body' => $post->body,
+            'status' => 'draft',
+        ])->assertRedirect();
+
+        $post->refresh();
+        $this->assertSame('draft', $post->status);
+
+        $this->actingAs($admin)->put("/admin/blog/{$post->id}", [
+            'title' => $post->title,
+            'excerpt' => $post->excerpt,
+            'body' => $post->body,
+            'status' => 'published',
+        ])->assertRedirect();
+
+        $post->refresh();
+        $this->assertSame('published', $post->status);
+        $this->assertTrue($post->published_at->isToday());
+    }
+
+    public function test_featured_image_must_be_an_http_url(): void
+    {
+        $this->actingAs($this->admin())->post('/admin/blog', [
+            'title' => 'Bad Image Post',
+            'excerpt' => 'Has a bad image.',
+            'body' => '<p>Body</p>',
+            'featured_image' => 'javascript:alert(1)',
+            'status' => 'draft',
+        ])->assertSessionHasErrors(['featured_image']);
+    }
+
+    public function test_featured_image_accepts_an_https_url(): void
+    {
+        $this->actingAs($this->admin())->post('/admin/blog', [
+            'title' => 'Good Image Post',
+            'excerpt' => 'Has a good image.',
+            'body' => '<p>Body</p>',
+            'featured_image' => 'https://example.com/photo.jpg',
+            'status' => 'draft',
+        ])->assertRedirect(route('admin.blog.index'));
+
+        $this->assertDatabaseHas('blog_posts', [
+            'title' => 'Good Image Post',
+            'featured_image' => 'https://example.com/photo.jpg',
+        ]);
+    }
+
+    public function test_featured_image_empty_string_is_allowed(): void
+    {
+        // The admin form submits featured_image: '' when the field is left blank
+        // (Edit.vue defaults it to ''), so the url rule must not reject it.
+        $this->actingAs($this->admin())->post('/admin/blog', [
+            'title' => 'No Image Post',
+            'excerpt' => 'No image.',
+            'body' => '<p>Body</p>',
+            'featured_image' => '',
+            'status' => 'draft',
+        ])->assertRedirect(route('admin.blog.index'));
+
+        $post = BlogPost::where('title', 'No Image Post')->firstOrFail();
+        $this->assertNull($post->featured_image);
+    }
 }
