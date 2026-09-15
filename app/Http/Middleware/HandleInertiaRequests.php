@@ -52,6 +52,13 @@ class HandleInertiaRequests extends Middleware
             ],
             'userCoords' => $request->session()->get('user_coords'),
             'serpapi_exhausted' => fn () => app(SerpApiService::class)->isProviderExhausted(),
+            // spec-115: single source of the canonical origin for SSR-visible
+            // canonicals (useBaseUrl) and the noindex directive, so a non-prod
+            // render can never point at the production domain.
+            'seo' => [
+                'base_url' => rtrim((string) config('app.url'), '/'),
+                'noindex' => SeoRobots::isNoindex($request),
+            ],
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),

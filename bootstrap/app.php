@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogApiRequest;
+use App\Http\Middleware\SeoRobots;
 use App\Http\Middleware\TrustHosts;
 use App\Http\Middleware\VerifiedWhenConfigured;
 use Illuminate\Foundation\Application;
@@ -31,6 +32,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+        ]);
+
+        // spec-115: must run before HandleInertiaRequests so its shared
+        // `seo.noindex` prop reads this request attribute.
+        $middleware->web(prepend: [
+            SeoRobots::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [

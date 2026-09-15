@@ -10,6 +10,13 @@
              render fully visible instead of being stuck at opacity:0. -->
         <script>document.documentElement.classList.replace('no-js', 'js')</script>
 
+        <!-- spec-115: noindex for pages that can never rank (auth pages,
+             parameter-heavy search, favorites). Server-rendered so crawlers
+             that don't execute JavaScript still see it. -->
+        @if (($page['props']['seo']['noindex'] ?? false) === true)
+            <meta name="robots" content="noindex, nofollow" />
+        @endif
+
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
         <!-- Favicon -->

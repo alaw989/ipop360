@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { useBaseUrl } from '@/composables/useBaseUrl';
 
 describe('useBaseUrl (client)', () => {

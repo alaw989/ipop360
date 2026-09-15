@@ -13,12 +13,17 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RestaurantController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\ServeRobots;
 use App\Http\Controllers\ThumbnailController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', HomeController::class);
 Route::get('/search', SearchController::class);
+
+// spec-115: config-driven so the sitemap URL and the Disallow list can never
+// drift from the deployed environment (the old static file hardcoded prod).
+Route::get('/robots.txt', ServeRobots::class);
 
 // Generated card thumbnails (restaurants:photo-thumbnails). The file name
 // embeds the restaurant id + photo hash; the controller re-validates both.

@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // useSeo() calls usePage(); the JSON-LD generators don't, but mocking the
-// Inertia import once keeps every test self-contained.
-vi.mock('@inertiajs/vue3', () => ({ usePage: () => ({ props: {} }) }));
+// Inertia import once keeps every test self-contained. Tests can override
+// the shared props via `pageProps` (spec-115's noindex contract).
+const pageProps: { seo?: { noindex?: boolean; base_url?: string } } = {};
+vi.mock('@inertiajs/vue3', () => ({ usePage: () => ({ props: pageProps }) }));
 
 import {
     useSeo,
@@ -128,6 +130,26 @@ describe('useSeo canonical-URL stripping', () => {
     it('honors an explicit noindex flag', () => {
         const { noindex } = useSeo({ title: 'T', description: 'D', noindex: true });
         expect(noindex).toBe(true);
+    });
+
+    it('takes noindex from the shared seo prop when the route is server-tagged', () => {
+        pageProps.seo = { noindex: true };
+
+        try {
+            expect(useSeo({ title: 'T', description: 'D' }).noindex).toBe(true);
+        } finally {
+            delete pageProps.seo;
+        }
+    });
+
+    it('stays indexable when the shared prop has no noindex tag', () => {
+        pageProps.seo = { noindex: false };
+
+        try {
+            expect(useSeo({ title: 'T', description: 'D' }).noindex).toBe(false);
+        } finally {
+            delete pageProps.seo;
+        }
     });
 
     it('defaults twitter card to summary, large image when an image is supplied', () => {

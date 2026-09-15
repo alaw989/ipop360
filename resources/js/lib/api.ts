@@ -3,6 +3,8 @@
  * A thin fetch wrapper with JSON parsing, base URL, and error handling.
  */
 
+import { resolveBaseUrl } from '@/lib/baseUrl';
+
 interface ApiRequestOptions {
     method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     body?: Record<string, unknown> | FormData | string;
@@ -16,12 +18,12 @@ interface ApiErrorResponse {
 
 /**
  * Get the base URL for API requests (SSR-safe).
+ *
+ * SSR reads the shared `seo.base_url` Inertia prop (spec-115) rather than a
+ * hardcoded domain; the browser always uses its own origin.
  */
 export function getBaseUrl(): string {
-    if (typeof window !== 'undefined') {
-        return `${window.location.protocol}//${window.location.host}`;
-    }
-    return 'https://ipop360.com';
+    return resolveBaseUrl();
 }
 
 /**
