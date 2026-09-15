@@ -8,6 +8,7 @@ use App\Models\CuisineCategory;
 use App\Models\Restaurant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -76,6 +77,34 @@ class HomeControllerTest extends TestCase
             ->assertJsonStructure(['*' => ['id', 'name', 'slug', 'icon', 'cuisines']])
             ->assertJsonStructure(['1' => ['cuisines' => ['*' => ['id', 'name', 'slug', 'icon']]]]);
         $this->assertStringContainsString('max-age=3600', (string) $response->headers->get('Cache-Control'));
+    }
+
+    public function test_cuisine_categories_endpoint_survives_a_serializing_cache_store(): void
+    {
+        // Prod caches /api/cuisine-categories under a serializing store
+        // (database) with serializable_classes=false, so any Collection left in
+        // the cached payload unserializes as __PHP_Incomplete_Class. The default
+        // test store is `array` (serialize=false), which never exercises that
+        // round-trip — force `file` (a serializing store) to reproduce it.
+        config(['cache.default' => 'file']);
+        Cache::flush();
+
+        $asian = CuisineCategory::factory()->create(['name' => 'Asian', 'slug' => 'asian', 'sort_order' => 1]);
+        Cuisine::factory()->count(2)->create(['category_id' => $asian->id]);
+
+        // First request warms the cache (returns the raw, uncorrupted value).
+        // The second reads back through the serializing store's unserialize —
+        // the round-trip that turns any lingering Collection into
+        // __PHP_Incomplete_Class.
+        $this->getJson('/api/cuisine-categories')->assertOk();
+        $response = $this->getJson('/api/cuisine-categories');
+
+        $response->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonCount(2, '0.cuisines')
+            ->assertJsonStructure([
+                '*' => ['id', 'name', 'slug', 'icon', 'cuisines' => ['*' => ['id', 'name', 'slug', 'icon']]],
+            ]);
     }
 
     public function test_categories_are_ordered_by_sort_order(): void
