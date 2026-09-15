@@ -1192,13 +1192,23 @@ removed 159 right addresses for disagreeing with a wrong state.
      `www` → 200, `next_page_url` on the trusted host, pre-migrate backup written
      (15.7 MB gz), cron check green, `DEPLOY OK`.
 
-### After 093–103 ship: full-feature spec-conformance audit
+### ✅ Done (2026-09-15) — full-feature spec-conformance audit + fix series
 
-One pass through every feature domain of the app confirming it still
-performs as documented/intended — broader than the 2026-06-30 wave above,
-which only covered ranking/frontend/infra P2-P3 items and missed whole
-domains (homepage, admin, blog/CMS, auth, SEO) entirely. Not an
-opencode-loop goal — investigative/read-only, runs directly/interactively
+Ran 2026-09-15 exactly as scoped below (interactive, read-only pass; not a
+loop goal). Output: `docs/feature-audit-2026-09.md` — 6 domains OK, 4 drift,
+one live prod bug. Every finding triaged and fixed in five one-feature PRs,
+each merged + deployed + live-verified (details in the doc's fix log):
+
+- **spec-111** (#221) `/api/cuisine-categories` `__PHP_Incomplete_Class` bug.
+- **spec-112** (#222) blog slug/publish-date/image-validation/indexes.
+- **spec-113** (#223) auth verified-gate kill-switches + dead confirm-password removal.
+- **spec-114** (#224) homepage dead props + 14-field Trending payload + case-safe city scoping.
+- **spec-115** (#225) SEO: sitemap additions, server-side noindex, config-driven origins, dynamic robots.txt.
+
+Also refreshed the stale `constitution.md` scoring table and stack facts.
+Floor after: PHPUnit 1482, vitest 1132, PHPStan L8 zero.
+
+**Not an opencode-loop goal — investigative/read-only, runs directly/interactively**
 like the mobile-UX and bundle-size audits did (multi-session, given the
 scope below).
 
@@ -1240,6 +1250,24 @@ and a live-check result, not asserted from memory.
 domain, same shape as `docs/ranking-audit-2026-08.md`. Read-only pass — no
 fixes during the audit itself. Triage into new `specs/109+` files (or
 direct fixes for anything trivial) happens afterward, as its own step.
+
+---
+
+### Feature audit 2026-09 follow-up nits (not started — loop-eligible)
+
+The audit's triage table (`docs/feature-audit-2026-09.md`, findings #7–#8)
+left these lower-severity items unfixed. Small, mechanical, well-specified —
+a good single `opencode-loop` goal on `feat/audit-2026-09-nits`:
+
+- **Admin:** enforce a single active `featured_restaurants` row at the DB
+  level (currently only application logic); `User::role` enum cast instead of
+  `tryFrom` string compares; add a `created_by` relation.
+- **Engagement:** anonymous requests get no dedup on `POST /api/engage`
+  (authenticated users get a 60s dedup) — counters feed ranking signals.
+- **Geocode:** `searchCities()` sends no `User-Agent` while forward/reverse
+  do; `ipLookupFull()` interpolates `$request->ip()` into the ipapi.co URL
+  (SSRF gadget only if `TRUSTED_PROXIES` is misconfigured — likely a
+  allow-list/validation guard).
 
 ---
 

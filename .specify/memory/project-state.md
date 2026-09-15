@@ -3,7 +3,7 @@
 > Living snapshot for Claude (and humans) picking up this project. Read this
 > together with `constitution.md` and `backlog.md` at session start. Detailed
 > per-spec history lives in `history.md` (one-line-per-spec log) and
-> `history/` (deep-dive writeups). Updated: 2026-09-02.
+> `history/` (deep-dive writeups). Updated: 2026-09-15.
 >
 > **This file was trimmed 2026-08-22** — it had grown to 564 lines of
 > spec-by-spec narrative (specs 001–103) that duplicated `history.md`. The
@@ -129,6 +129,39 @@ assertions), 1079 vitest, PHPStan 0, Pint clean, master at `2b1f28e`, zero
 open PRs, all deploys green and live-verified (including a headless-browser
 repro of the spec-099 fast-back race and a droplet log check post-deploy for
 spec-100, the highest-risk item).
+
+## 2026-09-15 — 2026-09 feature audit complete; specs 111–115 shipped (PRs #221–225)
+
+Full-feature spec-conformance audit across all 10 domains (read-only,
+interactive — not a loop goal), output at `docs/feature-audit-2026-09.md`.
+Verdicts: 6 OK / 4 drift, including one live prod bug (the header cuisine
+search's `__PHP_Incomplete_Class` payload). All findings were fixed in five
+one-feature PRs, each CI-green → merged → deployed → **live-verified**:
+
+- **#221** cuisine-categories cache serialization (`->values()->all()`).
+- **#222** blog hardening (draft re-slug, fresh republish date, image URL
+  validation, 3 indexes — confirmed in prod `information_schema`).
+- **#223** auth verified-gate kill-switches (`verified.gate:<config.key>`,
+  per-request so `route:cache` can't freeze it; both flags default false) +
+  dead confirm-password flow removed.
+- **#224** homepage payload diet (dead `stats`/`popularCuisines` props and
+  their queries gone; 14-field Trending cards; case-insensitive city scoping;
+  `location` echoes stored casing).
+- **#225** SEO crawl surface (sitemap +`/leaderboard`/`/compare`
+  −`/login`/`/register`; server-side noindex for search/favorites/login/
+  register; config-driven canonical origin + dynamic `/robots.txt`).
+
+Remaining audit triage nits (admin single-featured constraint + `role` enum
+cast + `created_by`; engagement anonymous dedup, `searchCities` UA,
+`ipLookupFull` IP interpolation) are queued in `backlog.md` under "Feature
+audit 2026-09 follow-up nits". Also refreshed the stale `constitution.md`
+scoring table/stack facts this session.
+
+**Current floor (2026-09-15):** 1482 PHPUnit (+1 skipped, 6299 assertions) +
+1132 vitest; PHPStan level 8 zero baseline; pint clean; `vue-tsc` + build
+clean; CI + deploys green; zero open PRs.
+
+Deep-dive: `history/2026-09-15--feature-audit-fix-series.md`.
 
 ## In-flight work (check before starting anything new)
 
