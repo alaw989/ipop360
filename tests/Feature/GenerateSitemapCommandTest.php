@@ -49,9 +49,17 @@ class GenerateSitemapCommandTest extends TestCase
         $this->assertIsString($content);
 
         $this->assertStringContainsString('<loc>http://example.com/restaurants</loc>', $content);
-        $this->assertStringContainsString('<loc>http://example.com/login</loc>', $content);
-        $this->assertStringContainsString('<loc>http://example.com/register</loc>', $content);
         $this->assertStringContainsString('<loc>http://example.com/blog</loc>', $content);
+
+        // spec-115: /leaderboard and /compare are public and SEO-tagged but
+        // were missing from the sitemap.
+        $this->assertStringContainsString('<loc>http://example.com/leaderboard</loc>', $content);
+        $this->assertStringContainsString('<loc>http://example.com/compare</loc>', $content);
+
+        // spec-115: /login and /register are crawl-budget noise with no
+        // ranking value — no longer advertised (they also carry noindex).
+        $this->assertStringNotContainsString('<loc>http://example.com/login</loc>', $content);
+        $this->assertStringNotContainsString('<loc>http://example.com/register</loc>', $content);
 
         // spec-110: /favorites is auth-gated (crawlers get a login redirect), so
         // it must not be advertised. See the dedicated test below.
@@ -76,6 +84,22 @@ class GenerateSitemapCommandTest extends TestCase
         $this->assertStringNotContainsString('/favorites', $content);
         $this->assertStringNotContainsString('/dashboard', $content);
         $this->assertStringNotContainsString('/profile', $content);
+    }
+
+    public function test_excludes_noindex_pages_from_the_sitemap(): void
+    {
+        // spec-115: /search exposes a near-infinite parameter space
+        // (?cuisine=&lat=&lng=) and is served with noindex, so advertising it
+        // would invite crawl budget waste on URLs that can never rank.
+        /** @var PendingCommand $command */
+        $command = $this->artisan('seo:sitemap');
+        $command->assertSuccessful();
+        $command->run();
+
+        $content = file_get_contents(public_path('sitemap.xml'));
+        $this->assertIsString($content);
+
+        $this->assertStringNotContainsString('<loc>http://example.com/search</loc>', $content);
     }
 
     public function test_includes_cuisine_pages_from_database(): void

@@ -1,3 +1,5 @@
+import { usePage } from '@inertiajs/vue3';
+
 export interface SeoOptions {
     title: string;
     description: string;
@@ -5,6 +7,12 @@ export interface SeoOptions {
     image?: string;
     type?: 'website' | 'restaurant' | 'article';
     structuredData?: Record<string, unknown>;
+    /**
+     * Force noindex, overriding the server's route-level decision. Pages
+     * normally get noindex from the shared `seo.noindex` prop (spec-115,
+     * set server-side per path) — e.g. /search, /favorites, /login.
+     * Pass `true` only for per-page cases like live previews.
+     */
     noindex?: boolean;
 }
 
@@ -30,6 +38,21 @@ export function useSeo(options: SeoOptions) {
         // Keep raw URL on parse error
     }
 
+    // The server decides noindex per route (SeoRobots → shared prop); a page
+    // can still force it for per-page cases (live previews). Read through a
+    // function so a missing/partial jest-style page object can't throw.
+    const sharedNoindex = (): boolean => {
+        try {
+            const props = usePage().props as { seo?: { noindex?: boolean } };
+
+            return props.seo?.noindex === true;
+        } catch {
+            return false;
+        }
+    };
+
+    const noindex = options.noindex === true || sharedNoindex();
+
     const siteName = 'iPop360';
     const defaultImage = options.image || '/img/ipop360-og.png';
     const twitterCard = options.image ? 'summary_large_image' : 'summary';
@@ -37,7 +60,7 @@ export function useSeo(options: SeoOptions) {
     return {
         title: options.title,
         description: options.description,
-        noindex: options.noindex === true,
+        noindex,
         canonical: canonicalUrl,
         ogTitle: options.title,
         ogDescription: options.description,

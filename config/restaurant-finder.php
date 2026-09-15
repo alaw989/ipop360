@@ -1009,6 +1009,17 @@ return [
     */
     'seo' => [
         'sitemap_chunk_size' => (int) env('SEO_SITEMAP_CHUNK_SIZE', 40000),
+
+        // spec-115: pages that can never rank. Served with a server-side
+        // noindex meta (SeoRobots) AND written as robots.txt Disallow lines
+        // (ServeRobots). /search's near-infinite ?cuisine=&lat=&lng= space is
+        // the reason it's here rather than in the sitemap.
+        'noindex_paths' => [
+            'search',
+            'favorites',
+            'login',
+            'register',
+        ],
     ],
 
 ];

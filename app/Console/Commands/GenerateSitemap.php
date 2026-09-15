@@ -107,12 +107,14 @@ class GenerateSitemap extends Command
     {
         // Static pages. Auth/role-gated routes (/favorites, /dashboard,
         // /profile, /admin) are deliberately absent — crawlers only get a
-        // redirect.
+        // redirect. spec-115: /login and /register were dropped too (crawl-
+        // budget noise) and the equally-public /leaderboard and /compare
+        // were added; /search stays out (noindex, infinite parameter space).
         $staticPages = [
             ['url' => '/', 'changefreq' => 'daily', 'priority' => '1.0'],
             ['url' => '/restaurants', 'changefreq' => 'daily', 'priority' => '0.9'],
-            ['url' => '/login', 'changefreq' => 'monthly', 'priority' => '0.3'],
-            ['url' => '/register', 'changefreq' => 'monthly', 'priority' => '0.3'],
+            ['url' => '/leaderboard', 'changefreq' => 'daily', 'priority' => '0.8'],
+            ['url' => '/compare', 'changefreq' => 'weekly', 'priority' => '0.6'],
             ['url' => '/blog', 'changefreq' => 'weekly', 'priority' => '0.7'],
         ];
 
