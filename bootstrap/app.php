@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogApiRequest;
 use App\Http\Middleware\TrustHosts;
+use App\Http\Middleware\VerifiedWhenConfigured;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -40,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'log.api' => LogApiRequest::class,
             'role' => EnsureUserHasRole::class,
+            'verified.gate' => VerifiedWhenConfigured::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

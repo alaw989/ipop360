@@ -109,4 +109,23 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Email Verification Gates (spec-113)
+    |--------------------------------------------------------------------------
+    |
+    | spec-089 deferred the verified-email gate on favorites because the prod
+    | mailer is `log`: with no SMTP, nobody can verify, so an always-on gate
+    | would lock every user out. These kill-switches make the deferral
+    | flippable — enable only once real email delivery is confirmed working.
+    | Checked per-request (VerifiedWhenConfigured), so `route:cache` does not
+    | freeze the decision, but changing the env value does require a
+    | `config:cache` rebuild since config files are cached as a whole.
+    |
+    */
+
+    'require_verified_for_favorites' => env('AUTH_REQUIRE_VERIFIED_FOR_FAVORITES', false),
+
+    'require_verified_for_profile' => env('AUTH_REQUIRE_VERIFIED_FOR_PROFILE', false),
+
 ];
