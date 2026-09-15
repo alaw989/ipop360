@@ -45,6 +45,17 @@ class BlogPost extends Model
                 $post->slug = self::uniqueSlug($post->title);
             }
         });
+
+        static::updating(function (BlogPost $post) {
+            // Keep a never-published (draft) post's slug in sync with its title,
+            // but never change a published post's URL: it may already be linked,
+            // indexed, or shared, so link stability wins over title accuracy.
+            // A draft has no public URL (BlogController::show aborts unless
+            // published), so re-slugging one is safe.
+            if ($post->isDirty('title') && $post->published_at === null) {
+                $post->slug = self::uniqueSlug($post->title, $post->getKey());
+            }
+        });
     }
 
     /**
@@ -86,19 +97,25 @@ class BlogPost extends Model
 
     public function publish(): void
     {
+        // Publishing is always "now" — there is no scheduling UI, so a draft
+        // that is (re)published gets a fresh date rather than a stale one left
+        // over from a previous publish. Editing an already-published post does
+        // not call this, so its original date is preserved.
         $this->update([
             'status' => 'published',
-            'published_at' => $this->published_at ?? now(),
+            'published_at' => now(),
         ]);
     }
 
-    private static function uniqueSlug(string $title): string
+    private static function uniqueSlug(string $title, ?int $ignoreId = null): string
     {
         $base = Str::slug($title) ?: 'post';
         $slug = $base;
         $i = 2;
 
-        while (static::where('slug', $slug)->exists()) {
+        while (static::where('slug', $slug)
+            ->when($ignoreId !== null, fn ($q) => $q->where('id', '!=', $ignoreId))
+            ->exists()) {
             $slug = $base.'-'.$i++;
         }
 
