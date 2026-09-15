@@ -266,7 +266,7 @@ class HomeService
                 'name' => $c->name,
                 'slug' => $c->slug,
                 'icon' => $c->icon,
-            ]),
+            ])->values()->all(),
         ])->toArray();
 
         if (empty($result) && $city && $state) {
