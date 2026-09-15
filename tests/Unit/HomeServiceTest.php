@@ -11,9 +11,9 @@ use Tests\TestCase;
 
 /**
  * Contract for HomeService — the homepage data aggregation (trending
- * cascade, always-global popular cuisines, city-scoped categories)
- * extracted out of HomeController. Exercised directly here (no HTTP layer);
- * see tests/Feature/HomeControllerTest.php for the response-shape contract.
+ * cascade, city-scoped categories) extracted out of HomeController.
+ * Exercised directly here (no HTTP layer); see
+ * tests/Feature/HomeControllerTest.php for the response-shape contract.
  */
 class HomeServiceTest extends TestCase
 {
@@ -49,7 +49,7 @@ class HomeServiceTest extends TestCase
 
         $this->assertNull($data['location']);
         $this->assertCount(1, $data['popularRestaurants']);
-        $this->assertSame($global->id, $data['popularRestaurants']->first()->id);
+        $this->assertSame($global->id, $data['popularRestaurants'][0]['id']);
     }
 
     public function test_trending_falls_back_to_unfiltered_global_when_nothing_meets_the_floor(): void
@@ -66,7 +66,7 @@ class HomeServiceTest extends TestCase
 
         $this->assertNull($data['location']);
         $this->assertCount(1, $data['popularRestaurants']);
-        $this->assertSame($r->id, $data['popularRestaurants']->first()->id);
+        $this->assertSame($r->id, $data['popularRestaurants'][0]['id']);
     }
 
     public function test_trending_shows_at_most_one_card_per_restaurant_name(): void
@@ -105,48 +105,38 @@ class HomeServiceTest extends TestCase
         $data = $this->homeService->getHomepageData(null, null);
 
         $this->assertCount(1, $data['popularRestaurants']);
-        $this->assertSame($best->id, $data['popularRestaurants']->first()->id);
+        $this->assertSame($best->id, $data['popularRestaurants'][0]['id']);
     }
 
-    public function test_popular_cuisines_are_global_across_cities(): void
+    public function test_trending_cards_are_slim_plain_arrays(): void
     {
-        $category = CuisineCategory::factory()->create(['name' => 'Global', 'slug' => 'global']);
-        $cuisineA = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'cuisine-a']);
-        $cuisineB = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'cuisine-b']);
-
-        Restaurant::whereKey(Restaurant::factory()->create([
+        // spec-114: the Trending payload must be plain arrays limited to the
+        // fields the card renders — no Eloquent models, no column bloat.
+        $r = Restaurant::factory()->create([
+            'name' => 'Slim Pickings',
             'city' => 'Austin',
             'state' => 'TX',
             'is_active' => true,
             'popularity_score' => 0.9,
             'photo_url' => 'https://example.com/photo.jpg',
             'photo_source' => 'website',
-        ])->id)->firstOrFail()->cuisines()->attach($cuisineA);
+        ]);
 
-        Restaurant::whereKey(Restaurant::factory()->create([
-            'city' => 'Houston',
-            'state' => 'TX',
-            'is_active' => true,
-            'popularity_score' => 0.9,
-            'photo_url' => 'https://example.com/photo.jpg',
-            'photo_source' => 'website',
-        ])->id)->firstOrFail()->cuisines()->attach($cuisineA);
+        $data = $this->homeService->getHomepageData(null, null);
 
-        Restaurant::whereKey(Restaurant::factory()->create([
-            'city' => 'Dallas',
-            'state' => 'TX',
-            'is_active' => true,
-            'popularity_score' => 0.9,
-            'photo_url' => 'https://example.com/photo.jpg',
-            'photo_source' => 'website',
-        ])->id)->firstOrFail()->cuisines()->attach($cuisineB);
-
-        // Request scoped to Austin — popular cuisines must still count the
-        // Dallas + Houston restaurants' cuisines (always global, not city-scoped).
-        $data = $this->homeService->getHomepageData('Austin', 'Texas');
-
-        $this->assertCount(2, $data['popularCuisines']);
-        $this->assertSame(['cuisine-a', 'cuisine-b'], array_column($data['popularCuisines'], 'slug'));
+        $card = $data['popularRestaurants'][0];
+        $this->assertIsArray($card);
+        $this->assertSame(
+            [
+                'id', 'name', 'slug', 'photo_url', 'city', 'state',
+                'price_range', 'google_rating', 'google_review_count',
+                'yelp_rating', 'yelp_review_count', 'has_award',
+                'popularity_score', 'cuisines',
+            ],
+            array_keys($card)
+        );
+        $this->assertSame($r->id, $card['id']);
+        $this->assertIsArray($card['cuisines']);
     }
 
     public function test_categories_scope_to_city_and_fall_back_to_global_when_empty(): void

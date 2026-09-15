@@ -42,7 +42,9 @@ interface Location {
     state: string | null
 }
 
-interface Restaurant {
+// Slim Trending-card shape sent by HomeService::trendingCard() — NOT the full
+// Restaurant resource (no coordinates/description/bloat fields).
+interface TrendingRestaurant {
     id: number
     name: string
     slug: string
@@ -56,8 +58,6 @@ interface Restaurant {
     yelp_review_count: number
     has_award: boolean
     popularity_score: number
-    latitude: number | null
-    longitude: number | null
     cuisines: Array<{ id: number; name: string; slug: string }>
 }
 
@@ -74,7 +74,7 @@ interface BlogPost {
 }
 
 interface HomepageData {
-    popularRestaurants: Restaurant[]
+    popularRestaurants: TrendingRestaurant[]
     featuredRestaurant: Spotlight | null
     location: Location | null
 }
@@ -86,7 +86,7 @@ const props = defineProps<{
         city: string
         state: string
     }>
-    popularRestaurants: Restaurant[]
+    popularRestaurants: TrendingRestaurant[]
     featuredRestaurant: Spotlight | null
     latestPosts: BlogPost[]
 }>()
