@@ -148,48 +148,70 @@ class HomeControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonStructure([
             'categories',
-            'popularCuisines',
+            'popularCities',
             'popularRestaurants',
+            'featuredRestaurant',
             'location',
-            'stats',
         ]);
         $response->assertJsonCount(1, 'categories');
         $response->assertJsonCount(1, 'popularRestaurants');
     }
 
-    public function test_landing_page_passes_stats(): void
+    public function test_api_data_does_not_ship_dead_homepage_props(): void
     {
-        Cuisine::factory()->create();
-        Restaurant::factory()->count(3)->create(['city' => 'Austin', 'state' => 'TX', 'is_active' => true]);
-        Restaurant::factory()->create(['city' => 'Dallas', 'state' => 'TX', 'is_active' => true]);
-        Restaurant::factory()->create(['city' => 'Dallas', 'state' => 'TX', 'is_active' => false]);
-
-        $response = $this->get('/');
-
-        $response->assertInertia(fn ($page) => $page
-            ->where('stats.restaurants', 4)
-            ->where('stats.cuisines', 1)
-            ->where('stats.cities', 2)
-        );
-    }
-
-    public function test_api_data_returns_stats(): void
-    {
-        Cuisine::factory()->count(2)->create();
-        foreach (['Austin', 'Dallas', 'Houston', 'Miami', 'Denver'] as $city) {
-            Restaurant::factory()->create(['city' => $city, 'is_active' => true]);
-        }
+        // spec-114: stats/popularCuisines were computed (three uncached COUNTs
+        // for stats alone) and returned on every homepage request, but no
+        // component consumed either. They must not come back.
+        Restaurant::factory()->count(3)->create(['is_active' => true]);
 
         $response = $this->getJson('/api/homepage-data');
 
         $response->assertStatus(200);
-        $response->assertJson([
-            'stats' => [
-                'restaurants' => 5,
-                'cuisines' => 2,
-                'cities' => 5,
-            ],
+        $response->assertJsonMissingPath('stats');
+        $response->assertJsonMissingPath('popularCuisines');
+    }
+
+    public function test_trending_restaurants_ship_a_slim_card_payload(): void
+    {
+        // The Trending card renders name/photo/rating/price/cuisine only —
+        // shipping full models dragged photos, ai_metadata, score_breakdown
+        // and every other column along for ~18 cards.
+        $r = Restaurant::factory()->create([
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
+            'city' => 'Austin',
+            'state' => 'TX',
         ]);
+
+        $response = $this->getJson('/api/homepage-data');
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'popularRestaurants' => [[
+                'id',
+                'name',
+                'slug',
+                'photo_url',
+                'city',
+                'state',
+                'price_range',
+                'google_rating',
+                'google_review_count',
+                'yelp_rating',
+                'yelp_review_count',
+                'has_award',
+                'popularity_score',
+                'cuisines',
+            ]],
+        ]);
+
+        foreach (['description', 'address', 'photos', 'score_breakdown', 'ai_metadata', 'opening_hours', 'social_links', 'menu_url'] as $bloat) {
+            $response->assertJsonMissingPath("popularRestaurants.0.{$bloat}");
+        }
+
+        $response->assertJsonPath('popularRestaurants.0.id', $r->id);
     }
 
     public function test_api_data_scopes_to_city(): void
@@ -468,97 +490,6 @@ class HomeControllerTest extends TestCase
         ]);
     }
 
-    public function test_popular_cuisines_are_global_across_cities(): void
-    {
-        $category = CuisineCategory::factory()->create(['name' => 'Global', 'slug' => 'global']);
-        $cuisineA = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'cuisine-a']);
-        $cuisineB = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'cuisine-b']);
-
-        Restaurant::whereKey(Restaurant::factory()->create([
-            'city' => 'Austin',
-            'state' => 'TX',
-            'is_active' => true,
-            'popularity_score' => 0.9,
-            'photo_url' => 'https://example.com/photo.jpg',
-            'photo_source' => 'website',
-        ])->id)->firstOrFail()->cuisines()->attach($cuisineA);
-
-        // Second cuisine-a restaurant so the count is deterministic (2 vs 1).
-        Restaurant::whereKey(Restaurant::factory()->create([
-            'city' => 'Houston',
-            'state' => 'TX',
-            'is_active' => true,
-            'popularity_score' => 0.9,
-            'photo_url' => 'https://example.com/photo.jpg',
-            'photo_source' => 'website',
-        ])->id)->firstOrFail()->cuisines()->attach($cuisineA);
-
-        Restaurant::whereKey(Restaurant::factory()->create([
-            'city' => 'Dallas',
-            'state' => 'TX',
-            'is_active' => true,
-            'popularity_score' => 0.9,
-            'photo_url' => 'https://example.com/photo.jpg',
-            'photo_source' => 'website',
-        ])->id)->firstOrFail()->cuisines()->attach($cuisineB);
-
-        // Request scoped to Austin — popular cuisines must still count the
-        // Dallas + Houston restaurants' cuisines (always global, not city-scoped).
-        $response = $this->getJson('/api/homepage-data?city=Austin&state=Texas');
-
-        $response->assertStatus(200);
-        $response->assertJsonCount(1, 'popularRestaurants');
-        $response->assertJsonCount(2, 'popularCuisines');
-        $response->assertJson([
-            'popularCuisines' => [
-                ['slug' => 'cuisine-a'],
-                ['slug' => 'cuisine-b'],
-            ],
-        ]);
-    }
-
-    public function test_popular_cuisines_include_cuisines_from_non_trending_restaurants(): void
-    {
-        $category = CuisineCategory::factory()->create(['name' => 'Global', 'slug' => 'global']);
-        $trendingCuisine = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'trending-cuisine']);
-        $belowFloorCuisine = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'below-floor-cuisine']);
-
-        Restaurant::whereKey(Restaurant::factory()->create([
-            'is_active' => true,
-            'popularity_score' => 0.9,
-            'photo_url' => 'https://example.com/photo.jpg',
-            'photo_source' => 'website',
-        ])->id)->firstOrFail()->cuisines()->attach($trendingCuisine);
-
-        // Second trending-cuisine restaurant so the count is deterministic.
-        Restaurant::whereKey(Restaurant::factory()->create([
-            'is_active' => true,
-            'popularity_score' => 0.9,
-            'photo_url' => 'https://example.com/photo.jpg',
-            'photo_source' => 'website',
-        ])->id)->firstOrFail()->cuisines()->attach($trendingCuisine);
-
-        // Below the trending quality floor (no photo) — must STILL count for
-        // popular cuisines, which is global over all active restaurants.
-        Restaurant::whereKey(Restaurant::factory()->create([
-            'is_active' => true,
-            'popularity_score' => 0.1,
-            'photo_url' => null,
-        ])->id)->firstOrFail()->cuisines()->attach($belowFloorCuisine);
-
-        $response = $this->getJson('/api/homepage-data');
-
-        $response->assertStatus(200);
-        $response->assertJsonCount(2, 'popularRestaurants');
-        $response->assertJsonCount(2, 'popularCuisines');
-        $response->assertJson([
-            'popularCuisines' => [
-                ['slug' => 'trending-cuisine'],
-                ['slug' => 'below-floor-cuisine'],
-            ],
-        ]);
-    }
-
     public function test_trending_velocity_disabled_by_default_ignores_recent_engagement(): void
     {
         config(['restaurant-finder.trending.velocity_weight' => 0]);
@@ -686,5 +617,51 @@ class HomeControllerTest extends TestCase
             'location' => ['city' => 'Austin', 'state' => 'TX'],
             'popularRestaurants' => [['id' => $r->id]],
         ]);
+    }
+
+    public function test_api_data_matches_city_case_insensitively(): void
+    {
+        // Stored casing is inconsistent ("Atlanta" vs "atlanta") and GPS/IP
+        // geolocation can hand back either — a lowercase request must still
+        // find the Title-Case row (Restaurant::scopeInCity's contract), and
+        // location must echo the stored casing (it's rendered in a heading).
+        $r = Restaurant::factory()->create([
+            'city' => 'Atlanta',
+            'state' => 'GA',
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
+        ]);
+
+        $response = $this->getJson('/api/homepage-data?city=atlanta&state=ga');
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'popularRestaurants');
+        $response->assertJson([
+            'location' => ['city' => 'Atlanta', 'state' => 'GA'],
+            'popularRestaurants' => [['id' => $r->id]],
+        ]);
+    }
+
+    public function test_city_scoped_categories_match_city_case_insensitively(): void
+    {
+        $category = CuisineCategory::factory()->create(['name' => 'Case', 'slug' => 'case']);
+        $cuisine = Cuisine::factory()->create(['category_id' => $category->id, 'slug' => 'case-cuisine']);
+
+        Restaurant::whereKey(Restaurant::factory()->create([
+            'city' => 'Atlanta',
+            'state' => 'GA',
+            'is_active' => true,
+            'popularity_score' => 0.9,
+            'photo_url' => 'https://example.com/photo.jpg',
+            'photo_source' => 'website',
+        ])->id)->firstOrFail()->cuisines()->attach($cuisine);
+
+        $response = $this->getJson('/api/homepage-data?city=atlanta&state=ga');
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1, 'categories');
+        $response->assertJsonPath('categories.0.cuisines.0.slug', 'case-cuisine');
     }
 }

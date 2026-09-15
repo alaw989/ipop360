@@ -46,15 +46,18 @@ class HomeService
         if ($city) {
             $popularRestaurants = $this->dedupeByName(
                 $this->trendingRestaurantsQuery(qualified: true)
-                    ->where('city', $city)
-                    ->where('state', $state)
+                    ->inCity($city, (string) $state)
                     ->limit($candidateLimit)
                     ->get(),
                 $trendingLimit
             );
 
             if ($popularRestaurants->isNotEmpty()) {
-                $effectiveLocation = ['city' => $city, 'state' => $state];
+                // Echo the stored row's casing, not the request's — GPS/IP can
+                // hand back lowercase ("atlanta") and the heading renders this
+                // value verbatim. Matches popularCities' Title-Case convention.
+                $matched = $popularRestaurants->first();
+                $effectiveLocation = ['city' => $matched->city, 'state' => $matched->state];
             }
         }
 
@@ -78,7 +81,14 @@ class HomeService
             );
         }
 
-        $popularCuisines = $this->getPopularCuisines();
+        // The spotlight's fallback picks from the raw models (it needs
+        // photo_url/rating), so compute it before the card mapping flattens
+        // the collection into arrays.
+        $featuredRestaurant = $this->featuredRestaurant($popularRestaurants);
+
+        $popularRestaurants = $popularRestaurants
+            ->map(fn (Restaurant $r): array => $this->trendingCard($r))
+            ->values();
 
         $latestPosts = BlogPost::published()
             ->with('author:id,name')
@@ -87,21 +97,45 @@ class HomeService
             ->limit(3)
             ->get(['id', 'title', 'slug', 'excerpt', 'category', 'featured_image', 'published_at', 'author_id', 'is_featured']);
 
-        $stats = [
-            'restaurants' => Restaurant::active()->count(),
-            'cuisines' => Cuisine::count(),
-            'cities' => Restaurant::active()->whereNotNull('city')->distinct()->count('city'),
-        ];
-
         return [
             'categories' => $categories,
-            'popularCuisines' => $popularCuisines,
             'popularCities' => config('restaurant-finder.homepage.popular_cities', []),
             'popularRestaurants' => $popularRestaurants,
-            'featuredRestaurant' => $this->featuredRestaurant($popularRestaurants),
+            'featuredRestaurant' => $featuredRestaurant,
             'latestPosts' => $latestPosts,
             'location' => $effectiveLocation,
-            'stats' => $stats,
+        ];
+    }
+
+    /**
+     * The Trending card's payload (PopularRestaurants.vue renders name, photo,
+     * rating, price and primary cuisine only). Returning full Eloquent models
+     * here shipped every column — photos, ai_metadata, score_breakdown, … —
+     * for ~18 cards per homepage request.
+     *
+     * @return array<string, mixed>
+     */
+    private function trendingCard(Restaurant $r): array
+    {
+        return [
+            'id' => $r->id,
+            'name' => $r->name,
+            'slug' => $r->slug,
+            'photo_url' => $r->photo_url,
+            'city' => $r->city,
+            'state' => $r->state,
+            'price_range' => $r->price_range,
+            'google_rating' => $r->google_rating,
+            'google_review_count' => $r->google_review_count,
+            'yelp_rating' => $r->yelp_rating,
+            'yelp_review_count' => $r->yelp_review_count,
+            'has_award' => $r->has_award,
+            'popularity_score' => $r->popularity_score,
+            'cuisines' => $r->cuisines->map(fn (Cuisine $c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'slug' => $c->slug,
+            ])->values()->all(),
         ];
     }
 
@@ -192,45 +226,6 @@ class HomeService
     }
 
     /**
-     * Popular cuisines are always global (not scoped to the trending top-18
-     * or the request city): a frequency count across every active
-     * restaurant, so the section reflects the whole corpus, not a thin
-     * city snapshot. Cached because it's an uncached COUNT over the whole
-     * `restaurants` table otherwise, on a hot/unthrottled path.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private function getPopularCuisines(): array
-    {
-        $ttl = (int) config('restaurant-finder.homepage.popular_cuisines_cache_ttl_minutes', 30);
-
-        // Cache a plain array, not the Eloquent Collection/models themselves:
-        // config('cache.serializable_classes') is false (Laravel's default
-        // gadget-chain hardening), so any object unserialized back out of the
-        // cache silently degrades to __PHP_Incomplete_Class — caching model
-        // instances here 500'd every homepage request once the value was
-        // actually read back from cache.
-        return Cache::remember('home:popular-cuisines', now()->addMinutes($ttl), function () {
-            return Cuisine::withCount([
-                'restaurants' => fn ($q) => $q->active(),
-            ])
-                ->orderByDesc('restaurants_count')
-                ->limit(12)
-                ->get(['id', 'name', 'slug', 'icon'])
-                ->filter(fn ($c) => $c->restaurants_count > 0)
-                ->values()
-                ->map(fn (Cuisine $c) => [
-                    'id' => $c->id,
-                    'name' => $c->name,
-                    'slug' => $c->slug,
-                    'icon' => $c->icon,
-                    'restaurants_count' => $c->restaurants_count,
-                ])
-                ->toArray();
-        });
-    }
-
-    /**
      * The unscoped category list (every category and cuisine), cached for an
      * hour: the header search loads it on every page.
      *
@@ -252,8 +247,8 @@ class HomeService
         if ($city && $state) {
             $categories->whereHas('cuisines.restaurants', fn ($q) => $q
                 ->where('restaurants.is_active', true)
-                ->where('restaurants.city', $city)
-                ->where('restaurants.state', $state));
+                ->whereRaw('LOWER(restaurants.city) = ?', [strtolower($city)])
+                ->whereRaw('LOWER(restaurants.state) = ?', [strtolower($state)]));
         }
 
         $result = $categories->get()->map(fn ($cat) => [

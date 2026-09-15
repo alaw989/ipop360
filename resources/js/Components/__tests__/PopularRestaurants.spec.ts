@@ -36,7 +36,6 @@ function makeRestaurant(overrides: Partial<any> = {}) {
         yelp_review_count: 0,
         has_award: false,
         popularity_score: 0,
-        score_breakdown: null,
         cuisines: [],
         ...overrides,
     }

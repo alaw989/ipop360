@@ -21,10 +21,6 @@ interface PopularRestaurant {
     yelp_review_count: number
     has_award: boolean
     popularity_score: number
-    score_breakdown?: {
-        signals: Array<{ label: string; weight: number; normalized: number; contribution: number; detail?: string }>;
-        total: number;
-    } | null;
     cuisines: Array<{ id: number; name: string; slug: string }>
 }
 

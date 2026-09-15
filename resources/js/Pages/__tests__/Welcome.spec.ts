@@ -144,8 +144,6 @@ function makePopularRestaurant(overrides: Record<string, unknown> = {}) {
         yelp_review_count: 0,
         has_award: false,
         popularity_score: 50,
-        latitude: null,
-        longitude: null,
         cuisines: [],
         ...overrides,
     }
