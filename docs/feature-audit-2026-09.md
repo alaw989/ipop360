@@ -208,7 +208,7 @@ Findings ranked for follow-up (none fixed in this pass; no `specs/` files create
 
 ## Fix log
 
-Fixes are implemented locally, gated (`pint --test`, PHPStan L8 zero-error, full PHPUnit), then shipped as their own PR. spec-111/spec-112 are **merged + deployed + live-verified**; spec-113+ are local until the operator ships them.
+Fixes are implemented locally, gated (`pint --test`, PHPStan L8 zero-error, full PHPUnit), then shipped as their own PR. spec-111/spec-112/spec-113 are **merged + deployed + live-verified**; spec-114+ are local until the operator ships them.
 
 ### spec-111 — `/api/cuisine-categories` `__PHP_Incomplete_Class` (SHIPPED — PR #221)
 
@@ -224,10 +224,11 @@ Fixes are implemented locally, gated (`pint --test`, PHPStan L8 zero-error, full
 - `tests/Feature/BlogAdminTest.php` — 6 new tests: draft re-slug, published slug stability, fresh republish date, `javascript:` image rejected, https image accepted, empty-string image allowed.
 - Live-verified post-deploy: `information_schema.STATISTICS` shows `blog_posts_status_published_at_index (status,published_at)`, `blog_posts_category_index`, `blog_posts_is_featured_index`; migration `2026_09_15_000001_add_indexes_to_blog_posts_table` recorded.
 
-### spec-113 — Auth hardening (LOCAL — `fix/spec-113-auth-verified-gate`)
+### spec-113 — Auth hardening (SHIPPED — PR #223)
 
 - `app/Http/Middleware/VerifiedWhenConfigured.php` (alias `verified.gate`) — applies Laravel's `verified` gate only when a named config flag is true, checked per-request so `route:cache` cannot freeze the decision.
 - `config/auth.php` — `require_verified_for_favorites` and `require_verified_for_profile` kill-switches, both default `false` (prod mailer is `log`; an always-on gate would lock everyone out).
 - `routes/web.php` — favorites writes + profile PATCH/DELETE honor their flags; `/profile` GET stays open.
 - Removed the dead Breeze confirm-password flow (routes, controller, page, test, Ziggy entry).
 - `tests/Feature/Auth/VerifiedGateTest.php` — 8 tests pinning default-off, gate-on, verified-user, and removals.
+- Live-verified post-deploy: `/confirm-password` → 404; `/register` 200; `/profile` guest → 302; on the droplet both gate configs resolve `[false,false]` (behavior unchanged).
