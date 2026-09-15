@@ -69,15 +69,23 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 });
 
 Route::middleware('auth')->group(function () {
+    // spec-113: profile reads stay open (an unverified user must be able to
+    // reach their own account); writes honor the runtime gate.
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::middleware('verified.gate:auth.require_verified_for_profile')->group(function () {
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    });
 
     // Favorites
     Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
     // spec-088: throttle the write endpoints (DoS + corpus-poisoning guard).
-    Route::post('/favorites/toggle', [FavoriteController::class, 'toggle'])->middleware('throttle:30,1')->name('favorites.toggle');
-    Route::post('/favorites/merge', [FavoriteController::class, 'merge'])->middleware('throttle:10,1')->name('favorites.merge');
+    // spec-113: spec-089's deferred verified-email gate, flippable at runtime.
+    Route::middleware('verified.gate:auth.require_verified_for_favorites')->group(function () {
+        Route::post('/favorites/toggle', [FavoriteController::class, 'toggle'])->middleware('throttle:30,1')->name('favorites.toggle');
+        Route::post('/favorites/merge', [FavoriteController::class, 'merge'])->middleware('throttle:10,1')->name('favorites.merge');
+    });
 });
 
 require __DIR__.'/auth.php';

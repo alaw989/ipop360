@@ -32,7 +32,6 @@ return [
         'admin.users.update',
         'login',
         'logout',
-        'password.confirm',
         'password.email',
         'password.request',
         'password.store',
