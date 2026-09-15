@@ -208,7 +208,7 @@ Findings ranked for follow-up (none fixed in this pass; no `specs/` files create
 
 ## Fix log
 
-Fixes are implemented locally, gated (`pint --test`, PHPStan L8 zero-error, full PHPUnit), then shipped as their own PR. spec-111 through spec-114 are **merged + deployed + live-verified**; spec-115+ are local until the operator ships them.
+Fixes are implemented locally, gated (`pint --test`, PHPStan L8 zero-error, full PHPUnit), then shipped as their own PR. spec-111 through spec-115 are **merged + deployed + live-verified** — the audit triage is fully closed (remaining items were nits folded into later specs).
 
 ### spec-111 — `/api/cuisine-categories` `__PHP_Incomplete_Class` (SHIPPED — PR #221)
 
@@ -239,3 +239,16 @@ Fixes are implemented locally, gated (`pint --test`, PHPStan L8 zero-error, full
 - Frontend types aligned: `PopularRestaurant` drops `score_breakdown`; `Welcome.vue` types the payload as `TrendingRestaurant`; fixtures trimmed.
 - Tests: dead-prop missing-path guard, exact slim-key list, case-insensitive scoping for trending + categories (`HomeControllerTest`, `HomeServiceTest`).
 - Live-verified post-deploy: `/api/homepage-data` has no `stats`/`popularCuisines`; 18 trending cards carry exactly the 14 slim keys (no `photos`/`ai_metadata`/`score_breakdown`); `?city=atlanta&state=ga` → `location: {city: Atlanta, state: GA}` with 18 results.
+
+### spec-115 — SEO crawl surface (SHIPPED — PR #225)
+
+- `GenerateSitemap::pageEntries()` — added `/leaderboard` + `/compare`, dropped `/login` + `/register`; `/search` deliberately absent.
+- `App\Http\Middleware\SeoRobots` (prepended to web) + `config('restaurant-finder.seo.noindex_paths')` — server-side `<meta name="robots" content="noindex, nofollow">` via `app.blade.php`, shared as `seo.noindex` so `useSeo()` agrees; pages can still force noindex (live previews).
+- `resources/js/lib/baseUrl.ts` — `resolveBaseUrl()` reads the shared `seo.base_url` (`config('app.url')`) under SSR; `useBaseUrl()` and `lib/api.getBaseUrl()` both delegate (hardcoded prod fallback gone from the canonical path).
+- `App\Http\Controllers\ServeRobots` — `/robots.txt` served from config (`{APP_URL}/sitemap.xml` + the noindex Disallows); static `public/robots.txt` deleted.
+- Not done: www→apex redirect — `www.ipop360.com` has no DNS record and apex HTTP already 301s to HTTPS (verified live), so it would be dead config.
+- Live-verified post-deploy: `/robots.txt` 200 with the prod sitemap URL + Disallow lines; `/search`, `/login`, `/register` HTML carry the noindex meta (0 on `/` and `/restaurants`); `sitemap-pages.xml` has 13 entries including `/leaderboard` + `/compare` and none of `/login`/`/register`/`/search`.
+
+### Direct docs edit — stale `constitution.md` (DONE)
+
+The memory-bank constitution still described the pre-spec-104 4-signal scoring model, PHP 8.3, SQLite-only, Foursquare as a live source, and "266 tests". Refreshed: 10-signal weighted table pointing at `docs/scoring-explained.md` for detail, PHP 8.4 + MySQL/SQLite split, 4 live-search sources, current test counts, `composer test`/`npm run test` commands.

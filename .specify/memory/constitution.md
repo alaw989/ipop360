@@ -1,6 +1,6 @@
 # iPop360 Constitution
 
-> A restaurant discovery app that ranks venues using a free-first scoring blend — real ratings, review counts, proximity, data completeness, and Michelin awards — powered by OpenStreetMap, BizData, Wikidata, and optionally Foursquare.
+> A restaurant discovery app that ranks venues using a free-first scoring blend — real ratings, review counts, proximity, data completeness, and Michelin awards — powered by OpenStreetMap, BizData, Socrata, and Wikidata, with optional SerpApi Google Maps ratings.
 
 **Ralph Wiggum Version:** 3f15f0f (https://github.com/fstandhartinger/ralph-wiggum)
 
@@ -29,12 +29,12 @@
 
 ## Technical Stack
 
-- **Backend:** Laravel 13, PHP 8.3+, SQLite, Inertia.js v2
+- **Backend:** Laravel 13, PHP 8.4, MySQL (prod) / SQLite (dev+test), Inertia.js v2
 - **Frontend:** Vue 3 (Composition API), TypeScript, Vite 8, Tailwind CSS 4, shadcn-vue 2, Leaflet 1.9
-- **Testing:** PHPUnit 12 (266 tests, 972 assertions)
+- **Testing:** PHPUnit 12 (1482 tests, 6299 assertions) + vitest (1132 tests)
 - **Infra:** DigitalOcean droplet, GitHub Actions CI/CD
-- **Free APIs:** BizData (bizdata-web.vercel.app), Overpass/OSM, Wikidata SPARQL, Nominatim, Photon, SerpApi google_maps (~250/mo on the current plan — the ONLY rating source; was long mis-assumed as ~50)
-- **Removed paid APIs (do NOT re-add — see `memory/paid-ratings-no-free-lunch.md`):** Foursquare Places (rating fields are premium-tier, $18.75/1k from call 1), Google Places (~$32/1k Nearby), Outscraper. Their service classes + read-path/enrichment wiring were deleted (spec-066 revert + cleanup). Ratings are a walled garden — SerpApi's 50/mo is the only free source.
+- **Live-search sources (4):** BizData (free), Overpass/OSM (free), Socrata (free), SerpApi google_maps (~250/mo on the current plan — the ONLY rating source and the only paid one; 80% circuit breaker, 30-day cache)
+- **Removed paid APIs (do NOT re-add — see `memory/paid-ratings-no-free-lunch.md`):** Foursquare Places (rating fields are premium-tier, $18.75/1k from call 1), Google Places (~$32/1k Nearby), Outscraper. Their service classes + read-path/enrichment wiring were deleted (spec-066 revert + cleanup). Ratings are a walled garden — SerpApi is the only free source.
 
 ---
 
@@ -49,21 +49,25 @@ Git Autonomy: ENABLED
 
 ### Data flow
 ```
-Free APIs (BizData, Overpass, Foursquare)
+Free APIs (BizData, Overpass, Socrata) + SerpApi (paid bonus)
   → LiveSearchService (parallel fetch, merge, dedup, score)
   → RestaurantEnrichmentService (persist, paid bonus, awards, score)
-  → PopularityScoreService (composite score: proximity + completeness + awards + ratings)
+  → PopularityScoreService (10 weighted signals, renormalized per row)
   → DB query via RestaurantController (byPopularity scope)
 ```
 
-### Scoring signals (current)
+### Scoring signals (current — spec-104; authoritative detail in `docs/scoring-explained.md`)
 | Signal | Weight | Status |
 |---|---|---|
-| Proximity | 0.30 | NEW — user coords + inverse haversine |
-| Data completeness | 0.25 | Source-agnostic, 9 fields |
-| Has award | 0.15 | Wikidata Michelin stars |
-| Google rating | 0.03 | Paid bonus |
-| Google review count | 0.02 | Paid bonus |
+| Quality (Bayesian rating × credibility) | 0.35 | serpapi-rated venues only |
+| Website Traffic (clicks) | 0.20 | engagement tracking |
+| Verified Presence | 0.35 | unrated venues only — stands in for Quality |
+| Proximity | 0.15 | live search only |
+| Page Views | 0.10 | engagement tracking |
+| Award (Wikidata Michelin) | 0.05 | free source |
+| Cuisine Match | 0.50 | live scoped search only |
+| Data completeness | 0.05 | source-agnostic, 9 fields |
+| Social link clicks / menu clicks | 0.05 each | engagement tracking |
 | Yelp signals | 0.0 | DEAD (removed) |
 
 ### Key directories
@@ -76,7 +80,8 @@ Free APIs (BizData, Overpass, Foursquare)
 
 ### Running tests
 ```bash
-php artisan test
+composer test    # PHP: php artisan config:clear && php artisan test
+npm run test     # Frontend: vitest run
 ```
 
 ---
