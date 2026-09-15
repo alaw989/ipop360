@@ -208,7 +208,7 @@ Findings ranked for follow-up (none fixed in this pass; no `specs/` files create
 
 ## Fix log
 
-Fixes are implemented locally, gated (`pint --test`, PHPStan L8 zero-error, full PHPUnit), then shipped as their own PR. spec-111/spec-112/spec-113 are **merged + deployed + live-verified**; spec-114+ are local until the operator ships them.
+Fixes are implemented locally, gated (`pint --test`, PHPStan L8 zero-error, full PHPUnit), then shipped as their own PR. spec-111 through spec-114 are **merged + deployed + live-verified**; spec-115+ are local until the operator ships them.
 
 ### spec-111 — `/api/cuisine-categories` `__PHP_Incomplete_Class` (SHIPPED — PR #221)
 
@@ -232,3 +232,10 @@ Fixes are implemented locally, gated (`pint --test`, PHPStan L8 zero-error, full
 - Removed the dead Breeze confirm-password flow (routes, controller, page, test, Ziggy entry).
 - `tests/Feature/Auth/VerifiedGateTest.php` — 8 tests pinning default-off, gate-on, verified-user, and removals.
 - Live-verified post-deploy: `/confirm-password` → 404; `/register` 200; `/profile` guest → 302; on the droplet both gate configs resolve `[false,false]` (behavior unchanged).
+
+### spec-114 — Homepage payload diet + case-safe city scoping (SHIPPED — PR #224)
+
+- `app/Services/HomeService.php` — dropped the unconsumed `stats`/`popularCuisines` props (and `getPopularCuisines()` + its config key); Trending rows map through `trendingCard()` to the exact 14 fields the card renders; Trending scopes via `Restaurant::scopeInCity` and scoped categories via `LOWER()`; `location` echoes the matched row's stored casing.
+- Frontend types aligned: `PopularRestaurant` drops `score_breakdown`; `Welcome.vue` types the payload as `TrendingRestaurant`; fixtures trimmed.
+- Tests: dead-prop missing-path guard, exact slim-key list, case-insensitive scoping for trending + categories (`HomeControllerTest`, `HomeServiceTest`).
+- Live-verified post-deploy: `/api/homepage-data` has no `stats`/`popularCuisines`; 18 trending cards carry exactly the 14 slim keys (no `photos`/`ai_metadata`/`score_breakdown`); `?city=atlanta&state=ga` → `location: {city: Atlanta, state: GA}` with 18 results.
