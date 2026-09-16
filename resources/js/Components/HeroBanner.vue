@@ -139,7 +139,7 @@ function onDetect() {
 </script>
 
 <template>
-    <section ref="hero" class="relative flex min-h-[560px] flex-col overflow-hidden lg:min-h-[600px]">
+    <section ref="hero" class="relative flex min-h-[440px] flex-col overflow-hidden lg:min-h-[600px]">
         <!-- Background slideshow -->
         <div class="absolute inset-0" aria-hidden="true">
             <template v-for="(slide, i) in slides" :key="slide.id">
@@ -170,7 +170,7 @@ function onDetect() {
 
         <!-- Content layer -->
         <div class="relative z-10 flex flex-1 flex-col">
-            <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center px-4 pb-10 pt-24 sm:px-6">
+            <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center px-4 pb-8 pt-20 sm:px-6 sm:pt-24">
                 <h1 class="font-heading text-[2rem] font-bold leading-[1.1] text-white text-balance sm:text-5xl">
                     Find the most popular restaurants near you
                 </h1>
@@ -210,7 +210,7 @@ function onDetect() {
                     v-for="(_, i) in slides"
                     :key="'dot-' + i"
                     type="button"
-                    class="relative flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300"
+                    class="relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-300"
                     :aria-label="`Go to slide ${i + 1}`"
                     @click="goToSlide(i)"
                 >
@@ -223,7 +223,7 @@ function onDetect() {
                 </button>
                 <button
                     type="button"
-                    class="ml-3 flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                    class="ml-3 flex h-11 w-11 items-center justify-center rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                     :aria-label="isPaused ? 'Resume slideshow' : 'Pause slideshow'"
                     @click="togglePause"
                 >

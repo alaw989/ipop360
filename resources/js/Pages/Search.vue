@@ -207,9 +207,11 @@ const structuredData = computed(() => {
                     </div>
                 </div>
 
-                <!-- Phone and tablet: a row of filter chips that scrolls sideways -->
+                <!-- Phone and tablet: a row of filter chips that scrolls sideways.
+                     Sticky under the header so filters stay reachable down a long
+                     result list. -->
                 <div
-                    class="-mx-4 mb-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 xl:hidden [&::-webkit-scrollbar]:hidden"
+                    class="sticky top-16 z-20 -mx-4 mb-4 flex gap-2 overflow-x-auto overscroll-x-contain bg-background px-4 pt-2 pb-2 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 xl:hidden [&::-webkit-scrollbar]:hidden"
                     data-testid="filter-chips"
                 >
                     <button
@@ -249,19 +251,23 @@ const structuredData = computed(() => {
                 </div>
 
                 <Sheet v-model:open="filtersOpen">
-                    <SheetContent side="bottom" class="max-h-[85vh] p-0 pb-[env(safe-area-inset-bottom)]" :show-close-button="false">
-                        <SheetTitle class="sr-only">Filters</SheetTitle>
+                    <SheetContent side="bottom" class="max-h-[85dvh] p-0 pb-[env(safe-area-inset-bottom)]" :show-close-button="false">
                         <SheetDescription class="sr-only">Filter restaurants by price, category, and distance</SheetDescription>
-                        <div class="flex items-center justify-between border-b border-border px-4 py-3">
-                            <div class="mx-auto h-1 w-10 rounded-full bg-muted-foreground/30" />
-                            <button
-                                class="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                                @click="filtersOpen = false"
-                                aria-label="Close"
-                                data-testid="filter-close"
-                            >
-                                <X :size="18" />
-                            </button>
+                        <div class="border-b border-border px-4 pt-2.5 pb-2">
+                            <!-- Centred drag handle on its own row; the close button
+                                 no longer competes with it for space. -->
+                            <div class="mx-auto h-1 w-10 rounded-full bg-muted-foreground/30" aria-hidden="true" data-testid="filter-drag-handle" />
+                            <div class="mt-1 flex items-center justify-between">
+                                <SheetTitle class="text-base font-medium">Filters</SheetTitle>
+                                <button
+                                    class="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                    @click="filtersOpen = false"
+                                    aria-label="Close"
+                                    data-testid="filter-close"
+                                >
+                                    <X :size="18" />
+                                </button>
+                            </div>
                         </div>
                         <div class="overflow-y-auto overscroll-contain px-4 py-4">
                             <SearchFilters
@@ -284,11 +290,13 @@ const structuredData = computed(() => {
                 </div>
 
                 <template v-else>
-                    <!-- Skeleton loader -->
-                    <div v-if="isLoading" class="space-y-6">
-                    <div v-for="i in 5" :key="'skel-' + i" class="flex animate-pulse rounded-xl border bg-card">
-                        <div class="h-44 w-44 shrink-0 rounded-l-xl bg-muted" />
-                        <div class="flex-1 space-y-3 p-5">
+                    <!-- Skeleton loader — mirrors the responsive result-card shape
+                         (phone: 6rem side thumb; sm+: 11rem row-span photo) so the
+                         real results do not jump in when they arrive. -->
+                    <div v-if="isLoading" class="space-y-4" data-testid="search-skeleton">
+                    <div v-for="i in 5" :key="'skel-' + i" class="grid animate-pulse grid-cols-[6rem_minmax(0,1fr)] gap-3 rounded-xl border bg-card p-3 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-0 sm:overflow-hidden sm:p-0">
+                        <div class="h-24 w-24 rounded-lg bg-muted sm:row-span-2 sm:h-full sm:min-h-44 sm:w-44 sm:rounded-none" />
+                        <div class="min-w-0 space-y-1 sm:px-4 sm:pt-4">
                             <div class="h-5 w-3/4 rounded bg-muted" />
                             <div class="h-4 w-1/2 rounded bg-muted" />
                             <div class="h-4 w-1/3 rounded bg-muted" />
