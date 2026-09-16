@@ -1271,6 +1271,51 @@ a good single `opencode-loop` goal on `feat/audit-2026-09-nits`:
 
 ---
 
+### Census-place seeding velocity, part 2 (queued 2026-09-16 — loop-eligible)
+
+Follow-ups to the 2026-09-16 seeding stack (#230–#232), prompted by the
+throughput math: the catalog is **32,352 places**, a report-only walk measured
+only **66/3,000 skipped** (2.2%), and a prod `--apply` sample averaged **~17s
+per real fetch** (3 places in 33.8s). The daily `--limit` was raised 25 → 600
+(≈53 days for a full walk, still free-only), but two structural problems remain
+worth a loop goal each. Both are on `feat/*` branches off `master`, stacked in
+this order:
+
+1. **Population-ordered seeding (higher value).** `CensusPlaceCatalog` walks
+   the catalog **alphabetically** (`App\Support\CensusPlaceCatalog::all()`
+   sorts by normalized name then state), so coverage lands on A-towns for
+   years regardless of how fast the limit is raised. The 2024 Gazetteer place
+   file carries ALAND but **no population** (see
+   `scripts/build-place-centroids.php`), so this needs the Census place
+   population source joined in at build time (e.g. the `sub-est2023.csv`
+   population estimates, matched by GEOID/ANSICODE), the population stored in
+   `database/data/place_centroids.php`, and the catalog sorted
+   population-desc (biggest towns first) while keeping the string cursor
+   deterministic. Tests must pin the ordering and the build script's parsing.
+   Goal: top few thousand places covered within days, not years.
+2. **Radius-clamped seeding fetch (faster + cleaner).** `seedAtPlace()` →
+   `fetchAndNormalizeAllSources()` → `OverpassService::poolRequestsFor()`
+   hardcodes a **25,000 m** `around:` radius
+   (`app/Services/OverpassService.php:521`), so seeding a hamlet fetches a
+   whole metro's worth of venues and `processFreeVenue()` falls back to the
+   seeded place name for any venue whose source omits a city
+   (`processFreeVenue`, `city` attribute line). Observed live: "Aaronsburg PA"
+   reported 42 seeded rows that are actually Millheim/Bellefonte/Centre
+   Hall/Howard businesses (14 mislabeled with the seeded name). The catalog
+   already stores a per-point `radius_km` (land-area radius) that seeding
+   ignores. Clamp the seeding radius to that value with a sensible floor/ceiling
+   (e.g. `max(placeRadius, ~5km)` capped at the live 25km), proving with tests
+   that (a) the seeding path passes the clamped radius through and (b) the live
+   read path is unchanged. Expected win: shorter Overpass payloads → lower
+   per-fetch wall time, so the daily limit can be raised again, plus far fewer
+   neighbor-town rows stamped with the seeded city.
+
+Both are test-driven, backend-only, and should keep production changes minimal.
+Re-measure per-fetch latency after #2 and consider raising `--limit` again
+(currently 600 at `routes/console.php`).
+
+---
+
 ## Getting started (for the next session)
 - Repo conventions, commands, deploy: `AGENTS.md`.
 - Project principles + loop protocol: `.specify/memory/constitution.md`.

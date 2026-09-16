@@ -12,6 +12,31 @@
 > *current/operational* state only — anything spec-shipment-shaped belongs in
 > `history.md`, not here.
 
+## Shipped (2026-09-16) — enrichment coverage series (3-PR stack)
+
+Ad-hoc operator request (not a backlog goal). Executed directly, each PR
+branched off the previous one's merge and gated locally (`pint --test` →
+`composer test` → `vitest` → `phpstan` → `npm run build`) before push/CI/merge.
+
+| PR | Scope | State |
+|----|-------|-------|
+| #230 | coverage-aware staleness rotation for the throttled grid — orders cities by last-processed time (need as tiebreak), new `enrichment_city_state` table, `ENRICH_ROTATION_STRATEGY` kill-switch restoring legacy need-only ordering | ✅ merged (ce5a2e1) + deployed + live-verified |
+| #231 | `restaurants:seed-places` — resumable, report-first, free-only walk of the 32k-point Census place catalog (25 places/run at a 5-row threshold, never SerpApi), `enrichment_place_cursor`, scheduled daily 14:45 UTC | ✅ merged (d3b5b61) + deployed + live-verified |
+| #232 | `restaurants:coverage` Geographic coverage section — grid split, distinct cities, ≤5-row city fragments, thinnest states; logged to the `enrichment` channel with the weekly report | ✅ merged (50e9dc5) + deployed + live-verified |
+
+**Series complete.** Live-verified on the droplet 2026-09-16 ~17:55 UTC: both
+new tables migrated (`enrichment_city_state`, `enrichment_place_cursor`); both
+commands registered; `schedule:list` shows `restaurants:seed-places --apply
+--limit=25 --min-rows=5` at 14:45 daily (alongside the 04:00 `--throttled`
+enrich run); `restaurants:coverage` prints the new Geographic section — 40,812
+rows with a city, 29,228 in grid / 11,584 non-grid, 1,751 distinct cities,
+1,421 cities ≤5 rows, thinnest states WY (68), ND (91), WV (113), SD (135),
+MT (140). Site + live API return 200.
+
+The rotation table stays empty until the next 04:00 UTC `restaurants:enrich
+--throttled` run stamps it (today's run predated the deploy). No backlog ✅ to
+move — the series wasn't a backlog goal.
+
 ## Shipped (2026-09-16) — mobile experience overhaul (4-PR series)
 
 Source plan: `~/.claude/plans/if-you-were-going-toasty-parrot.md`. Executed
@@ -34,7 +59,8 @@ shows the centred drag handle + `Filters` title, hero controls (dots/pause) are
 `env(safe-area-inset-bottom)` padding.
 
 Next: this series was a standalone UI effort, not a backlog item — no backlog
-✅ to move. The queue's first unfinished goal is next (`opencode-loop`).
+✅ to move. It was followed the same day by the enrichment coverage series
+above; after that, the queue's first unfinished goal (`opencode-loop`).
 
 Operational notes from this session:
 - `opencode.json` has an **uncommitted, machine-specific** `chrome-devtools`
