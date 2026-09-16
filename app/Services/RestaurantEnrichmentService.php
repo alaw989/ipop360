@@ -161,6 +161,92 @@ class RestaurantEnrichmentService
     }
 
     /**
+     * Seed every free-source restaurant near a Census place, with NO cuisine
+     * fan-out: one generic Overpass/BizData/Socrata fetch returns all food
+     * amenities in radius, so a single pass covers a town of any cuisine mix.
+     *
+     * Persists rows only — the nightly backfill/score/AI jobs handle field and
+     * score enrichment — and never calls SerpApi (ratings stay SerpApi-only),
+     * so restaurants:seed-places stays free and bounded.
+     *
+     * @return int number of restaurants persisted
+     */
+    public function seedAtPlace(float $lat, float $lng, string $cityName, ?string $stateCode = null): int
+    {
+        $venues = $this->fetchAndNormalizeAllSources($lat, $lng, null, true);
+
+        if (empty($venues)) {
+            return 0;
+        }
+
+        $venues = $this->venuePipeline->filterGarbageNames($venues);
+        $venues = $this->venuePipeline->filterNonRestaurants($venues);
+        $venues = $this->venuePipeline->crossSourceDedup($venues);
+
+        $restaurantIds = [];
+        foreach ($venues as $venue) {
+            try {
+                $restaurant = DB::transaction(fn () => $this->processFreeVenue($venue, null, $cityName, $stateCode));
+                if ($restaurant !== null) {
+                    $restaurantIds[] = $restaurant->id;
+                }
+            } catch (\Throwable $e) {
+                Log::channel('enrichment')->error('Failed to process seeded venue', [
+                    'name' => $venue['name'] ?? '',
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $restaurantIds = array_unique($restaurantIds);
+
+        Log::channel('enrichment')->info('Place seeding complete', [
+            'place' => $cityName,
+            'state' => $stateCode,
+            'restaurants_seeded' => count($restaurantIds),
+        ]);
+
+        return count($restaurantIds);
+    }
+
+    /**
+     * Attach the cuisines a venue's own source tags name (an OSM
+     * `cuisine=thai`), used by generic seeding which has no searched cuisine.
+     *
+     * @param  array<string, mixed>  $venue
+     */
+    private function attachVenueTaggedCuisines(Restaurant $restaurant, array $venue): void
+    {
+        $tagged = $venue['cuisines'] ?? [];
+
+        if (! is_array($tagged)) {
+            return;
+        }
+
+        $slugs = [];
+        foreach ($tagged as $venueCuisine) {
+            if (! is_array($venueCuisine)) {
+                continue;
+            }
+
+            $slug = $venueCuisine['slug'] ?? null;
+            if (is_string($slug) && $slug !== '') {
+                $slugs[$slug] = true;
+            }
+        }
+
+        if ($slugs === []) {
+            return;
+        }
+
+        $ids = Cuisine::whereIn('slug', array_keys($slugs))->pluck('id')->all();
+
+        if ($ids !== []) {
+            $restaurant->cuisines()->syncWithoutDetaching($ids);
+        }
+    }
+
+    /**
      * Persist popularity scores for an id → score map in one pass.
      *
      * Uses a raw CASE WHEN batch-update so N rows are written in ceil(N/100)
@@ -216,7 +302,7 @@ class RestaurantEnrichmentService
      *
      * @return array<int, array<string, mixed>>
      */
-    private function fetchAndNormalizeAllSources(float $lat, float $lng, Cuisine $cuisine, bool $freeOnly = false): array
+    private function fetchAndNormalizeAllSources(float $lat, float $lng, ?Cuisine $cuisine = null, bool $freeOnly = false): array
     {
         // Enrichment must issue the SAME queries the live read path issues and
         // cache them under the SAME keys, so nightly enrichment pre-warms the
@@ -224,12 +310,16 @@ class RestaurantEnrichmentService
         // spec-072 fix). Query-style sources get the humanized term (identical
         // to LiveSearchService's $scope->queryTerm); Overpass gets the slug
         // (identical to $scope->primarySlug, which its config lookup expects).
+        // A null cuisine (Census-place seeding) sends the generic, unfiltered
+        // query: Overpass omits its cuisine filter and returns every food
+        // amenity in radius, so one fetch covers a whole town.
         $context = ['read_path' => false];
-        $queryTerm = $this->cuisineMatcher->humanize($cuisine->slug);
+        $queryTerm = $cuisine !== null ? $this->cuisineMatcher->humanize($cuisine->slug) : null;
+        $slug = $cuisine?->slug;
 
         $specs = [
             'bizdata' => $this->bizData->poolRequestsFor($lat, $lng, $queryTerm, $context),
-            'overpass' => $this->overpass->poolRequestsFor($lat, $lng, $cuisine->slug, $context),
+            'overpass' => $this->overpass->poolRequestsFor($lat, $lng, $slug, $context),
             'socrata' => $this->socrataService->poolRequestsFor($lat, $lng, $queryTerm, $context),
         ];
 
@@ -301,7 +391,7 @@ class RestaurantEnrichmentService
      * @param  array<int, Response|\Throwable>  $responses
      * @return array<int, array<string, mixed>>
      */
-    private function normalizePoolResponses(string $label, array $responses, float $lat, float $lng, Cuisine $cuisine): array
+    private function normalizePoolResponses(string $label, array $responses, float $lat, float $lng, ?Cuisine $cuisine = null): array
     {
         try {
             // Cache under each source's OWN cacheKeyFor, using the same canonical
@@ -311,19 +401,21 @@ class RestaurantEnrichmentService
             // which matched no source's read-path key; for SerpApi it diverged
             // from isSerpApiCacheFresh's `query` key, so the skip-check never saw
             // its own store → enrichment re-fetched every combo every run.
-            $queryTerm = $this->cuisineMatcher->humanize($cuisine->slug);
+            $queryTerm = $cuisine !== null ? $this->cuisineMatcher->humanize($cuisine->slug) : null;
+            $slug = $cuisine?->slug;
             $cacheKey = match ($label) {
-                'serpapi' => $this->serpApiService->cacheKeyFor($lat, $lng, $queryTerm),
+                'serpapi' => $this->serpApiService->cacheKeyFor($lat, $lng, (string) $queryTerm),
                 'socrata' => $this->socrataService->cacheKeyFor($lat, $lng, $queryTerm),
                 'bizdata' => $this->bizData->cacheKeyFor($lat, $lng, $queryTerm),
-                'overpass' => $this->overpass->cacheKeyFor($lat, $lng, $cuisine->slug),
-                default => $this->buildCacheKey($label, $lat, $lng, $queryTerm),
+                'overpass' => $this->overpass->cacheKeyFor($lat, $lng, $slug),
+                default => $this->buildCacheKey($label, $lat, $lng, (string) $queryTerm),
             };
 
             // Each source's consumer expects its canonical cuisine string: the
             // humanized query term for query-style sources, the slug for Overpass
-            // (its cuisine config lookup is slug-keyed).
-            $consumeCuisine = $label === 'overpass' ? $cuisine->slug : $queryTerm;
+            // (its cuisine config lookup is slug-keyed). Null (generic seeding)
+            // is accepted by all three consumers.
+            $consumeCuisine = $label === 'overpass' ? $slug : $queryTerm;
 
             $normalized = match ($label) {
                 'bizdata' => $this->bizData->consumePoolResponses($responses, $lat, $lng, $consumeCuisine, $cacheKey),
@@ -379,7 +471,7 @@ class RestaurantEnrichmentService
      *
      * @param  array<string, mixed>  $venue
      */
-    private function processFreeVenue(array $venue, Cuisine $cuisine, ?string $cityName = null, ?string $stateCode = null): ?Restaurant
+    private function processFreeVenue(array $venue, ?Cuisine $cuisine = null, ?string $cityName = null, ?string $stateCode = null): ?Restaurant
     {
         if (empty($venue['name'])) {
             return null;
@@ -482,9 +574,10 @@ class RestaurantEnrichmentService
         // wrong cuisines onto the pivot. The venue is persisted either way;
         // the tag just isn't attached. Evidence = name / place_types /
         // description match, or the venue's own OSM `cuisine` tag.
-        $hasEvidence = $this->cuisineMatcher->venueMatchesCuisine($venue, $cuisine->slug);
+        $hasEvidence = $cuisine !== null
+            && $this->cuisineMatcher->venueMatchesCuisine($venue, $cuisine->slug);
 
-        if (! $hasEvidence) {
+        if ($cuisine !== null && ! $hasEvidence) {
             foreach (($venue['cuisines'] ?? []) as $venueCuisine) {
                 $slug = strtolower((string) ($venueCuisine['slug'] ?? ''));
                 // Exact seeded-slug match (cuisine=vietnamese for vietnamese).
@@ -505,7 +598,11 @@ class RestaurantEnrichmentService
             }
         }
 
-        if ($hasEvidence) {
+        if ($cuisine === null) {
+            // Generic Census-place seed: no searched cuisine, so attach only
+            // the cuisines the venue's own source tags evidence for.
+            $this->attachVenueTaggedCuisines($restaurant, $venue);
+        } elseif ($hasEvidence) {
             $restaurant->cuisines()->syncWithoutDetaching([$cuisine->id]);
         }
 
@@ -531,7 +628,7 @@ class RestaurantEnrichmentService
                 'restaurant_id' => $restaurant->id,
                 'restaurant_name' => $restaurant->name,
                 'source' => $venue['source'] ?? null,
-                'cuisine' => $cuisine->name,
+                'cuisine' => $cuisine?->name,
                 'has_coords' => $venue['lat'] !== null && $venue['lng'] !== null,
                 'populated_fields' => $populatedFields,
                 'changed_fields' => $changedFields,
