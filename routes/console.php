@@ -143,13 +143,20 @@ Schedule::command('restaurants:photo-thumbnails --apply --limit=200')
 // there, since the ~98-metro enrichment grid never reaches them. Free-only
 // (never SerpApi) and bounded to --limit places per run, resuming from the
 // stored cursor the next day.
-Schedule::command('restaurants:seed-places --apply --limit=25 --min-rows=5')
+//
+// Sized for coverage velocity: the catalog is 32,352 places and ~98% still
+// need a free-source fetch (~17s each at a 25km radius), so 25/run would take
+// ~3.5 years to walk. 600/run finishes the catalog in ~2 months at the same
+// free-source cost per place. The 240-minute mutex covers the measured
+// wall-clock (600 x ~17s ≈ 2.8h) with headroom; the run ends well before the
+// 16:00 verify-websites slot.
+Schedule::command('restaurants:seed-places --apply --limit=600 --min-rows=5')
     ->dailyAt('14:45')
-    ->withoutOverlapping(120)
+    ->withoutOverlapping(240)
     ->onOneServer()
     ->description('Seed restaurants for underserved US Census places (free sources only)')
     ->onFailure(function () {
-        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:seed-places --apply --limit=25 --min-rows=5']);
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:seed-places --apply --limit=600 --min-rows=5']);
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 
