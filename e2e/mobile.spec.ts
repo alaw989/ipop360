@@ -157,3 +157,24 @@ test.describe('Bottom tab bar', () => {
         await desktop.close()
     })
 })
+
+test.describe('Touch targets', () => {
+    test('hero slide and pause controls meet the 44px minimum', async ({ page }) => {
+        await gotoHome(page)
+
+        const dots = page.locator('button[aria-label^="Go to slide"]')
+        const dotCount = await dots.count()
+        expect(dotCount).toBeGreaterThan(0)
+
+        for (let i = 0; i < dotCount; i++) {
+            const box = await dots.nth(i).boundingBox()
+            expect(box!.height).toBeGreaterThanOrEqual(44)
+            expect(box!.width).toBeGreaterThanOrEqual(44)
+        }
+
+        const pause = page.locator('button[aria-label$="slideshow"]')
+        const pauseBox = await pause.boundingBox()
+        expect(pauseBox!.height).toBeGreaterThanOrEqual(44)
+        expect(pauseBox!.width).toBeGreaterThanOrEqual(44)
+    })
+})

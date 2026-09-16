@@ -174,9 +174,23 @@ describe('HeroBanner', () => {
         const allButtons = wrapper.findAll('button')
         const dotButtons = allButtons.filter((b) => b.attributes('aria-label')?.startsWith('Go to slide'))
         for (const dot of dotButtons) {
-            expect(dot.classes()).toContain('h-7')
-            expect(dot.classes()).toContain('w-7')
+            expect(dot.classes()).toContain('h-11')
+            expect(dot.classes()).toContain('w-11')
         }
+    })
+
+    it('gives the play/pause control a touch-friendly target size', () => {
+        const wrapper = mountComponent()
+        const toggleButton = wrapper.find('button[aria-label="Pause slideshow"]')
+        expect(toggleButton.classes()).toContain('h-11')
+        expect(toggleButton.classes()).toContain('w-11')
+    })
+
+    it('uses a compact height on phones so the first section peeks above the fold', () => {
+        const wrapper = mountComponent()
+        const section = wrapper.find('section')
+        expect(section.classes()).toContain('min-h-[440px]')
+        expect(section.classes()).toContain('lg:min-h-[600px]')
     })
 
     it('renders photo attribution for the current slide', () => {

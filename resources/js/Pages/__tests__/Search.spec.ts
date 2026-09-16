@@ -128,6 +128,18 @@ describe('Search mobile filter sheet', () => {
         expect(wrapper.find('[data-testid="filter-sheet"]').exists()).toBe(true)
     })
 
+    it('renders a centred drag handle in the filter sheet', () => {
+        const wrapper = mountSearch()
+        expect(wrapper.find('[data-testid="filter-drag-handle"]').exists()).toBe(true)
+    })
+
+    it('keeps the filter chip rail reachable while scrolling', () => {
+        const wrapper = mountSearch()
+        const rail = wrapper.find('[data-testid="filter-chips"]')
+        expect(rail.classes()).toContain('sticky')
+        expect(rail.classes()).toContain('top-16')
+    })
+
     it('renders an accessible title and description in the filter sheet', () => {
         const wrapper = mountSearch()
         expect(wrapper.find('[data-testid="sheet-title"]').text()).toBe('Filters')
@@ -207,6 +219,15 @@ describe('Search loading skeleton', () => {
         startHandler()({ detail: { visit: { url: new URL('http://localhost/search?cuisine=pizza') } } })
         await nextTick()
         expect(wrapper.find('.animate-pulse').exists()).toBe(true)
+    })
+
+    it('shapes the skeleton like the real phone result card so results do not jump', async () => {
+        const wrapper = mountSearch()
+        startHandler()({ detail: { visit: { url: new URL('http://localhost/search?cuisine=pizza') } } })
+        await nextTick()
+        const skeleton = wrapper.get('[data-testid="search-skeleton"]')
+        expect(skeleton.classes()).toContain('space-y-4')
+        expect(skeleton.find('div').classes()).toContain('grid-cols-[6rem_minmax(0,1fr)]')
     })
 
     it('does not swap the results for skeletons when navigating away', async () => {
