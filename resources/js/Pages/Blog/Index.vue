@@ -96,7 +96,7 @@ const seoData = useSeo({
                         name="search"
                         :value="filters.search ?? ''"
                         placeholder="Search posts…"
-                        class="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        class="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-base text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary md:text-sm"
                     />
                 </div>
             </form>

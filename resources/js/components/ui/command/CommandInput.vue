@@ -36,7 +36,7 @@ const { filterState } = useCommand()
         data-slot="command-input"
         :as="as!"
         :autoFocus="props.autoFocus !== false"
-        :class="cn('w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50', props.class)"
+        :class="cn('w-full text-base outline-hidden disabled:cursor-not-allowed disabled:opacity-50 md:text-sm', props.class)"
       />
       <InputGroupAddon>
         <SearchIcon class="size-4 shrink-0 opacity-50" />

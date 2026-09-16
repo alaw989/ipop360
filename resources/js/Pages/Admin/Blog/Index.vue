@@ -113,77 +113,79 @@ function destroy(post: BlogPost): void {
                 </div>
 
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500">
-                                <th class="px-4 py-3 font-medium">Title</th>
-                                <th class="px-4 py-3 font-medium">Author</th>
-                                <th class="px-4 py-3 font-medium">Featured</th>
-                                <th class="px-4 py-3 font-medium">Status</th>
-                                <th class="px-4 py-3 font-medium">Published</th>
-                                <th class="px-4 py-3 text-right font-medium">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="post in posts.data"
-                                :key="post.id"
-                                class="border-b border-neutral-100 last:border-0 hover:bg-neutral-50"
-                            >
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center gap-2 font-medium text-gray-900">
-                                        <FileText class="h-4 w-4 shrink-0 text-neutral-400" />
-                                        <span>{{ post.title }}</span>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 text-neutral-600">{{ post.author?.name ?? '—' }}</td>
-                                <td class="px-4 py-3">
-                                    <Badge v-if="post.is_featured" variant="default">Featured</Badge>
-                                    <span v-else class="text-neutral-400">—</span>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <Badge :variant="post.status === 'published' ? 'default' : 'secondary'">
-                                        {{ post.status }}
-                                    </Badge>
-                                </td>
-                                <td class="px-4 py-3 text-neutral-600">
-                                    <span class="flex items-center gap-1">
-                                        <Calendar class="h-3.5 w-3.5 text-neutral-400" />
-                                        {{ formatDate(post.published_at) }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center justify-end gap-2">
-                                        <Link
-                                            v-if="post.status === 'published'"
-                                            :href="`/blog/${post.slug}`"
-                                            title="View"
-                                            class="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
-                                        >
-                                            <Eye class="h-4 w-4" />
-                                        </Link>
-                                        <Link
-                                            v-if="canManagePost(post)"
-                                            :href="route('admin.blog.edit', post.id)"
-                                            title="Edit"
-                                            class="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
-                                        >
-                                            <Pencil class="h-4 w-4" />
-                                        </Link>
-                                        <button
-                                            v-if="canManagePost(post)"
-                                            type="button"
-                                            title="Delete"
-                                            class="rounded p-1.5 text-neutral-500 hover:bg-red-50 hover:text-red-600"
-                                            @click="destroy(post)"
-                                        >
-                                            <Trash2 class="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500">
+                                    <th class="px-4 py-3 font-medium">Title</th>
+                                    <th class="px-4 py-3 font-medium">Author</th>
+                                    <th class="px-4 py-3 font-medium">Featured</th>
+                                    <th class="px-4 py-3 font-medium">Status</th>
+                                    <th class="px-4 py-3 font-medium">Published</th>
+                                    <th class="px-4 py-3 text-right font-medium">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="post in posts.data"
+                                    :key="post.id"
+                                    class="border-b border-neutral-100 last:border-0 hover:bg-neutral-50"
+                                >
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2 font-medium text-gray-900">
+                                            <FileText class="h-4 w-4 shrink-0 text-neutral-400" />
+                                            <span>{{ post.title }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-neutral-600">{{ post.author?.name ?? '—' }}</td>
+                                    <td class="px-4 py-3">
+                                        <Badge v-if="post.is_featured" variant="default">Featured</Badge>
+                                        <span v-else class="text-neutral-400">—</span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <Badge :variant="post.status === 'published' ? 'default' : 'secondary'">
+                                            {{ post.status }}
+                                        </Badge>
+                                    </td>
+                                    <td class="px-4 py-3 text-neutral-600">
+                                        <span class="flex items-center gap-1">
+                                            <Calendar class="h-3.5 w-3.5 text-neutral-400" />
+                                            {{ formatDate(post.published_at) }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <Link
+                                                v-if="post.status === 'published'"
+                                                :href="`/blog/${post.slug}`"
+                                                title="View"
+                                                class="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
+                                            >
+                                                <Eye class="h-4 w-4" />
+                                            </Link>
+                                            <Link
+                                                v-if="canManagePost(post)"
+                                                :href="route('admin.blog.edit', post.id)"
+                                                title="Edit"
+                                                class="rounded p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
+                                            >
+                                                <Pencil class="h-4 w-4" />
+                                            </Link>
+                                            <button
+                                                v-if="canManagePost(post)"
+                                                type="button"
+                                                title="Delete"
+                                                class="rounded p-1.5 text-neutral-500 hover:bg-red-50 hover:text-red-600"
+                                                @click="destroy(post)"
+                                            >
+                                                <Trash2 class="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
                     <p v-if="posts.data.length === 0" class="px-4 py-8 text-center text-sm text-neutral-500">
                         No blog posts found.

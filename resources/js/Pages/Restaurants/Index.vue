@@ -153,7 +153,7 @@ function updateSort(newSort: string) {
                             id="sort-select"
                             :value="filters.sort || 'best_match'"
                             @change="updateSort(($event.target as HTMLSelectElement).value)"
-                            class="rounded-md border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                            class="rounded-md border border-input bg-background px-3 py-1.5 text-base ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 md:text-sm"
                         >
                             <option v-for="option in sortOptions" :key="option.value" :value="option.value">
                                 {{ option.label }}

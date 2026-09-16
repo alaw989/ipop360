@@ -28,5 +28,10 @@ export default defineConfig({
         url: 'http://localhost:8090',
         reuseExistingServer: true,
         timeout: 60_000,
+        // The PHP built-in server is single-threaded by default; with parallel
+        // workers a slow page can queue behind others long enough to blow the
+        // navigation timeout. PHP_CLI_SERVER_WORKERS lets it serve concurrently
+        // (requires the pcntl extension, present in CI's PHP image).
+        env: { PHP_CLI_SERVER_WORKERS: '4' },
     },
 })

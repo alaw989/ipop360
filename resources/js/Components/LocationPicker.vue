@@ -162,7 +162,7 @@ const triggerClasses = computed(() => isField.value
                 </template>
             </button>
         </SheetTrigger>
-        <SheetContent side="bottom" class="max-h-[85vh] p-0" :show-close-button="false" :style="{ maxHeight: `calc(85vh - ${keyboardHeight}px)`, paddingBottom: `calc(${keyboardHeight}px + env(safe-area-inset-bottom))` }">
+        <SheetContent side="bottom" class="max-h-[85dvh] p-0" :show-close-button="false" :style="{ maxHeight: `calc(85dvh - ${keyboardHeight}px)`, paddingBottom: `calc(${keyboardHeight}px + env(safe-area-inset-bottom))` }">
             <div class="flex items-center justify-between border-b border-border px-4 py-3">
                 <SheetTitle class="text-sm">Choose a city</SheetTitle>
                 <div class="mx-auto h-1 w-10 rounded-full bg-muted-foreground/30" />
@@ -187,16 +187,17 @@ const triggerClasses = computed(() => isField.value
                         v-model="query"
                         @keydown="onKeydown"
                         ref="searchInput"
-                        type="text"
+                        type="search"
+                        enterkeyhint="search"
                         placeholder="Type your city..."
-                        class="w-full bg-transparent py-3 pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground"
+                        class="w-full bg-transparent py-3 pl-10 pr-4 text-base outline-none placeholder:text-muted-foreground md:text-sm"
                         autocomplete="off"
                     />
                     <span v-if="searching" class="absolute right-3 top-1/2 -translate-y-1/2">
                         <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent"/>
                     </span>
                 </div>
-                <div class="max-h-[60vh] overflow-y-auto overscroll-contain" :style="{ paddingBottom: `${keyboardHeight}px` }">
+                <div class="max-h-[60dvh] overflow-y-auto overscroll-contain" :style="{ paddingBottom: `${keyboardHeight}px` }">
                     <div v-if="query.length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
                         <p class="text-xs text-muted-foreground">Type to search cities</p>
                         <button @click="useMyLocation" class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
@@ -256,7 +257,7 @@ const triggerClasses = computed(() => isField.value
                 </template>
             </button>
         </PopoverTrigger>
-        <PopoverContent class="w-80 p-0 max-md:w-[calc(100vw-1rem)]" :align="isField ? 'start' : 'center'">
+        <PopoverContent class="w-80 p-0" :align="isField ? 'start' : 'center'">
             <div class="flex flex-col">
                 <div class="relative border-b border-border">
                     <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -266,9 +267,10 @@ const triggerClasses = computed(() => isField.value
                     <input
                         v-model="query"
                         @keydown="onKeydown"
-                        type="text"
+                        type="search"
+                        enterkeyhint="search"
                         placeholder="Type your city..."
-                        class="w-full bg-transparent py-3 pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground"
+                        class="w-full bg-transparent py-3 pl-10 pr-4 text-base outline-none placeholder:text-muted-foreground md:text-sm"
                         autocomplete="off"
                     />
                     <span v-if="searching" class="absolute right-3 top-1/2 -translate-y-1/2">
