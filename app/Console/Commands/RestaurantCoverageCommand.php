@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Restaurant;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -79,12 +80,64 @@ class RestaurantCoverageCommand extends Command
         $this->newLine();
         $this->line('<options=bold>AI fillable gaps</> (missing price_range, description, or phone)');
         $this->line("  {$needingAi} of {$total} restaurants");
+
+        // Geographic coverage: how much of the corpus sits in the configured
+        // enrichment grid vs. the demand/bulk-seeded long tail, and how many
+        // cities are single-row fragments. Lets enrichment changes (the
+        // staleness rotation, Census-place seeding) be measured over time.
+        $gridCities = array_map(
+            fn ($city) => strtolower((string) $city),
+            array_keys(config('restaurant-finder.cities', []))
+        );
+        $withCity = Restaurant::whereRaw("city IS NOT NULL AND city != ''")->count();
+
+        $inGrid = 0;
+        if ($gridCities !== []) {
+            $placeholders = implode(',', array_fill(0, count($gridCities), '?'));
+            $inGrid = Restaurant::whereRaw("LOWER(city) IN ({$placeholders})", $gridCities)->count();
+        }
+
+        $distinctCities = Restaurant::whereRaw("city IS NOT NULL AND city != ''")
+            ->distinct()
+            ->count('city');
+
+        $fragmented = DB::query()->fromSub(
+            Restaurant::query()
+                ->selectRaw('city, state, COUNT(*) as n')
+                ->whereRaw("city IS NOT NULL AND city != ''")
+                ->groupBy('city', 'state'),
+            'place_counts'
+        )->where('n', '<=', 5)->count();
+
+        $thinStates = DB::table('restaurants')
+            ->selectRaw('state, COUNT(*) as n')
+            ->whereRaw("state IS NOT NULL AND state != ''")
+            ->groupBy('state')
+            ->orderBy('n')
+            ->limit(5)
+            ->get();
+
+        $this->newLine();
+        $this->line('<options=bold>Geographic coverage</>');
+        $this->line(sprintf('  %-22s %6d', 'rows with a city', $withCity));
+        $this->line(sprintf('  %-22s %6d', 'in grid', $inGrid));
+        $this->line(sprintf('  %-22s %6d', 'non-grid', $withCity - $inGrid));
+        $this->line(sprintf('  %-22s %6d', 'distinct cities', $distinctCities));
+        $this->line(sprintf('  %-22s %6d', 'cities <=5 rows', $fragmented));
+        $this->line('  lowest-coverage states: '.$thinStates->map(fn ($row) => "{$row->state} ({$row->n})")->implode(', '));
         $this->newLine();
 
         Log::channel('enrichment')->info('Restaurant coverage report', array_merge(
             ['total' => $total],
             $coverage,
-            ['needing_ai_fields' => $needingAi]
+            [
+                'needing_ai_fields' => $needingAi,
+                'rows_with_city' => $withCity,
+                'rows_in_grid' => $inGrid,
+                'rows_outside_grid' => $withCity - $inGrid,
+                'distinct_cities' => $distinctCities,
+                'fragmented_cities' => $fragmented,
+            ]
         ));
 
         return self::SUCCESS;
