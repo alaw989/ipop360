@@ -11,7 +11,7 @@ const imgLoaded = ref(true)
 </script>
 
 <template>
-    <div class="relative flex min-h-screen flex-col overflow-hidden bg-neutral-950">
+    <div class="relative flex min-h-dvh flex-col overflow-hidden bg-neutral-950">
         <!-- Background photo + gradient overlay (same treatment as HeroBanner) -->
         <div class="absolute inset-0">
             <img
@@ -26,7 +26,7 @@ const imgLoaded = ref(true)
         </div>
 
         <!-- Content -->
-        <div class="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-10">
+        <div class="relative z-10 flex min-h-dvh flex-col items-center justify-center px-4 py-10">
             <h1 class="sr-only">iPop360</h1>
 
             <Link

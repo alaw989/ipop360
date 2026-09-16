@@ -128,8 +128,8 @@ describe('RestaurantActionBar', () => {
     expect(wrapper.find('[data-testid="restaurant-action-bar"]').classes()).toContain('md:hidden')
   })
 
-  it('reserves safe-area bottom padding for notched devices', () => {
+  it('sits above the bottom tab bar', () => {
     const wrapper = mountBar({ phone: '555-1234' })
-    expect(wrapper.find('[data-testid="restaurant-action-bar"]').classes()).toContain('pb-[env(safe-area-inset-bottom)]')
+    expect(wrapper.find('[data-testid="restaurant-action-bar"]').classes()).toContain('bottom-[var(--bottom-nav-height)]')
   })
 })

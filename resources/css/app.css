@@ -64,6 +64,10 @@
         --rating: #e0661a;
         --success: #1e7a3c;
         --radius: 0.625rem;
+        /* Height of the mobile bottom tab bar, including the home-indicator
+           safe area. Page content and the restaurant action bar reserve this
+           much room at the bottom of the viewport on phones. */
+        --bottom-nav-height: calc(3.5rem + env(safe-area-inset-bottom));
     }
 
     .dark {

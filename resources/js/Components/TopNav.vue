@@ -33,7 +33,7 @@ const mobileSearchOpen = ref(false)
 <template>
     <nav
         aria-label="Main"
-        class="z-50"
+        class="z-50 pt-[env(safe-area-inset-top)]"
         :class="[
             props.transparent
                 ? 'absolute inset-x-0 top-0 bg-transparent'
