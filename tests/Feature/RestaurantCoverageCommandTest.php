@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Restaurant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
 class RestaurantCoverageCommandTest extends TestCase
@@ -56,5 +57,30 @@ class RestaurantCoverageCommandTest extends TestCase
         $output = Artisan::output();
 
         $this->assertMatchesRegularExpression('/social_links\s+1\s+50\.0%/s', $output);
+    }
+
+    public function test_coverage_reports_grid_split_city_fragmentation_and_thin_states(): void
+    {
+        Config::set('restaurant-finder.cities', [
+            'austin' => [30.2672, -97.7431],
+            'denver' => [39.7392, -104.9903],
+        ]);
+
+        Restaurant::factory()->count(2)->create(['city' => 'Austin', 'state' => 'TX']);
+        Restaurant::factory()->count(6)->create(['city' => 'Denver', 'state' => 'CO']);
+        Restaurant::factory()->count(2)->create(['city' => 'Troy', 'state' => 'AL']);
+        Restaurant::factory()->create(['city' => 'Ruston', 'state' => 'LA']);
+
+        Artisan::call('restaurants:coverage');
+
+        $output = Artisan::output();
+
+        // 2 Austin + 6 Denver = 8 in the grid; 2 Troy + 1 Ruston = 3 outside.
+        $this->assertMatchesRegularExpression('/in grid\s+8\b/s', $output);
+        $this->assertMatchesRegularExpression('/non-grid\s+3\b/s', $output);
+        $this->assertMatchesRegularExpression('/distinct cities\s+4\b/s', $output);
+        // Austin (2), Troy (2) and Ruston (1) are all <=5-row fragments.
+        $this->assertMatchesRegularExpression('/cities <=5 rows\s+3\b/s', $output);
+        $this->assertMatchesRegularExpression('/lowest-coverage states:.*\bLA \(1\)/s', $output);
     }
 }
