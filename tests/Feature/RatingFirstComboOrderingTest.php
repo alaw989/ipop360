@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Cuisine;
 use App\Models\CuisineCategory;
+use App\Models\EnrichmentCityState;
 use App\Models\Restaurant;
 use App\Services\RestaurantEnrichmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -68,5 +69,30 @@ class RatingFirstComboOrderingTest extends TestCase
 
         $citiesInOrder = array_values(array_unique(array_column($combos, 'city')));
         $this->assertSame(['empty-city', 'rated-city'], $citiesInOrder);
+    }
+
+    public function test_processed_but_needier_city_sorts_after_never_processed_city(): void
+    {
+        Config::set('restaurant-finder.cities', [
+            'needy-processed' => [37.7749, -122.4194],
+            'quiet-fresh' => [34.0522, -118.2437],
+        ]);
+
+        // needy-processed has the bigger unrated backlog, but was already swept
+        // today; quiet-fresh has never been visited. Staleness wins, so the
+        // never-processed city must lead despite less need.
+        Restaurant::factory()->create(['city' => 'needy-processed', 'google_rating' => null]);
+        Restaurant::factory()->create(['city' => 'needy-processed', 'google_rating' => null]);
+
+        EnrichmentCityState::create([
+            'city' => 'needy-processed',
+            'last_processed_at' => now(),
+            'runs' => 1,
+        ]);
+
+        $combos = $this->buildGrid(config('restaurant-finder.cities'));
+
+        $citiesInOrder = array_values(array_unique(array_column($combos, 'city')));
+        $this->assertSame(['quiet-fresh', 'needy-processed'], $citiesInOrder);
     }
 }

@@ -76,7 +76,11 @@ class RestaurantFinderConfigInvariantTest extends TestCase
     ];
 
     /** Knobs whose committed value is intentionally a string. */
-    private const STRING_KNOBS = ['sources.photon.base_url'];
+    private const STRING_KNOBS = [
+        'sources.photon.base_url',
+        // 'staleness' (default) | 'need' — throttled-grid city ordering.
+        'enrich.rotation_strategy',
+    ];
 
     /** Knobs whose committed value is intentionally null (env-optional). */
     private const NULL_KNOBS = [

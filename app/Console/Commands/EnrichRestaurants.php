@@ -356,6 +356,8 @@ class EnrichRestaurants extends Command
                 ['Combo cap reached?', $result['combos_cap_reached'] ? 'Yes' : 'No'],
                 ['Max runtime reached?', $result['max_runtime_reached'] ? 'Yes' : 'No'],
                 ['Quota exhausted?', $result['quota_exhausted'] ? 'Yes' : 'No'],
+                ['Cities swept', $result['cities_processed'].' of '.$result['cities_total']],
+                ['Estimated cycle (days)', $result['estimated_cycle_days']],
             ]
         );
 
@@ -365,6 +367,9 @@ class EnrichRestaurants extends Command
             'cache_hits_skipped' => $result['cache_hits_skipped'],
             'combos_cap_reached' => $result['combos_cap_reached'],
             'quota_exhausted' => $result['quota_exhausted'],
+            'cities_processed' => $result['cities_processed'],
+            'cities_total' => $result['cities_total'],
+            'estimated_cycle_days' => $result['estimated_cycle_days'],
         ]);
 
         if ($result['quota_exhausted']) {

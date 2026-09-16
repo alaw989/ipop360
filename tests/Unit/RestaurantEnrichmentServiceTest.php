@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Cuisine;
+use App\Models\EnrichmentCityState;
 use App\Models\ExternalApiCache;
 use App\Models\SerpApiCallLog;
 use App\Services\AiEnrichmentService;
@@ -99,6 +100,9 @@ class RestaurantEnrichmentServiceTest extends TestCase
             'quota_exhausted' => false,
             'per_run_cap_reached' => false,
             'max_runtime_reached' => false,
+            'cities_processed' => 0,
+            'cities_total' => 0,
+            'estimated_cycle_days' => 0,
         ], $result);
     }
 
@@ -122,6 +126,9 @@ class RestaurantEnrichmentServiceTest extends TestCase
             'quota_exhausted' => false,
             'per_run_cap_reached' => false,
             'max_runtime_reached' => false,
+            'cities_processed' => 0,
+            'cities_total' => 1,
+            'estimated_cycle_days' => 1,
         ], $result);
     }
 
@@ -347,5 +354,43 @@ class RestaurantEnrichmentServiceTest extends TestCase
 
         $this->assertTrue($result['max_runtime_reached']);
         $this->assertLessThan(3, $result['combos_processed']);
+    }
+
+    /**
+     * Coverage-aware rotation: every city actually swept this run is stamped in
+     * enrichment_city_state (runs incremented, last_processed_at set) so the
+     * next night's grid rotates to a different set of cities.
+     */
+    public function test_throttled_run_stamps_processed_cities_for_rotation(): void
+    {
+        Config::set('restaurant-finder.cities', [
+            'Mobile' => [30.69, -88.04],
+            'Austin' => [30.27, -97.74],
+        ]);
+        Config::set('restaurant-finder.cuisines', ['Taco']);
+        Config::set('restaurant-finder.enrich.monthly_budget', 1000);
+        Config::set('restaurant-finder.enrich.per_run_cap', 1000);
+
+        Cuisine::factory()->create(['slug' => 'taco', 'name' => 'Taco']);
+
+        $result = $this->makeService(
+            fn ($mock) => $mock->shouldReceive('isProviderExhausted')->andReturn(true),
+            function ($bizData, $overpass, $socrata) {
+                $bizData->shouldReceive('poolRequestsFor')->andReturn([]);
+                $overpass->shouldReceive('poolRequestsFor')->andReturn([]);
+                $socrata->shouldReceive('poolRequestsFor')->andReturn([]);
+            }
+        )->enrichAllCitiesThrottled();
+
+        $this->assertSame(2, $result['cities_processed']);
+        $this->assertSame(2, $result['cities_total']);
+        $this->assertSame(2, EnrichmentCityState::count());
+
+        foreach (['Mobile', 'Austin'] as $city) {
+            $state = EnrichmentCityState::find($city);
+            $this->assertNotNull($state, "{$city} should be stamped");
+            $this->assertSame(1, (int) $state->runs);
+            $this->assertNotNull($state->last_processed_at);
+        }
     }
 }

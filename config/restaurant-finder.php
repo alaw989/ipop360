@@ -691,6 +691,16 @@ return [
         // need-ordering means the cap spends each night on the neediest cities.
         'combos_per_run' => (int) env('ENRICH_COMBOS_PER_RUN', 60),
 
+        // City ordering strategy for the throttled grid.
+        //  - 'staleness' (default): never-swept cities first, then least-
+        //    recently swept, need as tiebreak (state in enrichment_city_state).
+        //    Guarantees every configured city is swept on a bounded cycle —
+        //    at 60 combos / 15 cuisines = 4 cities/night, ~25 days for 98
+        //    cities — instead of the largest unrated metros draining the cap
+        //    every night.
+        //  - 'need': legacy unrated-count-only ordering (rotation ignored).
+        'rotation_strategy' => env('ENRICH_ROTATION_STRATEGY', 'staleness'),
+
         // Hard wall-clock cap (minutes) on a single throttled-enrichment run.
         // The combos_per_run cap bounds real SerpApi calls, but in SerpApi
         // fail-open mode the free-source sweep (per-venue website scrape +
