@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Jobs\EnrichRestaurantWithAi;
 use App\Models\Cuisine;
+use App\Models\EnrichmentCityState;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use App\Models\SerpApiCallLog;
@@ -818,12 +819,20 @@ class RestaurantEnrichmentService
      * and stops when the combos-per-run cap, per-run cap, monthly budget,
      * or wall-clock max runtime is reached.
      *
-     * @return array{combos_processed: int, combos_cap_reached: bool, total_processed: int, real_calls_made: int, cache_hits_skipped: int, quota_exhausted: bool, per_run_cap_reached: bool, max_runtime_reached: bool}
+     * @return array{combos_processed: int, combos_cap_reached: bool, total_processed: int, real_calls_made: int, cache_hits_skipped: int, quota_exhausted: bool, per_run_cap_reached: bool, max_runtime_reached: bool, cities_processed: int, cities_total: int, estimated_cycle_days: int}
      */
     public function enrichAllCitiesThrottled(): array
     {
         $cities = config('restaurant-finder.cities', []);
         $cuisines = $this->getConfiguredCuisines();
+
+        // Bounded cycle sizing: a run covers citiesPerRun cities, so a full
+        // sweep of the configured grid takes ~estimatedCycleDays nights.
+        $combosPerRun = (int) config('restaurant-finder.enrich.combos_per_run', 60);
+        $citiesTotal = count($cities);
+        $cuisinesTotal = max(1, $cuisines->count());
+        $citiesPerRun = max(1, intdiv(max(1, $combosPerRun), $cuisinesTotal));
+        $estimatedCycleDays = $citiesTotal > 0 ? (int) ceil($citiesTotal / $citiesPerRun) : 0;
 
         if (empty($cities) || $cuisines->isEmpty()) {
             return [
@@ -835,12 +844,14 @@ class RestaurantEnrichmentService
                 'quota_exhausted' => false,
                 'per_run_cap_reached' => false,
                 'max_runtime_reached' => false,
+                'cities_processed' => 0,
+                'cities_total' => $citiesTotal,
+                'estimated_cycle_days' => $estimatedCycleDays,
             ];
         }
 
         $perRunCap = config('restaurant-finder.enrich.per_run_cap', 40);
         $monthlyBudget = config('restaurant-finder.enrich.monthly_budget', 40);
-        $combosPerRun = (int) config('restaurant-finder.enrich.combos_per_run', 60);
         $maxRuntimeMinutes = (float) config('restaurant-finder.enrich.max_runtime_minutes', 300);
         $startedAt = microtime(true);
 
@@ -853,6 +864,8 @@ class RestaurantEnrichmentService
         $perRunCapReached = false;
         $combosCapReached = false;
         $maxRuntimeReached = false;
+        /** @var array<string, int> $processedCities city => combos processed this run */
+        $processedCities = [];
 
         Log::channel('enrichment')->info('Starting throttled enrichment', [
             'per_run_cap' => $perRunCap,
@@ -860,6 +873,9 @@ class RestaurantEnrichmentService
             'combos_per_run' => $combosPerRun,
             'max_runtime_minutes' => $maxRuntimeMinutes,
             'real_calls_this_month' => $realCallsThisMonth,
+            'rotation_strategy' => (string) config('restaurant-finder.enrich.rotation_strategy', 'staleness'),
+            'cities_total' => $citiesTotal,
+            'estimated_cycle_days' => $estimatedCycleDays,
         ]);
 
         $combos = $this->buildCityCuisineGrid($cities, $cuisines);
@@ -894,6 +910,7 @@ class RestaurantEnrichmentService
 
             if ($serpApiFresh) {
                 $cacheHitsSkipped++;
+                $processedCities[$cityName] = ($processedCities[$cityName] ?? 0) + 1;
 
                 // M4: SerpApi cache is fresh, but free sources (BizData, Overpass,
                 // Socrata) have 24h TTLs — still run them to discover new venues.
@@ -923,6 +940,7 @@ class RestaurantEnrichmentService
             // backfill later via the need-ordering grid (buildCityCuisineGrid).
             if ($this->serpApiService->isProviderExhausted()) {
                 $quotaExhausted = true;
+                $processedCities[$cityName] = ($processedCities[$cityName] ?? 0) + 1;
 
                 try {
                     $stateCode = config('restaurant-finder.city_states.'.$cityName);
@@ -963,6 +981,7 @@ class RestaurantEnrichmentService
             }
 
             // Enrich this combo (will make one real SerpApi call)
+            $processedCities[$cityName] = ($processedCities[$cityName] ?? 0) + 1;
             try {
                 $stateCode = config('restaurant-finder.city_states.'.$cityName);
                 $count = $this->enrichByCuisine($lat, $lng, $cuisine, false, $cityName, $stateCode);
@@ -984,6 +1003,8 @@ class RestaurantEnrichmentService
             }
         }
 
+        $this->persistRotationState($processedCities);
+
         Log::channel('enrichment')->info('Throttled enrichment complete', [
             'combos_processed' => $combosProcessed,
             'total_processed' => $totalProcessed,
@@ -993,6 +1014,9 @@ class RestaurantEnrichmentService
             'per_run_cap_reached' => $perRunCapReached,
             'combos_cap_reached' => $combosCapReached,
             'max_runtime_reached' => $maxRuntimeReached,
+            'cities_processed' => count($processedCities),
+            'cities_total' => $citiesTotal,
+            'estimated_cycle_days' => $estimatedCycleDays,
         ]);
 
         return [
@@ -1004,7 +1028,33 @@ class RestaurantEnrichmentService
             'quota_exhausted' => $quotaExhausted,
             'per_run_cap_reached' => $perRunCapReached,
             'max_runtime_reached' => $maxRuntimeReached,
+            'cities_processed' => count($processedCities),
+            'cities_total' => $citiesTotal,
+            'estimated_cycle_days' => $estimatedCycleDays,
         ];
+    }
+
+    /**
+     * Stamp each swept city so the next run's staleness ordering rotates to a
+     * different set. runs/combos_total are lifetime counters.
+     *
+     * @param  array<string, int>  $processedCities  city => combos processed this run
+     */
+    private function persistRotationState(array $processedCities): void
+    {
+        if ($processedCities === []) {
+            return;
+        }
+
+        $now = now();
+
+        foreach ($processedCities as $city => $combos) {
+            $state = EnrichmentCityState::firstOrNew(['city' => $city]);
+            $state->runs = (int) $state->runs + 1;
+            $state->combos_total = (int) $state->combos_total + $combos;
+            $state->last_processed_at = $now;
+            $state->save();
+        }
     }
 
     /**
@@ -1039,8 +1089,20 @@ class RestaurantEnrichmentService
             ->pluck('count', 'city')
             ->toArray();
 
+        // Rotation state, epoch seconds per city (null = never swept). Read as
+        // models so the datetime cast applies; the cache can't hold this (the
+        // deploy runs cache:clear on every push).
+        $processedAt = EnrichmentCityState::query()
+            ->get()
+            ->mapWithKeys(fn (EnrichmentCityState $state) => [
+                $state->city => $state->last_processed_at?->getTimestamp(),
+            ])
+            ->all();
+
+        $strategy = (string) config('restaurant-finder.enrich.rotation_strategy', 'staleness');
+
         $orderedCities = collect($cities)
-            ->map(function ($coords, $name) use ($needByCity, $totalByCity) {
+            ->map(function ($coords, $name) use ($needByCity, $totalByCity, $processedAt) {
                 $need = (int) ($needByCity[$name] ?? 0);
                 $total = (int) ($totalByCity[$name] ?? 0);
 
@@ -1052,9 +1114,10 @@ class RestaurantEnrichmentService
                     // counts as need 1 so it still gets seeded ahead of fully-rated
                     // cities but behind cities that actually have unrated rows.
                     'need' => $need > 0 ? $need : ($total === 0 ? 1 : 0),
+                    'last_processed_at' => $processedAt[$name] ?? null,
                 ];
             })
-            ->sortByDesc('need')
+            ->sort($this->cityComparator($strategy))
             ->values();
 
         $combos = [];
@@ -1070,6 +1133,39 @@ class RestaurantEnrichmentService
         }
 
         return $combos;
+    }
+
+    /**
+     * Comparator for the throttled grid's city ordering.
+     *
+     * `staleness` (default): never-swept cities first, then least-recently
+     * swept, with unrated need as the tiebreak. Combined with the
+     * combos-per-run cap this sweeps every city on a bounded cycle instead of
+     * letting the biggest metros drain the cap nightly.
+     *
+     * `need`: the legacy unrated-count-only ordering (rotation state ignored),
+     * kept as a kill-switch.
+     *
+     * @return callable(array<string, mixed>, array<string, mixed>): int
+     */
+    private function cityComparator(string $strategy): callable
+    {
+        return function (array $a, array $b) use ($strategy): int {
+            if ($strategy !== 'need') {
+                $aNever = $a['last_processed_at'] === null;
+                $bNever = $b['last_processed_at'] === null;
+
+                if ($aNever !== $bNever) {
+                    return $aNever ? -1 : 1;
+                }
+
+                if (! $aNever && $a['last_processed_at'] !== $b['last_processed_at']) {
+                    return $a['last_processed_at'] <=> $b['last_processed_at'];
+                }
+            }
+
+            return $b['need'] <=> $a['need'];
+        };
     }
 
     /**

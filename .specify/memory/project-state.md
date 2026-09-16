@@ -3,7 +3,7 @@
 > Living snapshot for Claude (and humans) picking up this project. Read this
 > together with `constitution.md` and `backlog.md` at session start. Detailed
 > per-spec history lives in `history.md` (one-line-per-spec log) and
-> `history/` (deep-dive writeups). Updated: 2026-09-15.
+> `history/` (deep-dive writeups). Updated: 2026-09-16.
 >
 > **This file was trimmed 2026-08-22** — it had grown to 564 lines of
 > spec-by-spec narrative (specs 001–103) that duplicated `history.md`. The
@@ -11,6 +11,41 @@
 > `history/2026-08-22--project-state-pre-trim-archive.md`. Keep this file to
 > *current/operational* state only — anything spec-shipment-shaped belongs in
 > `history.md`, not here.
+
+## Shipped (2026-09-16) — mobile experience overhaul (4-PR series)
+
+Source plan: `~/.claude/plans/if-you-were-going-toasty-parrot.md`. Executed
+directly (not opencode-loop), each PR branched off updated `master` and gated
+locally (`pint --test` → `composer test` → `vitest` → `phpstan` → `npm run
+build` → `playwright test`) before push/CI/merge.
+
+| PR | Scope | State |
+|----|-------|-------|
+| #226 | `E2ESeeder` fixture + `e2e/overflow.spec.ts` (320/393 reflow probe) + new `e2e` CI job | ✅ merged + deployed |
+| #227 | kill horizontal overflow — 16px inputs (iOS auto-zoom), `vh→dvh`, admin table scroll, `<16px` e2e guard | ✅ merged + deployed + live-verified |
+| #228 | `BottomTabBar.vue` + unified `AppLayout` (Welcome no longer re-implements it), `min-h-dvh`, iOS standalone metas, manifest | ✅ merged + deployed + live-verified |
+| #229 | native polish — sticky filter chips, filter-sheet drag handle/title, skeleton matches card, hero 440px + 44px touch targets | ✅ merged (3c6d6c5) + deployed + live-verified |
+
+**Series complete.** Live-verified on a 393×852 mobile viewport against
+ipop360.com: `/` and `/search` both `scrollWidth == clientWidth` (zero
+horizontal overflow), chip rail pins under the header on scroll, filter sheet
+shows the centred drag handle + `Filters` title, hero controls (dots/pause) are
+44×44, and the persistent `BottomTabBar` clears the bottom edge with
+`env(safe-area-inset-bottom)` padding.
+
+Next: this series was a standalone UI effort, not a backlog item — no backlog
+✅ to move. The queue's first unfinished goal is next (`opencode-loop`).
+
+Operational notes from this session:
+- `opencode.json` has an **uncommitted, machine-specific** `chrome-devtools`
+  MCP entry (Chrome for Testing at `~/.cache/puppeteer/…`). Loads on next
+  opencode restart; intentionally not committed.
+- Local Node is v26, whose global `localStorage` shadows jsdom's — run vitest
+  with `NODE_OPTIONS="--localstorage-file=/tmp/vitest-localstorage.json"`. CI is
+  Node 22 and unaffected.
+- E2E locally: `php artisan db:seed --class=E2ESeeder` first; specs use the
+  fixture, not real prod rows. `playwright.config.ts` sets
+  `PHP_CLI_SERVER_WORKERS=4` and `php artisan serve` on `:8090`.
 
 ## Latest (2026-08-15) — photo pipeline, data hygiene, distance miles, skill conversion, local-first protocol
 
