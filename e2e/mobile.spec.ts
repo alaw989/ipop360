@@ -120,3 +120,40 @@ test.describe('Restaurant detail sticky action bar', () => {
         await desktop.close()
     })
 })
+
+test.describe('Bottom tab bar', () => {
+    test('shows the five primary destinations on mobile', async ({ page }) => {
+        await gotoHome(page)
+
+        const bar = page.getByTestId('bottom-tab-bar')
+        await expect(bar).toBeVisible()
+
+        for (const label of ['Search', 'Browse', 'Leaderboard', 'Saved', 'Account']) {
+            await expect(bar.getByRole('link', { name: label })).toBeVisible()
+        }
+    })
+
+    test('marks the current section as the active tab', async ({ page }) => {
+        await gotoAndSettle(page, '/search')
+
+        const active = page.getByTestId('bottom-tab-bar').locator('[aria-current="page"]')
+        await expect(active).toHaveText('Search')
+    })
+
+    test('routes the auth-gated tabs to /login when signed out', async ({ page }) => {
+        await gotoHome(page)
+
+        const bar = page.getByTestId('bottom-tab-bar')
+        await expect(bar.getByRole('link', { name: 'Saved' })).toHaveAttribute('href', '/login')
+        await expect(bar.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/login')
+    })
+
+    test('is hidden on desktop-width viewports', async ({ browser }) => {
+        const desktop = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+        const page = await desktop.newPage()
+        await gotoAndSettle(page, '/')
+
+        await expect(page.getByTestId('bottom-tab-bar')).toBeHidden()
+        await desktop.close()
+    })
+})

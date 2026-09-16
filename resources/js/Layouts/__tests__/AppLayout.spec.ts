@@ -86,4 +86,15 @@ describe('AppLayout nav', () => {
         const wrapper = mountLayout(null)
         expect(wrapper.findAll('a[href="/leaderboard"]').length).toBeGreaterThan(0)
     })
+
+    it('renders the mobile bottom tab bar', () => {
+        const wrapper = mountLayout(null)
+        expect(wrapper.find('[data-testid="bottom-tab-bar"]').exists()).toBe(true)
+    })
+
+    it('uses the dynamic viewport height so the footer clears the mobile URL bar', () => {
+        const wrapper = mountLayout(null)
+        const root = wrapper.find('div')
+        expect(root.classes()).toContain('min-h-dvh')
+    })
 })

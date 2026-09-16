@@ -6,8 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { X } from '@lucide/vue'
 import JsonLd from '@/Components/JsonLd.vue'
-import AppFooter from '@/Components/AppFooter.vue'
-import TopNav from '@/Components/TopNav.vue'
+import AppLayout from '@/Layouts/AppLayout.vue'
 import HeroBanner from '@/Components/HeroBanner.vue'
 import ScrollReveal from '@/Components/ScrollReveal.vue'
 import PopularCities from '@/Components/PopularCities.vue'
@@ -236,10 +235,9 @@ function dismissGeolocationError() {
 </script>
 
 <template>
-    <div class="relative flex min-h-screen flex-col bg-background">
-        <!-- Shared AppLayout top nav; transparent over the hero slideshow, non-sticky. -->
-        <TopNav :sticky="false" :transparent="true" />
-
+    <!-- Home uses the shared shell, with the nav overlaid on the hero:
+         transparent and non-sticky. -->
+    <AppLayout nav-transparent :nav-sticky="false">
         <!-- The full-page search-loading takeover renders at the app root
              (app.ts), not here — see useSearchLoadingOverlay for why. -->
 
@@ -263,7 +261,7 @@ function dismissGeolocationError() {
             </Card>
         </Transition>
 
-        <main class="relative flex flex-1 flex-col">
+        <div class="relative flex flex-col">
             <HeroBanner
                 :categories="bannerCategories"
                 :location="persistedLocation"
@@ -300,8 +298,6 @@ function dismissGeolocationError() {
             <ScrollReveal :delay="240">
                 <BlogPreview :posts="otherPosts" />
             </ScrollReveal>
-        </main>
-
-        <AppFooter />
-    </div>
+        </div>
+    </AppLayout>
 </template>

@@ -82,6 +82,7 @@ const stubs = {
         template: '<nav class="top-nav-stub" data-testid="top-nav" :sticky="sticky" :transparent="transparent" />',
     },
     AppFooter: { template: '<footer class="app-footer-stub">Footer</footer>' },
+    BottomTabBar: { template: '<nav data-testid="bottom-tab-bar-stub" />' },
     HeroBanner: {
         name: 'HeroBanner',
         props: ['categories', 'location', 'detectingLocation'],

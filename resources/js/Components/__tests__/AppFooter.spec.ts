@@ -48,4 +48,11 @@ describe('AppFooter', () => {
         const hrefs = credit.findAll('a').map((a) => a.attributes('href'))
         expect(hrefs).toEqual(['https://www.openstreetmap.org/copyright', 'https://docs.overturemaps.org/attribution/'])
     })
+
+    it('reserves room for the mobile bottom tab bar', () => {
+        const wrapper = createWrapper()
+        const classes = wrapper.find('footer').classes()
+        expect(classes).toContain('pb-[calc(2rem+var(--bottom-nav-height))]')
+        expect(classes).toContain('md:pb-8')
+    })
 })

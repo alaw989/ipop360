@@ -19,7 +19,7 @@ const showBar = computed(() => hasPhone.value || hasDirections.value || hasWebsi
     <div
         v-if="showBar"
         data-testid="restaurant-action-bar"
-        class="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] md:hidden"
+        class="fixed inset-x-0 bottom-[var(--bottom-nav-height)] z-40 border-t border-border bg-card/95 backdrop-blur-sm md:hidden"
     >
         <div class="mx-auto flex max-w-7xl items-stretch divide-x divide-border">
             <a

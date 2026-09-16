@@ -28,11 +28,17 @@
              its own icon, like an app. -->
         <link rel="manifest" href="/manifest.json" />
         <meta name="apple-mobile-web-app-title" content="iPop360" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <!-- Edge-to-edge: the web view lays out under the status bar, so
+             env(safe-area-inset-*) is non-zero in installed mode and the shell
+             pads itself around the notch/home indicator. -->
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
         <!-- Theme color for mobile browser chrome. The site always renders its
              light theme (nothing sets .dark), so the chrome matches it on a
              dark-mode phone too. -->
-        <meta name="theme-color" content="#ffffff" />
+        <meta name="theme-color" content="#c2401c" />
 
         <!-- Scripts -->
         @routes
