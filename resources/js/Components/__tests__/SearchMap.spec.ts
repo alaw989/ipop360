@@ -123,7 +123,7 @@ describe('SearchMap', () => {
     it('applies collapsed height class by default', async () => {
         const wrapper = await mountComponent()
         const mapDiv = wrapper.find('.z-0')
-        expect(mapDiv.classes()).toContain('h-[calc(100vh-8rem)]')
+        expect(mapDiv.classes()).toContain('h-[calc(100dvh-8rem)]')
     })
 
     it('switches to expanded height class on toggle', async () => {
@@ -131,7 +131,7 @@ describe('SearchMap', () => {
         await wrapper.find('button').trigger('click')
         const mapDiv = wrapper.find('.z-0')
         expect(mapDiv.classes()).toContain('h-[600px]')
-        expect(mapDiv.classes()).not.toContain('h-[calc(100vh-8rem)]')
+        expect(mapDiv.classes()).not.toContain('h-[calc(100dvh-8rem)]')
     })
 
     it('initializes a Leaflet map on mount with center coordinates', async () => {

@@ -135,7 +135,7 @@ defineExpose({ selectCuisine, confirmCategory })
                 </template>
             </button>
         </SheetTrigger>
-        <SheetContent side="bottom" class="h-[85vh] p-0 pb-[env(safe-area-inset-bottom)]" :show-close-button="false" @open-auto-focus.prevent>
+        <SheetContent side="bottom" class="h-[85dvh] p-0 pb-[env(safe-area-inset-bottom)]" :show-close-button="false" @open-auto-focus.prevent>
             <div class="flex items-center justify-between border-b border-border px-4 py-3">
                 <SheetTitle class="text-sm">Choose a cuisine</SheetTitle>
                 <div class="mx-auto h-1 w-10 rounded-full bg-muted-foreground/30" />
@@ -222,7 +222,7 @@ defineExpose({ selectCuisine, confirmCategory })
                 </template>
             </button>
         </PopoverTrigger>
-        <PopoverContent class="w-72 p-0 max-md:w-[calc(100vw-1rem)]" :align="isField ? 'start' : 'center'">
+        <PopoverContent class="w-72 p-0" :align="isField ? 'start' : 'center'">
             <Command v-if="!drillCategory">
                 <CommandInput placeholder="Search cuisines..." :autoFocus="false" />
                 <CommandList>

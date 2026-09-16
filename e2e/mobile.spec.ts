@@ -3,8 +3,8 @@ import { test, expect, type Page } from '@playwright/test'
 // Mobile UX E2E pass (goal #11). Runs against the local dev stack on :8090 with
 // an iPhone-class touch viewport. Covers the mobile-only affordances added by
 // the redesign: the nav drawer, the search filter sheet + map/list toggle, and
-// the sticky restaurant action bar. Requires real seed data for the detail page
-// (a restaurant with phone + website + coordinates in the local DB).
+// the sticky restaurant action bar. The detail page uses the deterministic
+// E2ESeeder fixture (phone + website + coordinates).
 
 const BASE = 'http://localhost:8090'
 
@@ -14,9 +14,18 @@ const BASE = 'http://localhost:8090'
 // Keep in sync with E2ESeeder::RESTAURANT_SLUG.
 const FIXTURE_SLUG = 'e2e-fixture-kitchen'
 
+// `networkidle` is discouraged and flaky here: real dev data loads third-party
+// restaurant photos and the PHP dev server can queue under parallel workers, so
+// it may never settle. Waiting for the app shell to render is a stable signal.
+async function gotoAndSettle(page: Page, path: string) {
+    await page.goto(BASE + path)
+    await page.waitForLoadState('domcontentloaded')
+    await page.locator('main').first().waitFor({ state: 'visible' })
+    await page.waitForTimeout(200)
+}
+
 async function gotoHome(page: Page) {
-    await page.goto(BASE + '/')
-    await page.waitForLoadState('networkidle')
+    await gotoAndSettle(page, '/')
 }
 
 test.describe('TopNav mobile drawer', () => {
@@ -46,8 +55,7 @@ test.describe('TopNav mobile drawer', () => {
 
 test.describe('Search mobile controls', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto(BASE + '/search')
-        await page.waitForLoadState('networkidle')
+        await gotoAndSettle(page, '/search')
     })
 
     test('opens and closes the filter bottom sheet', async ({ page }) => {
@@ -82,8 +90,7 @@ test.describe('Search mobile controls', () => {
             viewport: { width: 1440, height: 900 },
         })
         const page = await desktop.newPage()
-        await page.goto(BASE + '/search')
-        await page.waitForLoadState('networkidle')
+        await gotoAndSettle(page, '/search')
 
         await expect(page.getByTestId('mobile-filter-toggle')).toBeHidden()
         await expect(page.getByTestId('mobile-map-toggle')).toBeHidden()
@@ -93,8 +100,7 @@ test.describe('Search mobile controls', () => {
 
 test.describe('Restaurant detail sticky action bar', () => {
     test('shows the action bar with call, directions, and website on mobile', async ({ page }) => {
-        await page.goto(BASE + '/restaurants/' + FIXTURE_SLUG)
-        await page.waitForLoadState('networkidle')
+        await gotoAndSettle(page, '/restaurants/' + FIXTURE_SLUG)
 
         const bar = page.getByTestId('restaurant-action-bar')
         await expect(bar).toBeVisible()
@@ -108,8 +114,7 @@ test.describe('Restaurant detail sticky action bar', () => {
             viewport: { width: 1440, height: 900 },
         })
         const page = await desktop.newPage()
-        await page.goto(BASE + '/restaurants/' + FIXTURE_SLUG)
-        await page.waitForLoadState('networkidle')
+        await gotoAndSettle(page, '/restaurants/' + FIXTURE_SLUG)
 
         await expect(page.getByTestId('restaurant-action-bar')).toBeHidden()
         await desktop.close()

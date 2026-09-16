@@ -123,54 +123,56 @@ function updateRole(user: UserRow, role: string): void {
                 </div>
 
                 <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500">
-                                <th class="px-4 py-3 font-medium">Name</th>
-                                <th class="px-4 py-3 font-medium">Email</th>
-                                <th class="px-4 py-3 font-medium">Role</th>
-                                <th class="px-4 py-3 font-medium">Joined</th>
-                                <th class="px-4 py-3 text-right font-medium">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="user in users.data"
-                                :key="user.id"
-                                class="border-b border-neutral-100 last:border-0 hover:bg-neutral-50"
-                            >
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center gap-2 font-medium text-gray-900">
-                                        <Users class="h-4 w-4 shrink-0 text-neutral-400" />
-                                        <span>{{ user.name }}</span>
-                                        <Badge v-if="isSelf(user)" variant="secondary">You</Badge>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 text-neutral-600">{{ user.email }}</td>
-                                <td class="px-4 py-3">
-                                    <Badge :variant="roleBadgeVariant(user.role)">{{ user.role }}</Badge>
-                                </td>
-                                <td class="px-4 py-3 text-neutral-600">{{ formatDate(user.created_at) }}</td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center justify-end gap-2">
-                                        <ShieldCheck class="h-4 w-4 text-neutral-400" />
-                                        <select
-                                            :value="user.role"
-                                            :disabled="isSelf(user)"
-                                            :title="isSelf(user) ? 'You cannot change your own role' : undefined"
-                                            class="rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm text-gray-800 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                                            :class="{ 'cursor-not-allowed opacity-50': isSelf(user) }"
-                                            @change="updateRole(user, ($event.target as HTMLSelectElement).value)"
-                                        >
-                                            <option v-for="role in roles" :key="role" :value="role">
-                                                {{ role }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500">
+                                    <th class="px-4 py-3 font-medium">Name</th>
+                                    <th class="px-4 py-3 font-medium">Email</th>
+                                    <th class="px-4 py-3 font-medium">Role</th>
+                                    <th class="px-4 py-3 font-medium">Joined</th>
+                                    <th class="px-4 py-3 text-right font-medium">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="user in users.data"
+                                    :key="user.id"
+                                    class="border-b border-neutral-100 last:border-0 hover:bg-neutral-50"
+                                >
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2 font-medium text-gray-900">
+                                            <Users class="h-4 w-4 shrink-0 text-neutral-400" />
+                                            <span>{{ user.name }}</span>
+                                            <Badge v-if="isSelf(user)" variant="secondary">You</Badge>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-neutral-600">{{ user.email }}</td>
+                                    <td class="px-4 py-3">
+                                        <Badge :variant="roleBadgeVariant(user.role)">{{ user.role }}</Badge>
+                                    </td>
+                                    <td class="px-4 py-3 text-neutral-600">{{ formatDate(user.created_at) }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <ShieldCheck class="h-4 w-4 text-neutral-400" />
+                                            <select
+                                                :value="user.role"
+                                                :disabled="isSelf(user)"
+                                                :title="isSelf(user) ? 'You cannot change your own role' : undefined"
+                                                class="rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm text-gray-800 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                :class="{ 'cursor-not-allowed opacity-50': isSelf(user) }"
+                                                @change="updateRole(user, ($event.target as HTMLSelectElement).value)"
+                                            >
+                                                <option v-for="role in roles" :key="role" :value="role">
+                                                    {{ role }}
+                                                </option>
+                                            </select>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
                     <p v-if="users.data.length === 0" class="px-4 py-8 text-center text-sm text-neutral-500">
                         No users found.

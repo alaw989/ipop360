@@ -129,7 +129,7 @@ function escapeHtml(value: string | null | undefined): string {
         <div
             ref="mapContainer"
             class="z-0"
-            :class="isExpanded ? 'h-[600px]' : 'h-[calc(100vh-8rem)]'"
+            :class="isExpanded ? 'h-[600px]' : 'h-[calc(100dvh-8rem)]'"
         />
         <div class="flex items-center justify-between border-t px-3 py-2">
             <span class="text-xs text-muted-foreground">

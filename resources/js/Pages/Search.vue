@@ -198,7 +198,7 @@ const structuredData = computed(() => {
                             id="search-sort"
                             :value="currentSort"
                             @change="updateSort(($event.target as HTMLSelectElement).value)"
-                            class="min-h-11 min-w-0 max-w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:min-h-9"
+                            class="min-h-11 min-w-0 max-w-full rounded-md border border-input bg-background px-3 text-base ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:min-h-9 md:text-sm"
                         >
                             <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">
                                 {{ opt.label }}
