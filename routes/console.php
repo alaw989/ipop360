@@ -137,6 +137,22 @@ Schedule::command('restaurants:photo-thumbnails --apply --limit=200')
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 
+// Census-place seeding (runs at 14:45 UTC daily — after the 13:45 photo
+// backfill / 14:15 thumbnails and before the 15:00 health check). Gives small
+// towns a DB footprint from the free sources that already answer a live search
+// there, since the ~98-metro enrichment grid never reaches them. Free-only
+// (never SerpApi) and bounded to --limit places per run, resuming from the
+// stored cursor the next day.
+Schedule::command('restaurants:seed-places --apply --limit=25 --min-rows=5')
+    ->dailyAt('14:45')
+    ->withoutOverlapping(120)
+    ->onOneServer()
+    ->description('Seed restaurants for underserved US Census places (free sources only)')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:seed-places --apply --limit=25 --min-rows=5']);
+    })
+    ->tap(fn ($event) => SchedulerTelemetry::attach($event));
+
 // Weekly photo-URL verification sweep (Wednesdays at 12:30 UTC, after the
 // 04:00–~10:00 throttled-enrichment window so it never contends for the
 // SQLite write lock during the long free-source sweep).

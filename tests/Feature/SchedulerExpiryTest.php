@@ -33,6 +33,7 @@ class SchedulerExpiryTest extends TestCase
         'restaurants:backfill-websites --limit=400' => 240,
         'restaurants:backfill-photos --apply --limit=200 --min-photos=2' => 180,
         'restaurants:photo-thumbnails --apply --limit=200' => 180,
+        'restaurants:seed-places --apply --limit=25 --min-rows=5' => 120,
         'restaurants:backfill-photos --verify --apply --limit=200' => 180,
         'restaurants:scrape-social --limit=400' => 240,
         'restaurants:scrape-social --force --limit=1500' => 360,
