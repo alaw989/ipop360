@@ -94,3 +94,68 @@ jobs:
         with:
           name: vitest-coverage
           path: coverage/
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: sqlite3, mbstring, xml, curl, bcmath, gd, zip, fileinfo
+          tools: composer:v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install PHP dependencies
+        run: composer install
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Prepare environment
+        # A real .env is required: Playwright's webServer boots `php artisan
+        # serve`, which (unlike the phpunit runs) does not get its env from
+        # phpunit.xml. APP_ENV=local means debug is on, which is fine here.
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          {
+            echo "PULSE_ENABLED=false"
+            echo "TELESCOPE_ENABLED=false"
+            echo "NIGHTWATCH_ENABLED=false"
+          } >> .env
+
+      - name: Migrate and seed E2E fixtures
+        # Deterministic fixture rows (E2ESeeder) replace the spec-019-removed
+        # real seed data, so the mobile specs never depend on the dev/prod DB.
+        run: |
+          touch database/database.sqlite
+          php artisan migrate --force
+          php artisan db:seed --class=E2ESeeder --force
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E suite
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

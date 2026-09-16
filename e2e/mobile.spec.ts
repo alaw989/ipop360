@@ -8,6 +8,12 @@ import { test, expect, type Page } from '@playwright/test'
 
 const BASE = 'http://localhost:8090'
 
+// Deterministic fixture from database/seeders/E2ESeeder.php — the detail page
+// needs a restaurant with phone + website + coordinates so the sticky action
+// bar renders all three actions. Real seed data was removed in spec-019.
+// Keep in sync with E2ESeeder::RESTAURANT_SLUG.
+const FIXTURE_SLUG = 'e2e-fixture-kitchen'
+
 async function gotoHome(page: Page) {
     await page.goto(BASE + '/')
     await page.waitForLoadState('networkidle')
@@ -87,7 +93,7 @@ test.describe('Search mobile controls', () => {
 
 test.describe('Restaurant detail sticky action bar', () => {
     test('shows the action bar with call, directions, and website on mobile', async ({ page }) => {
-        await page.goto(BASE + '/restaurants/savinas-mexican-kitchen-downtown-denver-6cqTTV')
+        await page.goto(BASE + '/restaurants/' + FIXTURE_SLUG)
         await page.waitForLoadState('networkidle')
 
         const bar = page.getByTestId('restaurant-action-bar')
@@ -102,7 +108,7 @@ test.describe('Restaurant detail sticky action bar', () => {
             viewport: { width: 1440, height: 900 },
         })
         const page = await desktop.newPage()
-        await page.goto(BASE + '/restaurants/savinas-mexican-kitchen-downtown-denver-6cqTTV')
+        await page.goto(BASE + '/restaurants/' + FIXTURE_SLUG)
         await page.waitForLoadState('networkidle')
 
         await expect(page.getByTestId('restaurant-action-bar')).toBeHidden()
