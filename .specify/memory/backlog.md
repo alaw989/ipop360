@@ -1277,9 +1277,12 @@ Follow-ups to the 2026-09-16 seeding stack (#230–#232), prompted by the
 throughput math: the catalog is **32,352 places**, a report-only walk measured
 only **66/3,000 skipped** (2.2%), and a prod `--apply` sample averaged **~17s
 per real fetch** (3 places in 33.8s). The daily `--limit` was raised 25 → 600
-(≈53 days for a full walk, still free-only), but two structural problems remain
-worth a loop goal each. Both are on `feat/*` branches off `master`, stacked in
-this order:
+(≈54 days for a full walk, still free-only) — **then reverted to 25** after the
+first 600-place run (2026-09-17) took 181 minutes and seeded **15,318 rows**
+(corpus 42,143 → 55,301), because the radius problem below is not yet fixed:
+at that yield the remaining ~54 runs would add roughly **700k rows**. Do NOT
+raise `--limit` again until goal 2 lands. Two structural problems remain worth
+a loop goal each, on `feat/*` branches off `master`, stacked in this order:
 
 1. **Population-ordered seeding (higher value).** `CensusPlaceCatalog` walks
    the catalog **alphabetically** (`App\Support\CensusPlaceCatalog::all()`

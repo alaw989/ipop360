@@ -31,7 +31,7 @@ class SchedulerManifestTest extends TestCase
         'restaurants:backfill-websites --limit=400' => '45 11 * * *',
         'restaurants:backfill-photos --apply --limit=200 --min-photos=2' => '45 13 * * *',
         'restaurants:photo-thumbnails --apply --limit=200' => '15 14 * * *',
-        'restaurants:seed-places --apply --limit=600 --min-rows=5' => '45 14 * * *',
+        'restaurants:seed-places --apply --limit=25 --min-rows=5' => '45 14 * * *',
         'restaurants:backfill-photos --verify --apply --limit=200' => '30 12 * * 3',
         'restaurants:scrape-social --limit=400' => '45 10 * * *',
         'restaurants:scrape-social --force --limit=1500' => '0 12 * * 6',
