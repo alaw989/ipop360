@@ -83,7 +83,7 @@ class RestaurantResource extends JsonResource
             'photo_thumb_url' => $this->when(
                 $this->resource instanceof Restaurant
                     && app(PhotoThumbnailService::class)->matches($this->resource),
-                fn () => '/thumbs/'.$this->resource->photo_thumb,
+                fn () => app(PhotoThumbnailService::class)->publicUrl($this->resource),
             ),
             'photos' => $this->resource->photos ?? [],
             'price_range' => $this->resource->price_range,

@@ -1676,6 +1676,16 @@ class RestaurantWebsiteScraperService
             return null;
         }
 
+        // Hard daily cap: the free tier is 100 queries/day and anything past it
+        // is either refused or billed. Batch photo sweeps call this as a last
+        // resort, so the cap is enforced here rather than trusted to --limit.
+        $cap = (int) config('services.google_custom_search.daily_cap', 90);
+        $counter = 'google-cse:calls:'.now()->utc()->toDateString();
+        Cache::add($counter, 0, now()->addDays(2));
+        if ((int) Cache::increment($counter) > $cap) {
+            return null;
+        }
+
         try {
             $response = Http::timeout(8)->get('https://www.googleapis.com/customsearch/v1', [
                 'key' => $apiKey,

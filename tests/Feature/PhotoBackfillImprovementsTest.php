@@ -7,6 +7,7 @@ use App\Services\RestaurantWebsiteScraperService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Mockery;
 use Tests\TestCase;
@@ -30,6 +31,8 @@ class PhotoBackfillImprovementsTest extends TestCase
     {
         parent::setUp();
         Config::set('restaurant-finder.website_scraper.ssrf_guard', false);
+        // Found photos are probed before they're stored; every URL loads here.
+        Http::fake();
     }
 
     public function test_apply_mode_logs_found_photo_to_enrichment_channel(): void
@@ -51,6 +54,7 @@ class PhotoBackfillImprovementsTest extends TestCase
         Log::shouldReceive('info')->withArgs(fn ($message, $context) => str_contains($message, 'Photo backfill found photo')
             && isset($context['photo_url'])
             && str_contains($context['photo_url'], 'upload.wikimedia.org'))->once();
+        Log::shouldReceive('info')->with('Photo backfill sweep complete', Mockery::any());
 
         $this->artisan('restaurants:backfill-photos', ['--apply' => true]);
     }

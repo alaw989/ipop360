@@ -36,6 +36,9 @@ class LiveRestaurantResource extends JsonResource
             'lat' => $this->resource['lat'] ?? null,
             'lng' => $this->resource['lng'] ?? null,
             'photo_url' => $this->resource['photo_url'] ?? null,
+            // Set by PhotoThumbnailService::attachPublicUrls() when the
+            // persisted row has a self-hosted copy.
+            'photo_thumb_url' => $this->resource['photo_thumb_url'] ?? null,
             'photos' => $this->resource['photos'] ?? [],
             'price_range' => $this->resource['price_range'] ?? null,
             'phone' => $this->resource['phone'] ?? null,

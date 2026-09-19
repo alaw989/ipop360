@@ -49,6 +49,7 @@ interface TrendingRestaurant {
     name: string
     slug: string
     photo_url: string | null
+    photo_thumb_url?: string | null
     city: string | null
     state: string | null
     price_range: string | null

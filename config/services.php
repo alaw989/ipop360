@@ -82,6 +82,8 @@ return [
     'google_custom_search' => [
         'api_key' => env('GOOGLE_CSE_API_KEY'),
         'cx' => env('GOOGLE_CSE_CX'),
+        // Queries per UTC day; the free tier is 100.
+        'daily_cap' => (int) env('GOOGLE_CSE_DAILY_CAP', 90),
     ],
 
     /*

@@ -7,6 +7,7 @@ use App\Services\RestaurantWebsiteScraperService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Http;
 use Mockery;
 use Tests\TestCase;
 
@@ -91,6 +92,7 @@ class PhotoBackfillScheduleTest extends TestCase
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
         $scraper->shouldReceive('searchImageForRestaurant')->andReturn(['url' => 'https://cdn.example/photo.jpg', 'source' => 'website']);
         $this->app->instance(RestaurantWebsiteScraperService::class, $scraper);
+        Http::fake(['cdn.example/*' => Http::response('img', 200)]);
 
         $this->artisan('restaurants:backfill-photos', ['--apply' => true]);
 

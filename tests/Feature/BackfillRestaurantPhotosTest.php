@@ -6,6 +6,7 @@ use App\Models\Restaurant;
 use App\Services\RestaurantWebsiteScraperService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\PendingCommand;
 use Mockery;
 use Tests\TestCase;
@@ -18,6 +19,8 @@ class BackfillRestaurantPhotosTest extends TestCase
     {
         parent::setUp();
         Config::set('restaurant-finder.website_scraper.ssrf_guard', false);
+        // Found photos are probed before they're stored; every URL loads here.
+        Http::fake();
     }
 
     /**

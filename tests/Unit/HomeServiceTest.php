@@ -128,7 +128,7 @@ class HomeServiceTest extends TestCase
         $this->assertIsArray($card);
         $this->assertSame(
             [
-                'id', 'name', 'slug', 'photo_url', 'city', 'state',
+                'id', 'name', 'slug', 'photo_url', 'photo_thumb_url', 'city', 'state',
                 'price_range', 'google_rating', 'google_review_count',
                 'yelp_rating', 'yelp_review_count', 'has_award',
                 'popularity_score', 'cuisines',

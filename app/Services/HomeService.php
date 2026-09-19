@@ -22,6 +22,8 @@ class HomeService
      */
     private const DEDUP_CANDIDATE_MULTIPLIER = 5;
 
+    public function __construct(private readonly PhotoThumbnailService $thumbs) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -122,6 +124,8 @@ class HomeService
             'name' => $r->name,
             'slug' => $r->slug,
             'photo_url' => $r->photo_url,
+            // The self-hosted copy outlives the source URL (Google's expire).
+            'photo_thumb_url' => $this->thumbs->publicUrl($r),
             'city' => $r->city,
             'state' => $r->state,
             'price_range' => $r->price_range,
@@ -186,7 +190,7 @@ class HomeService
             'cuisines' => $restaurant->cuisines->map(fn (Cuisine $c) => ['id' => $c->id, 'name' => $c->name, 'slug' => $c->slug])->values(),
             // A photo picked for the spotlight (with its credit) leads, then the
             // story's image, then the restaurant's own.
-            'image' => $image ?: ($story?->featured_image ?: $restaurant->photo_url),
+            'image' => $image ?: ($story?->featured_image ?: ($this->thumbs->publicUrl($restaurant) ?? $restaurant->photo_url)),
             'image_credit' => $image ? $credit : null,
             'quote' => $story?->excerpt ?: $restaurant->description,
             'story' => $story !== null ? ['title' => $story->title, 'slug' => $story->slug] : null,

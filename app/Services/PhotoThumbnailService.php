@@ -9,13 +9,15 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Builds and serves card-sized WebP thumbnails for restaurant photos.
+ * Builds and serves self-hosted WebP copies of restaurant photos.
  *
- * Google and Wikimedia photos are resized on request by URL (see
- * resources/js/lib/responsiveImage.ts), so they are skipped here. Every other
- * host serves its original — one 16 MB JPEG was rendered at 96 px, shipping
- * 17.6 MB on a single search page — so those are downloaded once and stored as
- * a width-capped WebP under the private disk, served by /thumbs/{file}.
+ * Every photo is downloaded once and stored as a width-capped WebP under the
+ * private disk, served by /thumbs/{file}. That does two jobs: a venue host's
+ * 16 MB original no longer ships to a 96 px card, and the photo survives its
+ * source going away. Google's gps-cs-s photo URLs stop working a few weeks
+ * after SerpApi hands them out, so a copy taken while the URL is fresh is the
+ * only way to keep those photos; Google URLs are fetched at the thumbnail
+ * width rather than whatever size the stored URL asks for.
  *
  * The stored file name embeds the first 10 hex chars of sha1(photo_url), so a
  * thumbnail is only served while it still matches the row's current photo_url —
@@ -75,7 +77,7 @@ class PhotoThumbnailService
 
     /**
      * Download, resize and store the WebP. Returns the stored file name, or
-     * null when the row needs no thumbnail (no photo / already-resized host) or
+     * null when the row has no photo or
      * the source could not be turned into an image.
      */
     public function generate(Restaurant $restaurant): ?string
@@ -86,9 +88,7 @@ class PhotoThumbnailService
         }
 
         $url = trim((string) $restaurant->photo_url);
-        if ($this->hostResizesOnRequest($url)) {
-            return null;
-        }
+        $width = (int) config('restaurant-finder.photo_thumbs.width', 640);
 
         if (config('restaurant-finder.photo_thumbs.ssrf_guard', true) && ! SsrfGuard::isSafe($url)) {
             Log::channel('enrichment')->warning('Photo thumbnail blocked by SSRF guard', [
@@ -99,12 +99,12 @@ class PhotoThumbnailService
             return null;
         }
 
-        $binary = $this->download($url);
+        $binary = $this->download($this->sizedSourceUrl($url, $width));
         if ($binary === null) {
             return null;
         }
 
-        $webp = $this->encodeWebp($binary, (int) config('restaurant-finder.photo_thumbs.width', 640));
+        $webp = $this->encodeWebp($binary, $width);
         if ($webp === null) {
             return null;
         }
@@ -241,24 +241,100 @@ class PhotoThumbnailService
     }
 
     /**
-     * Whether the photo's host already resizes on request, making a stored
-     * thumbnail redundant. Mirrors resources/js/lib/responsiveImage.ts.
+     * The public URL of this row's stored copy, or null when it has none that
+     * matches the current photo_url.
      */
-    private function hostResizesOnRequest(string $url): bool
+    public function publicUrl(Restaurant $restaurant): ?string
     {
-        $host = strtolower((string) (parse_url($url, PHP_URL_HOST) ?? ''));
+        return $this->matches($restaurant) ? '/thumbs/'.$restaurant->photo_thumb : null;
+    }
 
-        if ($host === '') {
-            return false;
+    /**
+     * Add photo_thumb_url to live-search result arrays whose persisted row has
+     * a matching copy. Live results replay photo URLs from a 30-day search
+     * cache, so Google ones are often dead by the time they're shown; one
+     * batched query per page swaps in the stored copy.
+     *
+     * @param  array<int|string, array<string, mixed>>  $rows
+     * @return array<int|string, array<string, mixed>>
+     */
+    public function attachPublicUrls(array $rows): array
+    {
+        $ids = [];
+        foreach ($rows as $row) {
+            if (is_int($row['id'] ?? null)) {
+                $ids[] = $row['id'];
+            }
         }
 
-        if (preg_match('/^lh\d\.googleusercontent\.com$/', $host) === 1) {
-            return true;
+        if ($ids === []) {
+            return $rows;
         }
 
-        return $host === 'upload.wikimedia.org'
-            || $host === 'commons.wikimedia.org'
-            || str_ends_with($host, '.wikimedia.org')
-            || str_ends_with($host, '.wikipedia.org');
+        $urls = Restaurant::query()
+            ->whereIn('id', array_unique($ids))
+            ->whereNotNull('photo_thumb')
+            ->get(['id', 'photo_url', 'photo_thumb'])
+            ->mapWithKeys(fn (Restaurant $r): array => [$r->id => $this->publicUrl($r)])
+            ->filter()
+            ->all();
+
+        foreach ($rows as $key => $row) {
+            $url = is_int($row['id'] ?? null) ? ($urls[$row['id']] ?? null) : null;
+            if ($url !== null) {
+                $rows[$key]['photo_thumb_url'] = $url;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Stored thumbnail files that no longer belong to their row's current
+     * photo (the photo changed, was cleared, or the row is gone).
+     *
+     * @return list<string> file names
+     */
+    public function orphanedFiles(): array
+    {
+        $files = [];
+        foreach (Storage::disk('local')->files(self::DIRECTORY) as $path) {
+            $files[basename($path)] = (int) strstr(basename($path), '-', true);
+        }
+
+        if ($files === []) {
+            return [];
+        }
+
+        $expected = [];
+        foreach (array_chunk(array_unique(array_values($files)), 1000) as $ids) {
+            Restaurant::query()->whereIn('id', $ids)->get(['id', 'photo_url'])
+                ->each(function (Restaurant $r) use (&$expected): void {
+                    $name = $this->expectedFilename($r);
+                    if ($name !== null) {
+                        $expected[$name] = true;
+                    }
+                });
+        }
+
+        return array_values(array_filter(
+            array_keys($files),
+            fn (string $name): bool => ! isset($expected[$name]),
+        ));
+    }
+
+    /**
+     * Google photo URLs carry their size after the last "=" ("=w400-h300-c-no");
+     * ask for one that fits the thumbnail width instead. Mirrors
+     * googleSrcset() in resources/js/lib/responsiveImage.ts. Other hosts are
+     * fetched as stored.
+     */
+    public function sizedSourceUrl(string $url, int $width): string
+    {
+        if (preg_match('/^(https:\/\/lh\d\.googleusercontent\.com\/[^=?#]+)(?:=[\w-]*)?$/', $url, $m) === 1) {
+            return $m[1].'=w'.$width.'-h'.$width;
+        }
+
+        return $url;
     }
 }

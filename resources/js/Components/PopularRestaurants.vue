@@ -12,6 +12,8 @@ interface PopularRestaurant {
     name: string
     slug: string
     photo_url: string | null
+    // Self-hosted copy; outlives the source URL (Google's expire in weeks).
+    photo_thumb_url?: string | null
     city?: string | null
     state?: string | null
     price_range: string | null
@@ -92,9 +94,9 @@ function gradient(r: PopularRestaurant): string {
                         <!-- Photo -->
                         <div class="relative aspect-[4/3] overflow-hidden">
                             <img
-                                v-if="r.photo_url && !brokenPhotoIds.has(r.id)"
-                                :src="r.photo_url"
-                                :srcset="photoSrcset(r.photo_url) ?? undefined"
+                                v-if="(r.photo_thumb_url || r.photo_url) && !brokenPhotoIds.has(r.id)"
+                                :src="r.photo_thumb_url ?? r.photo_url ?? undefined"
+                                :srcset="r.photo_thumb_url ? undefined : (photoSrcset(r.photo_url) ?? undefined)"
                                 sizes="(min-width: 1024px) 300px, (min-width: 640px) 33vw, 50vw"
                                 :alt="r.name"
                                 width="400"
