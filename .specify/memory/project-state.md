@@ -33,6 +33,18 @@ copied; the verify sweep re-sources or clears them. **Follow-up:** after the
 first 14:15 UTC run, check the `enrichment` log's "Photo thumbnail sweep
 complete" (`failed_by_host`) and that the trending cards' copies appear.
 
+**Follow-up fix (#237, 2026-09-19):** the daily 11:45 `restaurants:backfill-websites`
+cache fill was writing month-old cached SerpApi thumbnails into empty
+`photo_url`s without checking them, so it refilled the dead photos verify had
+just cleared (Mr. Fez / Saffron: cleared 06:04, refilled 11:45, blank trending
+cards). It now stores a cached photo only if it loads (shared
+`App\Support\PhotoLiveness`, also used by photo verify) and labels it
+`google_thumbnail`. ✅ merged (03b421b) + deployed. Same day, by hand on prod:
+an early `--verify --apply --limit=40` (27 promoted from gallery, 1 re-sourced,
+6 cleared) plus per-row re-source/clear for 4 trending rows. Result: all 18
+trending cards load in the browser (14 from copies). Trending picks only
+restaurants with a photo, so a cleared row drops out of it.
+
 ## Shipped (2026-09-18) — ZIP code search in the location picker (#235)
 
 Ad-hoc (not a backlog goal). `/api/geocode/search` takes a US ZIP, ZIP+4, or
