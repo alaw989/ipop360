@@ -87,25 +87,34 @@ watch(open, async (val) => {
 })
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+// Each search gets a number; a response for an older one is dropped, so a
+// slow "Austin" can't replace the results for "78703" typed after it.
+let latestSearch = 0
+
+// Digits that aren't a whole ZIP yet ("787"): nothing to look up.
+const partialZip = computed(() => /^\d{1,4}$/.test(query.value.trim()))
 
 watch(query, (val) => {
     if (debounceTimer) clearTimeout(debounceTimer)
-    if (val.length < 2) {
+    const search = ++latestSearch
+    if (val.trim().length < 2 || partialZip.value) {
         results.value = []
+        searching.value = false
         return
     }
     searching.value = true
     debounceTimer = setTimeout(async () => {
+        let data: CityResult[] | null = null
         try {
             const { get } = await import('@/lib/api')
-            const data = await get<any[]>(`/api/geocode/search?q=${encodeURIComponent(val)}`)
-            results.value = data ?? []
-            selectedIndex.value = -1
+            data = await get<CityResult[]>(`/api/geocode/search?q=${encodeURIComponent(val.trim())}`)
         } catch {
-            results.value = []
-        } finally {
-            searching.value = false
+            data = null
         }
+        if (search !== latestSearch) return
+        results.value = data ?? []
+        selectedIndex.value = -1
+        searching.value = false
     }, 300)
 })
 
@@ -212,7 +221,7 @@ const triggerClasses = computed(() => isField.value
                     </span>
                 </div>
                 <div class="max-h-[60dvh] overflow-y-auto overscroll-contain" :style="{ paddingBottom: `${keyboardHeight}px` }">
-                    <div v-if="query.length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
+                    <div v-if="query.trim().length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
                         <p class="text-xs text-muted-foreground">Type to search cities or ZIPs</p>
                         <button @click="useMyLocation" class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -222,6 +231,9 @@ const triggerClasses = computed(() => isField.value
                             </svg>
                             Use my current location
                         </button>
+                    </div>
+                    <div v-else-if="partialZip" class="px-4 py-6 text-center text-xs text-muted-foreground">
+                        Keep typing: ZIPs are 5 digits
                     </div>
                     <div v-else-if="results.length === 0 && !searching" class="px-4 py-6 text-center text-xs text-muted-foreground">
                         No cities or ZIPs found
@@ -292,7 +304,7 @@ const triggerClasses = computed(() => isField.value
                     </span>
                 </div>
                 <div class="max-h-64 overflow-y-auto overscroll-contain">
-                    <div v-if="query.length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
+                    <div v-if="query.trim().length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
                         <p class="text-xs text-muted-foreground">Type to search cities or ZIPs</p>
                         <button @click="useMyLocation" class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -302,6 +314,9 @@ const triggerClasses = computed(() => isField.value
                             </svg>
                             Use my current location
                         </button>
+                    </div>
+                    <div v-else-if="partialZip" class="px-4 py-6 text-center text-xs text-muted-foreground">
+                        Keep typing: ZIPs are 5 digits
                     </div>
                     <div v-else-if="results.length === 0 && !searching" class="px-4 py-6 text-center text-xs text-muted-foreground">
                         No cities or ZIPs found

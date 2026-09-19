@@ -359,5 +359,40 @@ describe('LocationPicker', () => {
             expect(text).toContain('Beverly Hills, CA')
             expect(text).toContain('90210')
         })
+
+        it('asks for the rest of a partial ZIP without calling the API', async () => {
+            const wrapper = createWrapper()
+            await wrapper.find('button').trigger('click')
+
+            const input = wrapper.find('input[placeholder="Type your city or ZIP..."]')
+            await input.setValue('787')
+            await vi.advanceTimersByTimeAsync(300)
+
+            expect(mockGet).not.toHaveBeenCalled()
+            expect(wrapper.text()).toContain('Keep typing: ZIPs are 5 digits')
+            expect(wrapper.text()).not.toContain('No cities or ZIPs found')
+        })
+
+        it('drops a slow response for an earlier query', async () => {
+            let resolveSlow: (value: unknown) => void = () => {}
+            mockGet
+                .mockImplementationOnce(() => new Promise((resolve) => { resolveSlow = resolve }))
+                .mockResolvedValueOnce(zipResult)
+
+            const wrapper = createWrapper()
+            await wrapper.find('button').trigger('click')
+            const input = wrapper.find('input[placeholder="Type your city or ZIP..."]')
+
+            await input.setValue('Austin')
+            await vi.advanceTimersByTimeAsync(300)
+            await input.setValue('90210')
+            await vi.advanceTimersByTimeAsync(300)
+
+            resolveSlow(mockResults)
+            await vi.advanceTimersByTimeAsync(0)
+
+            expect(wrapper.text()).toContain('ZIP 90210')
+            expect(wrapper.text()).not.toContain('Austin, MN')
+        })
     })
 })

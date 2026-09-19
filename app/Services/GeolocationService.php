@@ -69,9 +69,10 @@ class GeolocationService
      * Typeahead lookup for a city name or a US ZIP code. A ZIP resolves
      * offline from the Census gazetteer (ZipLocation) — no Photon call — and
      * is labelled with a city name from a cached reverse geocode so the
-     * picker can show "Beverly Hills, CA" alongside the ZIP. Unknown ZIPs
-     * return no rows rather than falling through to Photon, which has no
-     * concept of a bare 5-digit number.
+     * picker can show "Austin, TX" alongside the ZIP. A ZIP may come with
+     * words around it ("Austin, TX 78703"). Unknown ZIPs, and digits that
+     * can't be a ZIP yet ("787" mid-typing), return no rows rather than
+     * falling through to Photon, which finds nothing for them.
      *
      * @return array<int, array{city: string|null, state: string|null, country: string|null, lat: float|null, lng: float|null, zip: string|null, display: string}>
      */
@@ -83,13 +84,18 @@ class GeolocationService
         }
 
         $zip = $this->normalizeZip($query);
-        $key = 'citysearch:'.md5($zip ?? $query);
+        if ($zip !== null) {
+            // Not cached here: the gazetteer is local and reverseGeocode()
+            // caches its own answers, so a Nominatim outage doesn't pin a
+            // city-less row for a day.
+            return $this->searchByZip($zip);
+        }
 
-        return Cache::remember($key, now()->addDay(), function () use ($query, $zip) {
-            if ($zip !== null) {
-                return $this->searchByZip($zip);
-            }
+        if (preg_match('/^[\d\s-]+$/', $query) === 1) {
+            return [];
+        }
 
+        return Cache::remember('citysearch:'.md5($query), now()->addDay(), function () use ($query) {
             try {
                 // Photon (Komoot) — free, no API key, built for autocomplete
                 $response = Http::timeout(5)
@@ -139,10 +145,16 @@ class GeolocationService
         });
     }
 
-    /** "90210" or "90210-1234" → "90210"; anything else → null. */
+    /**
+     * The query's ZIP: "90210", "90210-1234", "Austin, TX 78703" or
+     * "78703 Austin" → the 5 digits. Anything with other digits in it
+     * ("Route 66", "123 Main St") is not a ZIP query → null.
+     */
     private function normalizeZip(string $query): ?string
     {
-        return preg_match('/^(\d{5})(?:-\d{4})?$/', $query, $m) === 1 ? $m[1] : null;
+        $words = "[\\p{L}\\s,.'-]*";
+
+        return preg_match("/^{$words}(?<![\\d-])(\\d{5})(?:-\\d{4})?(?![\\d-]){$words}$/u", $query, $m) === 1 ? $m[1] : null;
     }
 
     /**
