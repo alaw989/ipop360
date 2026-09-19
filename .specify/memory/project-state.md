@@ -3,7 +3,7 @@
 > Living snapshot for Claude (and humans) picking up this project. Read this
 > together with `constitution.md` and `backlog.md` at session start. Detailed
 > per-spec history lives in `history.md` (one-line-per-spec log) and
-> `history/` (deep-dive writeups). Updated: 2026-09-18.
+> `history/` (deep-dive writeups). Updated: 2026-09-19.
 >
 > **This file was trimmed 2026-08-22** — it had grown to 564 lines of
 > spec-by-spec narrative (specs 001–103) that duplicated `history.md`. The
@@ -11,6 +11,27 @@
 > `history/2026-08-22--project-state-pre-trim-archive.md`. Keep this file to
 > *current/operational* state only — anything spec-shipment-shaped belongs in
 > `history.md`, not here.
+
+## Shipped (2026-09-19) — self-hosted photo copies (#236)
+
+Ad-hoc (not a backlog goal). Google gps-cs-s photo URLs expire within weeks
+of SerpApi returning them, so every photo is now copied to a WebP under
+`storage/app/private/thumbs` (served by `/thumbs/{file}`) and pages show the
+copy: homepage trending + spotlight, live search, preview pages.
+- Copy queued on `photo_url` change (`GeneratePhotoThumbnail` job, needs the
+  queue worker; `PHOTO_THUMBS_COPY_ON_WRITE` kill-switch). A new photo clears
+  `photo_thumb`; derived `photo_thumb` writes skip model events + `updated_at`.
+- Daily 14:15 UTC `restaurants:photo-thumbnails --apply --limit=1000`
+  backstop, Google photos first; weekly Thu 15:30 `--prune --apply`.
+- Weekly photo verify skips rows with a copy, rejects same/dead candidates,
+  decaying cooldown 5 → 2 weeks, limit 1000. Google CSE capped at 90/UTC day.
+
+✅ merged (91ff4c6) + deployed + live-verified 2026-09-19 05:25 UTC: a
+trending card's copy serves `200 image/webp` from `/thumbs/`. **At deploy,
+12 of 18 trending photos were already-dead Google URLs** — those can't be
+copied; the verify sweep re-sources or clears them. **Follow-up:** after the
+first 14:15 UTC run, check the `enrichment` log's "Photo thumbnail sweep
+complete" (`failed_by_host`) and that the trending cards' copies appear.
 
 ## Shipped (2026-09-18) — ZIP code search in the location picker (#235)
 
