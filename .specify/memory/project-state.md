@@ -528,10 +528,16 @@ exactly this reason).
 - **`.env` is deploy-excluded**: the droplet keeps its own `.env`. API keys
   reach prod via GitHub **secrets** + a deploy injection step. **Local `.env`
   changes do NOT reach prod.**
-- **Cannot SSH to the droplet from a checkout** — droplet creds are
-  write-only GitHub secrets. For prod DB changes, use a one-time migration
-  (runs via deploy). See `AGENTS.md` for the PDO-export DB-pull-down recipe if
-  you need a local copy of prod data.
+- **SSH to the droplet** (confirmed 2026-09-19): `root@` the droplet named
+  `ipop360` (IP via the DigitalOcean MCP `droplet-list`) with the key
+  `~/.ssh/droplet-vp-nuxt`. The name is misleading: it's the ipop360 key. The
+  primary Linux box has a `Host ipop360` entry in `~/.ssh/config`, so it's just
+  `ssh ipop360`. Other machines need that key copied over; it's backed up on the
+  TOSHIBA EXT drive under `cachyos-migration/ssh/`. App at `/var/www/ipop360`;
+  supervisor runs `ipop360-worker` (2 queue workers) + `ipop360-ssr`. Use it
+  read-only to check things (logs, `schedule:list`, tinker counts). Prod DB
+  changes still go through a one-time migration run by the deploy. See `AGENTS.md`
+  for the PDO-export DB-pull-down recipe if you need a local copy of prod data.
 - `config:clear` / `config:cache` is mandatory after weight/TTL config changes
   (the deploy already runs `config:cache`).
 - **Monitoring a deploy** (~4–6 min): `gh run watch` if `gh` is authed;
