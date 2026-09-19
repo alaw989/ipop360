@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Restaurant;
 use App\Services\RestaurantWebsiteScraperService;
+use App\Support\PhotoLiveness;
 use App\Support\SqlDialect;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -36,12 +37,6 @@ class BackfillRestaurantPhotos extends Command
         {--backfill-source : Infer photo_source for existing rows that have a photo_url but no photo_source (URL-host heuristic)}';
 
     protected $description = 'Backfill missing restaurant photos + gallery arrays from free sources (website og:image, Wikimedia, Wikipedia)';
-
-    /** Timeout for the photo-url liveness check (seconds). */
-    private const VERIFY_TIMEOUT = 8;
-
-    /** User agent for the photo-url liveness check. */
-    private const VERIFY_USER_AGENT = 'Mozilla/5.0 (compatible; iPop360-Verify/1.0)';
 
     private int $found = 0;
 
@@ -139,7 +134,7 @@ class BackfillRestaurantPhotos extends Command
 
                 // Never store a link that doesn't load (cached website scrapes
                 // can hand back a since-deleted og:image).
-                if ($photoUrl !== null && ! $this->isPhotoAlive($photoUrl)) {
+                if ($photoUrl !== null && ! PhotoLiveness::isAlive($photoUrl)) {
                     $photoUrl = null;
                     $result = null;
                     $this->rejected++;
@@ -313,7 +308,7 @@ class BackfillRestaurantPhotos extends Command
 
                 $alive = [];
                 foreach ($distinct as $url) {
-                    if ($this->isPhotoAlive($url)) {
+                    if (PhotoLiveness::isAlive($url)) {
                         $alive[] = $url;
                     }
                 }
@@ -351,7 +346,7 @@ class BackfillRestaurantPhotos extends Command
                         // so it often hands back the same dead og:image; before
                         // this check those rows were left unstamped and dead,
                         // and re-checked every week forever.
-                        if ($fresh !== null && ($fresh === $current || ! $this->isPhotoAlive($fresh))) {
+                        if ($fresh !== null && ($fresh === $current || ! PhotoLiveness::isAlive($fresh))) {
                             $fresh = null;
                             $this->rejected++;
                         }
@@ -521,38 +516,6 @@ class BackfillRestaurantPhotos extends Command
         }
 
         return 'unknown';
-    }
-
-    /**
-     * HEAD-check a photo URL, falling back to GET. A 403 is retried once via
-     * the GET fallback — Google lh3 and other CDNs return a transient 403 that
-     * recovers on a second hit, so a single 403 must never churn a valid row.
-     */
-    private function isPhotoAlive(string $url): bool
-    {
-        if ($this->requestSucceeds($url, 'HEAD')) {
-            return true;
-        }
-
-        return $this->requestSucceeds($url, 'GET');
-    }
-
-    /**
-     * Perform one HTTP request and report whether it returned 200.
-     */
-    private function requestSucceeds(string $url, string $method): bool
-    {
-        try {
-            $request = Http::timeout(self::VERIFY_TIMEOUT)
-                ->withUserAgent(self::VERIFY_USER_AGENT)
-                ->withOptions(['allow_redirects' => ['max' => 3]]);
-
-            $response = $method === 'HEAD' ? $request->head($url) : $request->get($url);
-
-            return $response->status() === 200;
-        } catch (\Throwable $e) {
-            return false;
-        }
     }
 
     /**

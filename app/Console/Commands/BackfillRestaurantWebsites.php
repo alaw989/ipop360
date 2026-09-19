@@ -10,6 +10,7 @@ use App\Services\RestaurantWebsiteScraperService;
 use App\Services\SocialLinkRecorder;
 use App\Services\VenuePipeline;
 use App\Services\WebsiteIdentityVerifier;
+use App\Support\PhotoLiveness;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Http;
@@ -272,9 +273,13 @@ class BackfillRestaurantWebsites extends Command
                 if (empty($restaurant->opening_hours) && is_array($entryData['_opening_hours'])) {
                     $updates['opening_hours'] = $entryData['_opening_hours'];
                 }
-                if (empty($restaurant->photo_url) && is_string($entryData['_photo'])) {
+                // Cached SerpApi thumbnails can be a month old and Google photo
+                // URLs expire within weeks: only fill one that still loads, or
+                // this refills the dead photo the verify sweep just cleared.
+                if (empty($restaurant->photo_url) && is_string($entryData['_photo'])
+                    && ($dryRun || PhotoLiveness::isAlive($entryData['_photo']))) {
                     $updates['photo_url'] = $entryData['_photo'];
-                    $updates['photo_source'] = 'website';
+                    $updates['photo_source'] = 'google_thumbnail';
                 }
                 if (($restaurant->google_rating === null || $restaurant->google_rating <= 0) && is_float($entryData['_rating'])) {
                     $updates['google_rating'] = $entryData['_rating'];
