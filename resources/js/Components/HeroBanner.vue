@@ -16,6 +16,7 @@ interface Category {
 interface Location {
     city: string | null
     state: string | null
+    zip?: string | null
 }
 
 interface Props {

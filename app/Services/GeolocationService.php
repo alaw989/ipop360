@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\ZipLocation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -65,17 +66,30 @@ class GeolocationService
     }
 
     /**
-     * @return array<int, array{city: string|null, state: string|null, country: string|null, lat: float|null, lng: float|null, display: string}>
+     * Typeahead lookup for a city name or a US ZIP code. A ZIP resolves
+     * offline from the Census gazetteer (ZipLocation) — no Photon call — and
+     * is labelled with a city name from a cached reverse geocode so the
+     * picker can show "Beverly Hills, CA" alongside the ZIP. Unknown ZIPs
+     * return no rows rather than falling through to Photon, which has no
+     * concept of a bare 5-digit number.
+     *
+     * @return array<int, array{city: string|null, state: string|null, country: string|null, lat: float|null, lng: float|null, zip: string|null, display: string}>
      */
     public function searchCities(string $query): array
     {
+        $query = trim($query);
         if (strlen($query) < 2) {
             return [];
         }
 
-        $key = 'citysearch:'.md5($query);
+        $zip = $this->normalizeZip($query);
+        $key = 'citysearch:'.md5($zip ?? $query);
 
-        return Cache::remember($key, now()->addDay(), function () use ($query) {
+        return Cache::remember($key, now()->addDay(), function () use ($query, $zip) {
+            if ($zip !== null) {
+                return $this->searchByZip($zip);
+            }
+
             try {
                 // Photon (Komoot) — free, no API key, built for autocomplete
                 $response = Http::timeout(5)
@@ -107,6 +121,7 @@ class GeolocationService
                         'country' => $f['properties']['countrycode'] ?? null,
                         'lat' => $f['geometry']['coordinates'][1] ?? null,
                         'lng' => $f['geometry']['coordinates'][0] ?? null,
+                        'zip' => null,
                         'display' => trim(collect([
                             $f['properties']['name'] ?? null,
                             $f['properties']['state'] ?? null,
@@ -122,6 +137,45 @@ class GeolocationService
                 return [];
             }
         });
+    }
+
+    /** "90210" or "90210-1234" → "90210"; anything else → null. */
+    private function normalizeZip(string $query): ?string
+    {
+        return preg_match('/^(\d{5})(?:-\d{4})?$/', $query, $m) === 1 ? $m[1] : null;
+    }
+
+    /**
+     * Resolve a US ZIP to its Census centroid, state and (best-effort) city.
+     * Loading the gazetteer is deferred to ZipLocation, so this only costs
+     * the ~2 MB parse on ZIP queries — city queries never touch it.
+     *
+     * @return array<int, array{city: string|null, state: string|null, country: string|null, lat: float|null, lng: float|null, zip: string|null, display: string}>
+     */
+    private function searchByZip(string $zip): array
+    {
+        $centroid = ZipLocation::centroid($zip);
+        if ($centroid === null) {
+            return [];
+        }
+
+        $state = ZipLocation::state($zip);
+
+        $city = null;
+        $reverse = $this->reverseGeocode($centroid['lat'], $centroid['lng']);
+        if ($reverse !== null) {
+            $city = $reverse['city'] ?? null;
+        }
+
+        return [[
+            'city' => $city,
+            'state' => $state,
+            'country' => 'US',
+            'lat' => $centroid['lat'],
+            'lng' => $centroid['lng'],
+            'zip' => $zip,
+            'display' => $city === null ? '' : 'ZIP '.$zip,
+        ]];
     }
 
     /**

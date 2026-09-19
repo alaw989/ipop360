@@ -82,4 +82,24 @@ class GeocodeControllerTest extends TestCase
         $response->assertOk()
             ->assertJson(['lat' => null, 'lng' => null]);
     }
+
+    public function test_search_returns_zip_result_without_photon(): void
+    {
+        Http::fake([
+            'nominatim.openstreetmap.org/*' => Http::response([
+                'address' => ['city' => 'Beverly Hills', 'state' => 'California'],
+            ], 200),
+        ]);
+
+        $response = $this->getJson('/api/geocode/search?q=90210');
+
+        $response->assertOk()
+            ->assertJsonFragment([
+                'city' => 'Beverly Hills',
+                'state' => 'CA',
+                'zip' => '90210',
+            ]);
+
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'photon.komoot.io'));
+    }
 }

@@ -142,7 +142,7 @@ test.describe('phone-visible controls are >=16px (no iOS focus zoom)', () => {
         await gotoAndSettle(page, '/')
 
         await page.getByTestId('location-trigger').first().click()
-        await expect(page.getByPlaceholder('Type your city...').first()).toBeVisible()
+        await expect(page.getByPlaceholder('Type your city or ZIP...').first()).toBeVisible()
 
         const offenders = await scanSubSixteenControls(page)
         expect(offenders, `Sub-16px controls in the city sheet:\n${offenders.join('\n')}`).toEqual([])

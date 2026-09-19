@@ -24,6 +24,7 @@ const emit = defineEmits<{ searched: [] }>();
 interface Location {
     city: string | null;
     state: string | null;
+    zip?: string | null;
 }
 
 const page = usePage();
@@ -66,7 +67,7 @@ const currentArea = computed<{ lat: string; lng: string } | null>(() => {
     return areaLat && areaLng ? { lat: areaLat, lng: areaLng } : null;
 });
 
-const wherePlaceholder = computed(() => (currentArea.value ? 'This area' : 'City, or use my location'));
+const wherePlaceholder = computed(() => (currentArea.value ? 'This area' : 'City or ZIP, or use my location'));
 
 function onLocationUpdate(newLocation: Location): void {
     location.value = newLocation;
