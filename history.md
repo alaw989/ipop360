@@ -203,3 +203,4 @@
 
   The one flag left is map pins overlapping in dense areas. There were no contrast failures.
 - **Also:** the page-load progress bar is the brand red-orange (it was amber); "Get directions" on the map has a real icon; `docs/design-audit-2026-09.md` records the browser floor (Safari/iOS 16.4+, Chrome/Edge 111+, Firefox 128+). A lighter tooltip for ScoreChip was dropped: the header's search pickers already load the same Popover, so it would save nothing.
+2026-09-18 — ZIP code search (#235): the location picker takes a US ZIP ("78703", "78703-1234", "Austin, TX 78703"). It resolves offline from `ZipLocation`, with the city from the cached reverse geocode. Partial ZIPs skip the API with a "Keep typing" hint, ZIP rows aren't cached at the search level (a Nominatim outage can't pin a city-less label), and the picker drops stale responses. 1509 PHP + 1156 vitest green; live-verified.

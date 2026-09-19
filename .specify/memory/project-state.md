@@ -3,7 +3,7 @@
 > Living snapshot for Claude (and humans) picking up this project. Read this
 > together with `constitution.md` and `backlog.md` at session start. Detailed
 > per-spec history lives in `history.md` (one-line-per-spec log) and
-> `history/` (deep-dive writeups). Updated: 2026-09-16.
+> `history/` (deep-dive writeups). Updated: 2026-09-18.
 >
 > **This file was trimmed 2026-08-22** — it had grown to 564 lines of
 > spec-by-spec narrative (specs 001–103) that duplicated `history.md`. The
@@ -11,6 +11,19 @@
 > `history/2026-08-22--project-state-pre-trim-archive.md`. Keep this file to
 > *current/operational* state only — anything spec-shipment-shaped belongs in
 > `history.md`, not here.
+
+## Shipped (2026-09-18) — ZIP code search in the location picker (#235)
+
+Ad-hoc (not a backlog goal). `/api/geocode/search` takes a US ZIP, ZIP+4, or
+a ZIP with words around it ("Austin, TX 78703") and resolves it offline from
+`ZipLocation` (Census gazetteer). No Photon call. The city label comes from
+the cached Nominatim reverse geocode, so 90210 reads "Los Angeles" (its
+centroid is in LA). Digits that can't be a ZIP yet return `[]` without an
+external call. ZIP rows aren't cached at the search level. `LocationPicker`
+shows "Keep typing: ZIPs are 5 digits", drops stale responses and displays
+"Austin, TX · 78703"; search still runs on lat/lng. ✅ merged (f89fd5e) +
+deployed + live-verified on ipop360.com (API, desktop and 390px browser,
+ZIP pick → search gives 823 Austin results).
 
 ## Shipped (2026-09-16) — enrichment coverage series (3-PR stack)
 
