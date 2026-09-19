@@ -8,6 +8,7 @@ use App\Models\FieldQuarantine;
 use App\Models\Restaurant;
 use Database\Seeders\CuisineSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -749,6 +750,9 @@ class BackfillWebsitesCachePhoneTest extends TestCase
 
     public function test_backfills_photo_from_cached_serpapi_thumbnail_for_name_match(): void
     {
+        // Cached photos are probed before they're stored.
+        Http::fake();
+
         $this->seedCache('serpapi', [
             [
                 'title' => 'Photogenic Eatery',
@@ -771,6 +775,36 @@ class BackfillWebsitesCachePhoneTest extends TestCase
 
         $restaurant = Restaurant::where('name', 'Photogenic Eatery')->firstOrFail();
         $this->assertSame('https://lh3.googleusercontent.com/gps-cs-s/abc123=w1000-h1000-c-n', $restaurant->photo_url);
+        $this->assertSame('google_thumbnail', $restaurant->photo_source);
+    }
+
+    public function test_does_not_refill_a_photo_from_a_dead_cached_thumbnail(): void
+    {
+        // The verify sweep clears a dead photo; the month-old cached SerpApi
+        // thumbnail is that same expired URL and must not be written back.
+        Http::fake(['lh3.googleusercontent.com/*' => Http::response('Forbidden', 403)]);
+
+        $this->seedCache('serpapi', [
+            [
+                'title' => 'Expired Photo Eatery',
+                'website' => 'https://expiredphoto.example',
+                'thumbnail' => 'https://lh3.googleusercontent.com/gps-cs-s/expired=w1000-h1000-c-n',
+            ],
+        ]);
+
+        $this->restaurantAtCache([
+            'name' => 'Expired Photo Eatery',
+            'website_url' => 'https://expiredphoto.example',
+            'phone' => '5550006665',
+            'photo_url' => null,
+            'menu_url' => 'https://expiredphoto.example/menu',
+            'opening_hours' => 'Mo-Su 11:00-21:00',
+            'social_links_count' => 1,
+        ]);
+
+        $this->artisan('restaurants:backfill-websites', ['--skip-search' => true]);
+
+        $this->assertNull(Restaurant::where('name', 'Expired Photo Eatery')->firstOrFail()->photo_url);
     }
 
     public function test_does_not_overwrite_existing_photo(): void
@@ -840,6 +874,9 @@ class BackfillWebsitesCachePhoneTest extends TestCase
 
     public function test_backfills_photo_when_website_missing(): void
     {
+        // Cached photos are probed before they're stored.
+        Http::fake();
+
         $this->seedCache('serpapi', [
             [
                 'title' => 'Website-less Photo',
