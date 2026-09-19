@@ -10,6 +10,7 @@ use App\Models\CuisineCategory;
 use App\Models\ExternalApiCache;
 use App\Models\Restaurant;
 use App\Services\GeolocationService;
+use App\Services\PhotoThumbnailService;
 use App\Services\PopularityScoreService;
 use App\Services\UnifiedSearchService;
 use Illuminate\Database\Eloquent\Builder;
@@ -213,7 +214,7 @@ class SearchController extends Controller
         $hasPrev = $paginate && $effectivePage > 1;
 
         $restaurants = [
-            'data' => LiveRestaurantResource::collection($slice)->resolve(),
+            'data' => LiveRestaurantResource::collection(app(PhotoThumbnailService::class)->attachPublicUrls($slice))->resolve(),
             'current_page' => $effectivePage,
             'last_page' => $lastPage,
             'per_page' => $paginate ? $perPage : $total,

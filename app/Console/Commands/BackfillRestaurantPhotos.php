@@ -61,6 +61,12 @@ class BackfillRestaurantPhotos extends Command
 
     private int $skipped = 0;
 
+    /** Rows skipped because a self-hosted copy preserves their photo. */
+    private int $preserved = 0;
+
+    /** Re-source candidates rejected as the same URL or not loading. */
+    private int $rejected = 0;
+
     public function handle(RestaurantWebsiteScraperService $scraper): int
     {
         if ($this->option('backfill-source')) {
@@ -131,13 +137,23 @@ class BackfillRestaurantPhotos extends Command
                 );
                 $photoUrl = $result['url'] ?? null;
 
+                // Never store a link that doesn't load (cached website scrapes
+                // can hand back a since-deleted og:image).
+                if ($photoUrl !== null && ! $this->isPhotoAlive($photoUrl)) {
+                    $photoUrl = null;
+                    $result = null;
+                    $this->rejected++;
+                }
+
                 $updates = [];
 
                 if ($result !== null && $photoUrl !== null && empty($restaurant->photo_url)) {
                     $updates['photo_url'] = $photoUrl;
                     $updates['photo_source'] = $result['source'];
                     $this->found++;
-                }                // Fill the gallery array too: existing photo_url + scraped photos
+                }
+
+                // Fill the gallery array too: existing photo_url + scraped photos
                 // (website og:image/<img> when available), deduped, capped.
                 $gallery = $this->mergeGallery((array) ($restaurant->photos ?? []), $photoUrl, $galleryMax);
                 if (count($gallery) > count((array) ($restaurant->photos ?? []))) {
@@ -182,8 +198,19 @@ class BackfillRestaurantPhotos extends Command
         $this->line('Mode: '.($apply ? '<fg=green>APPLIED (changes persisted)</>' : '<fg=yellow>DRY RUN (no changes persisted)</>'));
         $this->line("Primary photos found: {$this->found}");
         $this->line("Gallery arrays filled/top-up: {$this->galleryFilled}");
+        $this->line("Rejected (found photo did not load): {$this->rejected}");
         $this->line("Skipped (recently verified): {$this->skipped}");
         $this->line("Failed: {$this->failed}");
+
+        Log::channel('enrichment')->info('Photo backfill sweep complete', [
+            'mode' => $apply ? 'applied' : 'dry-run',
+            'total' => $rows->count(),
+            'found' => $this->found,
+            'gallery_filled' => $this->galleryFilled,
+            'rejected' => $this->rejected,
+            'skipped' => $this->skipped,
+            'failed' => $this->failed,
+        ]);
 
         return self::SUCCESS;
     }
@@ -196,6 +223,9 @@ class BackfillRestaurantPhotos extends Command
      * gallery; when the primary is dead but a gallery entry is alive, that
      * entry is promoted to photo_url instead of re-sourcing. gps-cs-s Google
      * CDN URLs decay opaquely (~1-month) so they are prioritized for checking.
+     * Rows with a self-hosted copy are skipped: the copy is what's shown. A
+     * replacement must be a different URL that loads, and every checked row is
+     * stamped, so an unfixable row isn't re-checked every week.
      * Default is a dry run; pass --apply to persist.
      */
     private function handleVerify(RestaurantWebsiteScraperService $scraper): int
@@ -222,6 +252,12 @@ class BackfillRestaurantPhotos extends Command
             ->whereNotNull('photo_url')
             ->where('photo_url', '!=', '');
 
+        // A row with a self-hosted copy is shown from the copy, so its source
+        // dying no longer matters: nothing to verify. (Changing photo_url
+        // clears photo_thumb — see Restaurant::saving — so a set column means
+        // the copy belongs to the current photo.)
+        $this->preserved = (clone $base)->whereNotNull('photo_thumb')->where('photo_thumb', '!=', '')->count();
+
         // Rows verified within their applicable cooldown window are skipped
         // this sweep.
         $this->skipped = (clone $base)
@@ -232,7 +268,7 @@ class BackfillRestaurantPhotos extends Command
             )
             ->count();
 
-        $query = (clone $base)->where(function ($q) use ($decayingSql, $decayingCutoff, $stableCutoff) {
+        $query = (clone $base)->where(fn ($q) => $q->whereNull('photo_thumb')->orWhere('photo_thumb', ''))->where(function ($q) use ($decayingSql, $decayingCutoff, $stableCutoff) {
             $q->whereNull('photo_verified_at')
                 ->orWhereRaw(
                     "(({$decayingSql} AND photo_verified_at < ?) OR (NOT {$decayingSql} AND photo_verified_at < ?))",
@@ -247,9 +283,11 @@ class BackfillRestaurantPhotos extends Command
             return self::SUCCESS;
         }
 
-        // gps-cs-s CDN URLs decay opaquely (~1-month) — check those first.
+        // gps-cs-s CDN URLs decay opaquely (~1-month) — check those first,
+        // then the most search-visible rows (homepage Trending, top of search).
         $rows = (clone $query)
             ->orderByRaw("CASE WHEN photo_url LIKE '%gps-cs-s%' THEN 0 ELSE 1 END")
+            ->orderByDesc('popularity_score')
             ->orderBy('id')
             ->limit($limit > 0 ? $limit : $total)
             ->get();
@@ -308,7 +346,17 @@ class BackfillRestaurantPhotos extends Command
                         );
                         $fresh = $result['url'] ?? null;
 
-                        if ($result !== null && $fresh !== null && $fresh !== $current) {
+                        // A candidate is only a replacement if it is a different
+                        // URL that actually loads. The website scrape is cached,
+                        // so it often hands back the same dead og:image; before
+                        // this check those rows were left unstamped and dead,
+                        // and re-checked every week forever.
+                        if ($fresh !== null && ($fresh === $current || ! $this->isPhotoAlive($fresh))) {
+                            $fresh = null;
+                            $this->rejected++;
+                        }
+
+                        if ($result !== null && $fresh !== null) {
                             $updates['photo_url'] = $fresh;
                             $updates['photo_source'] = $result['source'];
                             $updates['photo_verified_at'] = now();
@@ -374,7 +422,9 @@ class BackfillRestaurantPhotos extends Command
         $this->line("Promoted from gallery: {$this->promoted}");
         $this->line("Re-sourced: {$this->resourced}");
         $this->line("Cleared (dead-unresolvable): {$this->cleared}");
+        $this->line("Rejected candidates (same URL or dead): {$this->rejected}");
         $this->line("Skipped (recently verified): {$this->skipped}");
+        $this->line("Skipped (self-hosted copy): {$this->preserved}");
         $this->line("Failed: {$this->failed}");
 
         Log::channel('enrichment')->info('Photo verify sweep complete', [
@@ -385,7 +435,9 @@ class BackfillRestaurantPhotos extends Command
             'promoted' => $this->promoted,
             'resourced' => $this->resourced,
             'cleared' => $this->cleared,
+            'rejected' => $this->rejected,
             'skipped' => $this->skipped,
+            'preserved' => $this->preserved,
             'failed' => $this->failed,
         ]);
 

@@ -467,7 +467,9 @@ return [
         // which decay opaquely in ~1 month — the general 28-week cooldown left
         // these stale for 6+ months after a single verify pass. Every other
         // source (website/social/osm/wikidata) keeps the long cooldown.
-        'photo_verify_cooldown_weeks_decaying' => (int) env('LIVE_SEARCH_PHOTO_VERIFY_COOLDOWN_WEEKS_DECAYING', 5),
+        // 2 weeks, not 5: prod rows verified alive on 08-27 were dead by 09-18,
+        // inside a 5-week window. Rows with a self-hosted copy skip verify.
+        'photo_verify_cooldown_weeks_decaying' => (int) env('LIVE_SEARCH_PHOTO_VERIFY_COOLDOWN_WEEKS_DECAYING', 2),
 
         // Quality floor: drop scored rows below this popularity_score before the
         // max_results cap. Scores are normalized per active set, so a fixed floor
@@ -797,14 +799,14 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Card-sized photo thumbnails
+    | Self-hosted photo copies
     |--------------------------------------------------------------------------
-    | Google and Wikimedia photos are resized on request by URL (see
-    | resources/js/lib/responsiveImage.ts), but every other host serves its
-    | original — one result is a 16 MB JPEG rendered at 96–176 px, so a single
-    | search page shipped 17.6 MB of images. `restaurants:photo-thumbnails`
-    | downloads those originals once and stores a width-capped WebP under
-    | storage/app/private/thumbs, served by the /thumbs/{file} route. Bounded
+    | Every restaurant photo is downloaded once and stored as a width-capped
+    | WebP under storage/app/private/thumbs, served by the /thumbs/{file}
+    | route. It keeps multi-MB originals off 96–176 px cards (one search page
+    | shipped 17.6 MB) and keeps the photo after its source dies — Google's
+    | gps-cs-s URLs expire within weeks. Copies are queued when photo_url
+    | changes; `restaurants:photo-thumbnails` is the daily backstop. Bounded
     | on both ends: a 25 MB download cap and a 50 MP decode cap.
     */
     'photo_thumbs' => [
@@ -823,6 +825,10 @@ return [
         // Reuse the same SSRF kill-switch semantics as the website scraper, but
         // separate so tests can disable it without touching scraping.
         'ssrf_guard' => filter_var(env('PHOTO_THUMBS_SSRF_GUARD', true), FILTER_VALIDATE_BOOL),
+        // Queue a copy whenever a restaurant's photo_url changes, so the copy
+        // is taken while the source is fresh (Google photo URLs expire within
+        // weeks). Off only in tests, where the sync queue would download.
+        'copy_on_write' => filter_var(env('PHOTO_THUMBS_COPY_ON_WRITE', true), FILTER_VALIDATE_BOOL),
     ],
 
     /*

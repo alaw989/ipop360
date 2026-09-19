@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Jobs\GeneratePhotoThumbnail;
+use App\Services\PhotoThumbnailService;
 use App\Support\PhotoSourceTier;
 use App\Support\SqlDialect;
 use Carbon\CarbonImmutable;
@@ -122,6 +124,34 @@ class Restaurant extends Model
                 $restaurant->slug = Str::slug($restaurant->name).'-'.Str::random(6);
             }
         });
+
+        // A new photo invalidates the stored copy; clearing the column lets the
+        // daily sweep's `photo_thumb IS NULL` filter find it if the queued copy
+        // below never lands. The old file is left for --prune.
+        static::saving(function (Restaurant $restaurant) {
+            if ($restaurant->isDirty('photo_url') && ! $restaurant->isDirty('photo_thumb')
+                && ! app(PhotoThumbnailService::class)->matches($restaurant)) {
+                $restaurant->photo_thumb = null;
+            }
+        });
+
+        // Copy the photo while its source is fresh (Google URLs expire in weeks).
+        // Split into created/updated: wasRecentlyCreated stays true for the
+        // instance's lifetime, so a saved hook would re-queue on every later save.
+        static::created(fn (Restaurant $restaurant) => self::queuePhotoCopy($restaurant));
+        static::updated(function (Restaurant $restaurant) {
+            if ($restaurant->wasChanged('photo_url')) {
+                self::queuePhotoCopy($restaurant);
+            }
+        });
+    }
+
+    private static function queuePhotoCopy(Restaurant $restaurant): void
+    {
+        if (config('restaurant-finder.photo_thumbs.copy_on_write', true)
+            && trim((string) $restaurant->photo_url) !== '') {
+            GeneratePhotoThumbnail::dispatch($restaurant->id)->afterCommit();
+        }
     }
 
     /**

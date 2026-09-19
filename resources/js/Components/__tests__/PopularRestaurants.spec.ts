@@ -269,4 +269,27 @@ describe('PopularRestaurants', () => {
         expect(link.exists()).toBe(true)
         expect(link.text()).toContain('Test Place')
     })
+
+    it('prefers the self-hosted copy over the source photo URL', () => {
+        const wrapper = mountComponent({
+            restaurants: [makeRestaurant({
+                photo_url: 'https://lh3.googleusercontent.com/gps-cs-s/abc=w400-h300-c-no',
+                photo_thumb_url: '/thumbs/1-abcdef0123.webp',
+            })],
+        })
+
+        const img = wrapper.find('img')
+        expect(img.attributes('src')).toBe('/thumbs/1-abcdef0123.webp')
+        expect(img.attributes('srcset')).toBeUndefined()
+    })
+
+    it('falls back to the source photo with its host srcset when there is no copy', () => {
+        const wrapper = mountComponent({
+            restaurants: [makeRestaurant({ photo_url: 'https://lh3.googleusercontent.com/gps-cs-s/abc=w400-h300-c-no' })],
+        })
+
+        const img = wrapper.find('img')
+        expect(img.attributes('src')).toBe('https://lh3.googleusercontent.com/gps-cs-s/abc=w400-h300-c-no')
+        expect(img.attributes('srcset')).toContain('=w400-h400-rw 400w')
+    })
 })

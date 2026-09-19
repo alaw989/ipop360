@@ -11,6 +11,7 @@ use App\Models\Restaurant;
 use App\Services\GeolocationService;
 use App\Services\LiveSearchSnapshotService;
 use App\Services\LiveVenuePersister;
+use App\Services\PhotoThumbnailService;
 use App\Services\PopularityScoreService;
 use App\Services\RestaurantValidationService;
 use App\Services\UnifiedSearchService;
@@ -289,7 +290,7 @@ class RestaurantController extends Controller
 
         $this->snapshotService->storePreviews($slice);
 
-        $data = LiveRestaurantResource::collection($slice)->resolve();
+        $data = LiveRestaurantResource::collection(app(PhotoThumbnailService::class)->attachPublicUrls($slice))->resolve();
 
         return new LengthAwarePaginator(
             collect($data),
@@ -355,7 +356,7 @@ class RestaurantController extends Controller
         }
 
         return Inertia::render('Restaurants/Show', [
-            'restaurant' => (new LiveRestaurantResource($restaurant))->resolve(),
+            'restaurant' => (new LiveRestaurantResource(app(PhotoThumbnailService::class)->attachPublicUrls([$restaurant])[0]))->resolve(),
             'categorySlug' => null,
             'isLivePreview' => true,
             'canonicalUrl' => route('restaurants.preview', ['slug' => $slug]),
@@ -513,7 +514,7 @@ class RestaurantController extends Controller
         $request->attributes->set('is_live', true);
 
         return response()->json([
-            'data' => LiveRestaurantResource::collection($slice)->resolve(),
+            'data' => LiveRestaurantResource::collection(app(PhotoThumbnailService::class)->attachPublicUrls($slice))->resolve(),
             'current_page' => $effectivePage,
             'last_page' => $lastPage,
             'per_page' => $paginate ? $perPage : $total,

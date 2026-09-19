@@ -10,10 +10,10 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
- * Unit coverage for PhotoThumbnailService: file-name/hash freshness, the
- * already-resized host skip, the SSRF and size guards, and (where GD exists)
- * the resize itself. The results grid renders photos at 96–176 px, so the
- * 16 MB originals some hosts serve must be turned into a small WebP.
+ * Unit coverage for PhotoThumbnailService: file-name/hash freshness, Google
+ * source sizing, the SSRF and size guards, and (where GD exists) the resize
+ * itself. Every photo is copied: some hosts serve 16 MB originals to a 96 px
+ * card, and Google's photo URLs expire within weeks.
  */
 class PhotoThumbnailServiceTest extends TestCase
 {
@@ -59,16 +59,39 @@ class PhotoThumbnailServiceTest extends TestCase
         $this->assertFalse($this->thumbs->matches($this->restaurant('https://example.com/a.jpg', null)));
     }
 
-    public function test_skips_hosts_that_already_resize_on_request(): void
+    public function test_google_photos_are_fetched_at_the_thumbnail_width(): void
     {
-        Http::fake();
+        Http::fake(['*' => Http::response('not an image', 200, ['Content-Type' => 'image/jpeg'])]);
 
-        $google = $this->restaurant('https://lh3.googleusercontent.com/gps-cs-s/abc=w400-h300-c-no');
-        $commons = $this->restaurant('https://upload.wikimedia.org/wikipedia/commons/d/de/File.jpg/960px-File.jpg');
+        $this->thumbs->generate($this->restaurant('https://lh3.googleusercontent.com/gps-cs-s/abc=w400-h300-c-no'));
 
-        $this->assertNull($this->thumbs->generate($google));
-        $this->assertNull($this->thumbs->generate($commons));
-        Http::assertNothingSent();
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://lh3.googleusercontent.com/gps-cs-s/abc=w640-h640');
+    }
+
+    public function test_sized_source_url_rewrites_only_google_photo_urls(): void
+    {
+        $this->assertSame(
+            'https://lh3.googleusercontent.com/p/AF1Qip=w640-h640',
+            $this->thumbs->sizedSourceUrl('https://lh3.googleusercontent.com/p/AF1Qip', 640),
+        );
+        $this->assertSame(
+            'https://lh5.googleusercontent.com/gps-cs-s/abc=w320-h320',
+            $this->thumbs->sizedSourceUrl('https://lh5.googleusercontent.com/gps-cs-s/abc=s1600-k-no', 320),
+        );
+        $this->assertSame(
+            'https://upload.wikimedia.org/wikipedia/commons/d/de/File.jpg',
+            $this->thumbs->sizedSourceUrl('https://upload.wikimedia.org/wikipedia/commons/d/de/File.jpg', 640),
+        );
+    }
+
+    public function test_public_url_is_set_only_for_a_matching_copy(): void
+    {
+        $url = 'https://example.com/a.jpg';
+        $current = $this->thumbs->expectedFilename($this->restaurant($url));
+
+        $this->assertSame('/thumbs/'.$current, $this->thumbs->publicUrl($this->restaurant($url, $current)));
+        $this->assertNull($this->thumbs->publicUrl($this->restaurant('https://example.com/b.jpg', $current)));
+        $this->assertNull($this->thumbs->publicUrl($this->restaurant($url)));
     }
 
     public function test_blocks_a_private_address_when_the_ssrf_guard_is_on(): void

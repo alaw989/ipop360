@@ -121,19 +121,31 @@ Schedule::command('restaurants:backfill-photos --apply --limit=200 --min-photos=
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 
-// Card thumbnails (runs at 2:15 PM UTC daily, after the 13:45 photo backfill
-// so the same day's new photos get one). Google/Wikimedia are skipped (they
-// resize by URL); everything else is downloaded once into a width-capped WebP,
-// so the results grid stops shipping multi-MB originals into 96–176 px slots.
-// Bounded by --limit and ordered by popularity, so the rows most likely to
-// appear on /search get theirs first; withoutOverlapping guards a slow run.
-Schedule::command('restaurants:photo-thumbnails --apply --limit=200')
+// Self-hosted photo copies (runs at 2:15 PM UTC daily, after the 13:45 photo
+// backfill). Copies are normally queued the moment a photo_url changes
+// (Restaurant::saved → GeneratePhotoThumbnail); this is the backstop for bulk
+// writes that skip model events. Google gps-cs-s photos go first: their URLs
+// expire within weeks, and a copy is the only thing that keeps them. --limit
+// caps copy attempts (≈1–2 s each), well inside the 180-min mutex.
+Schedule::command('restaurants:photo-thumbnails --apply --limit=1000')
     ->dailyAt('14:15')
     ->withoutOverlapping(180)
     ->onOneServer()
-    ->description('Generate card-sized WebP thumbnails for photos from hosts that cannot resize')
+    ->description('Self-host WebP copies of restaurant photos (Google photos first: their URLs expire)')
     ->onFailure(function () {
-        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:photo-thumbnails --apply --limit=200']);
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:photo-thumbnails --apply --limit=1000']);
+    })
+    ->tap(fn ($event) => SchedulerTelemetry::attach($event));
+
+// Weekly orphan cleanup (Thursdays 15:30 UTC, after that day's 14:15 copy
+// run): deletes stored copies whose row's photo changed or went away.
+Schedule::command('restaurants:photo-thumbnails --prune --apply')
+    ->weeklyOn(4, '15:30')
+    ->withoutOverlapping(60)
+    ->onOneServer()
+    ->description('Delete self-hosted photo copies that no longer match their row')
+    ->onFailure(function () {
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:photo-thumbnails --prune --apply']);
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 
@@ -163,18 +175,20 @@ Schedule::command('restaurants:seed-places --apply --limit=25 --min-rows=5')
 // Weekly photo-URL verification sweep (Wednesdays at 12:30 UTC, after the
 // 04:00–~10:00 throttled-enrichment window so it never contends for the
 // SQLite write lock during the long free-source sweep).
-// HTTP-checks each row's photo_url (HEAD→GET fallback), keeps valid photos,
-// and re-sources dead ones via the free searchAnyImage chain. gps-cs-s Google
-// CDN URLs decay opaquely (~1-month) and are checked first. Bounded by
-// --limit=200 so the free Google Custom Search last-resort source is never
-// exhausted by an unbounded sweep.
-Schedule::command('restaurants:backfill-photos --verify --apply --limit=200')
+// Only rows WITHOUT a self-hosted copy are checked — a copy is what's shown,
+// so its source dying no longer matters. HTTP-checks each photo_url (HEAD→GET
+// fallback), keeps valid photos, and re-sources dead ones via the free
+// searchImageForRestaurant chain; gps-cs-s first, then by popularity. Bounded
+// by --limit so the free Google Custom Search last-resort source (~100/day)
+// isn't exhausted: most checks end at the liveness probe or an earlier free
+// source.
+Schedule::command('restaurants:backfill-photos --verify --apply --limit=1000')
     ->weeklyOn(3, '12:30')
     ->withoutOverlapping(180)
     ->onOneServer()
-    ->description('Weekly verify + re-source of dead restaurant photo URLs (gps-cs-s first)')
+    ->description('Weekly verify + re-source of dead photo URLs that have no self-hosted copy')
     ->onFailure(function () {
-        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:backfill-photos --verify --apply --limit=200']);
+        Log::channel('enrichment')->error('Scheduled command failed', ['command' => 'restaurants:backfill-photos --verify --apply --limit=1000']);
     })
     ->tap(fn ($event) => SchedulerTelemetry::attach($event));
 

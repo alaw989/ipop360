@@ -70,6 +70,7 @@ class PhotoVerifyTest extends TestCase
 
         Http::fake([
             'lh3.googleusercontent.com/*' => Http::response('Forbidden', 403),
+            'upload.wikimedia.org/*' => Http::response('img', 200),
         ]);
 
         $scraper = Mockery::mock(RestaurantWebsiteScraperService::class);
