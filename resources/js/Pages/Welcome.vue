@@ -39,6 +39,7 @@ interface Category {
 interface Location {
     city: string | null
     state: string | null
+    zip?: string | null
 }
 
 // Slim Trending-card shape sent by HomeService::trendingCard() — NOT the full
@@ -106,8 +107,8 @@ const persistedLocation = ref<Location>({ city: null, state: null })
 const lat = ref<number | null>(null)
 const lng = ref<number | null>(null)
 
-function setLocation(city: string | null, state: string | null, lt: number | null, lg: number | null): void {
-    persistedLocation.value = { city, state }
+function setLocation(city: string | null, state: string | null, lt: number | null, lg: number | null, zip: string | null = null): void {
+    persistedLocation.value = { city, state, zip }
     lat.value = lt
     lng.value = lg
 }
@@ -212,7 +213,7 @@ function onLocationUpdate(newLocation: Location) {
 function onCoords(lt: number, lg: number) {
     lat.value = lt
     lng.value = lg
-    setLocation(persistedLocation.value.city, persistedLocation.value.state, lt, lg)
+    setLocation(persistedLocation.value.city, persistedLocation.value.state, lt, lg, persistedLocation.value.zip ?? null)
 }
 
 function onSearch() {

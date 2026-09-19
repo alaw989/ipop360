@@ -98,7 +98,7 @@ describe('SiteSearch', () => {
 
     it('asks for a city when there is no area on screen', () => {
         const wrapper = mount(SiteSearch)
-        expect(wrapper.get('[data-testid="location"]').attributes('data-placeholder')).toBe('City, or use my location')
+        expect(wrapper.get('[data-testid="location"]').attributes('data-placeholder')).toBe('City or ZIP, or use my location')
     })
 
     it('stacks the fields in the phone sheet', () => {

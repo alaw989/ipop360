@@ -242,4 +242,143 @@ class GeolocationServiceTest extends TestCase
 
         $this->assertNull($this->service->forwardGeocode('Nowhere', 'XX'));
     }
+
+    public function test_search_cities_resolves_zip_from_local_gazetteer_without_photon(): void
+    {
+        Cache::flush();
+        Http::fake([
+            'nominatim.openstreetmap.org/*' => Http::response([
+                'address' => ['city' => 'Beverly Hills', 'state' => 'California'],
+            ], 200),
+        ]);
+
+        $results = $this->service->searchCities('90210');
+
+        $this->assertCount(1, $results);
+        $this->assertSame('Beverly Hills', $results[0]['city']);
+        $this->assertSame('CA', $results[0]['state']);
+        $this->assertSame('US', $results[0]['country']);
+        $this->assertSame('90210', $results[0]['zip']);
+        $this->assertEquals(34.1005, $results[0]['lat']);
+        $this->assertEquals(-118.4146, $results[0]['lng']);
+
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'photon.komoot.io'));
+    }
+
+    public function test_search_cities_normalizes_zip_plus_four(): void
+    {
+        Cache::flush();
+        Http::fake([
+            'nominatim.openstreetmap.org/*' => Http::response([
+                'address' => ['city' => 'Beverly Hills', 'state' => 'California'],
+            ], 200),
+        ]);
+
+        $results = $this->service->searchCities('90210-1234');
+
+        $this->assertCount(1, $results);
+        $this->assertSame('90210', $results[0]['zip']);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'photon.komoot.io'));
+    }
+
+    public function test_search_cities_returns_empty_for_unknown_zip(): void
+    {
+        Cache::flush();
+        Http::fake();
+
+        $this->assertSame([], $this->service->searchCities('00000'));
+        Http::assertNothingSent();
+    }
+
+    public function test_search_cities_extracts_zip_from_surrounding_words(): void
+    {
+        Cache::flush();
+        Http::fake([
+            'nominatim.openstreetmap.org/*' => Http::response([
+                'address' => ['city' => 'Austin', 'state' => 'Texas'],
+            ], 200),
+        ]);
+
+        foreach (['Austin, TX 78703', '78703 Austin', '  78703  '] as $query) {
+            $results = $this->service->searchCities($query);
+            $this->assertCount(1, $results, $query);
+            $this->assertSame('78703', $results[0]['zip'], $query);
+        }
+
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'photon.komoot.io'));
+    }
+
+    public function test_search_cities_skips_photon_for_digits_that_are_not_a_zip(): void
+    {
+        Cache::flush();
+        Http::fake();
+
+        foreach (['78', '787', '7870', '787031', '78703-12', '90210 90211', '787 03'] as $query) {
+            $this->assertSame([], $this->service->searchCities($query), $query);
+        }
+
+        Http::assertNothingSent();
+    }
+
+    public function test_search_cities_sends_mixed_digit_queries_to_photon(): void
+    {
+        Cache::flush();
+        Http::fake(['photon.komoot.io/*' => Http::response(['features' => []], 200)]);
+
+        $this->service->searchCities('Route 66');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'photon.komoot.io'));
+    }
+
+    public function test_search_cities_zip_retries_city_after_reverse_geocode_outage(): void
+    {
+        Cache::flush();
+        Http::fakeSequence('nominatim.openstreetmap.org/*')
+            ->push([], 500)
+            ->push(['address' => ['city' => 'Austin', 'state' => 'Texas']], 200);
+
+        $this->assertNull($this->service->searchCities('78703')[0]['city']);
+        $this->assertSame('Austin', $this->service->searchCities('78703')[0]['city']);
+    }
+
+    public function test_search_cities_zip_survives_reverse_geocode_failure(): void
+    {
+        Cache::flush();
+        Http::fake([
+            'nominatim.openstreetmap.org/*' => Http::response([], 500),
+        ]);
+
+        $results = $this->service->searchCities('78703');
+
+        $this->assertCount(1, $results);
+        $this->assertNull($results[0]['city']);
+        $this->assertSame('TX', $results[0]['state']);
+        $this->assertSame('78703', $results[0]['zip']);
+        $this->assertEquals(30.2933, $results[0]['lat']);
+    }
+
+    public function test_search_cities_non_zip_query_still_uses_photon(): void
+    {
+        Cache::flush();
+        Http::fake([
+            'photon.komoot.io/*' => Http::response([
+                'features' => [[
+                    'properties' => [
+                        'osm_value' => 'city',
+                        'countrycode' => 'US',
+                        'name' => 'Austin',
+                        'state' => 'Texas',
+                    ],
+                    'geometry' => ['coordinates' => [-97.7431, 30.2672]],
+                ]],
+            ], 200),
+        ]);
+
+        $results = $this->service->searchCities('Austin');
+
+        $this->assertCount(1, $results);
+        $this->assertSame('Austin', $results[0]['city']);
+        $this->assertNull($results[0]['zip']);
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'photon.komoot.io'));
+    }
 }

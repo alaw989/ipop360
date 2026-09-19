@@ -67,7 +67,32 @@ const singleResult = [
         country: 'US',
         lat: 32.7767,
         lng: -96.797,
+        zip: null,
         display: 'Dallas, TX, USA',
+    },
+]
+
+const zipResult = [
+    {
+        city: 'Beverly Hills',
+        state: 'CA',
+        country: 'US',
+        lat: 34.1005,
+        lng: -118.4146,
+        zip: '90210',
+        display: 'ZIP 90210',
+    },
+]
+
+const zipOnlyResult = [
+    {
+        city: null,
+        state: 'CA',
+        country: 'US',
+        lat: 30.2933,
+        lng: -97.7661,
+        zip: '78703',
+        display: '',
     },
 ]
 
@@ -108,12 +133,12 @@ describe('LocationPicker', () => {
         expect(wrapper.find('svg.animate-spin').exists()).toBe(true)
     })
 
-    it('shows "Type to search cities" when popover opens with short query', async () => {
+    it('shows "Type to search cities or ZIPs" when popover opens with short query', async () => {
         const wrapper = createWrapper()
         const trigger = wrapper.find('button')
         await trigger.trigger('click')
 
-        expect(wrapper.text()).toContain('Type to search cities')
+        expect(wrapper.text()).toContain('Type to search cities or ZIPs')
         expect(wrapper.text()).toContain('Use my current location')
     })
 
@@ -128,16 +153,16 @@ describe('LocationPicker', () => {
         expect(wrapper.emitted('detect')).toBeTruthy()
     })
 
-    it('shows "No cities found" when API returns empty and query >= 2 chars', async () => {
+    it('shows "No cities or ZIPs found" when API returns empty and query >= 2 chars', async () => {
         const wrapper = createWrapper()
         const trigger = wrapper.find('button')
         await trigger.trigger('click')
 
-        const input = wrapper.find('input[placeholder="Type your city..."]')
+        const input = wrapper.find('input[placeholder="Type your city or ZIP..."]')
         await input.setValue('xy')
         await vi.advanceTimersByTimeAsync(300)
 
-        expect(wrapper.text()).toContain('No cities found')
+        expect(wrapper.text()).toContain('No cities or ZIPs found')
     })
 
     it('renders search results after debounced API call', async () => {
@@ -147,7 +172,7 @@ describe('LocationPicker', () => {
         const trigger = wrapper.find('button')
         await trigger.trigger('click')
 
-        const input = wrapper.find('input[placeholder="Type your city..."]')
+        const input = wrapper.find('input[placeholder="Type your city or ZIP..."]')
         await input.setValue('Austin')
         await vi.advanceTimersByTimeAsync(300)
 
@@ -168,7 +193,7 @@ describe('LocationPicker', () => {
         const trigger = wrapper.find('button')
         await trigger.trigger('click')
 
-        const input = wrapper.find('input[placeholder="Type your city..."]')
+        const input = wrapper.find('input[placeholder="Type your city or ZIP..."]')
         await input.setValue('Dallas')
         await vi.advanceTimersByTimeAsync(300)
 
@@ -179,6 +204,7 @@ describe('LocationPicker', () => {
         expect(wrapper.emitted('update')![0]![0]).toEqual({
             city: 'Dallas',
             state: 'TX',
+            zip: null,
         })
         expect(wrapper.emitted('coords')).toBeTruthy()
         expect(wrapper.emitted('coords')![0]).toEqual([32.7767, -96.797])
@@ -193,7 +219,7 @@ describe('LocationPicker', () => {
         const trigger = wrapper.find('button')
         await trigger.trigger('click')
 
-        const input = wrapper.find('input[placeholder="Type your city..."]')
+        const input = wrapper.find('input[placeholder="Type your city or ZIP..."]')
         await input.setValue('Round Rock')
         await vi.advanceTimersByTimeAsync(300)
 
@@ -206,7 +232,7 @@ describe('LocationPicker', () => {
         const wrapper = createWrapper()
         await wrapper.find('button').trigger('click')
 
-        const input = wrapper.find('input[placeholder="Type your city..."]')
+        const input = wrapper.find('input[placeholder="Type your city or ZIP..."]')
         await input.setValue('Austin')
         await vi.advanceTimersByTimeAsync(200)
 
@@ -225,7 +251,7 @@ describe('LocationPicker', () => {
         const trigger = wrapper.find('button')
         await trigger.trigger('click')
 
-        const input = wrapper.find('input[placeholder="Type your city..."]')
+        const input = wrapper.find('input[placeholder="Type your city or ZIP..."]')
         await input.setValue('Test')
 
         expect(wrapper.find('span.animate-spin').exists()).toBe(true)
@@ -249,7 +275,7 @@ describe('LocationPicker', () => {
         isMobile.value = true
         const wrapper = createWrapper()
 
-        expect(wrapper.find('[data-testid="sheet-title"]').text()).toBe('Choose a city')
+        expect(wrapper.find('[data-testid="sheet-title"]').text()).toBe('Choose a city or ZIP')
         expect(wrapper.find('[data-testid="sheet-description"]').exists()).toBe(true)
 
         isMobile.value = false
@@ -271,6 +297,102 @@ describe('LocationPicker', () => {
         it('says it is finding you while detecting', () => {
             const wrapper = createWrapper({ variant: 'field', detecting: true })
             expect(wrapper.get('[data-testid="location-trigger"]').text()).toContain('Finding you…')
+        })
+    })
+
+    describe('ZIP codes', () => {
+        it('renders a ZIP result and emits the zip on select', async () => {
+            mockGet.mockResolvedValue(zipResult)
+
+            const wrapper = createWrapper()
+            await wrapper.find('button').trigger('click')
+
+            const input = wrapper.find('input[placeholder="Type your city or ZIP..."]')
+            await input.setValue('90210')
+            await vi.advanceTimersByTimeAsync(300)
+
+            const resultBtn = wrapper.find('button[class*="w-full"]')
+            expect(resultBtn.text()).toContain('Beverly Hills, CA')
+            expect(resultBtn.text()).toContain('ZIP 90210')
+
+            await resultBtn.trigger('click')
+
+            expect(wrapper.emitted('update')![0]![0]).toEqual({
+                city: 'Beverly Hills',
+                state: 'CA',
+                zip: '90210',
+            })
+            expect(wrapper.emitted('coords')![0]).toEqual([34.1005, -118.4146])
+        })
+
+        it('uses the ZIP as the result label when no city resolves', async () => {
+            mockGet.mockResolvedValue(zipOnlyResult)
+
+            const wrapper = createWrapper()
+            await wrapper.find('button').trigger('click')
+
+            const input = wrapper.find('input[placeholder="Type your city or ZIP..."]')
+            await input.setValue('78703')
+            await vi.advanceTimersByTimeAsync(300)
+
+            const resultBtn = wrapper.find('button[class*="w-full"]')
+            expect(resultBtn.text()).toContain('78703, CA')
+            expect(resultBtn.text()).not.toContain('null')
+        })
+
+        it('treats a ZIP-only location as set in the trigger', () => {
+            const wrapper = createWrapper({
+                variant: 'field',
+                location: { city: null, state: 'CA', zip: '78703' },
+            })
+            const trigger = wrapper.get('[data-testid="location-trigger"]')
+            expect(trigger.text()).toContain('78703')
+            expect(trigger.text()).not.toContain('City, or use my location')
+        })
+
+        it('appends the ZIP to the picked city in the trigger', () => {
+            const wrapper = createWrapper({
+                variant: 'field',
+                location: { city: 'Beverly Hills', state: 'CA', zip: '90210' },
+            })
+            const text = wrapper.get('[data-testid="location-trigger"]').text()
+            expect(text).toContain('Beverly Hills, CA')
+            expect(text).toContain('90210')
+        })
+
+        it('asks for the rest of a partial ZIP without calling the API', async () => {
+            const wrapper = createWrapper()
+            await wrapper.find('button').trigger('click')
+
+            const input = wrapper.find('input[placeholder="Type your city or ZIP..."]')
+            await input.setValue('787')
+            await vi.advanceTimersByTimeAsync(300)
+
+            expect(mockGet).not.toHaveBeenCalled()
+            expect(wrapper.text()).toContain('Keep typing: ZIPs are 5 digits')
+            expect(wrapper.text()).not.toContain('No cities or ZIPs found')
+        })
+
+        it('drops a slow response for an earlier query', async () => {
+            let resolveSlow: (value: unknown) => void = () => {}
+            mockGet
+                .mockImplementationOnce(() => new Promise((resolve) => { resolveSlow = resolve }))
+                .mockResolvedValueOnce(zipResult)
+
+            const wrapper = createWrapper()
+            await wrapper.find('button').trigger('click')
+            const input = wrapper.find('input[placeholder="Type your city or ZIP..."]')
+
+            await input.setValue('Austin')
+            await vi.advanceTimersByTimeAsync(300)
+            await input.setValue('90210')
+            await vi.advanceTimersByTimeAsync(300)
+
+            resolveSlow(mockResults)
+            await vi.advanceTimersByTimeAsync(0)
+
+            expect(wrapper.text()).toContain('ZIP 90210')
+            expect(wrapper.text()).not.toContain('Austin, MN')
         })
     })
 })

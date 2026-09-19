@@ -9,14 +9,16 @@ import { useKeyboardOffset } from '@/composables/useKeyboardOffset'
 interface Location {
     city: string | null
     state: string | null
+    zip?: string | null
 }
 
 interface CityResult {
-    city: string
+    city: string | null
     state: string | null
     country: string | null
     lat: number
     lng: number
+    zip: string | null
     display: string | null
 }
 
@@ -49,15 +51,27 @@ const selectedIndex = ref(-1)
 const searchInput = ref<HTMLInputElement | null>(null)
 
 const isField = computed(() => props.variant === 'field')
-const hasLocation = computed(() => !!props.location?.city)
+const hasLocation = computed(() => !!(props.location?.city || props.location?.zip))
+
+// "Beverly Hills, CA · 90210", "78703, CA" for a ZIP with no resolved city,
+// "Austin, TX" for a plain city pick.
+function formatLocation(location: Location): string {
+    const base = location.city
+        ? (location.state ? `${location.city}, ${location.state}` : location.city)
+        : (location.zip ? (location.state ? `${location.zip}, ${location.state}` : location.zip) : '')
+    return location.city && location.zip ? `${base} · ${location.zip}` : base
+}
+
+function resultLabel(result: CityResult): string {
+    if (result.city) return result.state ? `${result.city}, ${result.state}` : result.city
+    if (result.zip) return result.state ? `${result.zip}, ${result.state}` : result.zip
+    return ''
+}
 
 const displayText = computed(() => {
     if (props.detecting) return isField.value ? 'Finding you…' : 'Detecting...'
-    if (props.location?.city && props.location?.state) {
-        return `${props.location.city}, ${props.location.state}`
-    }
-    if (props.location?.city) return props.location.city
-    return isField.value ? (props.placeholder ?? 'City, or use my location') : 'your city'
+    if (hasLocation.value && props.location) return formatLocation(props.location)
+    return isField.value ? (props.placeholder ?? 'City or ZIP, or use my location') : 'your city'
 })
 
 function useMyLocation() {
@@ -73,25 +87,34 @@ watch(open, async (val) => {
 })
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
+// Each search gets a number; a response for an older one is dropped, so a
+// slow "Austin" can't replace the results for "78703" typed after it.
+let latestSearch = 0
+
+// Digits that aren't a whole ZIP yet ("787"): nothing to look up.
+const partialZip = computed(() => /^\d{1,4}$/.test(query.value.trim()))
 
 watch(query, (val) => {
     if (debounceTimer) clearTimeout(debounceTimer)
-    if (val.length < 2) {
+    const search = ++latestSearch
+    if (val.trim().length < 2 || partialZip.value) {
         results.value = []
+        searching.value = false
         return
     }
     searching.value = true
     debounceTimer = setTimeout(async () => {
+        let data: CityResult[] | null = null
         try {
             const { get } = await import('@/lib/api')
-            const data = await get<any[]>(`/api/geocode/search?q=${encodeURIComponent(val)}`)
-            results.value = data ?? []
-            selectedIndex.value = -1
+            data = await get<CityResult[]>(`/api/geocode/search?q=${encodeURIComponent(val.trim())}`)
         } catch {
-            results.value = []
-        } finally {
-            searching.value = false
+            data = null
         }
+        if (search !== latestSearch) return
+        results.value = data ?? []
+        selectedIndex.value = -1
+        searching.value = false
     }, 300)
 })
 
@@ -100,7 +123,7 @@ onUnmounted(() => {
 })
 
 function selectResult(result: CityResult) {
-    emit('update', { city: result.city, state: result.state })
+    emit('update', { city: result.city, state: result.state, zip: result.zip ?? null })
     emit('coords', result.lat, result.lng)
     open.value = false
     query.value = ''
@@ -164,7 +187,7 @@ const triggerClasses = computed(() => isField.value
         </SheetTrigger>
         <SheetContent side="bottom" class="max-h-[85dvh] p-0" :show-close-button="false" :style="{ maxHeight: `calc(85dvh - ${keyboardHeight}px)`, paddingBottom: `calc(${keyboardHeight}px + env(safe-area-inset-bottom))` }">
             <div class="flex items-center justify-between border-b border-border px-4 py-3">
-                <SheetTitle class="text-sm">Choose a city</SheetTitle>
+                <SheetTitle class="text-sm">Choose a city or ZIP</SheetTitle>
                 <div class="mx-auto h-1 w-10 rounded-full bg-muted-foreground/30" />
                 <button
                     class="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -176,7 +199,7 @@ const triggerClasses = computed(() => isField.value
                     </svg>
                 </button>
             </div>
-            <SheetDescription class="sr-only">Choose a city to search restaurants in</SheetDescription>
+            <SheetDescription class="sr-only">Choose a city or ZIP to search restaurants in</SheetDescription>
             <div class="flex flex-col">
                 <div class="relative border-b border-border">
                     <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -189,7 +212,7 @@ const triggerClasses = computed(() => isField.value
                         ref="searchInput"
                         type="search"
                         enterkeyhint="search"
-                        placeholder="Type your city..."
+                        placeholder="Type your city or ZIP..."
                         class="w-full bg-transparent py-3 pl-10 pr-4 text-base outline-none placeholder:text-muted-foreground md:text-sm"
                         autocomplete="off"
                     />
@@ -198,8 +221,8 @@ const triggerClasses = computed(() => isField.value
                     </span>
                 </div>
                 <div class="max-h-[60dvh] overflow-y-auto overscroll-contain" :style="{ paddingBottom: `${keyboardHeight}px` }">
-                    <div v-if="query.length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
-                        <p class="text-xs text-muted-foreground">Type to search cities</p>
+                    <div v-if="query.trim().length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
+                        <p class="text-xs text-muted-foreground">Type to search cities or ZIPs</p>
                         <button @click="useMyLocation" class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="12" cy="12" r="10"/>
@@ -209,8 +232,11 @@ const triggerClasses = computed(() => isField.value
                             Use my current location
                         </button>
                     </div>
+                    <div v-else-if="partialZip" class="px-4 py-6 text-center text-xs text-muted-foreground">
+                        Keep typing: ZIPs are 5 digits
+                    </div>
                     <div v-else-if="results.length === 0 && !searching" class="px-4 py-6 text-center text-xs text-muted-foreground">
-                        No cities found
+                        No cities or ZIPs found
                     </div>
                     <button
                         v-for="(result, i) in results"
@@ -225,7 +251,7 @@ const triggerClasses = computed(() => isField.value
                             <circle cx="12" cy="10" r="3"/>
                         </svg>
                         <div class="min-w-0 flex-1">
-                            <p class="truncate font-medium">{{ result.city }}{{ result.state ? ', ' + result.state : '' }}</p>
+                            <p class="truncate font-medium">{{ resultLabel(result) }}</p>
                             <p v-if="result.display" class="truncate text-xs text-muted-foreground">{{ result.display }}</p>
                         </div>
                     </button>
@@ -269,7 +295,7 @@ const triggerClasses = computed(() => isField.value
                         @keydown="onKeydown"
                         type="search"
                         enterkeyhint="search"
-                        placeholder="Type your city..."
+                        placeholder="Type your city or ZIP..."
                         class="w-full bg-transparent py-3 pl-10 pr-4 text-base outline-none placeholder:text-muted-foreground md:text-sm"
                         autocomplete="off"
                     />
@@ -278,8 +304,8 @@ const triggerClasses = computed(() => isField.value
                     </span>
                 </div>
                 <div class="max-h-64 overflow-y-auto overscroll-contain">
-                    <div v-if="query.length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
-                        <p class="text-xs text-muted-foreground">Type to search cities</p>
+                    <div v-if="query.trim().length < 2" class="flex flex-col items-center gap-3 px-4 py-6">
+                        <p class="text-xs text-muted-foreground">Type to search cities or ZIPs</p>
                         <button @click="useMyLocation" class="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="12" cy="12" r="10"/>
@@ -289,8 +315,11 @@ const triggerClasses = computed(() => isField.value
                             Use my current location
                         </button>
                     </div>
+                    <div v-else-if="partialZip" class="px-4 py-6 text-center text-xs text-muted-foreground">
+                        Keep typing: ZIPs are 5 digits
+                    </div>
                     <div v-else-if="results.length === 0 && !searching" class="px-4 py-6 text-center text-xs text-muted-foreground">
-                        No cities found
+                        No cities or ZIPs found
                     </div>
                     <button
                         v-for="(result, i) in results"
@@ -305,7 +334,7 @@ const triggerClasses = computed(() => isField.value
                             <circle cx="12" cy="10" r="3"/>
                         </svg>
                         <div class="min-w-0 flex-1">
-                            <p class="truncate font-medium">{{ result.city }}{{ result.state ? ', ' + result.state : '' }}</p>
+                            <p class="truncate font-medium">{{ resultLabel(result) }}</p>
                             <p v-if="result.display" class="truncate text-xs text-muted-foreground">{{ result.display }}</p>
                         </div>
                     </button>

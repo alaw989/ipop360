@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\ZipLocation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -65,17 +66,36 @@ class GeolocationService
     }
 
     /**
-     * @return array<int, array{city: string|null, state: string|null, country: string|null, lat: float|null, lng: float|null, display: string}>
+     * Typeahead lookup for a city name or a US ZIP code. A ZIP resolves
+     * offline from the Census gazetteer (ZipLocation) — no Photon call — and
+     * is labelled with a city name from a cached reverse geocode so the
+     * picker can show "Austin, TX" alongside the ZIP. A ZIP may come with
+     * words around it ("Austin, TX 78703"). Unknown ZIPs, and digits that
+     * can't be a ZIP yet ("787" mid-typing), return no rows rather than
+     * falling through to Photon, which finds nothing for them.
+     *
+     * @return array<int, array{city: string|null, state: string|null, country: string|null, lat: float|null, lng: float|null, zip: string|null, display: string}>
      */
     public function searchCities(string $query): array
     {
+        $query = trim($query);
         if (strlen($query) < 2) {
             return [];
         }
 
-        $key = 'citysearch:'.md5($query);
+        $zip = $this->normalizeZip($query);
+        if ($zip !== null) {
+            // Not cached here: the gazetteer is local and reverseGeocode()
+            // caches its own answers, so a Nominatim outage doesn't pin a
+            // city-less row for a day.
+            return $this->searchByZip($zip);
+        }
 
-        return Cache::remember($key, now()->addDay(), function () use ($query) {
+        if (preg_match('/^[\d\s-]+$/', $query) === 1) {
+            return [];
+        }
+
+        return Cache::remember('citysearch:'.md5($query), now()->addDay(), function () use ($query) {
             try {
                 // Photon (Komoot) — free, no API key, built for autocomplete
                 $response = Http::timeout(5)
@@ -107,6 +127,7 @@ class GeolocationService
                         'country' => $f['properties']['countrycode'] ?? null,
                         'lat' => $f['geometry']['coordinates'][1] ?? null,
                         'lng' => $f['geometry']['coordinates'][0] ?? null,
+                        'zip' => null,
                         'display' => trim(collect([
                             $f['properties']['name'] ?? null,
                             $f['properties']['state'] ?? null,
@@ -122,6 +143,51 @@ class GeolocationService
                 return [];
             }
         });
+    }
+
+    /**
+     * The query's ZIP: "90210", "90210-1234", "Austin, TX 78703" or
+     * "78703 Austin" → the 5 digits. Anything with other digits in it
+     * ("Route 66", "123 Main St") is not a ZIP query → null.
+     */
+    private function normalizeZip(string $query): ?string
+    {
+        $words = "[\\p{L}\\s,.'-]*";
+
+        return preg_match("/^{$words}(?<![\\d-])(\\d{5})(?:-\\d{4})?(?![\\d-]){$words}$/u", $query, $m) === 1 ? $m[1] : null;
+    }
+
+    /**
+     * Resolve a US ZIP to its Census centroid, state and (best-effort) city.
+     * Loading the gazetteer is deferred to ZipLocation, so this only costs
+     * the ~2 MB parse on ZIP queries — city queries never touch it.
+     *
+     * @return array<int, array{city: string|null, state: string|null, country: string|null, lat: float|null, lng: float|null, zip: string|null, display: string}>
+     */
+    private function searchByZip(string $zip): array
+    {
+        $centroid = ZipLocation::centroid($zip);
+        if ($centroid === null) {
+            return [];
+        }
+
+        $state = ZipLocation::state($zip);
+
+        $city = null;
+        $reverse = $this->reverseGeocode($centroid['lat'], $centroid['lng']);
+        if ($reverse !== null) {
+            $city = $reverse['city'] ?? null;
+        }
+
+        return [[
+            'city' => $city,
+            'state' => $state,
+            'country' => 'US',
+            'lat' => $centroid['lat'],
+            'lng' => $centroid['lng'],
+            'zip' => $zip,
+            'display' => $city === null ? '' : 'ZIP '.$zip,
+        ]];
     }
 
     /**
